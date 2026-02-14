@@ -4,12 +4,19 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "powershell -ExecutionPolicy Bypass -File scripts/dev-proxy.ps1",
+    "dev:web": "powershell -ExecutionPolicy Bypass -File scripts/dev-proxy.ps1 --host 127.0.0.1 --port 5173 --strictPort",
+    "dev:server": "node server/index.js",
+    "dev:server:only": "npm run dev:server",
+    "dev": "concurrently --kill-others-on-fail --names web,server \"npm run dev:web\" \"npm run dev:server\"",
     "build": "tsc -b && node scripts/run-vite.mjs build",
     "lint": "eslint .",
     "preview": "node scripts/run-vite.mjs preview"
   },
   "dependencies": {
+    "@google/genai": "^1.30.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
     "firebase": "^12.9.0",
     "lucide-react": "^0.564.0",
     "react": "^19.2.0",
@@ -25,6 +32,7 @@
     "@vitejs/plugin-basic-ssl": "^1.1.0",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.24",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",

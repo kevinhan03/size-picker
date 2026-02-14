@@ -33,15 +33,6 @@ interface FormData {
   extractedTable: SizeTable | null;
 }
 
-// --- Global Config & Helpers ---
-const apiKey = (import.meta.env.VITE_GEMINI_API_KEY ?? "").trim();
-const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const SIZE_TABLE_MODEL_CANDIDATES = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-preview-09-2025",
-  "gemini-2.0-flash",
-];
-
 // Firebase Initialization with User Provided Config
 const firebaseConfig = {
   apiKey: "AIzaSyCrca7bnI8e3nH-6KtIcYh3bdQ-uD1cfbc",
@@ -90,93 +81,35 @@ const resizeImage = (base64Str: string, maxWidth: number = 300): Promise<string>
   });
 };
 
-// --- Gemini API Helpers ---
-const listAvailableGeminiModels = async (): Promise<string[]> => {
-  if (!apiKey) return [];
-
+const extractSizeTableFromImage = async (
+  base64Image: string,
+  mimeType: string = 'image/png'
+): Promise<SizeTable> => {
   try {
-    const res = await fetch(`${GEMINI_API_BASE}/models?key=${apiKey}`);
-    if (!res.ok) return [];
+    const response = await fetch('/api/size-table', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: base64Image,
+        mimeType,
+      }),
+    });
 
-    const data = await res.json();
-    const models = Array.isArray(data?.models) ? data.models : [];
-
-    return models
-      .map((m: { name?: string }) => (m?.name ?? "").split("/").pop() ?? "")
-      .filter((name: string) => name.length > 0)
-      .sort();
-  } catch {
-    return [];
-  }
-};
-
-const extractSizeTableFromImage = async (base64Image: string): Promise<SizeTable> => {
-  const prompt = `
-    Analyze this image of a clothing size chart. 
-    Extract the data into a JSON object with this exact structure:
-    {
-      "headers": ["Column1Name", "Column2Name", ...],
-      "rows": [
-        ["Row1Col1", "Row1Col2", ...],
-        ["Row2Col1", "Row2Col2", ...]
-      ]
-    }
-    Translate headers to Korean if they are in English (e.g., Chest -> 가슴둘레, Length -> 총장).
-    Make sure all cell values are Strings or Numbers, not Objects.
-    Return ONLY the raw JSON string, no markdown formatting.
-  `;
-
-  try {
-    if (!apiKey) {
-      throw new Error("Gemini API 키가 설정되지 않았습니다. .env의 VITE_GEMINI_API_KEY를 확인해주세요.");
+    const payload = await response.json();
+    if (!response.ok || !payload?.ok || !payload?.data) {
+      throw new Error(payload?.error ?? '사이즈표 분석 요청 실패');
     }
 
-    const payload = {
-      contents: [{
-        parts: [
-          { text: prompt },
-          { inlineData: { mimeType: "image/png", data: base64Image } }
-        ]
-      }]
-    };
+    const headers = Array.isArray(payload.data.headers)
+      ? payload.data.headers.map((header: unknown) => String(header))
+      : [];
+    const rows = Array.isArray(payload.data.rows)
+      ? payload.data.rows.map((row: unknown) =>
+          Array.isArray(row) ? row.map((cell: unknown) => String(cell)) : []
+        )
+      : [];
 
-    let response: Response | null = null;
-    const modelErrors: string[] = [];
-
-    for (const model of SIZE_TABLE_MODEL_CANDIDATES) {
-      const res = await fetch(`${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        response = res;
-        break;
-      }
-
-      modelErrors.push(`${model}(${res.status})`);
-    }
-
-    if (!response) {
-      const availableModels = await listAvailableGeminiModels();
-      const availableText = availableModels.length > 0 ? availableModels.join(", ") : "확인 실패";
-      throw new Error(`gemini-2.5-flash 사용 불가: ${modelErrors.join(", ")}. 사용 가능한 모델: ${availableText}`);
-    }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    
-    // Improved JSON parsing: find the first '{' and last '}'
-    const jsonStart = text.indexOf('{');
-    const jsonEnd = text.lastIndexOf('}');
-    
-    let cleanText = text;
-    if (jsonStart !== -1 && jsonEnd !== -1) {
-        cleanText = text.substring(jsonStart, jsonEnd + 1);
-    }
-    
-    return JSON.parse(cleanText) as SizeTable;
+    return { headers, rows };
   } catch (error) {
     console.error("Error extracting size table:", error);
     throw new Error("사이즈표 분석에 실패했습니다.");
@@ -184,30 +117,22 @@ const extractSizeTableFromImage = async (base64Image: string): Promise<SizeTable
 };
 
 const removeBackgroundWithGemini = async (base64Image: string): Promise<string> => {
-  const prompt = "Remove the background of this product image. Make the background pure white or transparent. Keep the product center.";
-  
   try {
-    const response = await fetch(`${GEMINI_API_BASE}/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
+    const response = await fetch('/api/remove-bg', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inlineData: { mimeType: "image/png", data: base64Image } }
-          ]
-        }],
-        generationConfig: {
-            responseModalities: ["IMAGE"]
-        }
-      })
+        imageBase64: base64Image,
+        mimeType: 'image/png',
+      }),
     });
 
-    const data = await response.json();
-    const resultBase64 = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData)?.inlineData?.data;
-    
-    if (!resultBase64) throw new Error("이미지 생성 실패");
-    return resultBase64;
+    const payload = await response.json();
+    if (!response.ok || !payload?.ok || !payload?.data?.imageBase64) {
+      return base64Image;
+    }
+
+    return String(payload.data.imageBase64);
   } catch (error) {
     console.error("Error removing background:", error);
     return base64Image;
@@ -441,10 +366,11 @@ export default function App() {
     const reader = new FileReader();
     reader.onloadend = async () => {
       const resultString = reader.result as string;
+      const mimeType = file.type || 'image/png';
       const base64 = resultString.split(',')[1];
       
       if (type === 'product') {
-        setFormData(prev => ({ ...prev, productImage: `data:image/png;base64,${base64}` }));
+        setFormData(prev => ({ ...prev, productImage: `data:${mimeType};base64,${base64}` }));
         
         setIsProcessingImage(true);
         const processedBase64 = await removeBackgroundWithGemini(base64);
@@ -452,14 +378,18 @@ export default function App() {
         setIsProcessingImage(false);
         
       } else if (type === 'chart') {
-        setFormData(prev => ({ ...prev, sizeChartImage: `data:image/png;base64,${base64}` }));
+        // Downscale chart image before OCR-like extraction to reduce model input failures.
+        const optimizedDataUrl = await resizeImage(resultString, 1600);
+        const optimizedBase64 = optimizedDataUrl.split(',')[1];
+        setFormData(prev => ({ ...prev, sizeChartImage: optimizedDataUrl }));
         
         setIsAnalyzingTable(true);
         try {
-          const tableData = await extractSizeTableFromImage(base64);
+          const tableData = await extractSizeTableFromImage(optimizedBase64, 'image/png');
           setFormData(prev => ({ ...prev, extractedTable: tableData }));
-        } catch (err) {
-          alert("사이즈표 인식에 실패했습니다. 다시 시도해주세요.");
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "사이즈표 인식에 실패했습니다.";
+          alert(`${message} (서버 /api/size-table 로그를 확인해주세요)`);
         }
         setIsAnalyzingTable(false);
       }
