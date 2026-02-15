@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev:web": "powershell -ExecutionPolicy Bypass -File scripts/dev-proxy.ps1 --host 127.0.0.1 --port 5173 --strictPort",
+    "dev:web": "node scripts/run-vite.mjs dev --host 127.0.0.1 --port 5173 --strictPort",
     "dev:server": "node server/index.js",
     "dev:server:only": "npm run dev:server",
     "dev": "concurrently --kill-others-on-fail --names web,server \"npm run dev:web\" \"npm run dev:server\"",

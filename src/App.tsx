@@ -307,6 +307,7 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [viewMode, setViewMode] = useState<'search' | 'grid'>('search');
+  const [selectedGridProduct, setSelectedGridProduct] = useState<Product | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     brand: '',
@@ -500,7 +501,7 @@ export default function App() {
             <span className="font-bold text-xl tracking-tight text-orange-500">Size Picker</span>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => { setViewMode('grid'); setResult(null); setQuery(''); setError(null); }} className="p-2 text-gray-400 hover:text-orange-500 transition rounded-lg hover:bg-gray-800" title="전체 목록 보기">
+            <button onClick={() => { setViewMode('grid'); setResult(null); setQuery(''); setError(null); setSelectedGridProduct(null); }} className="p-2 text-gray-400 hover:text-orange-500 transition rounded-lg hover:bg-gray-800" title="전체 목록 보기">
               <LayoutGrid className="w-6 h-6" />
             </button>
             <button onClick={handleOpenModal} className="flex items-center gap-2 text-black px-4 py-2 rounded-lg hover:opacity-80 transition shadow-lg text-sm font-bold" style={{ backgroundColor: '#00FF00', boxShadow: '0 0 15px rgba(0,255,0,0.3)' }}>
@@ -511,7 +512,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="pt-32 pb-20 px-4 flex flex-col items-center min-h-screen">
+      <main className="pt-[var(--app-main-pt)] pb-[var(--app-main-pb)] px-[var(--app-main-px)] flex flex-col items-center min-h-screen">
         {productsError && (
           <div className="w-full max-w-4xl mb-6 bg-orange-900/50 border border-orange-500 text-orange-200 px-6 py-4 rounded-xl flex flex-col md:flex-row items-center gap-4">
             <div className="flex items-center gap-2 flex-1">
@@ -525,13 +526,26 @@ export default function App() {
         )}
 
         {viewMode === 'search' && (
+          <div className="w-full max-w-2xl mb-5 text-center">
+            <h1 className="mt-[var(--hero-title-mt)] mb-[var(--hero-title-mb)] text-[length:var(--hero-title-size)] font-extrabold leading-tight tracking-tight">
+              <span className="block text-white">모든 옷의 사이즈표</span>
+              <span className="block text-orange-500">한 번에 검색하세요</span>
+            </h1>
+            <p className="mt-8 text-[length:var(--hero-subtitle-size)] text-white">
+              <span className="block">공식 홈페이지와 사용자들이 공유한 데이터를 통해</span>
+              <span className="block">가장 정확한 사이즈 정보를 제공합니다.</span>
+            </p>
+          </div>
+        )}
+
+        {viewMode === 'search' && (
           <>
             <div className={`w-full max-w-2xl relative transition-all duration-500 ${result || isLoading ? 'mt-0' : 'mt-4'}`} ref={searchContainerRef}>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                   <Search className={`w-6 h-6 transition-colors ${showSuggestions ? 'text-orange-500' : 'text-gray-500'}`} />
                 </div>
-                <input type="text" className="w-full pl-14 pr-14 py-5 bg-gray-900 border-2 border-gray-800 rounded-2xl shadow-xl text-lg text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all" placeholder="브랜드명 혹은 상품명" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} onFocus={() => { if (query) setShowSuggestions(true); }} />
+                <input type="text" className="w-full pl-14 pr-14 py-[var(--search-input-py)] bg-gray-900 border-2 border-gray-800 rounded-2xl shadow-xl text-[length:var(--search-input-font-size)] text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all" placeholder="브랜드명 혹은 상품명" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} onFocus={() => { if (query) setShowSuggestions(true); }} />
                 {query && <button onClick={() => { setQuery(''); setSuggestions([]); }} className="absolute inset-y-0 right-14 pr-2 flex items-center text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>}
                 <button onClick={() => { void handleSearch(); }} className="absolute inset-y-2 right-2 p-3 bg-orange-500 rounded-xl text-black hover:bg-orange-400 transition-colors shadow-lg"><ArrowRight className="w-5 h-5" /></button>
               </div>
@@ -582,10 +596,14 @@ export default function App() {
 
         {viewMode === 'grid' && (
           <div className="w-full max-w-7xl">
+            <h2 className="mb-6 flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white">
+              <LayoutGrid className="w-7 h-7 text-orange-500" />
+              전체 상품 보기
+            </h2>
             {allProducts.length === 0 ? <div className="text-center py-20 text-gray-500">등록된 상품이 없습니다.</div> : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {allProducts.map((product) => (
-                  <div key={product.id} onClick={() => { void handleSearch(product); }} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                {allProducts.slice(0, 8).map((product) => (
+                  <div key={product.id} onClick={() => { setSelectedGridProduct(product); }} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
                     <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative"><img src={product.image} alt={product.name} className="max-h-full max-w-full object-contain" onError={handleImageLoadError} /></div>
                     <div className="p-5 flex-1 flex flex-col"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="text-sm text-gray-500 mt-auto pt-2">{product.category}</div></div>
                   </div>
@@ -650,6 +668,67 @@ export default function App() {
               <Check className="w-10 h-10" style={{ color: '#00FF00' }} />
             </div>
             <h3 className="text-2xl font-bold tracking-widest" style={{ color: '#00FF00' }}>COMPLETE</h3>
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'grid' && selectedGridProduct && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedGridProduct(null)} />
+          <div className="relative bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 z-10 bg-gray-900/95 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg sm:text-xl font-bold text-white">상품 상세</h3>
+              <button onClick={() => setSelectedGridProduct(null)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 md:p-8">
+              <div className="flex flex-col md:flex-row gap-6 md:items-center">
+                <div className="w-28 h-28 md:w-36 md:h-36 bg-white rounded-2xl border border-gray-700 p-2 flex items-center justify-center overflow-hidden">
+                  <img src={selectedGridProduct.image} alt={selectedGridProduct.name} className="max-w-full max-h-full object-contain" onError={handleImageLoadError} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-2">
+                    <span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{selectedGridProduct.brand}</span>
+                    <span className="text-gray-500">{selectedGridProduct.category}</span>
+                  </div>
+                  <h4 className="text-2xl font-bold text-white mb-2">{selectedGridProduct.name}</h4>
+                  <a href={selectedGridProduct.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-gray-400 hover:text-orange-500 transition-colors">
+                    공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                </div>
+              </div>
+
+              <div className="mt-8 overflow-x-auto rounded-xl border border-gray-800">
+                {selectedGridProduct.sizeTable?.headers?.length ? (
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs uppercase border-b border-gray-700">
+                      <tr>
+                        {selectedGridProduct.sizeTable.headers.map((header, index) => (
+                          <th key={index} className="px-6 py-4 font-bold bg-gray-800" style={{ color: '#00FF00' }}>
+                            {String(header)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedGridProduct.sizeTable.rows.map((row, rowIndex) => (
+                        <tr key={rowIndex} className="bg-gray-900 border-b border-gray-800">
+                          {row.map((cell, cellIndex) => (
+                            <td key={cellIndex} className="px-6 py-4 font-medium text-gray-300">
+                              {String(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="px-6 py-8 text-center text-gray-400">표시할 사이즈표 데이터가 없습니다.</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
