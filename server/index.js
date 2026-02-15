@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -8,12 +9,215 @@ const app = express();
 const PORT = Number(process.env.PORT || 8787);
 const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim();
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const SUPABASE_PRODUCTS_TABLE = (process.env.SUPABASE_PRODUCTS_TABLE || "products").trim();
+const supabase =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      })
+    : null;
 
 app.use(cors());
 app.use(express.json({ limit: "25mb" }));
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, port: PORT, ts: new Date().toISOString() });
+});
+
+const assertSupabaseConfig = () => {
+  if (!supabase) {
+    const error = new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing in server .env");
+    error.statusCode = 500;
+    throw error;
+  }
+};
+
+const parseSizeTable = (value) => {
+  if (!value) return null;
+
+  let parsed = value;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const headers = Array.isArray(parsed.headers) ? parsed.headers.map((item) => String(item)) : [];
+  const rows = Array.isArray(parsed.rows)
+    ? parsed.rows.map((row) => (Array.isArray(row) ? row.map((cell) => String(cell)) : []))
+    : [];
+
+  if (headers.length === 0 && rows.length === 0) return null;
+  return { headers, rows };
+};
+
+const normalizeProductRow = (row) => {
+  if (!row || typeof row !== "object") return null;
+
+  const id = String(row.id || "").trim();
+  const brand = String(row.brand || "").trim();
+  const name = String(row.name || "").trim();
+  if (!id || !brand || !name) return null;
+
+  return {
+    id,
+    brand,
+    name,
+    category: String(row.category || "User Uploaded"),
+    url: String(row.url || "#"),
+    image: String(row.image || ""),
+    sizeTable: parseSizeTable(row.size_table ?? row.sizeTable),
+    createdAt: row.created_at || row.createdAt || null,
+  };
+};
+
+const fetchProductsRows = async () => {
+  assertSupabaseConfig();
+
+  const queries = [
+    () => supabase.from(SUPABASE_PRODUCTS_TABLE).select("*").order("created_at", { ascending: false }),
+    () => supabase.from(SUPABASE_PRODUCTS_TABLE).select("*").order("createdAt", { ascending: false }),
+    () => supabase.from(SUPABASE_PRODUCTS_TABLE).select("*"),
+  ];
+
+  let lastError = null;
+  for (const runQuery of queries) {
+    const { data, error } = await runQuery();
+    if (!error) {
+      return Array.isArray(data) ? data : [];
+    }
+    lastError = error;
+  }
+
+  throw new Error(lastError?.message || "failed to fetch products");
+};
+
+const insertProductRow = async ({ brand, name, category, url, image, sizeTable, createdAt }) => {
+  assertSupabaseConfig();
+
+  const payloads = [
+    {
+      brand,
+      name,
+      category,
+      url,
+      image,
+      size_table: sizeTable,
+      created_at: createdAt,
+    },
+    {
+      brand,
+      name,
+      category,
+      url,
+      image,
+      sizeTable: JSON.stringify(sizeTable),
+      createdAt,
+    },
+    {
+      brand,
+      name,
+      category,
+      url,
+      image,
+      size_table: sizeTable,
+      createdAt,
+    },
+    {
+      brand,
+      name,
+      category,
+      url,
+      image,
+      sizeTable: JSON.stringify(sizeTable),
+      created_at: createdAt,
+    },
+  ];
+
+  let lastError = null;
+  for (const payload of payloads) {
+    const { data, error } = await supabase
+      .from(SUPABASE_PRODUCTS_TABLE)
+      .insert(payload)
+      .select("*")
+      .single();
+    if (!error) {
+      return data;
+    }
+    lastError = error;
+  }
+
+  throw new Error(lastError?.message || "failed to insert product");
+};
+
+app.get("/api/products", async (_req, res) => {
+  try {
+    const rows = await fetchProductsRows();
+    const products = rows
+      .map((row) => normalizeProductRow(row))
+      .filter((product) => product !== null);
+
+    return res.json({
+      ok: true,
+      data: { products },
+    });
+  } catch (error) {
+    const statusCode = Number(error?.statusCode) || 500;
+    return res.status(statusCode).json({
+      ok: false,
+      error: error?.message || "products fetch error",
+    });
+  }
+});
+
+app.post("/api/products", async (req, res) => {
+  const brand = String(req.body?.brand || "").trim();
+  const name = String(req.body?.name || "").trim();
+  const category = String(req.body?.category || "User Uploaded").trim();
+  const url = String(req.body?.url || "#").trim();
+  const image = String(req.body?.image || "").trim();
+  const sizeTable = req.body?.sizeTable ?? null;
+  const createdAt = String(req.body?.createdAt || new Date().toISOString()).trim();
+
+  if (!brand || !name) {
+    return res.status(400).json({
+      ok: false,
+      error: "brand and name are required",
+    });
+  }
+
+  try {
+    const insertedRow = await insertProductRow({
+      brand,
+      name,
+      category,
+      url,
+      image,
+      sizeTable,
+      createdAt,
+    });
+    const product = normalizeProductRow(insertedRow);
+
+    return res.status(201).json({
+      ok: true,
+      data: { product },
+    });
+  } catch (error) {
+    const statusCode = Number(error?.statusCode) || 500;
+    return res.status(statusCode).json({
+      ok: false,
+      error: error?.message || "product insert error",
+    });
+  }
 });
 
 const assertGeminiKey = () => {

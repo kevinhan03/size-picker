@@ -3,8 +3,9 @@
 ## Why this structure
 
 - Frontend never stores Gemini API key.
+- Frontend never stores database API keys.
 - Frontend calls only `/api/*`.
-- Express server holds `GEMINI_API_KEY` in server `.env`.
+- Express server holds `GEMINI_API_KEY` and Supabase service key in server `.env`.
 - Size-table extraction uses Gemini structured output (JSON Schema).
 
 ## Windows path recommendation
@@ -25,6 +26,9 @@ npm install
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 PORT=8787
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+SUPABASE_PRODUCTS_TABLE=products
 ```
 
 3. Run web + server together
@@ -55,6 +59,11 @@ Check if backend is running:
 
 ## API endpoints
 
+- `GET /api/products`
+  - Output: `{ "ok": true, "data": { "products": [] } }`
+- `POST /api/products`
+  - Input: `{ "brand": "...", "name": "...", "category": "...", "url": "...", "image": "...", "sizeTable": { "headers": [], "rows": [[]] } }`
+  - Output: `{ "ok": true, "data": { "product": { ... } } }`
 - `POST /api/size-table`
   - Input: `{ "imageBase64": "...", "mimeType": "image/png" }`
   - Output: `{ "ok": true, "data": { "headers": [], "rows": [[]] } }`
@@ -62,6 +71,19 @@ Check if backend is running:
   - Input: `{ "imageBase64": "...", "mimeType": "image/png" }`
   - Output: `{ "ok": true, "data": { "imageBase64": "..." } }`
   - On failure: returns `ok: false` and original image in `data.imageBase64`
+
+## Supabase table
+
+Create a `products` table with at least these columns:
+
+- `id` (text or uuid primary key)
+- `brand` (text, required)
+- `name` (text, required)
+- `category` (text)
+- `url` (text)
+- `image` (text)
+- `size_table` (jsonb) or `sizeTable` (text/jsonb)
+- `created_at` (timestamptz) or `createdAt` (text/timestamptz)
 
 ## HTTPS (frontend)
 

@@ -1,12 +1,22 @@
-﻿import { useState, useEffect, useRef } from 'react';
-import type { ChangeEvent, KeyboardEvent } from 'react';
-import { Search, Ruler, ArrowRight, Loader2, X, AlertCircle, ExternalLink, Plus, Upload, Image as ImageIcon, Camera, Globe, Check, RefreshCw, ShieldAlert, LayoutGrid } from 'lucide-react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import type { User } from 'firebase/auth';
-import { getFirestore, collection, addDoc, onSnapshot, query as firestoreQuery, orderBy } from 'firebase/firestore';
-
-// --- Types & Interfaces ---
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, KeyboardEvent, SyntheticEvent } from 'react';
+import {
+  ArrowRight,
+  Camera,
+  Check,
+  ExternalLink,
+  Globe,
+  LayoutGrid,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Ruler,
+  Search,
+  ShieldAlert,
+  Upload,
+  X,
+} from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
 interface SizeTable {
   headers: string[];
@@ -14,57 +24,107 @@ interface SizeTable {
 }
 
 interface Product {
-  id: string; // Firebase ID is string
+  id: string;
   brand: string;
   name: string;
   category: string;
   url: string;
   image: string;
+  imagePath?: string | null;
   sizeTable: SizeTable | null;
   createdAt?: string;
+}
+
+interface ProductRow {
+  id: string | number;
+  brand: string;
+  name: string;
+  category?: string | null;
+  url?: string | null;
+  size_table?: unknown;
+  created_at?: string | null;
+  image_path?: string | null;
+}
+
+interface SubmitProductForm {
+  brand: string;
+  name: string;
+  category?: string | null;
+  url?: string | null;
+  sizeTable?: SizeTable | null;
+  productPhoto: File;
 }
 
 interface FormData {
   brand: string;
   name: string;
+  category: string;
   url: string;
   productImage: string | null;
   sizeChartImage: string | null;
   extractedTable: SizeTable | null;
 }
 
-// Firebase Initialization with User Provided Config
-const firebaseConfig = {
-  apiKey: "AIzaSyCrca7bnI8e3nH-6KtIcYh3bdQ-uD1cfbc",
-  authDomain: "sizepicker-4fe32.firebaseapp.com",
-  projectId: "sizepicker-4fe32",
-  storageBucket: "sizepicker-4fe32.firebasestorage.app",
-  messagingSenderId: "244396131079",
-  appId: "1:244396131079:web:5cfa176c1b7990c1083ba2",
-  measurementId: "G-NEH2VHSGH6"
+const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '').trim();
+const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+// (C) bucket명을 product-assets로 고정
+const STORAGE_BUCKET = 'product-assets';
+const STORAGE_PREFIX = 'submissions/';
+
+const supabase =
+  SUPABASE_URL && SUPABASE_ANON_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+const assertSupabaseClient = () => {
+  if (!supabase) {
+    throw new Error('VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing');
+  }
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
 
+const getFileExtension = (file: File): string => {
+  const fromName = file.name.split('.').pop()?.toLowerCase();
+  if (fromName) return fromName;
+  const mimeMap: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+  };
+  return mimeMap[file.type] || 'bin';
+};
 
-// --- Helper Functions ---
+const dataUrlToFile = (dataUrl: string, fallbackName: string): File => {
+  const [meta, base64] = dataUrl.split(',');
+  const mimeType = (meta.match(/data:(.*?);base64/)?.[1] || 'application/octet-stream');
+  const binary = atob(base64 || '');
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const extension = mimeType.split('/')[1] || 'bin';
+  return new File([bytes], `${fallbackName}.${extension}`, { type: mimeType });
+};
 
-const resizeImage = (base64Str: string, maxWidth: number = 300): Promise<string> => {
-  return new Promise((resolve) => {
+const resizeImage = (base64Str: string, maxWidth = 300): Promise<string> =>
+  new Promise((resolve) => {
     const img = new Image();
     img.src = base64Str;
     img.onload = () => {
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
-
       if (width > maxWidth) {
         height *= maxWidth / width;
         width = maxWidth;
       }
-
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
@@ -75,388 +135,375 @@ const resizeImage = (base64Str: string, maxWidth: number = 300): Promise<string>
         resolve(base64Str);
       }
     };
-    img.onerror = () => {
-      resolve(base64Str);
-    };
+    img.onerror = () => resolve(base64Str);
   });
+
+const normalizeSizeTable = (value: unknown): SizeTable | null => {
+  if (!value) return null;
+  let parsed: unknown = value;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const record = parsed as Record<string, unknown>;
+  const headers = Array.isArray(record.headers) ? record.headers.map((v) => String(v)) : [];
+  const rows = Array.isArray(record.rows)
+    ? record.rows.map((row) => (Array.isArray(row) ? row.map((cell) => String(cell)) : []))
+    : [];
+  if (headers.length === 0 && rows.length === 0) return null;
+  return { headers, rows };
+};
+// (B) toPublicUrl(path): getPublicUrl
+const toPublicUrl = (path: string | null | undefined): string => {
+  if (!path) return '';
+  assertSupabaseClient();
+  return supabase!.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl;
 };
 
-const extractSizeTableFromImage = async (
-  base64Image: string,
-  mimeType: string = 'image/png'
-): Promise<SizeTable> => {
-  try {
-    const response = await fetch('/api/size-table', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageBase64: base64Image,
-        mimeType,
-      }),
+const normalizeProduct = (row: ProductRow): Product | null => {
+  const id = String(row.id ?? '').trim();
+  const brand = String(row.brand ?? '').trim();
+  const name = String(row.name ?? '').trim();
+  if (!id || !brand || !name) return null;
+  const imagePath = row.image_path ?? null;
+  return {
+    id,
+    brand,
+    name,
+    category: String(row.category ?? 'Uncategorized'),
+    url: String(row.url ?? '#'),
+    image: toPublicUrl(imagePath),
+    imagePath,
+    sizeTable: normalizeSizeTable(row.size_table),
+    createdAt: row.created_at ? String(row.created_at) : undefined,
+  };
+};
+
+// (B) searchProducts(query): products select
+const searchProducts = async (query: string): Promise<Product[]> => {
+  assertSupabaseClient();
+  const keyword = query.trim();
+  let request = supabase!
+    .from('products')
+    .select('id,brand,name,category,url,size_table,created_at,image_path')
+    .order('created_at', { ascending: false });
+  if (keyword) request = request.or(`brand.ilike.%${keyword}%,name.ilike.%${keyword}%`);
+  const { data, error } = await request;
+  if (error) throw new Error(error.message);
+  const rows = Array.isArray(data) ? (data as ProductRow[]) : [];
+  return rows
+    .map((row) => normalizeProduct(row))
+    .filter((product: Product | null): product is Product => product !== null);
+};
+
+// (A) uploadSubmissionImage(file: File): returns storage path
+const uploadSubmissionImage = async (file: File): Promise<string> => {
+  assertSupabaseClient();
+  const extension = getFileExtension(file);
+  // (C) path를 submissions/<uuid>로 생성
+  const path = `${STORAGE_PREFIX}${crypto.randomUUID()}.${extension}`;
+  const { data, error } = await supabase!.storage.from(STORAGE_BUCKET).upload(path, file, {
+    upsert: false,
+    contentType: file.type || undefined,
+  });
+  if (error || !data?.path) {
+    console.error('[uploadSubmissionImage] upload failed', {
+      errorMessage: error?.message,
+      error,
+      path,
+      bucket: STORAGE_BUCKET,
+      startsWithSubmissions: path.startsWith(STORAGE_PREFIX),
     });
-
-    const payload = await response.json();
-    if (!response.ok || !payload?.ok || !payload?.data) {
-      throw new Error(payload?.error ?? '사이즈표 분석 요청 실패');
-    }
-
-    const headers = Array.isArray(payload.data.headers)
-      ? payload.data.headers.map((header: unknown) => String(header))
-      : [];
-    const rows = Array.isArray(payload.data.rows)
-      ? payload.data.rows.map((row: unknown) =>
-          Array.isArray(row) ? row.map((cell: unknown) => String(cell)) : []
-        )
-      : [];
-
-    return { headers, rows };
-  } catch (error) {
-    console.error("Error extracting size table:", error);
-    throw new Error("사이즈표 분석에 실패했습니다.");
+    throw new Error(error?.message || 'Image upload failed');
   }
+  return data.path;
+};
+
+// (A) submitProduct(form): product_submissions insert only
+const submitProduct = async (form: SubmitProductForm): Promise<void> => {
+  assertSupabaseClient();
+  const imagePath = await uploadSubmissionImage(form.productPhoto);
+
+  // (C) products에 insert 하던 부분 제거
+  // (C) Base64 저장 제거
+  // product_submissions에는 사이즈표 이미지 경로를 저장하지 않음
+  const payload = {
+    brand: form.brand,
+    name: form.name,
+    category: form.category || null,
+    url: form.url || null,
+    image_path: imagePath,
+    size_table: form.sizeTable ?? null,
+    status: 'pending',
+  };
+
+  const { error } = await supabase!.from('product_submissions').insert(payload);
+  if (error) {
+    console.error('[submitProduct] insert failed', error.message, error);
+    throw new Error(error.message);
+  }
+};
+
+const extractSizeTableFromImage = async (base64Image: string, mimeType = 'image/png'): Promise<SizeTable> => {
+  const response = await fetch('/api/size-table', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64: base64Image, mimeType }),
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload?.ok || !payload?.data) {
+    throw new Error(payload?.error ?? 'Failed to extract size table');
+  }
+  const headers = Array.isArray(payload.data.headers)
+    ? payload.data.headers.map((header: unknown) => String(header))
+    : [];
+  const rows = Array.isArray(payload.data.rows)
+    ? payload.data.rows.map((row: unknown) =>
+        Array.isArray(row) ? row.map((cell: unknown) => String(cell)) : []
+      )
+    : [];
+  return { headers, rows };
 };
 
 const removeBackgroundWithGemini = async (base64Image: string): Promise<string> => {
-  try {
-    const response = await fetch('/api/remove-bg', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageBase64: base64Image,
-        mimeType: 'image/png',
-      }),
-    });
-
-    const payload = await response.json();
-    if (!response.ok || !payload?.ok || !payload?.data?.imageBase64) {
-      return base64Image;
-    }
-
-    return String(payload.data.imageBase64);
-  } catch (error) {
-    console.error("Error removing background:", error);
-    return base64Image;
-  }
+  const response = await fetch('/api/remove-bg', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64: base64Image, mimeType: 'image/png' }),
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload?.ok || !payload?.data?.imageBase64) return base64Image;
+  return String(payload.data.imageBase64);
 };
 
-
-// --- Mock Data ---
-const MOCK_DATABASE: Product[] = [];
-
-// --- Fallback Data Generator ---
-const generateFallbackResult = (term: string): Product => {
-  const isShoes = /신발|슈즈|shoes|sneakers|boots|운동화|구두/i.test(term);
-  const isPants = /바지|팬츠|pants|jeans|slacks|denim|청바지/i.test(term);
-  const guessedBrand = term.split(' ')[0].toUpperCase();
-  const dummyImage = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80";
-
-  return {
-    id: Date.now().toString(),
-    brand: guessedBrand.length > 1 ? guessedBrand : "BRAND",
-    name: term,
-    category: isShoes ? "Shoes" : (isPants ? "Pants" : "Clothing"),
-    url: `https://www.google.com/search?q=${encodeURIComponent(term)}`,
-    image: dummyImage,
-    sizeTable: {
-        headers: ["정보 없음"],
-        rows: [["데이터베이스에 없는 상품입니다."]]
-    }
-  };
-};
+const generateFallbackResult = (term: string): Product => ({
+  id: Date.now().toString(),
+  brand: term.split(' ')[0].toUpperCase() || 'BRAND',
+  name: term,
+  category: 'Unknown',
+  url: `https://www.google.com/search?q=${encodeURIComponent(term)}`,
+  image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80',
+  sizeTable: {
+    headers: ['정보 없음'],
+    rows: [['데이터베이스에 없는 상품입니다.']],
+  },
+});
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [firestoreError, setFirestoreError] = useState<string | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
-  const [firestoreProducts, setFirestoreProducts] = useState<Product[]>([]);
-  const [retryTrigger, setRetryTrigger] = useState<number>(0);
-  
-  const [query, setQuery] = useState<string>("");
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [retryTrigger, setRetryTrigger] = useState(0);
+
+  const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<Product | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
-  
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [viewMode, setViewMode] = useState<'search' | 'grid'>('search');
 
   const [formData, setFormData] = useState<FormData>({
-    brand: "",
-    name: "",
-    url: "",
+    brand: '',
+    name: '',
+    category: '',
+    url: '',
     productImage: null,
     sizeChartImage: null,
-    extractedTable: null
+    extractedTable: null,
   });
-  const [isProcessingImage, setIsProcessingImage] = useState<boolean>(false);
-  const [isAnalyzingTable, setIsAnalyzingTable] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  
+  const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [isAnalyzingTable, setIsAnalyzingTable] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const isSelectionRef = useRef<boolean>(false);
+  const isSelectionRef = useRef(false);
 
-  // --- Firebase Auth & Data Fetching ---
-  const handleRetryLogin = async () => {
-    setIsAuthLoading(true);
-    try {
-      await signInAnonymously(auth);
-      setAuthError(null);
-    } catch (err: any) {
-      console.error("Authentication failed:", err);
-      if (err.code === 'auth/configuration-not-found' || err.code === 'auth/admin-restricted-operation') {
-         setAuthError("Firebase Console에서 익명 로그인이 활성화되지 않았습니다. 설정 후 '다시 시도'를 눌러주세요.");
-      } else {
-         setAuthError("인증 오류가 발생했습니다: " + err.message);
-      }
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
-
-  const handleRetryFirestore = () => {
-    setRetryTrigger(prev => prev + 1);
-  };
-
+  const allProducts = useMemo(() => [...products], [products]);
   useEffect(() => {
-    handleRetryLogin();
-    
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-        setUser(u);
-        if (u) setAuthError(null);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    
-    const productsRef = collection(db, 'products');
-    const q = firestoreQuery(productsRef, orderBy('createdAt', 'desc')); 
-
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        const products = snapshot.docs.map(doc => {
-          const data = doc.data();
-          let parsedTable = data.sizeTable;
-          if (typeof parsedTable === 'string') {
-            try {
-              parsedTable = JSON.parse(parsedTable);
-            } catch (e) {
-              console.error("Failed to parse sizeTable JSON", e);
-              parsedTable = null;
-            }
-          }
-          
-          return {
-            id: doc.id,
-            ...data,
-            sizeTable: parsedTable
-          } as Product;
-        });
-        setFirestoreProducts(products);
-        setFirestoreError(null);
-      },
-      (error) => {
-        console.error("Firestore error:", error);
-        if (error.code === 'permission-denied') {
-            setFirestoreError("Firestore 접근 권한이 없습니다. Firebase Console에서 규칙 수정 후 '데이터 다시 불러오기'를 눌러주세요.");
-        } else {
-            setFirestoreError("데이터를 불러오는 중 오류가 발생했습니다: " + error.message);
-        }
+    let isActive = true;
+    const load = async () => {
+      try {
+        const loaded = await searchProducts('');
+        if (!isActive) return;
+        setProducts(loaded);
+        setProductsError(null);
+      } catch (loadError: unknown) {
+        if (!isActive) return;
+        const message = loadError instanceof Error ? loadError.message : '상품 데이터를 불러오는 중 오류가 발생했습니다.';
+        setProductsError(message);
       }
-    );
+    };
+    void load();
+    return () => {
+      isActive = false;
+    };
+  }, [retryTrigger]);
 
-    return () => unsubscribe();
-  }, [user, retryTrigger]);
-
-  const allProducts = [...MOCK_DATABASE, ...firestoreProducts];
-
-  // --- Search Logic ---
   useEffect(() => {
     if (isSelectionRef.current) {
       isSelectionRef.current = false;
       return;
     }
-
-    if (query.length > 0) {
-      const filtered = allProducts.filter(item => 
-        item.name.toLowerCase().includes(query.toLowerCase()) || 
-        item.brand.toLowerCase().includes(query.toLowerCase())
-      );
-      setSuggestions(filtered);
-      setShowSuggestions(true);
-    } else {
+    if (!query) {
       setSuggestions([]);
       setShowSuggestions(false);
+      return;
     }
-  }, [query, firestoreProducts]);
+    const filtered = allProducts.filter((item) =>
+      `${item.brand} ${item.name}`.toLowerCase().includes(query.toLowerCase())
+    );
+    setSuggestions(filtered);
+    setShowSuggestions(true);
+  }, [allProducts, query]);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    const handleOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
       }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
 
-  const handleSearch = (searchItem: Product | null = null) => {
-    const searchTerm = searchItem ? searchItem.name : query;
-    if (!searchTerm) return;
-
+  const handleSearch = async (searchItem: Product | null = null) => {
+    const term = searchItem ? searchItem.name : query;
+    if (!term) return;
     setViewMode('search');
     setResult(null);
     setError(null);
     setIsLoading(true);
     setShowSuggestions(false);
 
-    setTimeout(() => {
-      let foundItem = searchItem || allProducts.find(item => 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-
-      if (!foundItem) {
-        foundItem = generateFallbackResult(searchTerm);
-      }
-
-      if (foundItem) {
-        setResult(foundItem);
-        setQuery(""); 
-      } else {
-        setError(`'${searchTerm}'에 대한 사이즈 정보를 찾을 수 없습니다.`);
-      }
+    try {
+      const matchedProducts = await searchProducts(term);
+      setProducts(matchedProducts);
+      let found = searchItem || matchedProducts.find((item) => `${item.brand} ${item.name}`.toLowerCase().includes(term.toLowerCase()));
+      if (!found) found = generateFallbackResult(term);
+      setResult(found);
+      setQuery('');
+      setProductsError(null);
+    } catch (searchError: unknown) {
+      const message = searchError instanceof Error ? searchError.message : 'Search failed.';
+      setProductsError(message);
+    } finally {
       setIsLoading(false);
-    }, 1500); 
+    }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSearch();
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') void handleSearch();
   };
 
-  const handleShowAllProducts = () => {
-    setViewMode('grid');
-    setResult(null);
-    setQuery("");
-    setError(null);
-  };
-
-  const handleGoHome = () => {
-    setViewMode('search');
-    setResult(null);
-    setQuery("");
-    setError(null);
-  }
-
-  // --- Modal & Form Logic ---
   const handleOpenModal = () => {
-    setFormData({ brand: "", name: "", url: "", productImage: null, sizeChartImage: null, extractedTable: null });
+    setFormData({ brand: '', name: '', category: '', url: '', productImage: null, sizeChartImage: null, extractedTable: null });
+    setProductPhotoFile(null);
     setIsModalOpen(true);
   };
 
-  const handleCloseModal = () => setIsModalOpen(false);
+  const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.onerror = null;
+    event.currentTarget.style.display = 'none';
+  };
 
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>, type: 'product' | 'chart') => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>, type: 'product' | 'chart') => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const resultString = reader.result as string;
-      const mimeType = file.type || 'image/png';
-      const base64 = resultString.split(',')[1];
-      
-      if (type === 'product') {
-        setFormData(prev => ({ ...prev, productImage: `data:${mimeType};base64,${base64}` }));
-        
+    if (type === 'product') {
+      void (async () => {
+        const dataUrl = await readFileAsDataUrl(file);
+        const base64 = dataUrl.split(',')[1] || '';
+        setFormData((prev) => ({ ...prev, productImage: dataUrl }));
+        setProductPhotoFile(file);
         setIsProcessingImage(true);
-        const processedBase64 = await removeBackgroundWithGemini(base64);
-        setFormData(prev => ({ ...prev, productImage: `data:image/png;base64,${processedBase64}` }));
-        setIsProcessingImage(false);
-        
-      } else if (type === 'chart') {
-        // Downscale chart image before OCR-like extraction to reduce model input failures.
-        const optimizedDataUrl = await resizeImage(resultString, 1600);
-        const optimizedBase64 = optimizedDataUrl.split(',')[1];
-        setFormData(prev => ({ ...prev, sizeChartImage: optimizedDataUrl }));
-        
-        setIsAnalyzingTable(true);
         try {
-          const tableData = await extractSizeTableFromImage(optimizedBase64, 'image/png');
-          setFormData(prev => ({ ...prev, extractedTable: tableData }));
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : "사이즈표 인식에 실패했습니다.";
-          alert(`${message} (서버 /api/size-table 로그를 확인해주세요)`);
+          const processedBase64 = await removeBackgroundWithGemini(base64);
+          const processedDataUrl = `data:image/png;base64,${processedBase64}`;
+          setFormData((prev) => ({ ...prev, productImage: processedDataUrl }));
+          setProductPhotoFile(dataUrlToFile(processedDataUrl, `product-${crypto.randomUUID()}`));
+        } catch (bgError) {
+          console.error('[handleFileUpload] remove bg failed, using original image', bgError);
+          setProductPhotoFile(file);
+        } finally {
+          setIsProcessingImage(false);
         }
+      })();
+      return;
+    }
+
+    void (async () => {
+      const dataUrl = await readFileAsDataUrl(file);
+      const optimizedDataUrl = await resizeImage(dataUrl, 1600);
+      const optimizedBase64 = optimizedDataUrl.split(',')[1] || '';
+      setFormData((prev) => ({ ...prev, sizeChartImage: optimizedDataUrl }));
+      setIsAnalyzingTable(true);
+      try {
+        const tableData = await extractSizeTableFromImage(optimizedBase64, 'image/png');
+        setFormData((prev) => ({ ...prev, extractedTable: tableData }));
+      } catch (extractError: unknown) {
+        const message = extractError instanceof Error ? extractError.message : 'Size table extraction failed.';
+        alert(`${message} (check /api/size-table server logs)`);
+      } finally {
         setIsAnalyzingTable(false);
       }
-    };
-    reader.readAsDataURL(file);
+    })();
   };
 
   const handleSubmitProduct = async () => {
-    if (!user) {
-        alert("로그인이 필요합니다. (익명 로그인 실패)");
-        return;
+    if (!productPhotoFile) {
+      alert('상품 사진은 필수입니다.');
+      return;
     }
     setIsSaving(true);
     try {
-      const finalImage = formData.productImage ? await resizeImage(formData.productImage) : "";
-
-      await addDoc(collection(db, 'products'), {
+      await submitProduct({
         brand: formData.brand,
         name: formData.name,
-        category: "User Uploaded",
-        url: formData.url || "#",
-        image: finalImage,
-        sizeTable: JSON.stringify(formData.extractedTable),
-        createdAt: new Date().toISOString()
+        category: formData.category || null,
+        url: formData.url || null,
+        sizeTable: formData.extractedTable,
+        productPhoto: productPhotoFile,
       });
       setIsModalOpen(false);
-      
       setShowSuccessModal(true);
       setTimeout(() => setShowSuccessModal(false), 2500);
-
-    } catch (e: any) {
-      console.error(e);
-      if (e.code === 'permission-denied') {
-        alert("저장 실패: Firestore 규칙 권한 없음");
-      } else {
-        alert("저장 중 오류가 발생했습니다: " + e.message);
-      }
+      alert('제출 완료! 관리자 승인 후 검색 결과에 노출됩니다.');
+      setRetryTrigger((prev) => prev + 1);
+      setProductsError(null);
+    } catch (submitError: unknown) {
+      const message = submitError instanceof Error ? submitError.message : 'Submission failed.';
+      console.error('[handleSubmitProduct] submit failed', submitError);
+      alert(`제출 실패: ${message}`);
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
-  const isFormValid = formData.brand && formData.name && formData.extractedTable && !isProcessingImage;
+  const isFormValid = Boolean(formData.brand.trim()) && Boolean(formData.name.trim()) && Boolean(productPhotoFile) && !isProcessingImage && !isSaving;
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-orange-500 selection:text-white">
-      {/* Header */}
       <header className="fixed top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={handleGoHome}>
+          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { setViewMode('search'); setResult(null); setQuery(''); setError(null); }}>
             <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center transform rotate-3 hover:rotate-6 transition-transform">
               <Ruler className="text-black w-5 h-5" />
             </div>
             <span className="font-bold text-xl tracking-tight text-orange-500">Size Picker</span>
           </div>
           <div className="flex items-center gap-4">
-            <button 
-              onClick={handleShowAllProducts}
-              className="p-2 text-gray-400 hover:text-orange-500 transition rounded-lg hover:bg-gray-800"
-              title="전체 목록 보기"
-            >
+            <button onClick={() => { setViewMode('grid'); setResult(null); setQuery(''); setError(null); }} className="p-2 text-gray-400 hover:text-orange-500 transition rounded-lg hover:bg-gray-800" title="전체 목록 보기">
               <LayoutGrid className="w-6 h-6" />
             </button>
-            <button 
-              onClick={handleOpenModal}
-              className="flex items-center gap-2 text-black px-4 py-2 rounded-lg hover:opacity-80 transition shadow-lg text-sm font-bold"
-              style={{ backgroundColor: '#00FF00', boxShadow: '0 0 15px rgba(0,255,0,0.3)' }}
-            >
+            <button onClick={handleOpenModal} className="flex items-center gap-2 text-black px-4 py-2 rounded-lg hover:opacity-80 transition shadow-lg text-sm font-bold" style={{ backgroundColor: '#00FF00', boxShadow: '0 0 15px rgba(0,255,0,0.3)' }}>
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">상품 추가</span>
             </button>
@@ -464,178 +511,66 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="pt-32 pb-20 px-4 flex flex-col items-center min-h-screen">
-        
-        {/* Error Messages */}
-        {authError && (
-            <div className="w-full max-w-4xl mb-6 bg-red-900/50 border border-red-500 text-red-200 px-6 py-4 rounded-xl flex flex-col md:flex-row items-center gap-4">
-                <div className="flex items-center gap-2 flex-1">
-                  <AlertCircle className="w-6 h-6 flex-shrink-0" />
-                  <span className="font-medium text-sm md:text-base">{authError}</span>
-                </div>
-                <button onClick={handleRetryLogin} disabled={isAuthLoading} className="flex items-center gap-2 px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg text-sm font-bold transition whitespace-nowrap">
-                  {isAuthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} 다시 시도
-                </button>
+        {productsError && (
+          <div className="w-full max-w-4xl mb-6 bg-orange-900/50 border border-orange-500 text-orange-200 px-6 py-4 rounded-xl flex flex-col md:flex-row items-center gap-4">
+            <div className="flex items-center gap-2 flex-1">
+              <ShieldAlert className="w-6 h-6 flex-shrink-0" />
+              <span className="font-medium text-sm md:text-base">{productsError}</span>
             </div>
-        )}
-        {firestoreError && (
-            <div className="w-full max-w-4xl mb-6 bg-orange-900/50 border border-orange-500 text-orange-200 px-6 py-4 rounded-xl flex flex-col md:flex-row items-center gap-4">
-                <div className="flex items-center gap-2 flex-1">
-                  <ShieldAlert className="w-6 h-6 flex-shrink-0" />
-                  <span className="font-medium text-sm md:text-base">{firestoreError}</span>
-                </div>
-                <button onClick={handleRetryFirestore} className="flex items-center gap-2 px-4 py-2 bg-orange-800 hover:bg-orange-700 rounded-lg text-sm font-bold transition whitespace-nowrap">
-                  <RefreshCw className="w-4 h-4" /> 데이터 다시 불러오기
-                </button>
-            </div>
+            <button onClick={() => setRetryTrigger((prev) => prev + 1)} className="flex items-center gap-2 px-4 py-2 bg-orange-800 hover:bg-orange-700 rounded-lg text-sm font-bold transition whitespace-nowrap">
+              <RefreshCw className="w-4 h-4" /> 데이터 다시 불러오기
+            </button>
+          </div>
         )}
 
-        {/* --- VIEW MODE: SEARCH (HOME) --- */}
         {viewMode === 'search' && (
           <>
-            {!result && !isLoading && (
-              <div className="text-center mb-10">
-                <h1 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">
-                  모든 옷의 사이즈표,<br/>
-                  <span className="text-orange-500">한 번에 검색하세요.</span>
-                </h1>
-                <p className="text-gray-400 text-lg max-w-xl mx-auto">
-                  공식 홈페이지와 사용자들이 공유한 데이터를 통해 <br className="hidden md:block"/>
-                  가장 정확한 사이즈 정보를 제공합니다.
-                </p>
-              </div>
-            )}
-
-            {/* Search Bar */}
             <div className={`w-full max-w-2xl relative transition-all duration-500 ${result || isLoading ? 'mt-0' : 'mt-4'}`} ref={searchContainerRef}>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                   <Search className={`w-6 h-6 transition-colors ${showSuggestions ? 'text-orange-500' : 'text-gray-500'}`} />
                 </div>
-                <input
-                  type="text"
-                  className="w-full pl-14 pr-14 py-5 bg-gray-900 border-2 border-gray-800 rounded-2xl shadow-xl text-lg text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
-                  placeholder="브랜드명 혹은 상품명"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onFocus={() => { if(query) setShowSuggestions(true); }}
-                />
-                {query && (
-                  <button onClick={() => {setQuery(""); setSuggestions([]);}} className="absolute inset-y-0 right-14 pr-2 flex items-center text-gray-500 hover:text-white">
-                    <X className="w-5 h-5" />
-                  </button>
-                )}
-                <button onClick={() => handleSearch()} className="absolute inset-y-2 right-2 p-3 bg-orange-500 rounded-xl text-black hover:bg-orange-400 transition-colors shadow-lg">
-                  <ArrowRight className="w-5 h-5" />
-                </button>
+                <input type="text" className="w-full pl-14 pr-14 py-5 bg-gray-900 border-2 border-gray-800 rounded-2xl shadow-xl text-lg text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all" placeholder="브랜드명 혹은 상품명" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} onFocus={() => { if (query) setShowSuggestions(true); }} />
+                {query && <button onClick={() => { setQuery(''); setSuggestions([]); }} className="absolute inset-y-0 right-14 pr-2 flex items-center text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>}
+                <button onClick={() => { void handleSearch(); }} className="absolute inset-y-2 right-2 p-3 bg-orange-500 rounded-xl text-black hover:bg-orange-400 transition-colors shadow-lg"><ArrowRight className="w-5 h-5" /></button>
               </div>
 
               {showSuggestions && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-gray-900 rounded-xl shadow-2xl border border-gray-800 overflow-hidden z-20 max-h-96 overflow-y-auto">
                   {suggestions.length > 0 ? (
                     <ul>
-                      <li className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider bg-black/20">추천 상품</li>
                       {suggestions.map((item) => (
-                        <li 
-                          key={item.id}
-                          onClick={() => { 
-                            isSelectionRef.current = true;
-                            setQuery(item.name); 
-                            handleSearch(item); 
-                          }}
-                          className="px-5 py-4 cursor-pointer hover:bg-gray-800 transition-colors flex items-center gap-4 border-b border-gray-800 last:border-0"
-                        >
-                          <div className="w-10 h-10 bg-gray-800 rounded-md flex-shrink-0 overflow-hidden">
-                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" onError={(e: any) => {e.target.onerror=null; e.target.style.display='none';}} />
-                          </div>
-                          <div>
-                            <div className="font-medium text-white">{item.name}</div>
-                            <div className="text-sm text-gray-500">{item.brand} · {item.category}</div>
-                          </div>
+                        <li key={item.id} onClick={() => { isSelectionRef.current = true; setQuery(item.name); void handleSearch(item); }} className="px-5 py-4 cursor-pointer hover:bg-gray-800 transition-colors flex items-center gap-4 border-b border-gray-800 last:border-0">
+                          <div className="w-10 h-10 bg-gray-800 rounded-md flex-shrink-0 overflow-hidden"><img src={item.image} alt={item.name} className="w-full h-full object-cover" onError={handleImageLoadError} /></div>
+                          <div><div className="font-medium text-white">{item.name}</div><div className="text-sm text-gray-500">{item.brand} · {item.category}</div></div>
                         </li>
                       ))}
                     </ul>
-                  ) : (
-                    <div className="p-4 text-center text-gray-500 text-sm">
-                      검색어와 일치하는 추천 상품이 없습니다.
-                    </div>
-                  )}
+                  ) : <div className="p-4 text-center text-gray-500 text-sm">검색어와 일치하는 추천 상품이 없습니다.</div>}
                 </div>
               )}
             </div>
 
-            {/* Loading */}
-            {isLoading && (
-              <div className="mt-20 flex flex-col items-center">
-                <div className="relative">
-                  <div className="w-16 h-16 border-4 border-gray-800 border-t-orange-500 rounded-full animate-spin"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Search className="w-6 h-6 text-orange-500" />
-                  </div>
-                </div>
-                <h3 className="mt-6 text-xl font-bold text-white">검색 엔진 가동 중...</h3>
-              </div>
-            )}
+            {isLoading && <div className="mt-10 text-gray-300">검색 중...</div>}
+            {error && !isLoading && <div className="mt-6 text-red-300">{error}</div>}
 
-            {error && !isLoading && (
-              <div className="mt-12 p-6 bg-red-900/20 border border-red-900/50 rounded-2xl max-w-lg text-center">
-                <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-red-400 mb-2">결과 없음</h3>
-                <p className="text-red-300 mb-4">{error}</p>
-              </div>
-            )}
-
-            {/* Result View */}
             {result && !isLoading && (
               <div className="mt-12 w-full max-w-4xl">
                 <div className="bg-gray-900 rounded-3xl shadow-2xl overflow-hidden border border-gray-800">
                   <div className="p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row gap-6 md:items-center bg-black/20">
-                    <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl shadow-sm border border-gray-700 flex-shrink-0 overflow-hidden p-2 flex items-center justify-center">
-                      <img src={result.image} alt={result.name} className="max-w-full max-h-full object-contain" />
-                    </div>
+                    <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl shadow-sm border border-gray-700 flex-shrink-0 overflow-hidden p-2 flex items-center justify-center"><img src={result.image} alt={result.name} className="max-w-full max-h-full object-contain" /></div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-1">
-                        <span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{result.brand}</span>
-                        <span className="text-gray-500">{result.category}</span>
-                      </div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-1"><span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{result.brand}</span><span className="text-gray-500">{result.category}</span></div>
                       <h2 className="text-2xl font-bold text-white mb-2">{result.name}</h2>
-                      <a href={result.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-gray-400 hover:text-orange-500 transition-colors">
-                        공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" />
-                      </a>
+                      <a href={result.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-gray-400 hover:text-orange-500 transition-colors">공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" /></a>
                     </div>
                   </div>
-
                   <div className="p-6 md:p-8">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-bold flex items-center gap-2 text-white">
-                        <Ruler className="w-5 h-5 text-gray-500" />
-                        사이즈 가이드
-                      </h3>
-                      <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">단위: cm</span>
-                    </div>
-
                     <div className="overflow-x-auto rounded-xl border border-gray-800">
                       <table className="w-full text-sm text-left">
-                        <thead className="text-xs uppercase border-b border-gray-700">
-                          <tr>
-                            {result.sizeTable?.headers?.map((header, idx) => (
-                              <th key={idx} className={`px-6 py-4 font-bold bg-gray-800 ${idx === 0 ? 'sticky left-0 z-10' : ''}`} style={{ color: '#00FF00' }}>{String(header)}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {result.sizeTable?.rows?.map((row, rowIdx) => (
-                            <tr key={rowIdx} className="bg-gray-900 border-b border-gray-800 hover:bg-orange-500/5 transition-colors last:border-0">
-                              {row.map((cell, cellIdx) => (
-                                <td key={cellIdx} className={`px-6 py-4 font-medium ${cellIdx === 0 ? 'text-white sticky left-0 bg-gray-900' : 'text-gray-300'}`}>
-                                  {String(cell)}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
+                        <thead className="text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className="px-6 py-4 font-bold bg-gray-800" style={{ color: '#00FF00' }}>{String(h)}</th>)}</tr></thead>
+                        <tbody>{result.sizeTable?.rows?.map((row, rowIdx) => <tr key={rowIdx} className="bg-gray-900 border-b border-gray-800">{row.map((cell, cellIdx) => <td key={cellIdx} className="px-6 py-4 font-medium text-gray-300">{String(cell)}</td>)}</tr>)}</tbody>
                       </table>
                     </div>
                   </div>
@@ -645,222 +580,72 @@ export default function App() {
           </>
         )}
 
-        {/* --- VIEW MODE: GRID (ALL PRODUCTS) --- */}
         {viewMode === 'grid' && (
           <div className="w-full max-w-7xl">
-            <h2 className="text-3xl font-bold mb-8 text-center sm:text-left flex items-center gap-3">
-              <LayoutGrid className="w-8 h-8 text-orange-500" />
-              전체 상품 목록
-            </h2>
-            
-            {allProducts.length === 0 ? (
-              <div className="text-center py-20 text-gray-500">
-                등록된 상품이 없습니다.
-              </div>
-            ) : (
+            {allProducts.length === 0 ? <div className="text-center py-20 text-gray-500">등록된 상품이 없습니다.</div> : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {allProducts.map((product) => (
-                  <div 
-                    key={product.id}
-                    onClick={() => handleSearch(product)}
-                    className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full"
-                    style={{ transition: 'all 0.3s' }}
-                  >
-                    <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative">
-                      <img 
-                        src={product.image} 
-                        alt={product.name} 
-                        className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
-                        onError={(e: any) => {e.target.onerror=null; e.target.style.display='none';}} 
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                    </div>
-                    <div className="p-5 flex-1 flex flex-col">
-                      <div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">
-                        {product.brand}
-                      </div>
-                      <h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">
-                        {product.name}
-                      </h3>
-                      <div className="text-sm text-gray-500 mt-auto pt-2">
-                        {product.category}
-                      </div>
-                    </div>
+                  <div key={product.id} onClick={() => { void handleSearch(product); }} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
+                    <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative"><img src={product.image} alt={product.name} className="max-h-full max-w-full object-contain" onError={handleImageLoadError} /></div>
+                    <div className="p-5 flex-1 flex flex-col"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="text-sm text-gray-500 mt-auto pt-2">{product.category}</div></div>
                   </div>
                 ))}
               </div>
             )}
           </div>
         )}
-
       </main>
-
-      {/* --- ADD PRODUCT MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCloseModal}></div>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
           <div className="bg-gray-900 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh] border border-gray-800">
-            
             <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-900 sticky top-0 z-10 text-white">
               <h3 className="text-lg font-bold" style={{ color: '#00FF00' }}>상품 직접 추가</h3>
-              <button onClick={handleCloseModal} className="p-2 hover:bg-gray-800 rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-800 rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
 
-            <div 
-              className="p-6 overflow-y-auto text-white"
-            >
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">브랜드명</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-                    placeholder="예: Stussy"
-                    value={formData.brand}
-                    onChange={(e) => setFormData({...formData, brand: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">상품명</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-                    placeholder="예: 월드 투어 후드티"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">공식 홈페이지 URL (선택사항)</label>
-                  <div className="relative">
-                    <Globe className="absolute left-4 top-3.5 w-4 h-4 text-gray-500" />
-                    <input 
-                      type="url" 
-                      className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-                      placeholder="https://..."
-                      value={formData.url}
-                      onChange={(e) => setFormData({...formData, url: e.target.value})}
-                    />
-                  </div>
-                </div>
+            <div className="p-6 overflow-y-auto text-white space-y-4">
+              <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="브랜드명" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
+              <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="상품명" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+              <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="카테고리 (선택)" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} />
+              <div className="relative">
+                <Globe className="absolute left-4 top-3.5 w-4 h-4 text-gray-500" />
+                <input className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="공식 URL (선택)" value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} />
               </div>
 
-              <div className="mt-8 space-y-6">
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">상품 사진 (누끼 자동 제거)</label>
-                  <div className="flex items-center gap-4">
-                    <label className="cursor-pointer flex-shrink-0 w-24 h-24 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center hover:bg-gray-800 hover:border-orange-500 transition group relative overflow-hidden">
-                      {formData.productImage ? (
-                        <img src={formData.productImage} className="w-full h-full object-contain p-1" />
-                      ) : (
-                        <>
-                          <Camera className="w-6 h-6 text-gray-500 group-hover:text-orange-500 mb-1" />
-                          <span className="text-[10px] text-gray-500 group-hover:text-orange-500">업로드</span>
-                        </>
-                      )}
-                      <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
-                      {isProcessingImage && (
-                        <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center">
-                          <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-                        </div>
-                      )}
-                    </label>
-                    <div className="text-xs text-gray-500 flex-1">
-                      상품 사진을 올리면 AI가 자동으로 배경을 제거하고 상품만 남깁니다.
-                      {isProcessingImage && <p className="text-orange-500 font-bold mt-1">배경 제거 중... (잠시만 기다려주세요)</p>}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">사이즈표 캡처 (자동 변환)</label>
-                  <div className="w-full">
-                    <label className="cursor-pointer w-full h-32 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center hover:bg-gray-800 hover:border-orange-500 transition relative overflow-hidden">
-                       {formData.sizeChartImage ? (
-                          <div className="flex flex-col items-center w-full h-full p-2">
-                             <div className="flex items-center gap-2 text-green-500 font-bold mb-2">
-                               <ImageIcon className="w-4 h-4" /> 이미지 업로드 완료
-                             </div>
-                             {isAnalyzingTable ? (
-                               <div className="flex flex-col items-center justify-center h-full">
-                                  <Loader2 className="w-6 h-6 animate-spin text-orange-500 mb-2" />
-                                  <span className="text-xs text-orange-500">표 데이터 추출 중...</span>
-                               </div>
-                             ) : formData.extractedTable ? (
-                               <div className="text-xs text-gray-300 bg-gray-700 p-2 rounded border border-gray-600 w-full text-center">
-                                 데이터 추출 성공! ({formData.extractedTable.rows.length}개 사이즈 발견)
-                               </div>
-                             ) : null}
-                          </div>
-                       ) : (
-                        <>
-                          <Upload className="w-8 h-8 text-gray-500 mb-2 group-hover:text-orange-500" />
-                          <span className="text-sm text-gray-500 group-hover:text-orange-500">사이즈표 스크린샷을 업로드하세요</span>
-                        </>
-                       )}
-                       <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'chart')} />
-                    </label>
-                  </div>
-                </div>
-
-                {formData.extractedTable && (
-                   <div className="bg-gray-800 rounded-xl p-3 border border-gray-700 max-h-40 overflow-auto">
-                      <p className="text-xs font-bold text-orange-400 mb-2">추출된 데이터 미리보기:</p>
-                      <table className="w-full text-[10px] text-left text-gray-300">
-                        <thead>
-                          <tr>{formData.extractedTable.headers.map((h, i) => <th key={i} className="p-1" style={{ color: '#00FF00' }}>{String(h)}</th>)}</tr>
-                        </thead>
-                        <tbody>
-                          {formData.extractedTable.rows.map((r, i) => (
-                             <tr key={i} className="border-t border-gray-700">
-                               {r.map((c, j) => <td key={j} className="p-1">{String(c)}</td>)}
-                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                   </div>
-                )}
+              <div className="space-y-2">
+                <label className="text-sm text-gray-400">상품 사진</label>
+                <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center">
+                  {formData.productImage ? <img src={formData.productImage} className="h-full object-contain" /> : <Camera className="w-8 h-8 text-gray-500" />}
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
+                </label>
+                {isProcessingImage && <div className="text-xs text-orange-400">배경 제거 중...</div>}
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm text-gray-400">사이즈표 이미지 (선택)</label>
+                <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center">
+                  {formData.sizeChartImage ? <img src={formData.sizeChartImage} className="h-full object-contain" /> : <Upload className="w-8 h-8 text-gray-500" />}
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'chart')} />
+                </label>
+                {isAnalyzingTable && <div className="text-xs text-orange-400">사이즈표 추출 중...</div>}
+              </div>
             </div>
 
             <div className="p-6 border-t border-gray-800 bg-gray-900 flex justify-end gap-3 sticky bottom-0">
-              <button 
-                onClick={handleCloseModal}
-                className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition"
-              >
-                취소
-              </button>
-              <button 
-                onClick={handleSubmitProduct}
-                disabled={!isFormValid}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold text-black transition flex items-center gap-2
-                  ${!isFormValid 
-                    ? 'bg-gray-700 cursor-not-allowed text-gray-500' 
-                    : 'hover:scale-105 hover:bg-orange-400'}`}
-                style={!isFormValid 
-                  ? {} 
-                  : { backgroundColor: '#F97316', boxShadow: '0 0 15px rgba(249, 115, 22, 0.3)' }
-                }
-              >
+              <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition">취소</button>
+              <button onClick={handleSubmitProduct} disabled={!isFormValid} className={`px-5 py-2.5 rounded-xl text-sm font-bold text-black transition flex items-center gap-2 ${!isFormValid ? 'bg-gray-700 cursor-not-allowed text-gray-500' : 'hover:bg-orange-400'}`} style={!isFormValid ? {} : { backgroundColor: '#F97316' }}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {isSaving ? "저장 중..." : "상품 등록하기"}
+                {isSaving ? '제출 중...' : '상품 등록하기'}
               </button>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* --- SUCCESS MODAL --- */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none">
-          <div 
-            className="bg-black/80 backdrop-blur-md border rounded-2xl p-8 flex flex-col items-center justify-center"
-            style={{ borderColor: '#00FF00', boxShadow: '0 0 50px rgba(0,255,0,0.2)' }}
-          >
+          <div className="bg-black/80 backdrop-blur-md border rounded-2xl p-8 flex flex-col items-center justify-center" style={{ borderColor: '#00FF00', boxShadow: '0 0 50px rgba(0,255,0,0.2)' }}>
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(0, 255, 0, 0.2)' }}>
               <Check className="w-10 h-10" style={{ color: '#00FF00' }} />
             </div>
@@ -871,5 +656,3 @@ export default function App() {
     </div>
   );
 }
-
-
