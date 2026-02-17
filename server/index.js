@@ -66,6 +66,8 @@ const normalizeProductRow = (row) => {
   const id = String(row.id || "").trim();
   const brand = String(row.brand || "").trim();
   const name = String(row.name || "").trim();
+  const imagePath = String(row.image_path ?? row.imagePath ?? "").trim();
+  const image = String(row.image || "").trim();
   if (!id || !brand || !name) return null;
 
   return {
@@ -74,7 +76,8 @@ const normalizeProductRow = (row) => {
     name,
     category: String(row.category || "User Uploaded"),
     url: String(row.url || "#"),
-    image: String(row.image || ""),
+    image: image || imagePath,
+    imagePath: imagePath || null,
     sizeTable: parseSizeTable(row.size_table ?? row.sizeTable),
     createdAt: row.created_at || row.createdAt || null,
   };
@@ -101,8 +104,21 @@ const fetchProductsRows = async () => {
   throw new Error(lastError?.message || "failed to fetch products");
 };
 
-const insertProductRow = async ({ brand, name, category, url, image, sizeTable, createdAt }) => {
+const insertProductRow = async ({
+  brand,
+  name,
+  category,
+  url,
+  image,
+  imagePath,
+  sizeTable,
+  createdAt,
+}) => {
   assertSupabaseConfig();
+  const normalizedImagePath = String(imagePath || "").trim();
+  const normalizedImage = String(image || "").trim();
+  const effectiveImagePath = normalizedImagePath || normalizedImage || null;
+  const effectiveImage = normalizedImage || normalizedImagePath || "";
 
   const payloads = [
     {
@@ -110,7 +126,7 @@ const insertProductRow = async ({ brand, name, category, url, image, sizeTable, 
       name,
       category,
       url,
-      image,
+      image_path: effectiveImagePath,
       size_table: sizeTable,
       created_at: createdAt,
     },
@@ -119,25 +135,27 @@ const insertProductRow = async ({ brand, name, category, url, image, sizeTable, 
       name,
       category,
       url,
-      image,
+      image_path: effectiveImagePath,
       sizeTable: JSON.stringify(sizeTable),
       createdAt,
     },
+    // Legacy schema fallback (uses `image` column)
     {
       brand,
       name,
       category,
       url,
-      image,
+      image: effectiveImage,
       size_table: sizeTable,
       createdAt,
     },
+    // Legacy schema fallback (uses `image` column)
     {
       brand,
       name,
       category,
       url,
-      image,
+      image: effectiveImage,
       sizeTable: JSON.stringify(sizeTable),
       created_at: createdAt,
     },
@@ -184,6 +202,7 @@ app.post("/api/products", async (req, res) => {
   const name = String(req.body?.name || "").trim();
   const category = String(req.body?.category || "User Uploaded").trim();
   const url = String(req.body?.url || "#").trim();
+  const imagePath = String(req.body?.image_path ?? req.body?.imagePath ?? "").trim();
   const image = String(req.body?.image || "").trim();
   const sizeTable = req.body?.sizeTable ?? null;
   const createdAt = String(req.body?.createdAt || new Date().toISOString()).trim();
@@ -202,6 +221,7 @@ app.post("/api/products", async (req, res) => {
       category,
       url,
       image,
+      imagePath,
       sizeTable,
       createdAt,
     });
