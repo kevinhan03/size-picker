@@ -146,6 +146,121 @@ const resizeImage = (base64Str: string, maxWidth = 300): Promise<string> =>
     img.onerror = () => resolve(base64Str);
   });
 
+const TOTAL_LENGTH_LABEL = '\uCD1D\uC7A5';
+const ITEM_LABEL = '\uD56D\uBAA9';
+const MEASUREMENT_ALIAS_MAP: Record<string, string> = {
+  "\uCD1D\uC7A5": TOTAL_LENGTH_LABEL,
+  "\uC804\uCCB4\uAE38\uC774": TOTAL_LENGTH_LABEL,
+  "\uC804\uCCB4\uC7A5": TOTAL_LENGTH_LABEL,
+  "\uAE30\uC7A5": TOTAL_LENGTH_LABEL,
+  "\uC0C1\uC758\uCD1D\uC7A5": TOTAL_LENGTH_LABEL,
+  "\uD558\uC758\uCD1D\uC7A5": TOTAL_LENGTH_LABEL,
+  "\uBC14\uC9C0\uCD1D\uC7A5": TOTAL_LENGTH_LABEL,
+  length: TOTAL_LENGTH_LABEL,
+  total: TOTAL_LENGTH_LABEL,
+  "\uC18C\uB9E4": "\uC18C\uB9E4",
+  "\uC18C\uB9E4\uAE38\uC774": "\uC18C\uB9E4",
+  "\uD654\uC7A5": "\uC18C\uB9E4",
+  sleeve: "\uC18C\uB9E4",
+  "\uC5B4\uAE68": "\uC5B4\uAE68",
+  "\uC5B4\uAE68\uB108\uBE44": "\uC5B4\uAE68",
+  "\uC5B4\uAE68\uB113\uC774": "\uC5B4\uAE68",
+  shoulder: "\uC5B4\uAE68",
+  "\uAC00\uC2B4": "\uAC00\uC2B4",
+  "\uAC00\uC2B4\uB2E8\uBA74": "\uAC00\uC2B4",
+  "\uD488": "\uAC00\uC2B4",
+  chest: "\uAC00\uC2B4",
+  bust: "\uAC00\uC2B4",
+  "\uD5C8\uB9AC": "\uD5C8\uB9AC",
+  "\uD5C8\uB9AC\uB2E8\uBA74": "\uD5C8\uB9AC",
+  waist: "\uD5C8\uB9AC",
+  "\uC5C9\uB369\uC774": "\uC5C9\uB369\uC774",
+  "\uD799": "\uC5C9\uB369\uC774",
+  hip: "\uC5C9\uB369\uC774",
+  "\uD5C8\uBC85\uC9C0": "\uD5C8\uBC85\uC9C0",
+  "\uD5C8\uBC85\uC9C0\uB2E8\uBA74": "\uD5C8\uBC85\uC9C0",
+  thigh: "\uD5C8\uBC85\uC9C0",
+  "\uBC11\uC704": "\uBC11\uC704",
+  rise: "\uBC11\uC704",
+  "\uBC11\uB2E8": "\uBC11\uB2E8",
+  "\uBC11\uB2E8\uB2E8\uBA74": "\uBC11\uB2E8",
+  hem: "\uBC11\uB2E8",
+  "\uC778\uC2EC": "\uC778\uC2EC",
+  inseam: "\uC778\uC2EC",
+};
+
+const normalizeCellText = (value: unknown): string => String(value ?? '').replace(/\s+/g, ' ').trim();
+
+const normalizeAliasKey = (value: unknown): string =>
+  normalizeCellText(value)
+    .toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[^0-9a-z\u3131-\uD79D]/g, '');
+
+const normalizeMeasurementLabel = (value: unknown): string => {
+  const raw = normalizeCellText(value);
+  if (!raw) return '';
+  return MEASUREMENT_ALIAS_MAP[normalizeAliasKey(raw)] || raw;
+};
+
+const normalizeSizeLabel = (value: unknown): string => normalizeCellText(value).toUpperCase();
+
+const isLikelySizeLabel = (value: unknown): boolean => {
+  const text = normalizeSizeLabel(value);
+  if (!text) return false;
+  if (/^(XXS|XS|S|M|L|XL|XXL|XXXL|FREE|ONE ?SIZE)$/i.test(text)) return true;
+  if (/^(0|1|2|3|4|5|6|7|8|9|10|11|12)$/.test(text)) return true;
+  if (/^\d{2,4}$/.test(text)) return true;
+  if (/^(EU|US|UK|JP|KR)\s*\d{1,3}$/.test(text)) return true;
+  return false;
+};
+
+const isLikelyMeasurementLabel = (value: unknown): boolean => {
+  const normalized = normalizeMeasurementLabel(value);
+  return Boolean(normalized) && Object.values(MEASUREMENT_ALIAS_MAP).includes(normalized);
+};
+
+const makeRectangularRows = (rows: string[][], width: number): string[][] =>
+  rows.map((row) => {
+    const normalized = Array.isArray(row) ? row.map((cell) => normalizeCellText(cell)) : [];
+    return [...normalized, ...new Array(Math.max(width - normalized.length, 0)).fill('')].slice(0, width);
+  });
+
+const transposeTable = (table: SizeTable): SizeTable => {
+  const width = Math.max(table.headers.length, ...table.rows.map((row) => row.length), 0);
+  const fullHeaders = [...table.headers, ...new Array(Math.max(width - table.headers.length, 0)).fill('')];
+  const fullRows = makeRectangularRows(table.rows, width);
+  const matrix = [fullHeaders, ...fullRows];
+  if (!matrix.length || !width) return { headers: [], rows: [] };
+  const transposed = Array.from({ length: width }, (_, colIdx) =>
+    matrix.map((row) => normalizeCellText(row[colIdx]))
+  );
+  return {
+    headers: transposed[0] || [],
+    rows: transposed.slice(1),
+  };
+};
+
+const tableOrientationScore = (table: SizeTable): number => {
+  const columnHeaders = table.headers.slice(1);
+  const rowHeaders = table.rows.map((row) => row[0] || '');
+  const sizeInColumns = columnHeaders.filter((v) => isLikelySizeLabel(v)).length;
+  const measurementInRows = rowHeaders.filter((v) => isLikelyMeasurementLabel(v)).length;
+  const sizeInRows = rowHeaders.filter((v) => isLikelySizeLabel(v)).length;
+  const measurementInColumns = columnHeaders.filter((v) => isLikelyMeasurementLabel(v)).length;
+  return sizeInColumns * 3 + measurementInRows * 3 - sizeInRows - measurementInColumns;
+};
+
+const sortMeasurementRows = (rows: string[][]): string[][] =>
+  [...rows].sort((left, right) => {
+    const leftLabel = normalizeMeasurementLabel(left?.[0] || '');
+    const rightLabel = normalizeMeasurementLabel(right?.[0] || '');
+    if (leftLabel === TOTAL_LENGTH_LABEL && rightLabel !== TOTAL_LENGTH_LABEL) return -1;
+    if (rightLabel === TOTAL_LENGTH_LABEL && leftLabel !== TOTAL_LENGTH_LABEL) return 1;
+    return 0;
+  });
+
 const normalizeSizeTable = (value: unknown): SizeTable | null => {
   if (!value) return null;
   let parsed: unknown = value;
@@ -157,13 +272,37 @@ const normalizeSizeTable = (value: unknown): SizeTable | null => {
     }
   }
   if (!parsed || typeof parsed !== 'object') return null;
+
   const record = parsed as Record<string, unknown>;
-  const headers = Array.isArray(record.headers) ? record.headers.map((v) => String(v)) : [];
+  const headers = Array.isArray(record.headers) ? record.headers.map((v) => normalizeCellText(v)) : [];
   const rows = Array.isArray(record.rows)
-    ? record.rows.map((row) => (Array.isArray(row) ? row.map((cell) => String(cell)) : []))
+    ? record.rows.map((row) => (Array.isArray(row) ? row.map((cell) => normalizeCellText(cell)) : []))
     : [];
   if (headers.length === 0 && rows.length === 0) return null;
-  return { headers, rows };
+
+  const asIs: SizeTable = { headers: [...headers], rows: rows.map((row) => [...row]) };
+  const transposed = transposeTable(asIs);
+  const selected = tableOrientationScore(transposed) < tableOrientationScore(asIs) ? transposed : asIs;
+
+  const width = Math.max(selected.headers.length, ...selected.rows.map((row) => row.length), 0);
+  if (!width) return null;
+
+  const normalizedHeaders = [...selected.headers, ...new Array(width - selected.headers.length).fill('')].slice(0, width);
+  normalizedHeaders[0] = ITEM_LABEL;
+  for (let idx = 1; idx < normalizedHeaders.length; idx += 1) {
+    normalizedHeaders[idx] = normalizeSizeLabel(normalizedHeaders[idx]);
+  }
+
+  const normalizedRows = makeRectangularRows(selected.rows, width).map((row) => {
+    const nextRow = [...row];
+    nextRow[0] = normalizeMeasurementLabel(nextRow[0]);
+    return nextRow;
+  });
+
+  return {
+    headers: normalizedHeaders,
+    rows: sortMeasurementRows(normalizedRows),
+  };
 };
 // (B) toPublicUrl(path): getPublicUrl
 const toPublicUrl = (path: string | null | undefined): string => {
@@ -266,15 +405,11 @@ const extractSizeTableFromImage = async (base64Image: string, mimeType = 'image/
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error ?? 'Failed to extract size table');
   }
-  const headers = Array.isArray(payload.data.headers)
-    ? payload.data.headers.map((header: unknown) => String(header))
-    : [];
-  const rows = Array.isArray(payload.data.rows)
-    ? payload.data.rows.map((row: unknown) =>
-        Array.isArray(row) ? row.map((cell: unknown) => String(cell)) : []
-      )
-    : [];
-  return { headers, rows };
+  const normalized = normalizeSizeTable(payload.data);
+  if (!normalized) {
+    throw new Error('Failed to normalize extracted size table');
+  }
+  return normalized;
 };
 
 const removeBackgroundWithGemini = async (base64Image: string): Promise<string> => {
