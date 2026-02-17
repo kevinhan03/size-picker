@@ -586,6 +586,8 @@ export default function App() {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isAnalyzingTable, setIsAnalyzingTable] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeResultRowIndex, setActiveResultRowIndex] = useState<number | null>(null);
+  const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const isSelectionRef = useRef(false);
@@ -627,6 +629,14 @@ export default function App() {
     setSuggestions(filtered);
     setShowSuggestions(true);
   }, [allProducts, query]);
+
+  useEffect(() => {
+    setActiveResultRowIndex(null);
+  }, [result?.id]);
+
+  useEffect(() => {
+    setActiveGridDetailRowIndex(null);
+  }, [selectedGridProduct?.id]);
 
   useEffect(() => {
     const handleOutside = (event: MouseEvent) => {
@@ -1066,7 +1076,12 @@ export default function App() {
                                     <thead className="border-b border-gray-700">
                                       <tr>
                                         {adminExtractedTable.headers.map((header, idx) => (
-                                          <th key={idx} className="px-3 py-2 font-semibold text-green-400 whitespace-nowrap">{header}</th>
+                                          <th
+                                            key={idx}
+                                            className={`px-3 py-2 font-semibold whitespace-nowrap ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${idx === 0 ? 'border-r border-gray-700' : ''}`}
+                                          >
+                                            {header}
+                                          </th>
                                         ))}
                                       </tr>
                                     </thead>
@@ -1074,7 +1089,7 @@ export default function App() {
                                       {adminExtractedTable.rows.map((row, rowIdx) => (
                                         <tr key={rowIdx} className="border-b border-gray-800">
                                           {row.map((cell, cellIdx) => (
-                                            <td key={cellIdx} className="px-3 py-2 text-gray-200 whitespace-nowrap">{cell}</td>
+                                            <td key={cellIdx} className={`px-3 py-2 text-gray-200 whitespace-nowrap ${cellIdx === 0 ? 'border-r border-gray-700' : ''}`}>{cell}</td>
                                           ))}
                                         </tr>
                                       ))}
@@ -1209,8 +1224,32 @@ export default function App() {
                   <div className="p-6 md:p-8">
                     <div className="overflow-x-auto rounded-xl border border-gray-800">
                       <table className="w-full text-sm text-left">
-                        <thead className="text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className="px-6 py-4 font-bold bg-gray-800" style={{ color: '#00FF00' }}>{String(h)}</th>)}</tr></thead>
-                        <tbody>{result.sizeTable?.rows?.map((row, rowIdx) => <tr key={rowIdx} className="bg-gray-900 border-b border-gray-800">{row.map((cell, cellIdx) => <td key={cellIdx} className="px-6 py-4 font-medium text-gray-300">{String(cell)}</td>)}</tr>)}</tbody>
+                        <thead className="text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className={`px-6 py-4 font-bold bg-gray-800 ${i === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(h) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>{String(h)}</th>)}</tr></thead>
+                        <tbody>
+                          {result.sizeTable?.rows?.map((row, rowIdx) => {
+                            const isActiveRow = activeResultRowIndex === rowIdx;
+                            return (
+                              <tr
+                                key={rowIdx}
+                                onClick={() => setActiveResultRowIndex(rowIdx)}
+                                className="group border-b border-gray-800 cursor-pointer transition-transform duration-200 active:scale-95"
+                              >
+                                {row.map((cell, cellIdx) => (
+                                  <td
+                                    key={cellIdx}
+                                    className={`px-6 py-4 font-medium transition-all duration-200 ${cellIdx === 0 ? 'border-r border-gray-700' : ''} ${
+                                      isActiveRow
+                                        ? 'bg-gray-100 text-black first:rounded-l-lg last:rounded-r-lg'
+                                        : 'bg-gray-900 text-gray-300 group-hover:bg-gray-100 group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
+                                    }`}
+                                  >
+                                    {String(cell)}
+                                  </td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
                       </table>
                     </div>
                   </div>
@@ -1288,7 +1327,7 @@ export default function App() {
                             <thead className="border-b border-gray-700">
                               <tr>
                                 {formData.extractedTable.headers.map((header, idx) => (
-                                  <th key={idx} className="px-2 py-1 font-semibold text-green-400 whitespace-nowrap">
+                                  <th key={idx} className={`px-2 py-1 font-semibold whitespace-nowrap ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${idx === 0 ? 'border-r border-gray-700' : ''}`}>
                                     {header}
                                   </th>
                                 ))}
@@ -1299,7 +1338,7 @@ export default function App() {
                             {formData.extractedTable.rows.map((row, rowIndex) => (
                               <tr key={rowIndex} className="border-b border-gray-800">
                                 {row.map((cell, cellIndex) => (
-                                  <td key={cellIndex} className="px-2 py-1 text-gray-200 whitespace-nowrap">
+                                  <td key={cellIndex} className={`px-2 py-1 text-gray-200 whitespace-nowrap ${cellIndex === 0 ? 'border-r border-gray-700' : ''}`}>
                                     {cell}
                                   </td>
                                 ))}
@@ -1375,22 +1414,36 @@ export default function App() {
                     <thead className="text-xs uppercase border-b border-gray-700">
                       <tr>
                         {selectedGridProduct.sizeTable.headers.map((header, index) => (
-                          <th key={index} className="px-6 py-4 font-bold bg-gray-800" style={{ color: '#00FF00' }}>
+                          <th key={index} className={`px-6 py-4 font-bold bg-gray-800 ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(header) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>
                             {String(header)}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedGridProduct.sizeTable.rows.map((row, rowIndex) => (
-                        <tr key={rowIndex} className="bg-gray-900 border-b border-gray-800">
-                          {row.map((cell, cellIndex) => (
-                            <td key={cellIndex} className="px-6 py-4 font-medium text-gray-300">
-                              {String(cell)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
+                      {selectedGridProduct.sizeTable.rows.map((row, rowIndex) => {
+                        const isActiveRow = activeGridDetailRowIndex === rowIndex;
+                        return (
+                          <tr
+                            key={rowIndex}
+                            onClick={() => setActiveGridDetailRowIndex(rowIndex)}
+                            className="group border-b border-gray-800 cursor-pointer transition-transform duration-200 active:scale-95"
+                          >
+                            {row.map((cell, cellIndex) => (
+                              <td
+                                key={cellIndex}
+                                className={`px-6 py-4 font-medium transition-all duration-200 ${cellIndex === 0 ? 'border-r border-gray-700' : ''} ${
+                                  isActiveRow
+                                    ? 'bg-gray-100 text-black first:rounded-l-lg last:rounded-r-lg'
+                                    : 'bg-gray-900 text-gray-300 group-hover:bg-gray-100 group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
+                                }`}
+                              >
+                                {String(cell)}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 ) : (
