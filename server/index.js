@@ -13,6 +13,8 @@ const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim();
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const SUPABASE_PRODUCTS_TABLE = (process.env.SUPABASE_PRODUCTS_TABLE || "products").trim();
+const SUPABASE_STORAGE_BUCKET = (process.env.SUPABASE_STORAGE_BUCKET || "product-assets").trim();
+const SUBMISSIONS_STORAGE_PREFIX = "submissions/";
 const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "").trim();
 const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || "").trim();
 const ADMIN_SESSION_COOKIE_NAME = "sizepicker_admin_session";
@@ -212,6 +214,50 @@ const fetchProductsRows = async () => {
   }
 
   throw new Error(lastError?.message || "failed to fetch products");
+};
+
+const normalizeStoragePath = (value) => {
+  const path = String(value || "").trim();
+  return path || null;
+};
+
+const isSubmissionStoragePath = (path) =>
+  Boolean(path) &&
+  path.startsWith(SUBMISSIONS_STORAGE_PREFIX) &&
+  !path.includes("..") &&
+  !path.startsWith("http://") &&
+  !path.startsWith("https://");
+
+const removeOldProductImageIfUnused = async ({ oldPath, updatedProductId }) => {
+  const normalizedOldPath = normalizeStoragePath(oldPath);
+  if (!normalizedOldPath || !isSubmissionStoragePath(normalizedOldPath)) return;
+
+  const { count, error: referenceCountError } = await supabase
+    .from(SUPABASE_PRODUCTS_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("image_path", normalizedOldPath)
+    .neq("id", updatedProductId);
+
+  if (referenceCountError) {
+    console.error("[admin] failed to check image reference count", {
+      path: normalizedOldPath,
+      error: referenceCountError.message,
+    });
+    return;
+  }
+  if ((count || 0) > 0) return;
+
+  const { error: removeError } = await supabase
+    .storage
+    .from(SUPABASE_STORAGE_BUCKET)
+    .remove([normalizedOldPath]);
+
+  if (removeError) {
+    console.error("[admin] failed to remove old image from storage", {
+      path: normalizedOldPath,
+      error: removeError.message,
+    });
+  }
 };
 
 const insertProductRow = async ({
@@ -442,6 +488,25 @@ app.patch("/api/admin/products/:id", requireAdminAuth, async (req, res) => {
 
   try {
     assertSupabaseConfig();
+    const hasImagePathInPayload = Object.prototype.hasOwnProperty.call(payload, "image_path");
+    let previousImagePath = null;
+    if (hasImagePathInPayload) {
+      const { data: existingProduct, error: existingProductError } = await supabase
+        .from(SUPABASE_PRODUCTS_TABLE)
+        .select("id,image_path")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (existingProductError) throw existingProductError;
+      if (!existingProduct) {
+        return res.status(404).json({
+          ok: false,
+          error: "product not found",
+        });
+      }
+      previousImagePath = normalizeStoragePath(existingProduct.image_path);
+    }
+
     const { data, error } = await supabase
       .from(SUPABASE_PRODUCTS_TABLE)
       .update(payload)
@@ -454,6 +519,14 @@ app.patch("/api/admin/products/:id", requireAdminAuth, async (req, res) => {
       return res.status(404).json({
         ok: false,
         error: "product not found",
+      });
+    }
+
+    const currentImagePath = normalizeStoragePath(data.image_path);
+    if (hasImagePathInPayload && previousImagePath && previousImagePath !== currentImagePath) {
+      await removeOldProductImageIfUnused({
+        oldPath: previousImagePath,
+        updatedProductId: String(data.id || id),
       });
     }
 
@@ -484,7 +557,7 @@ app.delete("/api/admin/products/:id", requireAdminAuth, async (req, res) => {
       .from(SUPABASE_PRODUCTS_TABLE)
       .delete()
       .eq("id", id)
-      .select("id");
+      .select("id,image_path");
 
     if (error) throw error;
     if (!Array.isArray(data) || data.length === 0) {
@@ -493,6 +566,12 @@ app.delete("/api/admin/products/:id", requireAdminAuth, async (req, res) => {
         error: "product not found",
       });
     }
+
+    const deletedProduct = data[0];
+    await removeOldProductImageIfUnused({
+      oldPath: deletedProduct?.image_path,
+      updatedProductId: id,
+    });
 
     return res.json({
       ok: true,
