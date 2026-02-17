@@ -251,14 +251,16 @@ const tableOrientationScore = (table) => {
   return sizeInColumns * 3 + measurementInRows * 3 - sizeInRows - measurementInColumns;
 };
 
-const sortMeasurementRows = (rows) =>
-  [...rows].sort((left, right) => {
-    const leftLabel = normalizeMeasurementLabel(left?.[0] || "");
-    const rightLabel = normalizeMeasurementLabel(right?.[0] || "");
-    if (leftLabel === TOTAL_LENGTH_LABEL && rightLabel !== TOTAL_LENGTH_LABEL) return -1;
-    if (rightLabel === TOTAL_LENGTH_LABEL && leftLabel !== TOTAL_LENGTH_LABEL) return 1;
-    return 0;
-  });
+const sortMeasurementRows = (rows) => {
+  const nextRows = [...rows];
+  const totalLengthIndex = nextRows.findIndex(
+    (row) => normalizeMeasurementLabel(row?.[0] || "") === TOTAL_LENGTH_LABEL
+  );
+  if (totalLengthIndex <= 0) return nextRows;
+  const [totalLengthRow] = nextRows.splice(totalLengthIndex, 1);
+  nextRows.unshift(totalLengthRow);
+  return nextRows;
+};
 
 const standardizeSizeTable = (value) => {
   if (!value || typeof value !== "object") return null;

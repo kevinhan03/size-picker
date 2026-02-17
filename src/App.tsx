@@ -30,6 +30,7 @@ interface Product {
   category: string;
   url: string;
   image: string;
+  thumbnailImage?: string;
   imagePath?: string | null;
   sizeTable: SizeTable | null;
   createdAt?: string;
@@ -70,6 +71,15 @@ interface AdminEditForm {
   name: string;
   category: string;
   url: string;
+}
+
+interface ProgressiveImageProps {
+  src: string;
+  thumbnailSrc?: string;
+  alt: string;
+  className?: string;
+  loading?: 'lazy' | 'eager';
+  onError?: (event: SyntheticEvent<HTMLImageElement>) => void;
 }
 
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '').trim();
@@ -146,8 +156,53 @@ const resizeImage = (base64Str: string, maxWidth = 300): Promise<string> =>
     img.onerror = () => resolve(base64Str);
   });
 
+const ProgressiveImage = ({
+  src,
+  thumbnailSrc,
+  alt,
+  className,
+  loading = 'lazy',
+  onError,
+}: ProgressiveImageProps) => {
+  const [displaySrc, setDisplaySrc] = useState<string>(thumbnailSrc || src);
+
+  useEffect(() => {
+    if (!src) {
+      setDisplaySrc(thumbnailSrc || '');
+      return;
+    }
+    if (!thumbnailSrc || thumbnailSrc === src) {
+      setDisplaySrc(src);
+      return;
+    }
+
+    setDisplaySrc(thumbnailSrc);
+    const preloader = new Image();
+    preloader.src = src;
+    preloader.onload = () => setDisplaySrc(src);
+    preloader.onerror = () => setDisplaySrc(src);
+
+    return () => {
+      preloader.onload = null;
+      preloader.onerror = null;
+    };
+  }, [src, thumbnailSrc]);
+
+  return (
+    <img
+      src={displaySrc || src}
+      alt={alt}
+      className={className}
+      loading={loading}
+      decoding="async"
+      onError={onError}
+    />
+  );
+};
+
 const TOTAL_LENGTH_LABEL = '\uCD1D\uC7A5';
 const ITEM_LABEL = '\uD56D\uBAA9';
+const TOTAL_LENGTH_ALIAS_KEYS = ['총장', '전체길이', '전체장', '기장', 'totallength', 'length', 'total'] as const;
 const MEASUREMENT_ALIAS_MAP: Record<string, string> = {
   "\uCD1D\uC7A5": TOTAL_LENGTH_LABEL,
   "\uC804\uCCB4\uAE38\uC774": TOTAL_LENGTH_LABEL,
@@ -198,10 +253,16 @@ const normalizeAliasKey = (value: unknown): string =>
     .replace(/\s+/g, '')
     .replace(/[^0-9a-z\u3131-\uD79D]/g, '');
 
+const isTotalLengthAliasKey = (aliasKey: string): boolean =>
+  Boolean(aliasKey) &&
+  TOTAL_LENGTH_ALIAS_KEYS.some((key) => aliasKey === key || aliasKey.includes(key));
+
 const normalizeMeasurementLabel = (value: unknown): string => {
   const raw = normalizeCellText(value);
   if (!raw) return '';
-  return MEASUREMENT_ALIAS_MAP[normalizeAliasKey(raw)] || raw;
+  const aliasKey = normalizeAliasKey(raw);
+  if (isTotalLengthAliasKey(aliasKey)) return TOTAL_LENGTH_LABEL;
+  return MEASUREMENT_ALIAS_MAP[aliasKey] || raw;
 };
 
 const normalizeSizeLabel = (value: unknown): string => normalizeCellText(value).toUpperCase();
@@ -252,14 +313,39 @@ const tableOrientationScore = (table: SizeTable): number => {
   return sizeInColumns * 3 + measurementInRows * 3 - sizeInRows - measurementInColumns;
 };
 
-const sortMeasurementRows = (rows: string[][]): string[][] =>
-  [...rows].sort((left, right) => {
-    const leftLabel = normalizeMeasurementLabel(left?.[0] || '');
-    const rightLabel = normalizeMeasurementLabel(right?.[0] || '');
-    if (leftLabel === TOTAL_LENGTH_LABEL && rightLabel !== TOTAL_LENGTH_LABEL) return -1;
-    if (rightLabel === TOTAL_LENGTH_LABEL && leftLabel !== TOTAL_LENGTH_LABEL) return 1;
-    return 0;
+const sortMeasurementRows = (rows: string[][]): string[][] => {
+  const nextRows = [...rows];
+  const totalLengthIndex = nextRows.findIndex(
+    (row) => normalizeMeasurementLabel(row?.[0] || '') === TOTAL_LENGTH_LABEL
+  );
+  if (totalLengthIndex <= 0) return nextRows;
+  const [totalLengthRow] = nextRows.splice(totalLengthIndex, 1);
+  nextRows.unshift(totalLengthRow);
+  return nextRows;
+};
+
+const prioritizeTotalLengthColumn = (table: SizeTable): SizeTable => {
+  const totalLengthIndex = table.headers.findIndex(
+    (header, idx) => idx > 0 && normalizeMeasurementLabel(header) === TOTAL_LENGTH_LABEL
+  );
+  if (totalLengthIndex <= 1) return table;
+
+  const nextHeaders = [...table.headers];
+  const [totalLengthHeader] = nextHeaders.splice(totalLengthIndex, 1);
+  nextHeaders.splice(1, 0, totalLengthHeader);
+
+  const nextRows = table.rows.map((row) => {
+    const nextRow = [...row];
+    const [totalLengthValue] = nextRow.splice(totalLengthIndex, 1);
+    nextRow.splice(1, 0, totalLengthValue ?? '');
+    return nextRow;
   });
+
+  return {
+    headers: nextHeaders,
+    rows: nextRows,
+  };
+};
 
 const normalizeSizeTable = (value: unknown): SizeTable | null => {
   if (!value) return null;
@@ -299,16 +385,28 @@ const normalizeSizeTable = (value: unknown): SizeTable | null => {
     return nextRow;
   });
 
-  return {
+  return prioritizeTotalLengthColumn({
     headers: normalizedHeaders,
     rows: sortMeasurementRows(normalizedRows),
-  };
+  });
 };
 // (B) toPublicUrl(path): getPublicUrl
-const toPublicUrl = (path: string | null | undefined): string => {
+const toPublicUrl = (
+  path: string | null | undefined,
+  options?: { width?: number; height?: number; quality?: number }
+): string => {
   if (!path) return '';
   assertSupabaseClient();
-  return supabase!.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+  const result = options
+    ? supabase!.storage.from(STORAGE_BUCKET).getPublicUrl(path, {
+        transform: {
+          width: options.width,
+          height: options.height,
+          quality: options.quality,
+        },
+      })
+    : supabase!.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+  return result.data.publicUrl;
 };
 
 const normalizeProduct = (row: ProductRow): Product | null => {
@@ -324,6 +422,7 @@ const normalizeProduct = (row: ProductRow): Product | null => {
     category: String(row.category ?? 'Uncategorized'),
     url: String(row.url ?? '#'),
     image: toPublicUrl(imagePath),
+    thumbnailImage: toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 }),
     imagePath,
     sizeTable: normalizeSizeTable(row.size_table),
     createdAt: row.created_at ? String(row.created_at) : undefined,
@@ -430,6 +529,7 @@ const generateFallbackResult = (term: string): Product => ({
   category: 'Unknown',
   url: `https://www.google.com/search?q=${encodeURIComponent(term)}`,
   image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80',
+  thumbnailImage: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=240&q=60',
   sizeTable: {
     headers: ['정보 없음'],
     rows: [['데이터베이스에 없는 상품입니다.']],
@@ -921,7 +1021,7 @@ export default function App() {
                     <div key={product.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
                       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                         <div className="w-20 h-20 bg-white rounded-xl p-2 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
-                          <img src={product.image} alt={product.name} className="max-w-full max-h-full object-contain" onError={handleImageLoadError} />
+                          <ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-w-full max-h-full object-contain" onError={handleImageLoadError} />
                         </div>
                         <div className="flex-1 min-w-0">
                           {editingProductId === product.id ? (
@@ -1082,7 +1182,7 @@ export default function App() {
                     <ul>
                       {suggestions.map((item) => (
                         <li key={item.id} onClick={() => { isSelectionRef.current = true; setQuery(item.name); void handleSearch(item); }} className="px-5 py-4 cursor-pointer hover:bg-gray-800 transition-colors flex items-center gap-4 border-b border-gray-800 last:border-0">
-                          <div className="w-10 h-10 bg-gray-800 rounded-md flex-shrink-0 overflow-hidden"><img src={item.image} alt={item.name} className="w-full h-full object-cover" onError={handleImageLoadError} /></div>
+                          <div className="w-10 h-10 bg-gray-800 rounded-md flex-shrink-0 overflow-hidden"><ProgressiveImage src={item.image} thumbnailSrc={item.thumbnailImage} alt={item.name} className="w-full h-full object-cover" onError={handleImageLoadError} /></div>
                           <div><div className="font-medium text-white">{item.name}</div><div className="text-sm text-gray-500">{item.brand} · {item.category}</div></div>
                         </li>
                       ))}
@@ -1099,7 +1199,7 @@ export default function App() {
               <div className="mt-12 w-full max-w-4xl">
                 <div className="bg-gray-900 rounded-3xl shadow-2xl overflow-hidden border border-gray-800">
                   <div className="p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row gap-6 md:items-center bg-black/20">
-                    <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl shadow-sm border border-gray-700 flex-shrink-0 overflow-hidden p-2 flex items-center justify-center"><img src={result.image} alt={result.name} className="max-w-full max-h-full object-contain" /></div>
+                    <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl shadow-sm border border-gray-700 flex-shrink-0 overflow-hidden p-2 flex items-center justify-center"><ProgressiveImage src={result.image} thumbnailSrc={result.thumbnailImage} alt={result.name} className="max-w-full max-h-full object-contain" loading="eager" /></div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-1"><span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{result.brand}</span><span className="text-gray-500">{result.category}</span></div>
                       <h2 className="text-2xl font-bold text-white mb-2">{result.name}</h2>
@@ -1128,9 +1228,9 @@ export default function App() {
             </h2>
             {allProducts.length === 0 ? <div className="text-center py-20 text-gray-500">등록된 상품이 없습니다.</div> : (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                {allProducts.slice(0, 8).map((product) => (
+                {allProducts.map((product) => (
                   <div key={product.id} onClick={() => { setSelectedGridProduct(product); }} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
-                    <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative"><img src={product.image} alt={product.name} className="max-h-full max-w-full object-contain" onError={handleImageLoadError} /></div>
+                    <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative"><ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-h-full max-w-full object-contain" onError={handleImageLoadError} /></div>
                     <div className="p-5 flex-1 flex flex-col"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="text-sm text-gray-500 mt-auto pt-2">{product.category}</div></div>
                   </div>
                 ))}
@@ -1255,7 +1355,7 @@ export default function App() {
             <div className="p-6 md:p-8">
               <div className="flex flex-col md:flex-row gap-6 md:items-center">
                 <div className="w-28 h-28 md:w-36 md:h-36 bg-white rounded-2xl border border-gray-700 p-2 flex items-center justify-center overflow-hidden">
-                  <img src={selectedGridProduct.image} alt={selectedGridProduct.name} className="max-w-full max-h-full object-contain" onError={handleImageLoadError} />
+                  <ProgressiveImage src={selectedGridProduct.image} thumbnailSrc={selectedGridProduct.thumbnailImage} alt={selectedGridProduct.name} className="max-w-full max-h-full object-contain" loading="eager" onError={handleImageLoadError} />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-2">
