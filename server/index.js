@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
@@ -12,6 +13,11 @@ const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim();
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const SUPABASE_PRODUCTS_TABLE = (process.env.SUPABASE_PRODUCTS_TABLE || "products").trim();
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "").trim();
+const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || "").trim();
+const ADMIN_SESSION_COOKIE_NAME = "sizepicker_admin_session";
+const ADMIN_SESSION_TTL_SECONDS = Number(process.env.ADMIN_SESSION_TTL_SECONDS || 60 * 60 * 8);
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
     ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -22,7 +28,7 @@ const supabase =
       })
     : null;
 
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "25mb" }));
 
 app.get("/health", (_req, res) => {
@@ -35,6 +41,110 @@ const assertSupabaseConfig = () => {
     error.statusCode = 500;
     throw error;
   }
+};
+
+const assertAdminConfig = () => {
+  if (!ADMIN_PASSWORD || !ADMIN_SESSION_SECRET) {
+    const error = new Error("ADMIN_PASSWORD or ADMIN_SESSION_SECRET is missing in server .env");
+    error.statusCode = 500;
+    throw error;
+  }
+};
+
+const safeCompare = (left, right) => {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+const signValue = (value) =>
+  createHmac("sha256", ADMIN_SESSION_SECRET).update(value).digest("base64url");
+
+const makeAdminSessionToken = () => {
+  const payload = Buffer.from(
+    JSON.stringify({ exp: Date.now() + ADMIN_SESSION_TTL_SECONDS * 1000 }),
+    "utf8"
+  ).toString("base64url");
+  const signature = signValue(payload);
+  return `${payload}.${signature}`;
+};
+
+const verifyAdminSessionToken = (token) => {
+  if (!token || typeof token !== "string") return false;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return false;
+  const expectedSignature = signValue(payload);
+  if (!safeCompare(signature, expectedSignature)) return false;
+
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    const expiresAt = Number(parsed?.exp || 0);
+    return Number.isFinite(expiresAt) && expiresAt > Date.now();
+  } catch {
+    return false;
+  }
+};
+
+const parseCookies = (cookieHeader = "") =>
+  cookieHeader
+    .split(";")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .reduce((acc, item) => {
+      const separator = item.indexOf("=");
+      if (separator < 0) return acc;
+      const key = item.slice(0, separator).trim();
+      const value = item.slice(separator + 1).trim();
+      if (!key) return acc;
+      acc[key] = decodeURIComponent(value);
+      return acc;
+    }, {});
+
+const getAdminTokenFromRequest = (req) => {
+  const cookies = parseCookies(String(req.headers.cookie || ""));
+  return cookies[ADMIN_SESSION_COOKIE_NAME] || "";
+};
+
+const makeAdminCookie = (token) => {
+  const parts = [
+    `${ADMIN_SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    "HttpOnly",
+    "Path=/",
+    "SameSite=Lax",
+    `Max-Age=${ADMIN_SESSION_TTL_SECONDS}`,
+  ];
+  if (IS_PRODUCTION) parts.push("Secure");
+  return parts.join("; ");
+};
+
+const clearAdminCookie = () => {
+  const parts = [
+    `${ADMIN_SESSION_COOKIE_NAME}=`,
+    "HttpOnly",
+    "Path=/",
+    "SameSite=Lax",
+    "Max-Age=0",
+  ];
+  if (IS_PRODUCTION) parts.push("Secure");
+  return parts.join("; ");
+};
+
+const requireAdminAuth = (req, res, next) => {
+  if (!ADMIN_SESSION_SECRET) {
+    return res.status(500).json({
+      ok: false,
+      error: "ADMIN_SESSION_SECRET is missing in server .env",
+    });
+  }
+  const token = getAdminTokenFromRequest(req);
+  if (!verifyAdminSessionToken(token)) {
+    return res.status(401).json({
+      ok: false,
+      error: "admin authentication required",
+    });
+  }
+  return next();
 };
 
 const parseSizeTable = (value) => {
@@ -216,6 +326,162 @@ app.post("/api/products", async (req, res) => {
     return res.status(statusCode).json({
       ok: false,
       error: error?.message || "product insert error",
+    });
+  }
+});
+
+app.get("/api/admin/session", (req, res) => {
+  if (!ADMIN_PASSWORD || !ADMIN_SESSION_SECRET) {
+    return res.status(500).json({
+      ok: false,
+      error: "ADMIN_PASSWORD or ADMIN_SESSION_SECRET is missing in server .env",
+    });
+  }
+  const token = getAdminTokenFromRequest(req);
+  const authenticated = verifyAdminSessionToken(token);
+  return res.json({
+    ok: true,
+    data: { authenticated },
+  });
+});
+
+app.post("/api/admin/login", (req, res) => {
+  const password = String(req.body?.password || "");
+
+  try {
+    assertAdminConfig();
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: error?.message || "admin config missing",
+    });
+  }
+
+  if (!safeCompare(password, ADMIN_PASSWORD)) {
+    return res.status(401).json({
+      ok: false,
+      error: "invalid admin credentials",
+    });
+  }
+
+  const token = makeAdminSessionToken();
+  res.setHeader("Set-Cookie", makeAdminCookie(token));
+  return res.json({ ok: true });
+});
+
+app.post("/api/admin/logout", (_req, res) => {
+  res.setHeader("Set-Cookie", clearAdminCookie());
+  return res.json({ ok: true });
+});
+
+app.patch("/api/admin/products/:id", requireAdminAuth, async (req, res) => {
+  const id = String(req.params?.id || "").trim();
+  if (!id) {
+    return res.status(400).json({
+      ok: false,
+      error: "product id is required",
+    });
+  }
+
+  const payload = {};
+  if ("brand" in (req.body || {})) payload.brand = String(req.body?.brand || "").trim();
+  if ("name" in (req.body || {})) payload.name = String(req.body?.name || "").trim();
+  if ("category" in (req.body || {})) {
+    const category = String(req.body?.category || "").trim();
+    payload.category = category || null;
+  }
+  if ("url" in (req.body || {})) {
+    const url = String(req.body?.url || "").trim();
+    payload.url = url || null;
+  }
+  if ("imagePath" in (req.body || {})) {
+    const imagePath = String(req.body?.imagePath || "").trim();
+    payload.image_path = imagePath || null;
+  }
+  if ("sizeTable" in (req.body || {})) payload.size_table = req.body?.sizeTable ?? null;
+
+  const payloadKeys = Object.keys(payload);
+  if (payloadKeys.length === 0) {
+    return res.status(400).json({
+      ok: false,
+      error: "at least one updatable field is required",
+    });
+  }
+  if ("brand" in payload && !payload.brand) {
+    return res.status(400).json({
+      ok: false,
+      error: "brand cannot be empty",
+    });
+  }
+  if ("name" in payload && !payload.name) {
+    return res.status(400).json({
+      ok: false,
+      error: "name cannot be empty",
+    });
+  }
+
+  try {
+    assertSupabaseConfig();
+    const { data, error } = await supabase
+      .from(SUPABASE_PRODUCTS_TABLE)
+      .update(payload)
+      .eq("id", id)
+      .select("id,brand,name,category,url,size_table,created_at,image_path")
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({
+        ok: false,
+        error: "product not found",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      data: { product: data },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: error?.message || "product update error",
+    });
+  }
+});
+
+app.delete("/api/admin/products/:id", requireAdminAuth, async (req, res) => {
+  const id = String(req.params?.id || "").trim();
+  if (!id) {
+    return res.status(400).json({
+      ok: false,
+      error: "product id is required",
+    });
+  }
+
+  try {
+    assertSupabaseConfig();
+    const { data, error } = await supabase
+      .from(SUPABASE_PRODUCTS_TABLE)
+      .delete()
+      .eq("id", id)
+      .select("id");
+
+    if (error) throw error;
+    if (!Array.isArray(data) || data.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        error: "product not found",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      data: { id },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: error?.message || "product delete error",
     });
   }
 });

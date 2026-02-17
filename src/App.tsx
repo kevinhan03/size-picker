@@ -65,11 +65,21 @@ interface FormData {
   extractedTable: SizeTable | null;
 }
 
+interface AdminEditForm {
+  brand: string;
+  name: string;
+  category: string;
+  url: string;
+  imagePath: string;
+  sizeTableText: string;
+}
+
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '').trim();
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 // (C) bucket명을 product-assets로 고정
 const STORAGE_BUCKET = 'product-assets';
 const STORAGE_PREFIX = 'submissions/';
+const CATEGORY_OPTIONS = ['Outer', 'Top', 'Bottom', 'Shoes', 'Acc'] as const;
 
 const supabase =
   SUPABASE_URL && SUPABASE_ANON_KEY
@@ -294,6 +304,7 @@ const generateFallbackResult = (term: string): Product => ({
 });
 
 export default function App() {
+  const isAdminPage = typeof window !== 'undefined' && window.location.pathname === '/admin';
   const [productsError, setProductsError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [retryTrigger, setRetryTrigger] = useState(0);
@@ -308,6 +319,22 @@ export default function App() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [viewMode, setViewMode] = useState<'search' | 'grid'>('search');
   const [selectedGridProduct, setSelectedGridProduct] = useState<Product | null>(null);
+  const [isAdminCheckingSession, setIsAdminCheckingSession] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
+  const [isAdminAuthSubmitting, setIsAdminAuthSubmitting] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [adminEditForm, setAdminEditForm] = useState<AdminEditForm>({
+    brand: '',
+    name: '',
+    category: '',
+    url: '',
+    imagePath: '',
+    sizeTableText: '',
+  });
+  const [adminActionError, setAdminActionError] = useState<string | null>(null);
+  const [isAdminActionLoading, setIsAdminActionLoading] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     brand: '',
@@ -374,6 +401,36 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
 
+  useEffect(() => {
+    if (!isAdminPage) return;
+
+    let isActive = true;
+    setIsAdminCheckingSession(true);
+    void (async () => {
+      try {
+        const response = await fetch('/api/admin/session', { credentials: 'include' });
+        const payload = await response.json();
+        if (!response.ok || !payload?.ok) {
+          throw new Error(payload?.error || '관리자 세션 확인 실패');
+        }
+        if (!isActive) return;
+        setIsAdminAuthenticated(Boolean(payload?.data?.authenticated));
+        setAdminAuthError(null);
+      } catch (sessionError: unknown) {
+        if (!isActive) return;
+        const message = sessionError instanceof Error ? sessionError.message : '관리자 세션 확인 실패';
+        setAdminAuthError(message);
+        setIsAdminAuthenticated(false);
+      } finally {
+        if (isActive) setIsAdminCheckingSession(false);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isAdminPage]);
+
   const handleSearch = async (searchItem: Product | null = null) => {
     const term = searchItem ? searchItem.name : query;
     if (!term) return;
@@ -385,7 +442,6 @@ export default function App() {
 
     try {
       const matchedProducts = await searchProducts(term);
-      setProducts(matchedProducts);
       let found = searchItem || matchedProducts.find((item) => `${item.brand} ${item.name}`.toLowerCase().includes(term.toLowerCase()));
       if (!found) found = generateFallbackResult(term);
       setResult(found);
@@ -412,6 +468,137 @@ export default function App() {
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.onerror = null;
     event.currentTarget.style.display = 'none';
+  };
+
+  const handleAdminLogin = async () => {
+    if (!adminPassword.trim()) {
+      setAdminAuthError('관리자 비밀번호를 입력하세요.');
+      return;
+    }
+
+    setIsAdminAuthSubmitting(true);
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ password: adminPassword }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || '관리자 로그인 실패');
+      }
+      setIsAdminAuthenticated(true);
+      setAdminPassword('');
+      setAdminAuthError(null);
+    } catch (loginError: unknown) {
+      const message = loginError instanceof Error ? loginError.message : '관리자 로그인 실패';
+      setAdminAuthError(message);
+      setIsAdminAuthenticated(false);
+    } finally {
+      setIsAdminAuthSubmitting(false);
+    }
+  };
+
+  const handleAdminLogout = async () => {
+    try {
+      await fetch('/api/admin/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } finally {
+      setIsAdminAuthenticated(false);
+      setEditingProductId(null);
+      setAdminPassword('');
+    }
+  };
+
+  const startProductEdit = (product: Product) => {
+    setEditingProductId(product.id);
+    setAdminEditForm({
+      brand: product.brand,
+      name: product.name,
+      category: product.category === 'Uncategorized' ? '' : product.category,
+      url: product.url === '#' ? '' : product.url,
+      imagePath: product.imagePath ?? '',
+      sizeTableText: product.sizeTable ? JSON.stringify(product.sizeTable, null, 2) : '',
+    });
+    setAdminActionError(null);
+  };
+
+  const handleAdminUpdateProduct = async (id: string) => {
+    if (!adminEditForm.brand.trim() || !adminEditForm.name.trim()) {
+      setAdminActionError('브랜드명과 상품명은 비워둘 수 없습니다.');
+      return;
+    }
+
+    let parsedSizeTable: SizeTable | null = null;
+    if (adminEditForm.sizeTableText.trim()) {
+      try {
+        const parsed = JSON.parse(adminEditForm.sizeTableText);
+        parsedSizeTable = normalizeSizeTable(parsed);
+        if (!parsedSizeTable) {
+          setAdminActionError('사이즈표 형식이 올바르지 않습니다. headers/rows JSON 형식을 확인하세요.');
+          return;
+        }
+      } catch {
+        setAdminActionError('사이즈표는 JSON 형식으로 입력해야 합니다.');
+        return;
+      }
+    }
+
+    setIsAdminActionLoading(true);
+    try {
+      const response = await fetch(`/api/admin/products/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          brand: adminEditForm.brand.trim(),
+          name: adminEditForm.name.trim(),
+          category: adminEditForm.category || null,
+          url: adminEditForm.url || null,
+          imagePath: adminEditForm.imagePath.trim() || null,
+          sizeTable: parsedSizeTable,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || '상품 수정 실패');
+      }
+      setEditingProductId(null);
+      setRetryTrigger((prev) => prev + 1);
+      setAdminActionError(null);
+    } catch (updateError: unknown) {
+      const message = updateError instanceof Error ? updateError.message : '상품 수정 실패';
+      setAdminActionError(message);
+    } finally {
+      setIsAdminActionLoading(false);
+    }
+  };
+
+  const handleAdminDeleteProduct = async (id: string) => {
+    if (!window.confirm('이 상품을 삭제하시겠습니까?')) return;
+
+    setIsAdminActionLoading(true);
+    try {
+      const response = await fetch(`/api/admin/products/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || '상품 삭제 실패');
+      }
+      if (selectedGridProduct?.id === id) setSelectedGridProduct(null);
+      setRetryTrigger((prev) => prev + 1);
+      setAdminActionError(null);
+    } catch (deleteError: unknown) {
+      const message = deleteError instanceof Error ? deleteError.message : '상품 삭제 실패';
+      setAdminActionError(message);
+    } finally {
+      setIsAdminActionLoading(false);
+    }
   };
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>, type: 'product' | 'chart') => {
@@ -463,6 +650,10 @@ export default function App() {
       alert('상품 사진은 필수입니다.');
       return;
     }
+    if (!formData.sizeChartImage) {
+      alert('사이즈표 이미지는 필수입니다.');
+      return;
+    }
     setIsSaving(true);
     try {
       await submitProduct({
@@ -488,7 +679,150 @@ export default function App() {
     }
   };
 
-  const isFormValid = Boolean(formData.brand.trim()) && Boolean(formData.name.trim()) && Boolean(productPhotoFile) && !isProcessingImage && !isSaving;
+  const isFormValid =
+    Boolean(formData.brand.trim()) &&
+    Boolean(formData.name.trim()) &&
+    Boolean(productPhotoFile) &&
+    Boolean(formData.sizeChartImage) &&
+    !isProcessingImage &&
+    !isAnalyzingTable &&
+    !isSaving;
+
+  if (isAdminPage) {
+    return (
+      <div className="min-h-screen bg-black text-white font-sans">
+        <header className="sticky top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-40">
+          <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Ruler className="w-5 h-5 text-orange-500" />
+              <h1 className="text-lg font-bold text-white">관리자 상품 관리</h1>
+            </div>
+            {isAdminAuthenticated ? (
+              <button
+                onClick={() => void handleAdminLogout()}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800"
+              >
+                로그아웃
+              </button>
+            ) : null}
+          </div>
+        </header>
+
+        <main className="max-w-5xl mx-auto px-4 py-8">
+          {isAdminCheckingSession ? (
+            <div className="text-gray-400">관리자 세션 확인 중...</div>
+          ) : null}
+
+          {!isAdminCheckingSession && !isAdminAuthenticated ? (
+            <div className="max-w-md mx-auto bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+              <h2 className="text-xl font-bold text-white">관리자 로그인</h2>
+              <input
+                type="password"
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500"
+                placeholder="관리자 비밀번호"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void handleAdminLogin();
+                }}
+              />
+              {adminAuthError ? <p className="text-sm text-red-400">{adminAuthError}</p> : null}
+              <button
+                onClick={() => void handleAdminLogin()}
+                disabled={isAdminAuthSubmitting}
+                className={`w-full px-4 py-3 rounded-xl text-sm font-bold text-black ${isAdminAuthSubmitting ? 'bg-gray-600 text-gray-300 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}
+              >
+                {isAdminAuthSubmitting ? '로그인 중...' : '로그인'}
+              </button>
+            </div>
+          ) : null}
+
+          {!isAdminCheckingSession && isAdminAuthenticated ? (
+            <div className="space-y-4">
+              {productsError ? (
+                <div className="bg-orange-900/40 border border-orange-500 text-orange-200 px-4 py-3 rounded-xl">
+                  {productsError}
+                </div>
+              ) : null}
+              {adminActionError ? (
+                <div className="bg-red-900/40 border border-red-500 text-red-200 px-4 py-3 rounded-xl">
+                  {adminActionError}
+                </div>
+              ) : null}
+
+              {allProducts.length === 0 ? (
+                <div className="text-center py-16 text-gray-500">등록된 상품이 없습니다.</div>
+              ) : (
+                <div className="space-y-3">
+                  {allProducts.map((product) => (
+                    <div key={product.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                        <div className="w-20 h-20 bg-white rounded-xl p-2 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+                          <img src={product.image} alt={product.name} className="max-w-full max-h-full object-contain" onError={handleImageLoadError} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {editingProductId === product.id ? (
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.brand} onChange={(e) => setAdminEditForm((prev) => ({ ...prev, brand: e.target.value }))} placeholder="브랜드명" />
+                                <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.name} onChange={(e) => setAdminEditForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="상품명" />
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <select
+                                  className={`w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg ${adminEditForm.category ? 'text-white' : 'text-gray-400'}`}
+                                  value={adminEditForm.category}
+                                  onChange={(e) => setAdminEditForm((prev) => ({ ...prev, category: e.target.value }))}
+                                >
+                                  <option value="">카테고리</option>
+                                  {CATEGORY_OPTIONS.map((category) => (
+                                    <option key={category} value={category}>{category}</option>
+                                  ))}
+                                </select>
+                                <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.url} onChange={(e) => setAdminEditForm((prev) => ({ ...prev, url: e.target.value }))} placeholder="공식 URL (선택)" />
+                              </div>
+                              <input
+                                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+                                value={adminEditForm.imagePath}
+                                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, imagePath: e.target.value }))}
+                                placeholder="상품 이미지 경로 (storage path)"
+                              />
+                              <textarea
+                                className="w-full min-h-44 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg font-mono text-sm"
+                                value={adminEditForm.sizeTableText}
+                                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, sizeTableText: e.target.value }))}
+                                placeholder={'사이즈표 JSON\n예) {"headers":["사이즈","가슴"],"rows":[["S","52"]]}'}
+                              />
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => void handleAdminUpdateProduct(product.id)} disabled={isAdminActionLoading} className={`px-4 py-2 rounded-lg text-sm font-bold text-black ${isAdminActionLoading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}>저장</button>
+                                <button onClick={() => { setEditingProductId(null); setAdminActionError(null); }} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800">취소</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-bold text-orange-500 uppercase tracking-wide">{product.brand}</p>
+                                <p className="text-base font-semibold text-white">{product.name}</p>
+                                <p className="text-sm text-gray-400 mt-1">{product.category}</p>
+                                <p className="text-sm text-gray-500 mt-1 break-all">{product.url && product.url !== '#' ? product.url : 'URL 없음'}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => startProductEdit(product)} className="px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-800">수정</button>
+                                <button onClick={() => void handleAdminDeleteProduct(product.id)} disabled={isAdminActionLoading} className={`px-3 py-2 rounded-lg text-sm font-medium ${isAdminActionLoading ? 'text-gray-500 bg-gray-800 cursor-not-allowed' : 'text-red-300 hover:bg-red-900/30'}`}>삭제</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-orange-500 selection:text-white">
@@ -625,7 +959,16 @@ export default function App() {
             <div className="p-6 overflow-y-auto text-white space-y-4">
               <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="브랜드명" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
               <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="상품명" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-              <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="카테고리 (선택)" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} />
+              <select
+                className={`w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl ${formData.category ? 'text-white' : 'text-gray-400'}`}
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              >
+                <option value="">카테고리</option>
+                {CATEGORY_OPTIONS.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
               <div className="relative">
                 <Globe className="absolute left-4 top-3.5 w-4 h-4 text-gray-500" />
                 <input className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="공식 URL (선택)" value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} />
@@ -641,11 +984,14 @@ export default function App() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-gray-400">사이즈표 이미지 (선택)</label>
-                <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center">
-                  {formData.sizeChartImage ? <img src={formData.sizeChartImage} className="h-full object-contain" /> : <Upload className="w-8 h-8 text-gray-500" />}
-                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'chart')} />
-                </label>
+                <label className="text-sm text-gray-400">사이즈표 이미지</label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <label className="cursor-pointer w-full sm:w-1/2 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0">
+                    {formData.sizeChartImage ? <img src={formData.sizeChartImage} className="h-full object-contain" /> : <Upload className="w-8 h-8 text-gray-500" />}
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'chart')} />
+                  </label>
+                  <p className="text-xs text-gray-400 leading-relaxed">사이즈표 사진을 올리면<br />자동으로 표를 추출합니다.</p>
+                </div>
                 {isAnalyzingTable && <div className="text-xs text-orange-400">사이즈표 추출 중...</div>}
               </div>
             </div>
