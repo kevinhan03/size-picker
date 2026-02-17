@@ -70,8 +70,6 @@ interface AdminEditForm {
   name: string;
   category: string;
   url: string;
-  imagePath: string;
-  sizeTableText: string;
 }
 
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '').trim();
@@ -330,9 +328,13 @@ export default function App() {
     name: '',
     category: '',
     url: '',
-    imagePath: '',
-    sizeTableText: '',
   });
+  const [adminImagePath, setAdminImagePath] = useState<string | null>(null);
+  const [adminImagePreview, setAdminImagePreview] = useState<string>('');
+  const [adminProductPhotoFile, setAdminProductPhotoFile] = useState<File | null>(null);
+  const [adminSizeChartImage, setAdminSizeChartImage] = useState<string | null>(null);
+  const [adminExtractedTable, setAdminExtractedTable] = useState<SizeTable | null>(null);
+  const [isAdminAnalyzingTable, setIsAdminAnalyzingTable] = useState(false);
   const [adminActionError, setAdminActionError] = useState<string | null>(null);
   const [isAdminActionLoading, setIsAdminActionLoading] = useState(false);
 
@@ -520,10 +522,44 @@ export default function App() {
       name: product.name,
       category: product.category === 'Uncategorized' ? '' : product.category,
       url: product.url === '#' ? '' : product.url,
-      imagePath: product.imagePath ?? '',
-      sizeTableText: product.sizeTable ? JSON.stringify(product.sizeTable, null, 2) : '',
     });
+    setAdminImagePath(product.imagePath ?? null);
+    setAdminImagePreview(product.image);
+    setAdminProductPhotoFile(null);
+    setAdminSizeChartImage(null);
+    setAdminExtractedTable(product.sizeTable ?? null);
     setAdminActionError(null);
+  };
+
+  const handleAdminFileUpload = (event: ChangeEvent<HTMLInputElement>, type: 'product' | 'chart') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (type === 'product') {
+      void (async () => {
+        const dataUrl = await readFileAsDataUrl(file);
+        setAdminProductPhotoFile(file);
+        setAdminImagePreview(dataUrl);
+      })();
+      return;
+    }
+
+    void (async () => {
+      const dataUrl = await readFileAsDataUrl(file);
+      const optimizedDataUrl = await resizeImage(dataUrl, 1600);
+      const optimizedBase64 = optimizedDataUrl.split(',')[1] || '';
+      setAdminSizeChartImage(optimizedDataUrl);
+      setIsAdminAnalyzingTable(true);
+      try {
+        const tableData = await extractSizeTableFromImage(optimizedBase64, 'image/png');
+        setAdminExtractedTable(tableData);
+      } catch (extractError: unknown) {
+        const message = extractError instanceof Error ? extractError.message : 'Size table extraction failed.';
+        setAdminActionError(`사이즈표 재분석 실패: ${message}`);
+      } finally {
+        setIsAdminAnalyzingTable(false);
+      }
+    })();
   };
 
   const handleAdminUpdateProduct = async (id: string) => {
@@ -532,23 +568,14 @@ export default function App() {
       return;
     }
 
-    let parsedSizeTable: SizeTable | null = null;
-    if (adminEditForm.sizeTableText.trim()) {
-      try {
-        const parsed = JSON.parse(adminEditForm.sizeTableText);
-        parsedSizeTable = normalizeSizeTable(parsed);
-        if (!parsedSizeTable) {
-          setAdminActionError('사이즈표 형식이 올바르지 않습니다. headers/rows JSON 형식을 확인하세요.');
-          return;
-        }
-      } catch {
-        setAdminActionError('사이즈표는 JSON 형식으로 입력해야 합니다.');
-        return;
-      }
-    }
-
     setIsAdminActionLoading(true);
     try {
+      let nextImagePath = adminImagePath;
+      if (adminProductPhotoFile) {
+        nextImagePath = await uploadSubmissionImage(adminProductPhotoFile);
+        setAdminImagePath(nextImagePath);
+      }
+
       const response = await fetch(`/api/admin/products/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -558,8 +585,8 @@ export default function App() {
           name: adminEditForm.name.trim(),
           category: adminEditForm.category || null,
           url: adminEditForm.url || null,
-          imagePath: adminEditForm.imagePath.trim() || null,
-          sizeTable: parsedSizeTable,
+          imagePath: nextImagePath,
+          sizeTable: adminExtractedTable,
         }),
       });
       const payload = await response.json();
@@ -567,6 +594,8 @@ export default function App() {
         throw new Error(payload?.error || '상품 수정 실패');
       }
       setEditingProductId(null);
+      setAdminProductPhotoFile(null);
+      setAdminSizeChartImage(null);
       setRetryTrigger((prev) => prev + 1);
       setAdminActionError(null);
     } catch (updateError: unknown) {
@@ -631,7 +660,7 @@ export default function App() {
       const dataUrl = await readFileAsDataUrl(file);
       const optimizedDataUrl = await resizeImage(dataUrl, 1600);
       const optimizedBase64 = optimizedDataUrl.split(',')[1] || '';
-      setFormData((prev) => ({ ...prev, sizeChartImage: optimizedDataUrl }));
+      setFormData((prev) => ({ ...prev, sizeChartImage: optimizedDataUrl, extractedTable: null }));
       setIsAnalyzingTable(true);
       try {
         const tableData = await extractSizeTableFromImage(optimizedBase64, 'image/png');
@@ -666,8 +695,7 @@ export default function App() {
       });
       setIsModalOpen(false);
       setShowSuccessModal(true);
-      setTimeout(() => setShowSuccessModal(false), 2500);
-      alert('제출 완료! 관리자 승인 후 검색 결과에 노출됩니다.');
+      setTimeout(() => setShowSuccessModal(false), 1000);
       setRetryTrigger((prev) => prev + 1);
       setProductsError(null);
     } catch (submitError: unknown) {
@@ -780,21 +808,50 @@ export default function App() {
                                 </select>
                                 <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.url} onChange={(e) => setAdminEditForm((prev) => ({ ...prev, url: e.target.value }))} placeholder="공식 URL (선택)" />
                               </div>
-                              <input
-                                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg"
-                                value={adminEditForm.imagePath}
-                                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, imagePath: e.target.value }))}
-                                placeholder="상품 이미지 경로 (storage path)"
-                              />
-                              <textarea
-                                className="w-full min-h-44 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg font-mono text-sm"
-                                value={adminEditForm.sizeTableText}
-                                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, sizeTableText: e.target.value }))}
-                                placeholder={'사이즈표 JSON\n예) {"headers":["사이즈","가슴"],"rows":[["S","52"]]}'}
-                              />
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                  <p className="text-xs text-gray-400">상품 이미지 교체</p>
+                                  <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
+                                    {adminImagePreview ? <img src={adminImagePreview} className="h-full object-contain" /> : <Upload className="w-6 h-6 text-gray-500" />}
+                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleAdminFileUpload(e, 'product')} />
+                                  </label>
+                                </div>
+                                <div className="space-y-2">
+                                  <p className="text-xs text-gray-400">사이즈표 이미지 재분석</p>
+                                  <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
+                                    {adminSizeChartImage ? <img src={adminSizeChartImage} className="h-full object-contain" /> : <Upload className="w-6 h-6 text-gray-500" />}
+                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleAdminFileUpload(e, 'chart')} />
+                                  </label>
+                                </div>
+                              </div>
+                              {isAdminAnalyzingTable ? <div className="text-xs text-orange-400">사이즈표 재분석 중...</div> : null}
+                              <div className="overflow-x-auto rounded-lg border border-gray-700">
+                                {adminExtractedTable?.headers?.length ? (
+                                  <table className="w-full text-xs text-left">
+                                    <thead className="border-b border-gray-700">
+                                      <tr>
+                                        {adminExtractedTable.headers.map((header, idx) => (
+                                          <th key={idx} className="px-3 py-2 font-semibold text-green-400 whitespace-nowrap">{header}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {adminExtractedTable.rows.map((row, rowIdx) => (
+                                        <tr key={rowIdx} className="border-b border-gray-800">
+                                          {row.map((cell, cellIdx) => (
+                                            <td key={cellIdx} className="px-3 py-2 text-gray-200 whitespace-nowrap">{cell}</td>
+                                          ))}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                ) : (
+                                  <div className="px-3 py-4 text-xs text-gray-500">사이즈표 데이터가 없습니다.</div>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2">
-                                <button onClick={() => void handleAdminUpdateProduct(product.id)} disabled={isAdminActionLoading} className={`px-4 py-2 rounded-lg text-sm font-bold text-black ${isAdminActionLoading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}>저장</button>
-                                <button onClick={() => { setEditingProductId(null); setAdminActionError(null); }} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800">취소</button>
+                                <button onClick={() => void handleAdminUpdateProduct(product.id)} disabled={isAdminActionLoading || isAdminAnalyzingTable} className={`px-4 py-2 rounded-lg text-sm font-bold text-black ${(isAdminActionLoading || isAdminAnalyzingTable) ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}>저장</button>
+                                <button onClick={() => { setEditingProductId(null); setAdminActionError(null); setAdminProductPhotoFile(null); setAdminSizeChartImage(null); }} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800">취소</button>
                               </div>
                             </div>
                           ) : (
@@ -986,8 +1043,39 @@ export default function App() {
               <div className="space-y-2">
                 <label className="text-sm text-gray-400">사이즈표 이미지</label>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <label className="cursor-pointer w-full sm:w-1/2 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0">
-                    {formData.sizeChartImage ? <img src={formData.sizeChartImage} className="h-full object-contain" /> : <Upload className="w-8 h-8 text-gray-500" />}
+                  <label className="cursor-pointer w-full sm:w-1/2 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                    {!formData.sizeChartImage ? (
+                      <Upload className="w-8 h-8 text-gray-500" />
+                    ) : formData.extractedTable && !isAnalyzingTable ? (
+                      <div className="w-full h-full overflow-auto p-2">
+                        <table className="w-full text-[10px] text-left">
+                          {formData.extractedTable.headers.length > 0 ? (
+                            <thead className="border-b border-gray-700">
+                              <tr>
+                                {formData.extractedTable.headers.map((header, idx) => (
+                                  <th key={idx} className="px-2 py-1 font-semibold text-green-400 whitespace-nowrap">
+                                    {header}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                          ) : null}
+                          <tbody>
+                            {formData.extractedTable.rows.map((row, rowIndex) => (
+                              <tr key={rowIndex} className="border-b border-gray-800">
+                                {row.map((cell, cellIndex) => (
+                                  <td key={cellIndex} className="px-2 py-1 text-gray-200 whitespace-nowrap">
+                                    {cell}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <img src={formData.sizeChartImage} className="h-full object-contain" />
+                    )}
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'chart')} />
                   </label>
                   <p className="text-xs text-gray-400 leading-relaxed">사이즈표 사진을 올리면<br />자동으로 표를 추출합니다.</p>
@@ -1009,11 +1097,11 @@ export default function App() {
 
       {showSuccessModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none">
-          <div className="bg-black/80 backdrop-blur-md border rounded-2xl p-8 flex flex-col items-center justify-center" style={{ borderColor: '#00FF00', boxShadow: '0 0 50px rgba(0,255,0,0.2)' }}>
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(0, 255, 0, 0.2)' }}>
-              <Check className="w-10 h-10" style={{ color: '#00FF00' }} />
+          <div className="w-36 h-36 bg-black/85 backdrop-blur-md border border-green-400/80 rounded-2xl flex flex-col items-center justify-center gap-2 shadow-[0_0_30px_rgba(34,197,94,0.25)]">
+            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <Check className="w-6 h-6 text-green-400" />
             </div>
-            <h3 className="text-2xl font-bold tracking-widest" style={{ color: '#00FF00' }}>COMPLETE</h3>
+            <h3 className="text-sm font-bold tracking-wide text-green-400">제출 완료</h3>
           </div>
         </div>
       )}
