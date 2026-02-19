@@ -55,3 +55,20 @@
     --search-input-font-size: 1.125rem;
   }
 }
+
+:root {
+  --ui-depth-shadow: 0 2px 1px rgba(255, 255, 255, 0.1), 0 -2px 1px rgba(255, 255, 255, 0.3);
+}
+
+button,
+input:not([type='hidden']),
+select,
+textarea {
+  box-shadow: var(--ui-depth-shadow);
+}
+
+.ui-add-product-modal,
+.ui-product-card,
+.ui-product-detail-modal {
+  box-shadow: var(--ui-depth-shadow);
+}

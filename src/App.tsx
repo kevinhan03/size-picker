@@ -1028,7 +1028,7 @@ export default function App() {
               ) : (
                 <div className="space-y-3">
                   {allProducts.map((product) => (
-                    <div key={product.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+                    <div key={product.id} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl p-4">
                       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                         <div className="w-20 h-20 bg-white rounded-xl p-2 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                           <ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-w-full max-h-full object-contain" onError={handleImageLoadError} />
@@ -1145,7 +1145,7 @@ export default function App() {
             <button onClick={() => { setViewMode('grid'); setResult(null); setQuery(''); setError(null); setSelectedGridProduct(null); }} className="p-2 text-gray-400 hover:text-orange-500 transition rounded-lg hover:bg-gray-800" title="전체 목록 보기">
               <LayoutGrid className="w-6 h-6" />
             </button>
-            <button onClick={handleOpenModal} className="flex items-center gap-2 text-black px-4 py-2 rounded-lg hover:opacity-80 transition shadow-lg text-sm font-bold" style={{ backgroundColor: '#00FF00', boxShadow: '0 0 15px rgba(0,255,0,0.3)' }}>
+            <button onClick={handleOpenModal} className="flex items-center gap-2 text-black px-4 py-2 rounded-lg hover:opacity-80 transition shadow-lg text-sm font-bold" style={{ backgroundColor: '#00FF00', boxShadow: 'var(--ui-depth-shadow), 0 0 15px rgba(0,255,0,0.3)' }}>
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">상품 추가</span>
             </button>
@@ -1188,7 +1188,7 @@ export default function App() {
                 </div>
                 <input type="text" className="w-full pl-14 pr-14 py-[var(--search-input-py)] bg-gray-900 border-2 border-gray-800 rounded-2xl shadow-xl text-[length:var(--search-input-font-size)] text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all" placeholder="브랜드명 혹은 상품명" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} onFocus={() => { if (query) setShowSuggestions(true); }} />
                 {query && <button onClick={() => { setQuery(''); setSuggestions([]); }} className="absolute inset-y-0 right-14 pr-2 flex items-center text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>}
-                <button onClick={() => { void handleSearch(); }} className="absolute inset-y-2 right-2 p-3 bg-orange-500 rounded-xl text-black hover:bg-orange-400 transition-colors shadow-lg"><ArrowRight className="w-5 h-5" /></button>
+                <button onClick={() => { void handleSearch(); }} className="absolute inset-y-2 right-2 p-3 bg-orange-500 rounded-xl text-black hover:bg-orange-400 transition-colors shadow-lg" style={{ boxShadow: 'var(--ui-depth-shadow)' }}><ArrowRight className="w-5 h-5" /></button>
               </div>
 
               {showSuggestions && (
@@ -1212,7 +1212,7 @@ export default function App() {
 
             {result && !isLoading && (
               <div className="mt-12 w-full max-w-4xl">
-                <div className="bg-gray-900 rounded-3xl shadow-2xl overflow-hidden border border-gray-800">
+                <div className="ui-product-card bg-gray-900 rounded-3xl shadow-2xl overflow-hidden border border-gray-800">
                   <div className="p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row gap-6 md:items-center bg-black/20">
                     <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl shadow-sm border border-gray-700 flex-shrink-0 overflow-hidden p-2 flex items-center justify-center"><ProgressiveImage src={result.image} thumbnailSrc={result.thumbnailImage} alt={result.name} className="max-w-full max-h-full object-contain" loading="eager" /></div>
                     <div className="flex-1">
@@ -1268,7 +1268,7 @@ export default function App() {
             {allProducts.length === 0 ? <div className="text-center py-20 text-gray-500">등록된 상품이 없습니다.</div> : (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 {allProducts.map((product) => (
-                  <div key={product.id} onClick={() => { setSelectedGridProduct(product); }} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
+                  <div key={product.id} onClick={() => { setSelectedGridProduct(product); }} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
                     <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative"><ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-h-full max-w-full object-contain" onError={handleImageLoadError} /></div>
                     <div className="p-5 flex-1 flex flex-col"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="text-sm text-gray-500 mt-auto pt-2">{product.category}</div></div>
                   </div>
@@ -1281,7 +1281,7 @@ export default function App() {
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="bg-gray-900 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh] border border-gray-800">
+          <div className="ui-add-product-modal bg-gray-900 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh] border border-gray-800">
             <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-900 sticky top-0 z-10 text-white">
               <h3 className="text-lg font-bold" style={{ color: '#00FF00' }}>상품 직접 추가</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-800 rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
@@ -1383,7 +1383,7 @@ export default function App() {
       {viewMode === 'grid' && selectedGridProduct && (
         <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedGridProduct(null)} />
-          <div className="relative bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="ui-product-detail-modal relative bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="sticky top-0 z-10 bg-gray-900/95 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg sm:text-xl font-bold text-white">상품 상세</h3>
               <button onClick={() => setSelectedGridProduct(null)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition">
@@ -1411,10 +1411,10 @@ export default function App() {
               <div className="mt-8 overflow-x-auto rounded-xl border border-gray-800">
                 {selectedGridProduct.sizeTable?.headers?.length ? (
                   <table className="w-full text-sm text-left">
-                    <thead className="text-xs uppercase border-b border-gray-700">
+                    <thead className="text-sm border-b border-gray-700">
                       <tr>
                         {selectedGridProduct.sizeTable.headers.map((header, index) => (
-                          <th key={index} className={`px-6 py-4 font-bold bg-gray-800 ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(header) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>
+                          <th key={index} className={`px-6 py-4 bg-gray-800 text-base font-bold uppercase ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(header) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>
                             {String(header)}
                           </th>
                         ))}
@@ -1432,7 +1432,7 @@ export default function App() {
                             {row.map((cell, cellIndex) => (
                               <td
                                 key={cellIndex}
-                                className={`px-6 py-4 font-medium transition-all duration-200 ${cellIndex === 0 ? 'border-r border-gray-700' : ''} ${
+                                className={`px-6 py-4 font-medium transition-all duration-200 ${cellIndex === 0 ? 'border-r border-gray-700 text-base font-bold' : ''} ${
                                   isActiveRow
                                     ? 'bg-gray-100 text-black first:rounded-l-lg last:rounded-r-lg'
                                     : 'bg-gray-900 text-gray-300 group-hover:bg-gray-100 group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
