@@ -588,6 +588,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [activeResultRowIndex, setActiveResultRowIndex] = useState<number | null>(null);
   const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
+  const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const isSelectionRef = useRef(false);
@@ -636,6 +637,10 @@ export default function App() {
 
   useEffect(() => {
     setActiveGridDetailRowIndex(null);
+  }, [selectedGridProduct?.id]);
+
+  useEffect(() => {
+    setIsDetailImageZoomed(false);
   }, [selectedGridProduct?.id]);
 
   useEffect(() => {
@@ -1393,9 +1398,13 @@ export default function App() {
 
             <div className="p-6 md:p-8">
               <div className="flex flex-col md:flex-row gap-6 md:items-center">
-                <div className="w-28 h-28 md:w-36 md:h-36 bg-white rounded-2xl border border-gray-700 p-2 flex items-center justify-center overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsDetailImageZoomed(true)}
+                  className="w-28 h-28 md:w-36 md:h-36 bg-white rounded-[20px] border border-gray-700 p-2 flex items-center justify-center overflow-hidden cursor-zoom-in"
+                >
                   <ProgressiveImage src={selectedGridProduct.image} thumbnailSrc={selectedGridProduct.thumbnailImage} alt={selectedGridProduct.name} className="max-w-full max-h-full object-contain" loading="eager" onError={handleImageLoadError} />
-                </div>
+                </button>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-2">
                     <span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{selectedGridProduct.brand}</span>
@@ -1451,6 +1460,23 @@ export default function App() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isDetailImageZoomed && selectedGridProduct && (
+        <div
+          className="fixed inset-0 z-[75] bg-black/90 backdrop-blur-sm p-4 flex items-center justify-center cursor-pointer"
+          onClick={() => setIsDetailImageZoomed(false)}
+          onTouchStart={() => setIsDetailImageZoomed(false)}
+        >
+          <div className="h-[63vh] w-full max-w-6xl flex items-center justify-center">
+            <img
+              src={selectedGridProduct.image}
+              alt={selectedGridProduct.name}
+              className="max-w-full max-h-full object-contain cursor-pointer"
+              style={{ borderRadius: '20px' }}
+            />
           </div>
         </div>
       )}
