@@ -926,6 +926,10 @@ app.post("/api/remove-bg", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`[server] listening on http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`[server] listening on http://localhost:${PORT}`);
+  });
+}
+
+export default app;

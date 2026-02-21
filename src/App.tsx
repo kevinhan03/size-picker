@@ -164,29 +164,7 @@ const ProgressiveImage = ({
   loading = 'lazy',
   onError,
 }: ProgressiveImageProps) => {
-  const [displaySrc, setDisplaySrc] = useState<string>(thumbnailSrc || src);
-
-  useEffect(() => {
-    if (!src) {
-      setDisplaySrc(thumbnailSrc || '');
-      return;
-    }
-    if (!thumbnailSrc || thumbnailSrc === src) {
-      setDisplaySrc(src);
-      return;
-    }
-
-    setDisplaySrc(thumbnailSrc);
-    const preloader = new Image();
-    preloader.src = src;
-    preloader.onload = () => setDisplaySrc(src);
-    preloader.onerror = () => setDisplaySrc(src);
-
-    return () => {
-      preloader.onload = null;
-      preloader.onerror = null;
-    };
-  }, [src, thumbnailSrc]);
+  const displaySrc = thumbnailSrc || src;
 
   return (
     <img

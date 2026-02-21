@@ -36,6 +36,37 @@ SUPABASE_PRODUCTS_TABLE=products
 npm run dev
 ```
 
+## Vercel env split (Production / Preview)
+
+Use separate values for each Vercel environment:
+
+- Production: real service keys/database
+- Preview: staging/test keys/database
+
+Template files in this repo:
+
+- `.env.production.example`
+- `.env.preview.example`
+
+In Vercel, register the same variable names with different values per environment.
+Do not upload `.env` files directly to Vercel.
+
+### Public env (client-exposed)
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+### Private env (server-only)
+
+- `GEMINI_API_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `ADMIN_PASSWORD`
+- `ADMIN_SESSION_SECRET`
+- `SUPABASE_PRODUCTS_TABLE` (optional)
+- `SUPABASE_STORAGE_BUCKET` (optional)
+- `ADMIN_SESSION_TTL_SECONDS` (optional)
+
 ## Dev scripts
 
 - `npm run dev:web`: Vite HTTPS dev server (via `scripts/dev-proxy.ps1`)
