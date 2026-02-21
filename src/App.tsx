@@ -1140,10 +1140,7 @@ export default function App() {
     <div className="min-h-screen bg-black text-white font-sans selection:bg-orange-500 selection:text-white">
       <header className="fixed top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { setViewMode('search'); setResult(null); setQuery(''); setError(null); }}>
-            <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center transform rotate-3 hover:rotate-6 transition-transform">
-              <Ruler className="text-black w-5 h-5" />
-            </div>
+          <div className="flex items-center cursor-pointer" onClick={() => { setViewMode('search'); setResult(null); setQuery(''); setError(null); }}>
             <span className="font-bold text-xl tracking-tight text-orange-500">Size Picker</span>
           </div>
           <div className="flex items-center gap-4">
