@@ -3,61 +3,108 @@
 @tailwind utilities;
 
 :root {
+  --app-page-min-h: 100vh;
+  --app-main-min-h: 100vh;
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-main-pt: 8rem;
-  --app-main-pb: 5rem;
+  --app-main-pb: calc(5rem + var(--app-safe-bottom));
   --app-main-px: 1rem;
+  --header-logo-size: 1.25rem;
   --hero-title-size: 3.75rem;
   --hero-subtitle-size: 1.5rem;
+  --hero-subtitle-mt: 2rem;
   --hero-title-mt: 1rem;
   --hero-title-mb: 2rem;
   --search-input-py: 1.25rem;
   --search-input-font-size: 1.125rem;
+  --search-result-title-size: 1.5rem;
+  --grid-heading-size: 1.875rem;
+  --grid-card-title-size: 1.125rem;
+  --grid-card-category-size: 0.875rem;
 }
 
 @media (max-width: 639px) {
   :root {
+    --app-page-min-h: 100vh;
+    --app-main-min-h: 100vh;
     --app-main-pt: 7rem;
-    --app-main-pb: 3.5rem;
+    --app-main-pb: calc(3.5rem + var(--app-safe-bottom));
     --app-main-px: 0.875rem;
+    --header-logo-size: 1.05rem;
     --hero-title-size: 2.375rem;
-    --hero-subtitle-size: 1rem;
+    --hero-subtitle-size: 0.9rem;
+    --hero-subtitle-mt: 1.25rem;
     --hero-title-mt: 0.5rem;
     --hero-title-mb: 1.25rem;
     --search-input-py: 0.95rem;
-    --search-input-font-size: 1rem;
+    --search-input-font-size: 0.95rem;
+    --search-result-title-size: 1.15rem;
+    --grid-heading-size: 1.35rem;
+    --grid-card-title-size: 0.95rem;
+    --grid-card-category-size: 0.75rem;
   }
 }
 
 @media (min-width: 640px) and (max-width: 1023px) {
   :root {
+    --app-page-min-h: 100vh;
+    --app-main-min-h: 100vh;
     --app-main-pt: 7.5rem;
-    --app-main-pb: 4.5rem;
+    --app-main-pb: calc(4.5rem + var(--app-safe-bottom));
     --app-main-px: 1rem;
+    --header-logo-size: 1.15rem;
     --hero-title-size: 3rem;
     --hero-subtitle-size: 1.25rem;
+    --hero-subtitle-mt: 1.5rem;
     --hero-title-mt: 0.75rem;
     --hero-title-mb: 1.75rem;
     --search-input-py: 1.1rem;
     --search-input-font-size: 1.05rem;
+    --search-result-title-size: 1.35rem;
+    --grid-heading-size: 1.65rem;
+    --grid-card-title-size: 1.05rem;
+    --grid-card-category-size: 0.8rem;
   }
 }
 
 @media (min-width: 1024px) {
   :root {
+    --app-page-min-h: 100vh;
+    --app-main-min-h: 100vh;
     --app-main-pt: 8rem;
-    --app-main-pb: 5rem;
+    --app-main-pb: calc(5rem + var(--app-safe-bottom));
     --app-main-px: 1rem;
+    --header-logo-size: 1.25rem;
     --hero-title-size: 3.75rem;
     --hero-subtitle-size: 1.5rem;
+    --hero-subtitle-mt: 2rem;
     --hero-title-mt: 1rem;
     --hero-title-mb: 2rem;
     --search-input-py: 1.25rem;
     --search-input-font-size: 1.125rem;
+    --search-result-title-size: 1.5rem;
+    --grid-heading-size: 1.875rem;
+    --grid-card-title-size: 1.125rem;
+    --grid-card-category-size: 0.875rem;
   }
 }
 
 :root {
   --ui-depth-shadow: 0 2px 1px rgba(255, 255, 255, 0.1), 0 -2px 1px rgba(255, 255, 255, 0.3);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: #000;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-page-min-h: 100dvh;
+    --app-main-min-h: 100dvh;
+  }
 }
 
 button,

@@ -164,11 +164,32 @@ const ProgressiveImage = ({
   loading = 'lazy',
   onError,
 }: ProgressiveImageProps) => {
-  const displaySrc = thumbnailSrc || src;
+  const [displaySrc, setDisplaySrc] = useState<string>(thumbnailSrc || src);
+
+  useEffect(() => {
+    const initialSrc = thumbnailSrc || src;
+    setDisplaySrc(initialSrc);
+
+    if (!thumbnailSrc || thumbnailSrc === src) return;
+
+    let canceled = false;
+    const fullImage = new Image();
+    fullImage.src = src;
+    fullImage.onload = () => {
+      if (!canceled) setDisplaySrc(src);
+    };
+    fullImage.onerror = () => {
+      if (!canceled) setDisplaySrc(initialSrc);
+    };
+
+    return () => {
+      canceled = true;
+    };
+  }, [src, thumbnailSrc]);
 
   return (
     <img
-      src={displaySrc || src}
+      src={displaySrc}
       alt={alt}
       className={className}
       loading={loading}
@@ -371,7 +392,7 @@ const normalizeSizeTable = (value: unknown): SizeTable | null => {
 // (B) toPublicUrl(path): getPublicUrl
 const toPublicUrl = (
   path: string | null | undefined,
-  options?: { width?: number; height?: number; quality?: number }
+  options?: { width?: number; height?: number; quality?: number; resize?: 'cover' | 'contain' | 'fill' }
 ): string => {
   if (!path) return '';
   assertSupabaseClient();
@@ -381,6 +402,7 @@ const toPublicUrl = (
           width: options.width,
           height: options.height,
           quality: options.quality,
+          resize: options.resize,
         },
       })
     : supabase!.storage.from(STORAGE_BUCKET).getPublicUrl(path);
@@ -400,7 +422,7 @@ const normalizeProduct = (row: ProductRow): Product | null => {
     category: String(row.category ?? 'Uncategorized'),
     url: String(row.url ?? '#'),
     image: toPublicUrl(imagePath),
-    thumbnailImage: toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 }),
+    thumbnailImage: toPublicUrl(imagePath, { width: 320, height: 320, quality: 65, resize: 'contain' }),
     imagePath,
     sizeTable: normalizeSizeTable(row.size_table),
     createdAt: row.created_at ? String(row.created_at) : undefined,
@@ -903,11 +925,12 @@ export default function App() {
   };
 
   const handleSubmitProduct = async () => {
+    const isSizeChartOptionalCategory = ['acc', 'shoes'].includes(formData.category.trim().toLowerCase());
     if (!productPhotoFile) {
       alert('상품 사진은 필수입니다.');
       return;
     }
-    if (!formData.sizeChartImage) {
+    if (!isSizeChartOptionalCategory && !formData.sizeChartImage) {
       alert('사이즈표 이미지는 필수입니다.');
       return;
     }
@@ -936,17 +959,22 @@ export default function App() {
   };
 
   const isFormValid =
-    Boolean(formData.brand.trim()) &&
-    Boolean(formData.name.trim()) &&
-    Boolean(productPhotoFile) &&
-    Boolean(formData.sizeChartImage) &&
-    !isProcessingImage &&
-    !isAnalyzingTable &&
-    !isSaving;
+    (() => {
+      const isSizeChartOptionalCategory = ['acc', 'shoes'].includes(formData.category.trim().toLowerCase());
+      return (
+        Boolean(formData.brand.trim()) &&
+        Boolean(formData.name.trim()) &&
+        Boolean(productPhotoFile) &&
+        (isSizeChartOptionalCategory || Boolean(formData.sizeChartImage)) &&
+        !isProcessingImage &&
+        !isAnalyzingTable &&
+        !isSaving
+      );
+    })();
 
   if (isAdminPage) {
     return (
-      <div className="min-h-screen bg-black text-white font-sans">
+      <div className="min-h-[var(--app-page-min-h)] bg-black text-white font-sans">
         <header className="sticky top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-40">
           <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1115,11 +1143,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-orange-500 selection:text-white">
+    <div className="min-h-[var(--app-page-min-h)] bg-black text-white font-sans selection:bg-orange-500 selection:text-white">
       <header className="fixed top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center cursor-pointer" onClick={() => { setViewMode('search'); setResult(null); setQuery(''); setError(null); }}>
-            <span className="font-bold text-xl tracking-tight text-orange-500">Size Picker</span>
+            <span className="font-bold text-[length:var(--header-logo-size)] tracking-tight text-orange-500">Size Picker</span>
           </div>
           <div className="flex items-center gap-4">
             <button onClick={() => { setViewMode('grid'); setResult(null); setQuery(''); setError(null); setSelectedGridProduct(null); }} className="p-2 text-gray-400 hover:text-orange-500 transition rounded-lg hover:bg-gray-800" title="전체 목록 보기">
@@ -1133,7 +1161,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="pt-[var(--app-main-pt)] pb-[var(--app-main-pb)] px-[var(--app-main-px)] flex flex-col items-center min-h-screen">
+      <main className="pt-[var(--app-main-pt)] pb-[var(--app-main-pb)] px-[var(--app-main-px)] flex flex-col items-center min-h-[var(--app-main-min-h)]">
         {productsError && (
           <div className="w-full max-w-4xl mb-6 bg-orange-900/50 border border-orange-500 text-orange-200 px-6 py-4 rounded-xl flex flex-col md:flex-row items-center gap-4">
             <div className="flex items-center gap-2 flex-1">
@@ -1152,7 +1180,7 @@ export default function App() {
               <span className="block text-white">모든 옷의 사이즈표</span>
               <span className="block text-orange-500">한 번에 검색하세요</span>
             </h1>
-            <p className="mt-8 text-[length:var(--hero-subtitle-size)] text-white">
+            <p className="mt-[var(--hero-subtitle-mt)] text-[length:var(--hero-subtitle-size)] text-white">
               <span className="block">공식 홈페이지와 사용자들이 공유한 데이터를 통해</span>
               <span className="block">가장 정확한 사이즈 정보를 제공합니다.</span>
             </p>
@@ -1197,14 +1225,14 @@ export default function App() {
                     <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl shadow-sm border border-gray-700 flex-shrink-0 overflow-hidden p-2 flex items-center justify-center"><ProgressiveImage src={result.image} thumbnailSrc={result.thumbnailImage} alt={result.name} className="max-w-full max-h-full object-contain" loading="eager" /></div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-1"><span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{result.brand}</span><span className="text-gray-500">{result.category}</span></div>
-                      <h2 className="text-2xl font-bold text-white mb-2">{result.name}</h2>
+                      <h2 className="text-[length:var(--search-result-title-size)] font-bold text-white mb-2">{result.name}</h2>
                       <a href={result.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-gray-400 hover:text-orange-500 transition-colors">공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" /></a>
                     </div>
                   </div>
                   <div className="p-6 md:p-8">
                     <div className="overflow-x-auto rounded-xl border border-gray-800">
-                      <table className="w-full text-sm text-left">
-                        <thead className="text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className={`px-6 py-4 font-bold bg-gray-800 ${i === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(h) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>{String(h)}</th>)}</tr></thead>
+                      <table className="min-w-max w-full text-left text-xs sm:text-sm">
+                        <thead className="text-[11px] sm:text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className={`px-3 sm:px-6 py-2.5 sm:py-4 font-bold bg-gray-800 whitespace-nowrap min-w-[3.75rem] ${i === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(h) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>{String(h)}</th>)}</tr></thead>
                         <tbody>
                           {result.sizeTable?.rows?.map((row, rowIdx) => {
                             const isActiveRow = activeResultRowIndex === rowIdx;
@@ -1217,7 +1245,7 @@ export default function App() {
                                 {row.map((cell, cellIdx) => (
                                   <td
                                     key={cellIdx}
-                                    className={`px-6 py-4 font-medium transition-all duration-200 ${cellIdx === 0 ? 'border-r border-gray-700' : ''} ${
+                                    className={`px-3 sm:px-6 py-2.5 sm:py-4 font-medium whitespace-nowrap min-w-[3.75rem] transition-all duration-200 ${cellIdx === 0 ? 'border-r border-gray-700' : ''} ${
                                       isActiveRow
                                         ? 'bg-gray-100 text-black first:rounded-l-lg last:rounded-r-lg'
                                         : 'bg-gray-900 text-gray-300 group-hover:bg-gray-100 group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
@@ -1241,7 +1269,7 @@ export default function App() {
 
         {viewMode === 'grid' && (
           <div className="w-full max-w-7xl">
-            <h2 className="mb-6 flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white">
+            <h2 className="mb-6 flex items-center gap-3 text-[length:var(--grid-heading-size)] font-bold text-white">
               <LayoutGrid className="w-7 h-7 text-orange-500" />
               전체 상품 보기
             </h2>
@@ -1249,8 +1277,8 @@ export default function App() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 {allProducts.map((product) => (
                   <div key={product.id} onClick={() => { setSelectedGridProduct(product); }} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
-                    <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative"><ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-h-full max-w-full object-contain" onError={handleImageLoadError} /></div>
-                    <div className="p-5 flex-1 flex flex-col"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="text-sm text-gray-500 mt-auto pt-2">{product.category}</div></div>
+                    <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative rounded-2xl"><ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-h-full max-w-full object-contain rounded-2xl" onError={handleImageLoadError} /></div>
+                    <div className="p-5 flex-1 flex flex-col"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-[length:var(--grid-card-title-size)] font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="text-[length:var(--grid-card-category-size)] text-gray-500 mt-auto pt-2">{product.category}</div></div>
                   </div>
                 ))}
               </div>
@@ -1355,7 +1383,7 @@ export default function App() {
             <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
               <Check className="w-6 h-6 text-green-400" />
             </div>
-            <h3 className="text-sm font-bold tracking-wide text-green-400">제출 완료</h3>
+            <h3 className="text-sm font-bold tracking-wide text-green-400">SUCCESS</h3>
           </div>
         </div>
       )}
@@ -1394,11 +1422,11 @@ export default function App() {
 
               <div className="mt-8 overflow-x-auto rounded-xl border border-gray-800">
                 {selectedGridProduct.sizeTable?.headers?.length ? (
-                  <table className="w-full text-sm text-left">
-                    <thead className="text-sm border-b border-gray-700">
+                  <table className="min-w-max w-full text-left text-xs sm:text-sm">
+                    <thead className="text-[11px] sm:text-sm border-b border-gray-700">
                       <tr>
                         {selectedGridProduct.sizeTable.headers.map((header, index) => (
-                          <th key={index} className={`px-6 py-4 bg-gray-800 text-base font-bold uppercase ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(header) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>
+                          <th key={index} className={`px-3 sm:px-6 py-2.5 sm:py-4 bg-gray-800 text-xs sm:text-base font-bold uppercase whitespace-nowrap min-w-[3.75rem] ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(header) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>
                             {String(header)}
                           </th>
                         ))}
@@ -1416,7 +1444,7 @@ export default function App() {
                             {row.map((cell, cellIndex) => (
                               <td
                                 key={cellIndex}
-                                className={`px-6 py-4 font-medium transition-all duration-200 ${cellIndex === 0 ? 'border-r border-gray-700 text-base font-bold' : ''} ${
+                                className={`px-3 sm:px-6 py-2.5 sm:py-4 font-medium whitespace-nowrap min-w-[3.75rem] transition-all duration-200 ${cellIndex === 0 ? 'border-r border-gray-700 text-xs sm:text-base font-bold' : ''} ${
                                   isActiveRow
                                     ? 'bg-gray-100 text-black first:rounded-l-lg last:rounded-r-lg'
                                     : 'bg-gray-900 text-gray-300 group-hover:bg-gray-100 group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
