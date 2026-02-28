@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, SyntheticEvent } from 'react';
 import {
   ArrowRight,
@@ -53,7 +53,8 @@ interface SubmitProductForm {
   category?: string | null;
   url?: string | null;
   sizeTable?: SizeTable | null;
-  productPhoto: File;
+  productPhoto?: File | null;
+  productImageUrl?: string | null;
 }
 
 interface FormData {
@@ -64,6 +65,19 @@ interface FormData {
   productImage: string | null;
   sizeChartImage: string | null;
   extractedTable: SizeTable | null;
+}
+
+interface ProductMetadataImagePayload {
+  sourceUrl: string;
+  mimeType: string;
+  base64: string;
+}
+
+interface ProductMetadataPayload {
+  url: string;
+  brand: string;
+  name: string;
+  productImage: ProductMetadataImagePayload | null;
 }
 
 interface AdminEditForm {
@@ -129,6 +143,14 @@ const dataUrlToFile = (dataUrl: string, fallbackName: string): File => {
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
   const extension = mimeType.split('/')[1] || 'bin';
   return new File([bytes], `${fallbackName}.${extension}`, { type: mimeType });
+};
+
+const isExternalHttpUrl = (value: string | null | undefined): boolean =>
+  /^https?:\/\//i.test(String(value || '').trim());
+
+const imagePayloadToDataUrl = (payload: ProductMetadataImagePayload | null): string | null => {
+  if (!payload?.base64 || !payload?.mimeType) return null;
+  return `data:${payload.mimeType};base64,${payload.base64}`;
 };
 
 const resizeImage = (base64Str: string, maxWidth = 300): Promise<string> =>
@@ -202,6 +224,9 @@ const ProgressiveImage = ({
 
 const TOTAL_LENGTH_LABEL = '\uCD1D\uC7A5';
 const ITEM_LABEL = '\uD56D\uBAA9';
+const SIZE_COLUMN_LABEL = '\uC0AC\uC774\uC988';
+const MEASUREMENT_LABEL_HINT_PATTERN =
+  /(?:\uCD1D\uC7A5|\uAE30\uC7A5|\uC5B4\uAE68|\uAC00\uC2B4|\uC18C\uB9E4|\uD5C8\uB9AC|\uC5C9\uB369|\uD5C8\uBC85|\uBC11\uC704|\uBC11\uB2E8|\uAE38\uC774|length|shoulder|chest|sleeve|waist|hip|thigh|rise|hem|inseam|pit|bust|body|width)/i;
 const TOTAL_LENGTH_ALIAS_KEYS = ['총장', '전체길이', '전체장', '기장', 'totallength', 'length', 'total'] as const;
 const MEASUREMENT_ALIAS_MAP: Record<string, string> = {
   "\uCD1D\uC7A5": TOTAL_LENGTH_LABEL,
@@ -257,12 +282,26 @@ const isTotalLengthAliasKey = (aliasKey: string): boolean =>
   Boolean(aliasKey) &&
   TOTAL_LENGTH_ALIAS_KEYS.some((key) => aliasKey === key || aliasKey.includes(key));
 
+const inferMeasurementLabelFromAliasKey = (aliasKey: string): string => {
+  if (!aliasKey) return '';
+  if (aliasKey.includes('shoulder')) return '\uC5B4\uAE68';
+  if (aliasKey.includes('chest') || aliasKey.includes('bust') || aliasKey.includes('bodywidth') || aliasKey.includes('pit')) return '\uAC00\uC2B4';
+  if (aliasKey.includes('sleeve') || aliasKey.includes('arm')) return '\uC18C\uB9E4';
+  if (aliasKey.includes('waist')) return '\uD5C8\uB9AC';
+  if (aliasKey.includes('hip')) return '\uC5C9\uB369\uC774';
+  if (aliasKey.includes('thigh')) return '\uD5C8\uBC85\uC9C0';
+  if (aliasKey.includes('rise')) return '\uBC11\uC704';
+  if (aliasKey.includes('hem')) return '\uBC11\uB2E8';
+  if (aliasKey.includes('inseam')) return '\uC778\uC2EC';
+  return '';
+};
+
 const normalizeMeasurementLabel = (value: unknown): string => {
   const raw = normalizeCellText(value);
   if (!raw) return '';
   const aliasKey = normalizeAliasKey(raw);
   if (isTotalLengthAliasKey(aliasKey)) return TOTAL_LENGTH_LABEL;
-  return MEASUREMENT_ALIAS_MAP[aliasKey] || raw;
+  return MEASUREMENT_ALIAS_MAP[aliasKey] || inferMeasurementLabelFromAliasKey(aliasKey) || raw;
 };
 
 const normalizeSizeLabel = (value: unknown): string => normalizeCellText(value).toUpperCase();
@@ -271,15 +310,27 @@ const isLikelySizeLabel = (value: unknown): boolean => {
   const text = normalizeSizeLabel(value);
   if (!text) return false;
   if (/^(XXS|XS|S|M|L|XL|XXL|XXXL|FREE|ONE ?SIZE)$/i.test(text)) return true;
-  if (/^(0|1|2|3|4|5|6|7|8|9|10|11|12)$/.test(text)) return true;
-  if (/^\d{2,4}$/.test(text)) return true;
-  if (/^(EU|US|UK|JP|KR)\s*\d{1,3}$/.test(text)) return true;
+  if (/^\d{1,3}\s*\(\s*\d{1,3}\s*~\s*\d{1,3}\s*\)$/.test(text)) return true;
+  if (/^\d{1,3}\s*\([^)]{1,30}\)$/.test(text)) return true;
+  if (/^(EU|US|UK|JP|KR)\s*\d{1,3}(?:\.\d+)?$/.test(text)) return true;
+  if (/^(?:W|L)?\d{2,3}(?:\s*\/\s*(?:W|L)?\d{2,3})$/.test(text)) return true;
+  if (/^(?:XXS|XS|S|M|L|XL|XXL|XXXL)\s*[-/()]?\s*\d{2,3}$/.test(text)) return true;
+  if (/^\d{2,3}\s*[-/()]?\s*(?:XXS|XS|S|M|L|XL|XXL|XXXL)$/.test(text)) return true;
+  if (/^-?\d{1,4}(?:\.\d+)?$/.test(text)) {
+    const numeric = Number(text);
+    return Number.isFinite(numeric) && numeric >= 0 && numeric <= 400;
+  }
   return false;
 };
 
 const isLikelyMeasurementLabel = (value: unknown): boolean => {
   const normalized = normalizeMeasurementLabel(value);
   return Boolean(normalized) && Object.values(MEASUREMENT_ALIAS_MAP).includes(normalized);
+};
+
+const isLikelyMeasurementLabelLoose = (value: unknown): boolean => {
+  if (isLikelyMeasurementLabel(value)) return true;
+  return MEASUREMENT_LABEL_HINT_PATTERN.test(normalizeCellText(value));
 };
 
 const makeRectangularRows = (rows: string[][], width: number): string[][] =>
@@ -306,22 +357,20 @@ const transposeTable = (table: SizeTable): SizeTable => {
 const tableOrientationScore = (table: SizeTable): number => {
   const columnHeaders = table.headers.slice(1);
   const rowHeaders = table.rows.map((row) => row[0] || '');
-  const sizeInColumns = columnHeaders.filter((v) => isLikelySizeLabel(v)).length;
-  const measurementInRows = rowHeaders.filter((v) => isLikelyMeasurementLabel(v)).length;
   const sizeInRows = rowHeaders.filter((v) => isLikelySizeLabel(v)).length;
-  const measurementInColumns = columnHeaders.filter((v) => isLikelyMeasurementLabel(v)).length;
-  return sizeInColumns * 3 + measurementInRows * 3 - sizeInRows - measurementInColumns;
-};
-
-const sortMeasurementRows = (rows: string[][]): string[][] => {
-  const nextRows = [...rows];
-  const totalLengthIndex = nextRows.findIndex(
-    (row) => normalizeMeasurementLabel(row?.[0] || '') === TOTAL_LENGTH_LABEL
+  const sizeInColumns = columnHeaders.filter((v) => isLikelySizeLabel(v)).length;
+  const measurementInColumns = columnHeaders.filter((v) => isLikelyMeasurementLabelLoose(v)).length;
+  const measurementInRows = rowHeaders.filter((v) => isLikelyMeasurementLabelLoose(v)).length;
+  const numericColumnHeaders = columnHeaders.filter((value) =>
+    /^-?\d+(?:\.\d+)?(?:\s*(?:cm|mm|in|inch))?$/i.test(normalizeCellText(value))
+  ).length;
+  return (
+    sizeInRows * 4 +
+    measurementInColumns * 4 -
+    sizeInColumns * 4 -
+    measurementInRows * 3 -
+    numericColumnHeaders * 2
   );
-  if (totalLengthIndex <= 0) return nextRows;
-  const [totalLengthRow] = nextRows.splice(totalLengthIndex, 1);
-  nextRows.unshift(totalLengthRow);
-  return nextRows;
 };
 
 const prioritizeTotalLengthColumn = (table: SizeTable): SizeTable => {
@@ -368,27 +417,32 @@ const normalizeSizeTable = (value: unknown): SizeTable | null => {
 
   const asIs: SizeTable = { headers: [...headers], rows: rows.map((row) => [...row]) };
   const transposed = transposeTable(asIs);
-  const selected = tableOrientationScore(transposed) < tableOrientationScore(asIs) ? transposed : asIs;
+  const selected = tableOrientationScore(transposed) > tableOrientationScore(asIs) ? transposed : asIs;
 
   const width = Math.max(selected.headers.length, ...selected.rows.map((row) => row.length), 0);
   if (!width) return null;
 
   const normalizedHeaders = [...selected.headers, ...new Array(width - selected.headers.length).fill('')].slice(0, width);
-  normalizedHeaders[0] = ITEM_LABEL;
+  normalizedHeaders[0] = SIZE_COLUMN_LABEL;
   for (let idx = 1; idx < normalizedHeaders.length; idx += 1) {
-    normalizedHeaders[idx] = normalizeSizeLabel(normalizedHeaders[idx]);
+    normalizedHeaders[idx] = normalizeMeasurementLabel(normalizedHeaders[idx]);
   }
 
   const normalizedRows = makeRectangularRows(selected.rows, width).map((row) => {
     const nextRow = [...row];
-    nextRow[0] = normalizeMeasurementLabel(nextRow[0]);
+    nextRow[0] = normalizeSizeLabel(nextRow[0]);
     return nextRow;
   });
 
   return prioritizeTotalLengthColumn({
     headers: normalizedHeaders,
-    rows: sortMeasurementRows(normalizedRows),
+    rows: normalizedRows,
   });
+};
+
+const isPrimaryColumnHeader = (value: unknown): boolean => {
+  const normalized = normalizeCellText(value);
+  return normalized === ITEM_LABEL || normalized === SIZE_COLUMN_LABEL || /^size$/i.test(normalized);
 };
 // (B) toPublicUrl(path): getPublicUrl
 const toPublicUrl = (
@@ -396,6 +450,7 @@ const toPublicUrl = (
   options?: { width?: number; height?: number; quality?: number }
 ): string => {
   if (!path) return '';
+  if (isExternalHttpUrl(path)) return path;
   assertSupabaseClient();
   const result = options
     ? supabase!.storage.from(STORAGE_BUCKET).getPublicUrl(path, {
@@ -472,7 +527,15 @@ const uploadSubmissionImage = async (file: File): Promise<string> => {
 // (A) submitProduct(form): product_submissions insert only
 const submitProduct = async (form: SubmitProductForm): Promise<void> => {
   assertSupabaseClient();
-  const imagePath = await uploadSubmissionImage(form.productPhoto);
+  let imagePath = '';
+  if (form.productPhoto) {
+    imagePath = await uploadSubmissionImage(form.productPhoto);
+  } else {
+    imagePath = String(form.productImageUrl || '').trim();
+  }
+  if (!imagePath) {
+    throw new Error('상품 사진은 필수입니다.');
+  }
 
   // (C) products에 insert 하던 부분 제거
   // (C) Base64 저장 제거
@@ -492,6 +555,19 @@ const submitProduct = async (form: SubmitProductForm): Promise<void> => {
     console.error('[submitProduct] insert failed', error.message, error);
     throw new Error(error.message);
   }
+};
+
+const fetchProductMetadataFromUrl = async (url: string): Promise<ProductMetadataPayload> => {
+  const response = await fetch('/api/product-metadata', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload?.ok || !payload?.data) {
+    throw new Error(payload?.error || 'Failed to extract metadata from URL');
+  }
+  return payload.data as ProductMetadataPayload;
 };
 
 const extractSizeTableFromImage = async (base64Image: string, mimeType = 'image/png'): Promise<SizeTable> => {
@@ -583,9 +659,12 @@ export default function App() {
     extractedTable: null,
   });
   const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null);
+  const [autofilledProductImageUrl, setAutofilledProductImageUrl] = useState<string | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isAnalyzingTable, setIsAnalyzingTable] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutofillingFromUrl, setIsAutofillingFromUrl] = useState(false);
+  const [autoFillError, setAutoFillError] = useState<string | null>(null);
   const [activeResultRowIndex, setActiveResultRowIndex] = useState<number | null>(null);
   const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
@@ -714,6 +793,8 @@ export default function App() {
   const handleOpenModal = () => {
     setFormData({ brand: '', name: '', category: '', url: '', productImage: null, sizeChartImage: null, extractedTable: null });
     setProductPhotoFile(null);
+    setAutofilledProductImageUrl(null);
+    setAutoFillError(null);
     setIsModalOpen(true);
   };
 
@@ -887,6 +968,7 @@ export default function App() {
     if (type === 'product') {
       void (async () => {
         const dataUrl = await readFileAsDataUrl(file);
+        setAutofilledProductImageUrl(null);
         const base64 = dataUrl.split(',')[1] || '';
         setFormData((prev) => ({ ...prev, productImage: dataUrl }));
         setProductPhotoFile(file);
@@ -924,13 +1006,55 @@ export default function App() {
     })();
   };
 
+  const handleAutoFillFromUrl = async () => {
+    const targetUrl = formData.url.trim();
+    if (!targetUrl) {
+      setAutoFillError('상품 URL을 먼저 입력하세요.');
+      return;
+    }
+
+    setIsAutofillingFromUrl(true);
+    setAutoFillError(null);
+    try {
+      const extracted = await fetchProductMetadataFromUrl(targetUrl);
+      const productImageDataUrl = imagePayloadToDataUrl(extracted.productImage);
+
+      const extractedSourceUrl = String(extracted.productImage?.sourceUrl || '').trim();
+      if (extractedSourceUrl) {
+        setAutofilledProductImageUrl(extractedSourceUrl);
+        setProductPhotoFile(null);
+      } else if (productImageDataUrl) {
+        setAutofilledProductImageUrl(null);
+        setProductPhotoFile(dataUrlToFile(productImageDataUrl, `product-${crypto.randomUUID()}`));
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        brand: extracted.brand || prev.brand,
+        name: extracted.name || prev.name,
+        url: extracted.url || prev.url,
+        productImage: productImageDataUrl || prev.productImage,
+      }));
+
+      if (!extracted.brand && !extracted.name && !productImageDataUrl) {
+        setAutoFillError('자동 추출 결과가 부족합니다. 일부 항목을 직접 입력해 주세요.');
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'URL 자동 추출 실패';
+      setAutoFillError(message);
+    } finally {
+      setIsAutofillingFromUrl(false);
+    }
+  };
+
   const handleSubmitProduct = async () => {
-    if (!productPhotoFile) {
+    const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
+    if (!hasProductImage) {
       alert('상품 사진은 필수입니다.');
       return;
     }
-    if (!formData.sizeChartImage) {
-      alert('사이즈표 이미지는 필수입니다.');
+    if (!hasSizeData) {
+      alert('사이즈표 데이터는 필수입니다.');
       return;
     }
     setIsSaving(true);
@@ -942,6 +1066,7 @@ export default function App() {
         url: formData.url || null,
         sizeTable: formData.extractedTable,
         productPhoto: productPhotoFile,
+        productImageUrl: autofilledProductImageUrl,
       });
       setIsModalOpen(false);
       setShowSuccessModal(true);
@@ -957,11 +1082,14 @@ export default function App() {
     }
   };
 
+  const hasSizeData = Boolean(formData.extractedTable) || Boolean(formData.sizeChartImage);
+  const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
   const isFormValid =
     Boolean(formData.brand.trim()) &&
     Boolean(formData.name.trim()) &&
-    Boolean(productPhotoFile) &&
-    Boolean(formData.sizeChartImage) &&
+    hasProductImage &&
+    hasSizeData &&
+    !isAutofillingFromUrl &&
     !isProcessingImage &&
     !isAnalyzingTable &&
     !isSaving;
@@ -1229,7 +1357,7 @@ export default function App() {
                   <div className="p-6 md:p-8">
                     <div className="overflow-x-auto rounded-xl border border-gray-800">
                       <table className="w-full text-sm text-left">
-                        <thead className="text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className={`px-6 py-4 font-bold bg-gray-800 ${i === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(h) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>{String(h)}</th>)}</tr></thead>
+                        <thead className="text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className={`px-6 py-4 font-bold bg-gray-800 ${i === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: isPrimaryColumnHeader(h) ? '#E5E7EB' : '#00FF00' }}>{String(h)}</th>)}</tr></thead>
                         <tbody>
                           {result.sizeTable?.rows?.map((row, rowIdx) => {
                             const isActiveRow = activeResultRowIndex === rowIdx;
@@ -1305,9 +1433,32 @@ export default function App() {
                   <option key={category} value={category}>{category}</option>
                 ))}
               </select>
-              <div className="relative">
-                <Globe className="absolute left-4 top-3.5 w-4 h-4 text-gray-500" />
-                <input className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="공식 URL (선택)" value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} />
+              <div className="space-y-2">
+                <div className="relative">
+                  <Globe className="absolute left-4 top-3.5 w-4 h-4 text-gray-500" />
+                  <input
+                    className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl"
+                    placeholder="공식 URL (선택)"
+                    value={formData.url}
+                    onChange={(e) => {
+                      setFormData({ ...formData, url: e.target.value });
+                      setAutoFillError(null);
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={() => void handleAutoFillFromUrl()}
+                  disabled={isAutofillingFromUrl || !formData.url.trim() || isSaving}
+                  className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition flex items-center justify-center gap-2 ${
+                    (isAutofillingFromUrl || !formData.url.trim() || isSaving)
+                      ? 'border-gray-700 text-gray-500 bg-gray-800 cursor-not-allowed'
+                      : 'border-orange-500/60 text-orange-300 bg-orange-500/10 hover:bg-orange-500/20'
+                  }`}
+                >
+                  {isAutofillingFromUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {isAutofillingFromUrl ? 'URL 분석 중...' : 'URL로 자동 입력'}
+                </button>
+                {autoFillError ? <p className="text-xs text-red-400">{autoFillError}</p> : null}
               </div>
 
               <div className="space-y-2">
@@ -1323,9 +1474,7 @@ export default function App() {
                 <label className="text-sm text-gray-400">사이즈표 이미지</label>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <label className="cursor-pointer w-full sm:w-1/2 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
-                    {!formData.sizeChartImage ? (
-                      <Upload className="w-8 h-8 text-gray-500" />
-                    ) : formData.extractedTable && !isAnalyzingTable ? (
+                    {formData.extractedTable && !isAnalyzingTable ? (
                       <div className="w-full h-full overflow-auto p-2">
                         <table className="w-full text-[10px] text-left">
                           {formData.extractedTable.headers.length > 0 ? (
@@ -1352,6 +1501,8 @@ export default function App() {
                           </tbody>
                         </table>
                       </div>
+                    ) : !formData.sizeChartImage ? (
+                      <Upload className="w-8 h-8 text-gray-500" />
                     ) : (
                       <img src={formData.sizeChartImage} className="h-full object-contain" />
                     )}
@@ -1423,7 +1574,7 @@ export default function App() {
                     <thead className="text-sm border-b border-gray-700">
                       <tr>
                         {selectedGridProduct.sizeTable.headers.map((header, index) => (
-                          <th key={index} className={`px-6 py-4 bg-gray-800 text-base font-bold uppercase ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(header) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>
+                          <th key={index} className={`px-6 py-4 bg-gray-800 text-base font-bold uppercase ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: isPrimaryColumnHeader(header) ? '#E5E7EB' : '#00FF00' }}>
                             {String(header)}
                           </th>
                         ))}
