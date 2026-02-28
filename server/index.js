@@ -1019,7 +1019,7 @@ const areSequentialNumericSizeHeaders = (headers) =>
 
 const hasUsableSizeTableShape = (table) => {
   if (!table || !Array.isArray(table.headers) || !Array.isArray(table.rows)) return false;
-  if (table.headers.length < 3 || table.rows.length < 1) return false;
+  if (table.headers.length < 2 || table.rows.length < 1) return false;
 
   const normalizedRows = table.rows
     .map((row) => (Array.isArray(row) ? row : []))
@@ -1029,7 +1029,15 @@ const hasUsableSizeTableShape = (table) => {
   const measurementLikeRows = normalizedRows.filter((row) =>
     isLikelyMeasurementLabelLoose(row?.[0] || "") || isLikelyMeasurementKey(row?.[0] || "")
   ).length;
-  if (measurementLikeRows < 1) return false;
+  const descriptiveRowHeaders = normalizedRows.filter((row) => {
+    const headerCell = normalizeCellText(row?.[0] || "");
+    if (!headerCell) return false;
+    if (isLikelyMeasurementLabelLoose(headerCell) || isLikelyMeasurementKey(headerCell)) return true;
+    if (isLikelySizeLabel(headerCell)) return false;
+    if (parseNumericCellValue(headerCell) !== null) return false;
+    return true;
+  }).length;
+  if (measurementLikeRows < 1 && descriptiveRowHeaders < 1) return false;
 
   let numericCells = 0;
   for (const row of normalizedRows) {
@@ -1037,22 +1045,33 @@ const hasUsableSizeTableShape = (table) => {
       if (parseNumericCellValue(cell) !== null) numericCells += 1;
     }
   }
-  if (numericCells < Math.max(2, table.headers.length - 1)) return false;
+  const expectedValueColumns = Math.max(1, table.headers.length - 1);
+  const minimumNumericCells = Math.max(1, Math.min(4, expectedValueColumns));
+  if (numericCells < minimumNumericCells) return false;
   return true;
+};
+
+const pickUsableSizeTableOrientation = (table) => {
+  if (!table) return null;
+  if (hasUsableSizeTableShape(table)) return table;
+  const transposed = transposeTable(table);
+  if (hasUsableSizeTableShape(transposed)) return transposed;
+  return null;
 };
 
 const alignAndValidateSizeTableByOptionLabels = (table, optionSizeLabels = []) => {
   if (!table) return null;
-  if (!hasUsableSizeTableShape(table)) return null;
+  const usableTable = pickUsableSizeTableOrientation(table);
+  if (!usableTable) return null;
 
   const normalizedOptions = uniqValues(
     (optionSizeLabels || [])
       .map((value) => normalizeComparableSizeLabel(value))
       .filter((value) => isLikelySizeLabel(value))
   );
-  if (normalizedOptions.length < 2) return table;
+  if (normalizedOptions.length < 2) return usableTable;
 
-  const normalizedHeaders = table.headers
+  const normalizedHeaders = usableTable.headers
     .slice(1)
     .map((value) => normalizeComparableSizeLabel(value))
     .filter(Boolean);
@@ -1063,8 +1082,8 @@ const alignAndValidateSizeTableByOptionLabels = (table, optionSizeLabels = []) =
     normalizedOptions.length === normalizedHeaders.length;
   if (shouldReplaceHeaders) {
     return {
-      headers: [table.headers[0] || ITEM_LABEL, ...normalizedOptions],
-      rows: table.rows,
+      headers: [usableTable.headers[0] || ITEM_LABEL, ...normalizedOptions],
+      rows: usableTable.rows,
     };
   }
 
@@ -1076,8 +1095,8 @@ const alignAndValidateSizeTableByOptionLabels = (table, optionSizeLabels = []) =
   });
   const matchedOptionsInOrder = normalizedOptions.filter((value) => optionIndexByValue.has(value));
   if (matchedOptionsInOrder.length >= 2) {
-    const projectedHeaders = [table.headers[0] || ITEM_LABEL, ...matchedOptionsInOrder];
-    const projectedRows = table.rows.map((row) => [
+    const projectedHeaders = [usableTable.headers[0] || ITEM_LABEL, ...matchedOptionsInOrder];
+    const projectedRows = usableTable.rows.map((row) => [
       row?.[0] || "",
       ...matchedOptionsInOrder.map((optionValue) => row?.[optionIndexByValue.get(optionValue)] || ""),
     ]);
@@ -1097,7 +1116,7 @@ const alignAndValidateSizeTableByOptionLabels = (table, optionSizeLabels = []) =
   if (normalizedHeaders.length > normalizedOptions.length + 1) return null;
   const unknownHeaderCount = normalizedHeaders.filter((header) => !optionSet.has(header)).length;
   if (unknownHeaderCount > Math.max(1, Math.floor(normalizedHeaders.length * 0.4))) return null;
-  return table;
+  return usableTable;
 };
 
 const isPlainObject = (value) =>
@@ -1110,7 +1129,7 @@ const isNumericLikeCell = (value) => {
     .replace(/,/g, "")
     .replace(/\b(cm|mm|in|inch|kg|g|oz)\b/g, "")
     .replace(/\s+/g, "");
-  return /^-?\d+(?:\.\d+)?$/.test(cleaned);
+  return /-?\d+(?:\.\d+)?/.test(cleaned);
 };
 
 const parseNumericCellValue = (value) => {
@@ -1120,8 +1139,9 @@ const parseNumericCellValue = (value) => {
     .replace(/,/g, "")
     .replace(/\b(cm|mm|in|inch|kg|g|oz)\b/g, "")
     .replace(/\s+/g, "");
-  if (!/^-?\d+(?:\.\d+)?$/.test(cleaned)) return null;
-  const numeric = Number(cleaned);
+  const tokenMatch = cleaned.match(/-?\d+(?:\.\d+)?/);
+  if (!tokenMatch?.[0]) return null;
+  const numeric = Number(tokenMatch[0]);
   return Number.isFinite(numeric) ? numeric : null;
 };
 
@@ -1834,11 +1854,25 @@ const extractSizeTableFromPage = ({ html, textBlocks = [], jsonData = null }) =>
   return bestTable;
 };
 
-const SIZE_TABLE_GEMINI_PROMPT =
-  "Analyze this clothing image and extract a size-table ONLY if a real size chart is visibly present. " +
-  "Do not guess or infer missing values. " +
-  "If there is no clear size chart table, return empty arrays: {\"headers\":[],\"rows\":[]}. " +
-  "When table exists, return JSON only with `headers` and `rows`, and keep every cell as a plain string.";
+const SIZE_TABLE_GEMINI_PROMPT_PRIMARY =
+  "Analyze this clothing image and extract a size table when size information is visible. " +
+  "Valid inputs include both grid tables and list-style blocks (for example: M: 총장 62cm, 가슴 57cm ...). " +
+  "Normalize into JSON with `headers` and `rows` only. " +
+  "Prefer a matrix where headers are [항목, size1, size2, ...] and rows are measurement items. " +
+  "Keep every cell as a plain string from the image, and do not invent missing values. " +
+  "If no readable size information exists, return {\"headers\":[],\"rows\":[]}.";
+
+const SIZE_TABLE_GEMINI_PROMPT_LIST_FALLBACK =
+  "Extract apparel size info from this image even when it is not drawn as a table. " +
+  "If the image contains per-size text blocks (M/L/XL sections with measurements), convert them into a table JSON. " +
+  "Return JSON only with `headers` and `rows`. " +
+  "Use the first column as measurement name and remaining columns as sizes when possible. " +
+  "Do not guess missing numbers. If nothing is readable, return empty arrays.";
+
+const SIZE_TABLE_GEMINI_PROMPT_CANDIDATES = [
+  SIZE_TABLE_GEMINI_PROMPT_PRIMARY,
+  SIZE_TABLE_GEMINI_PROMPT_LIST_FALLBACK,
+];
 
 const SIZE_TABLE_GEMINI_RESPONSE_SCHEMA = {
   type: "OBJECT",
@@ -1921,61 +1955,63 @@ const extractSizeTableWithGemini = async ({ imageBase64, mimeType = "image/png" 
 
   let lastErrorText = "";
   for (const model of SIZE_TABLE_GEMINI_MODEL_CANDIDATES) {
-    const response = await fetch(
-      `${GEMINI_API_BASE}/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: SIZE_TABLE_GEMINI_PROMPT },
-                { inlineData: { mimeType: normalizedMimeType, data: normalizedBase64 } },
-              ],
+    for (const prompt of SIZE_TABLE_GEMINI_PROMPT_CANDIDATES) {
+      const response = await fetch(
+        `${GEMINI_API_BASE}/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  { inlineData: { mimeType: normalizedMimeType, data: normalizedBase64 } },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: SIZE_TABLE_GEMINI_RESPONSE_SCHEMA,
             },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: SIZE_TABLE_GEMINI_RESPONSE_SCHEMA,
-          },
-        }),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        lastErrorText = await response.text();
+        continue;
       }
-    );
 
-    if (!response.ok) {
-      lastErrorText = await response.text();
-      continue;
+      const payload = await response.json();
+      const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
+      if (candidates.length === 0) {
+        lastErrorText = JSON.stringify(payload?.promptFeedback || payload);
+        continue;
+      }
+
+      const rawText =
+        candidates[0]?.content?.parts?.find((part) => typeof part?.text === "string")?.text || "";
+      if (!rawText) {
+        lastErrorText = "Gemini returned empty text";
+        continue;
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch {
+        lastErrorText = `Gemini did not return valid JSON: ${rawText.slice(0, 300)}`;
+        continue;
+      }
+
+      const normalizedTable = standardizeSizeTable(parsed);
+      if (normalizedTable) {
+        return { table: normalizedTable, error: "" };
+      }
+
+      lastErrorText = "Gemini returned empty size-table data";
     }
-
-    const payload = await response.json();
-    const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
-    if (candidates.length === 0) {
-      lastErrorText = JSON.stringify(payload?.promptFeedback || payload);
-      continue;
-    }
-
-    const rawText =
-      candidates[0]?.content?.parts?.find((part) => typeof part?.text === "string")?.text || "";
-    if (!rawText) {
-      lastErrorText = "Gemini returned empty text";
-      continue;
-    }
-
-    let parsed;
-    try {
-      parsed = JSON.parse(rawText);
-    } catch {
-      lastErrorText = `Gemini did not return valid JSON: ${rawText.slice(0, 300)}`;
-      continue;
-    }
-
-    const normalizedTable = standardizeSizeTable(parsed);
-    if (normalizedTable) {
-      return { table: normalizedTable, error: "" };
-    }
-
-    lastErrorText = "Gemini returned empty size-table data";
   }
 
   return { table: null, error: lastErrorText || "Gemini size-table request failed" };

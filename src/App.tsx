@@ -149,11 +149,6 @@ const dataUrlToFile = (dataUrl: string, fallbackName: string): File => {
 const isExternalHttpUrl = (value: string | null | undefined): boolean =>
   /^https?:\/\//i.test(String(value || '').trim());
 
-const imagePayloadToDataUrl = (payload: ProductMetadataImagePayload | null): string | null => {
-  if (!payload?.base64 || !payload?.mimeType) return null;
-  return `data:${payload.mimeType};base64,${payload.base64}`;
-};
-
 const uniqHttpUrls = (values: Array<string | null | undefined>): string[] => {
   const seen = new Set<string>();
   const output: string[] = [];
@@ -1045,19 +1040,15 @@ export default function App() {
 
     try {
       const extracted = await fetchProductMetadataFromUrl(targetUrl);
-      const productImageDataUrl = imagePayloadToDataUrl(extracted.productImage);
       const candidateUrls = uniqHttpUrls([
         ...(Array.isArray(extracted.productImageCandidates) ? extracted.productImageCandidates : []),
         extracted.productImage?.sourceUrl || '',
       ]).slice(0, 4);
 
       const selectedCandidateUrl = candidateUrls[0] || '';
+      setProductPhotoFile(null);
       if (selectedCandidateUrl) {
         setAutofilledProductImageUrl(selectedCandidateUrl);
-        setProductPhotoFile(null);
-      } else if (productImageDataUrl) {
-        setAutofilledProductImageUrl(null);
-        setProductPhotoFile(dataUrlToFile(productImageDataUrl, `product-${crypto.randomUUID()}`));
       } else {
         setAutofilledProductImageUrl(null);
       }
@@ -1069,10 +1060,10 @@ export default function App() {
         brand: extracted.brand || prev.brand,
         name: extracted.name || prev.name,
         url: extracted.url || prev.url,
-        productImage: selectedCandidateUrl || productImageDataUrl || prev.productImage,
+        productImage: selectedCandidateUrl || prev.productImage,
       }));
 
-      if (!extracted.brand && !extracted.name && !productImageDataUrl && !selectedCandidateUrl) {
+      if (!extracted.brand && !extracted.name && !selectedCandidateUrl) {
         setAutoFillError('자동 입력 데이터를 찾지 못했습니다. 다른 상품 URL을 시도해 주세요.');
       }
     } catch (error: unknown) {
