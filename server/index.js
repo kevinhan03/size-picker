@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
@@ -51,6 +51,11 @@ const PRODUCT_METADATA_MAX_PRODUCT_IMAGE_ASPECT_RATIO = Number(
 );
 const PRODUCT_METADATA_MAX_GEMINI_IMAGE_TRIES = Number(
   process.env.PRODUCT_METADATA_MAX_GEMINI_IMAGE_TRIES || 10
+);
+const PRODUCT_METADATA_ENABLE_GEMINI_IMAGE_RERANK =
+  String(process.env.PRODUCT_METADATA_ENABLE_GEMINI_IMAGE_RERANK || "true").toLowerCase() !== "false";
+const PRODUCT_METADATA_GEMINI_IMAGE_RERANK_LIMIT = Number(
+  process.env.PRODUCT_METADATA_GEMINI_IMAGE_RERANK_LIMIT || 4
 );
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
@@ -450,9 +455,9 @@ const escapeRegExp = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/
 
 const normalizeBrandName = (value) =>
   normalizeCellText(value)
-    .replace(/\s*怨듭떇\s*?⑤씪??s*?ㅽ넗??/i, "")
-    .replace(/\s*怨듭떇\s*?ㅽ넗??/i, "")
-    .replace(/\s*?⑤씪??s*?ㅽ넗??/i, "")
+    .replace(/\s*온라인\s*스토어\s*공식몰$/i, "")
+    .replace(/\s*온라인\s*공식몰$/i, "")
+    .replace(/\s*공식\s*스토어$/i, "")
     .replace(/\s*official\s+online\s+store$/i, "")
     .replace(/\s*official\s+store$/i, "")
     .trim();
@@ -749,6 +754,14 @@ const SIZE_CHART_IMAGE_REJECT_PATH_PATTERN =
 const SIZE_CHART_IMAGE_REJECT_FILE_PATTERN =
   /(?:^|[\/_])(btn|txt|ico|icon|sprite|loading|loader|placeholder)(?:_|-|\.|$)/i;
 const SIZE_CHART_IMAGE_REJECT_HOST_PATTERN = /(?:^|\.)img\.echosting\.cafe24\.com$/i;
+const PRODUCT_IMAGE_TRACKING_HOST_PATTERN =
+  /(?:^|\.)facebook\.com$|(?:^|\.)connect\.facebook\.net$|(?:^|\.)google-analytics\.com$|(?:^|\.)googletagmanager\.com$|(?:^|\.)doubleclick\.net$/i;
+const PRODUCT_IMAGE_TRACKING_PATH_PATTERN =
+  /(?:^|\/)(?:tr|collect|pixel|analytics)(?:\/|$)/i;
+const PRODUCT_IMAGE_ALLOW_PATH_HINT_PATTERN =
+  /(?:\/web\/product\/|\/goods_img\/|\/prd_img\/|\/product\/|\/images?\/|\/img\/|\/upload\/)/i;
+const PRODUCT_IMAGE_MODEL_LIKE_PATH_PATTERN =
+  /(?:look|model|wear|coordi|campaign|editorial|style|outfit|fitview|snap)/i;
 const PRODUCT_IMAGE_POSITIVE_HINT_PATTERN =
   /(?:product|goods|item|prd|main|front|cover|thumbnail|thumb|image|photo|zoom|large|big|\uC0C1\uD488|\uB300\uD45C|\uBA54\uC778)/i;
 const PRODUCT_IMAGE_NEGATIVE_HINT_PATTERN =
@@ -778,6 +791,36 @@ const isLikelySizeChartImageUrl = (url) => {
   if (SIZE_CHART_IMAGE_REJECT_FILE_PATTERN.test(fileName)) return false;
   if (/\.gif(?:[?#].*)?$/.test(normalized)) return false;
   return true;
+};
+
+const isLikelyProductImageUrl = (url) => {
+  const normalized = normalizeCellText(url).toLowerCase();
+  if (!normalized) return false;
+  let parsedUrl = null;
+  try {
+    parsedUrl = new URL(normalized);
+  } catch {
+    return false;
+  }
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) return false;
+
+  const pathname = String(parsedUrl.pathname || "").toLowerCase();
+  const fileName = pathname.split("/").pop() || "";
+  const hostname = String(parsedUrl.hostname || "").toLowerCase();
+  const queryText = String(parsedUrl.search || "").toLowerCase();
+  const hintText = `${hostname} ${pathname} ${queryText}`;
+
+  if (PRODUCT_IMAGE_TRACKING_HOST_PATTERN.test(hostname)) return false;
+  if (PRODUCT_IMAGE_TRACKING_PATH_PATTERN.test(pathname)) return false;
+  if (/(?:ev=pageview|noscript=1|gtm|fbq|pixel)/i.test(hintText)) return false;
+  if (SIZE_CHART_IMAGE_REJECT_HOST_PATTERN.test(hostname)) return false;
+  if (SIZE_CHART_IMAGE_REJECT_PATH_PATTERN.test(pathname)) return false;
+  if (SIZE_CHART_IMAGE_REJECT_FILE_PATTERN.test(fileName)) return false;
+  if (HTML_PAGE_PATH_PATTERN.test(pathname)) return false;
+
+  if (IMAGE_URL_PATTERN.test(pathname) || IMAGE_URL_PATTERN.test(normalized)) return true;
+  if (PRODUCT_IMAGE_ALLOW_PATH_HINT_PATTERN.test(pathname)) return true;
+  return false;
 };
 
 const scoreSizeChartImageCandidate = (url) => {
@@ -830,12 +873,20 @@ const scoreProductImageCandidate = (url, hintText = "") => {
   let score = 0;
   if (PRODUCT_IMAGE_POSITIVE_HINT_PATTERN.test(hint)) score += 9;
   if (/\/(product|goods|item|prd)\//i.test(pathname)) score += 7;
+  if (/\/web\/product\/medium\//i.test(pathname)) score += 4;
   if (/(?:^|[_\-/.])(main|front|cover|represent|thumb0?1)(?:[_\-/.]|$)/i.test(fileName)) score += 5;
   if (/(?:big|large|zoom|origin|original|xlarge)/i.test(hint)) score += 3;
   if (/\/web\/product\/big\//i.test(pathname)) score += 7;
   if (/\/web\/product\/small\//i.test(pathname)) score -= 4;
-  if (/\/product\/extra\//i.test(pathname)) score -= 6;
+  if (/\/web\/product\/extra\/big\//i.test(pathname)) score -= 16;
+  else if (/\/product\/extra\//i.test(pathname)) score -= 12;
   if (/\/goods_img\//i.test(pathname)) score += 6;
+  if (/\/prd_img\//i.test(pathname)) score -= 2;
+  if (/\/web\/upload\/category\//i.test(pathname)) score -= 20;
+  if (/\/category\/editor\//i.test(pathname)) score -= 12;
+  if (/(?:^|[_\-/.])menu(?:[_\-/.]|$)/i.test(fileName)) score -= 18;
+  if (/(?:^|[_\-/.])(logo|banner|gnb|lnb)(?:[_\-/.]|$)/i.test(fileName)) score -= 14;
+  if (/(?:^|[_\-/.])(detail|sub|model|look|coordi)(?:[_\-/.]|$)/i.test(fileName)) score -= 5;
 
   if (PRODUCT_IMAGE_NEGATIVE_HINT_PATTERN.test(hint)) score -= 12;
   if (SIZE_HINT_PATTERN.test(hint) || SIZE_CHART_PATH_HINT_PATTERN.test(hint)) score -= 28;
@@ -866,10 +917,12 @@ const scoreProductImageCandidate = (url, hintText = "") => {
   return score;
 };
 
-const sortProductImageCandidates = (candidates, hintText = "") => {
+const sortProductImageCandidates = (candidates, hintText = "", sourceBonusByUrl = null) => {
   const scored = uniqValues(candidates).map((candidate) => ({
     url: candidate,
-    score: scoreProductImageCandidate(candidate, hintText),
+    score:
+      scoreProductImageCandidate(candidate, hintText) +
+      Number(sourceBonusByUrl?.get(candidate) || 0),
   }));
   return scored
     .sort((left, right) => right.score - left.score)
@@ -1806,6 +1859,56 @@ const SIZE_TABLE_GEMINI_RESPONSE_SCHEMA = {
 };
 
 const SIZE_TABLE_GEMINI_MODEL_CANDIDATES = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
+const PRODUCT_IMAGE_GEMINI_MODEL_CANDIDATES = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
+const PRODUCT_IMAGE_GEMINI_PROMPT =
+  "Analyze this clothing product image candidate. " +
+  "Return JSON only. " +
+  "Focus on whether the image is a product-only shot or a model-wearing shot. " +
+  "A mannequin is NOT a human model. " +
+  "If one or more real people are visible, hasVisiblePerson must be true. " +
+  "Estimate visible person area as one of: none, small, medium, large. " +
+  "Also output productOnlyScore from 0 to 100 where higher means better for product-only thumbnail selection.";
+const PRODUCT_IMAGE_GEMINI_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  required: ["hasVisiblePerson", "personArea", "productOnlyScore"],
+  properties: {
+    hasVisiblePerson: { type: "BOOLEAN" },
+    personArea: {
+      type: "STRING",
+      enum: ["none", "small", "medium", "large"],
+    },
+    productOnlyScore: { type: "NUMBER" },
+    reason: { type: "STRING" },
+  },
+};
+
+const normalizePersonAreaCategory = (value) => {
+  const normalized = normalizeCellText(value).toLowerCase();
+  if (normalized === "none") return "none";
+  if (normalized === "small") return "small";
+  if (normalized === "medium") return "medium";
+  if (normalized === "large") return "large";
+  return "none";
+};
+
+const normalizeProductImageGeminiAssessment = (value) => {
+  if (!value || typeof value !== "object") return null;
+  const hasVisiblePerson = value.hasVisiblePerson === true;
+  const personArea = normalizePersonAreaCategory(value.personArea);
+  const rawScore = Number(value.productOnlyScore);
+  const productOnlyScore = Number.isFinite(rawScore)
+    ? Math.max(0, Math.min(100, Math.round(rawScore)))
+    : hasVisiblePerson
+      ? 30
+      : 85;
+  const reason = normalizeCellText(value.reason || "");
+  return {
+    hasVisiblePerson,
+    personArea,
+    productOnlyScore,
+    reason,
+  };
+};
 
 const extractSizeTableWithGemini = async ({ imageBase64, mimeType = "image/png" }) => {
   const normalizedBase64 = String(imageBase64 || "").trim();
@@ -1876,6 +1979,83 @@ const extractSizeTableWithGemini = async ({ imageBase64, mimeType = "image/png" 
   }
 
   return { table: null, error: lastErrorText || "Gemini size-table request failed" };
+};
+
+const assessProductImageWithGemini = async ({
+  imageBase64,
+  mimeType = "image/jpeg",
+  brand = "",
+  name = "",
+}) => {
+  const normalizedBase64 = String(imageBase64 || "").trim();
+  const normalizedMimeType = String(mimeType || "image/jpeg").trim();
+  if (!normalizedBase64) return null;
+  if (!GEMINI_API_KEY) return null;
+  if (!PRODUCT_METADATA_ENABLE_GEMINI_IMAGE_RERANK) return null;
+
+  const productHint = normalizeCellText(`${brand} ${name}`).trim();
+  let lastErrorText = "";
+
+  for (const model of PRODUCT_IMAGE_GEMINI_MODEL_CANDIDATES) {
+    const response = await fetch(
+      `${GEMINI_API_BASE}/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: productHint
+                    ? `${PRODUCT_IMAGE_GEMINI_PROMPT} Product hint: ${productHint}`
+                    : PRODUCT_IMAGE_GEMINI_PROMPT,
+                },
+                { inlineData: { mimeType: normalizedMimeType, data: normalizedBase64 } },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: PRODUCT_IMAGE_GEMINI_RESPONSE_SCHEMA,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      lastErrorText = await response.text();
+      continue;
+    }
+
+    const payload = await response.json();
+    const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
+    if (candidates.length === 0) {
+      lastErrorText = JSON.stringify(payload?.promptFeedback || payload);
+      continue;
+    }
+
+    const rawText =
+      candidates[0]?.content?.parts?.find((part) => typeof part?.text === "string")?.text || "";
+    if (!rawText) {
+      lastErrorText = "Gemini returned empty image assessment";
+      continue;
+    }
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      lastErrorText = `Gemini did not return valid JSON: ${rawText.slice(0, 200)}`;
+      continue;
+    }
+
+    const normalized = normalizeProductImageGeminiAssessment(parsed);
+    if (normalized) return normalized;
+    lastErrorText = "Gemini image assessment normalization failed";
+  }
+
+  return null;
 };
 
 const readPngDimensions = (buffer) => {
@@ -1988,6 +2168,7 @@ const downloadImageAsBase64Payload = async (
     minWidth = 0,
     minHeight = 0,
     maxAspectRatio = 0,
+    includeBase64 = true,
   } = {}
 ) => {
   let safeImageUrl = "";
@@ -2038,11 +2219,176 @@ const downloadImageAsBase64Payload = async (
   return {
     sourceUrl: safeImageUrl,
     mimeType: contentType,
-    base64: buffer.toString("base64"),
+    base64: includeBase64 ? buffer.toString("base64") : null,
     byteLength: buffer.length,
     width: dimensions?.width || null,
     height: dimensions?.height || null,
+    contentHash: createHash("sha1").update(buffer).digest("hex"),
   };
+};
+
+const selectTopUsableImageUrls = async (
+  candidates,
+  {
+    excludedCandidates = [],
+    excludedContentHashes = [],
+    limit = 4,
+    maxProbeCount = 16,
+    minBytes = 1,
+    maxBytes = PRODUCT_METADATA_MAX_IMAGE_BYTES,
+    minWidth = 0,
+    minHeight = 0,
+    maxAspectRatio = 0,
+  } = {}
+) => {
+  const selected = [];
+  const excluded = new Set(uniqValues(excludedCandidates));
+  const seenContentHashes = new Set(
+    uniqValues(excludedContentHashes)
+      .map((value) => normalizeCellText(value).toLowerCase())
+      .filter(Boolean)
+  );
+  const selectedContentHashes = new Set();
+  let probed = 0;
+
+  for (const candidate of uniqValues(candidates)) {
+    if (!candidate || excluded.has(candidate)) continue;
+    if (selected.length >= Math.max(1, Number(limit) || 1)) break;
+    if (probed >= Math.max(1, Number(maxProbeCount) || 1)) break;
+    probed += 1;
+
+    const payload = await downloadImageAsBase64Payload(candidate, {
+      minBytes,
+      maxBytes,
+      minWidth,
+      minHeight,
+      maxAspectRatio,
+      includeBase64: false,
+    });
+    if (!payload?.sourceUrl) continue;
+    const contentHash = normalizeCellText(payload.contentHash || "").toLowerCase();
+    if (contentHash && seenContentHashes.has(contentHash)) continue;
+    if (contentHash) {
+      seenContentHashes.add(contentHash);
+      selectedContentHashes.add(contentHash);
+    }
+    selected.push(payload.sourceUrl);
+  }
+
+  return {
+    urls: selected,
+    contentHashes: [...selectedContentHashes],
+  };
+};
+
+const rerankProductImageCandidatesByModelVisibility = async (
+  candidateUrls,
+  { brand = "", name = "" } = {}
+) => {
+  const normalizedCandidates = uniqValues(candidateUrls);
+  if (!PRODUCT_METADATA_ENABLE_GEMINI_IMAGE_RERANK) return normalizedCandidates;
+  if (!GEMINI_API_KEY) return normalizedCandidates;
+  if (normalizedCandidates.length <= 1) return normalizedCandidates;
+
+  const limit = Math.max(
+    1,
+    Math.min(
+      Number(PRODUCT_METADATA_GEMINI_IMAGE_RERANK_LIMIT) || 3,
+      Number(PRODUCT_METADATA_MAX_GEMINI_IMAGE_TRIES) || 10,
+      normalizedCandidates.length
+    )
+  );
+
+  const assessed = [];
+  for (const candidate of normalizedCandidates.slice(0, limit)) {
+    let payload = null;
+    try {
+      payload = await downloadImageAsBase64Payload(candidate, {
+        minBytes: Math.max(1024, PRODUCT_METADATA_MIN_PRODUCT_IMAGE_BYTES / 2),
+        maxBytes: PRODUCT_METADATA_MAX_IMAGE_BYTES,
+        minWidth: Math.max(120, PRODUCT_METADATA_MIN_PRODUCT_IMAGE_WIDTH / 2),
+        minHeight: Math.max(120, PRODUCT_METADATA_MIN_PRODUCT_IMAGE_HEIGHT / 2),
+        maxAspectRatio: Math.max(2.8, PRODUCT_METADATA_MAX_PRODUCT_IMAGE_ASPECT_RATIO || 3.2),
+        includeBase64: true,
+      });
+    } catch {
+      payload = null;
+    }
+    if (!payload?.base64) continue;
+
+    const assessment = await assessProductImageWithGemini({
+      imageBase64: payload.base64,
+      mimeType: payload.mimeType || "image/jpeg",
+      brand,
+      name,
+    });
+    if (!assessment) continue;
+
+    let score = Number(assessment.productOnlyScore) || 0;
+    const pathLower = (() => {
+      try {
+        return String(new URL(candidate).pathname || "").toLowerCase();
+      } catch {
+        return "";
+      }
+    })();
+    if (/\/web\/product\/big\//i.test(pathLower)) score += 10;
+    else if (/\/web\/product\/medium\//i.test(pathLower)) score += 7;
+    else if (/\/goods_img\//i.test(pathLower)) score += 6;
+    else if (/\/prd_img\//i.test(pathLower)) score += 2;
+    if (/\/web\/product\/small\//i.test(pathLower)) score -= 4;
+    if (/\/web\/product\/extra\//i.test(pathLower)) score -= 12;
+
+    if (assessment.hasVisiblePerson) {
+      if (assessment.personArea === "large") score -= 40;
+      else if (assessment.personArea === "medium") score -= 25;
+      else if (assessment.personArea === "small") score -= 12;
+    } else {
+      score += 15;
+    }
+
+    assessed.push({
+      url: candidate,
+      score,
+      hasVisiblePerson: assessment.hasVisiblePerson,
+      personArea: assessment.personArea,
+    });
+  }
+
+  if (assessed.length === 0) return normalizedCandidates;
+  const assessedByUrl = new Map(assessed.map((entry) => [entry.url, entry]));
+  const hasPersonFreeCandidate = assessed.some((entry) => !entry.hasVisiblePerson);
+  const assessedForSorting = hasPersonFreeCandidate
+    ? assessed.filter((entry) => !entry.hasVisiblePerson)
+    : assessed;
+
+  const sortedAssessedUrls = assessedForSorting
+    .slice()
+    .sort((left, right) => {
+      if (hasPersonFreeCandidate && left.hasVisiblePerson !== right.hasVisiblePerson) {
+        return left.hasVisiblePerson ? 1 : -1;
+      }
+      if (right.score !== left.score) return right.score - left.score;
+      return normalizedCandidates.indexOf(left.url) - normalizedCandidates.indexOf(right.url);
+    })
+    .map((entry) => entry.url);
+
+  const unresolvedCandidates = normalizedCandidates.filter((url) => !assessedByUrl.has(url));
+  const filteredUnresolvedCandidates = hasPersonFreeCandidate
+    ? unresolvedCandidates.filter((url) => {
+        try {
+          const pathname = String(new URL(url).pathname || "").toLowerCase();
+          return !PRODUCT_IMAGE_MODEL_LIKE_PATH_PATTERN.test(pathname);
+        } catch {
+          return true;
+        }
+      })
+    : unresolvedCandidates;
+
+  return uniqValues([
+    ...sortedAssessedUrls,
+    ...filteredUnresolvedCandidates,
+  ]);
 };
 
 const selectFirstImagePayload = async (candidates, excludedCandidates = [], options = {}) => {
@@ -2178,25 +2524,56 @@ const extractProductMetadataFromHtml = ({ html, pageUrl }) => {
     extractProductNameFromTitle(fallbackTitle, brand),
   ]);
 
-  const rawProductImageCandidates = uniqValues([
-    ...(musinsaData?.imageCandidates || []).map((candidate) => normalizeUrlCandidate(pageUrl, candidate)),
-    ...((schemaProduct?.images || []).map((candidate) => normalizeUrlCandidate(pageUrl, candidate))),
-    ...(jsonImageData?.productCandidates || []),
-    ogImage,
-    twitterImage,
-    ...extractProductImageCandidatesFromHtml({
-      html,
-      pageUrl,
-    }),
-    ...extractImageCandidatesFromHtml({
-      html,
-      pageUrl,
-      priorityPattern: /(product|goods|detail|prd|item|big|large)/i,
-    }),
-  ]);
+  const candidateGroups = [
+    {
+      bonus: 15,
+      candidates: (musinsaData?.imageCandidates || []).map((candidate) =>
+        normalizeUrlCandidate(pageUrl, candidate)
+      ),
+    },
+    {
+      bonus: 12,
+      candidates: (schemaProduct?.images || []).map((candidate) =>
+        normalizeUrlCandidate(pageUrl, candidate)
+      ),
+    },
+    { bonus: 10, candidates: [ogImage, twitterImage] },
+    {
+      bonus: 8,
+      candidates: extractProductImageCandidatesFromHtml({
+        html,
+        pageUrl,
+      }),
+    },
+    { bonus: 6, candidates: jsonImageData?.productCandidates || [] },
+    {
+      bonus: 4,
+      candidates: extractImageCandidatesFromHtml({
+        html,
+        pageUrl,
+        priorityPattern: /(product|goods|detail|prd|item|big|large)/i,
+      }),
+    },
+  ];
+
+  const sourceBonusByUrl = new Map();
+  const rawProductImageCandidates = [];
+  for (const group of candidateGroups) {
+    for (const candidate of uniqValues(group?.candidates || [])) {
+      const normalizedCandidate = normalizeCellText(candidate);
+      if (!normalizedCandidate) continue;
+      rawProductImageCandidates.push(normalizedCandidate);
+      const prevBonus = Number(sourceBonusByUrl.get(normalizedCandidate) || 0);
+      if (group.bonus > prevBonus) {
+        sourceBonusByUrl.set(normalizedCandidate, Number(group.bonus) || 0);
+      }
+    }
+  }
+
   const productImageCandidates = sortProductImageCandidates(
-    rawProductImageCandidates,
-    `${brand} ${name}`
+    rawProductImageCandidates.filter((candidate) => isLikelyProductImageUrl(candidate)),
+    `${brand} ${name}`,
+    sourceBonusByUrl
   );
 
   return {
@@ -2456,10 +2833,120 @@ app.post("/api/product-metadata", async (req, res) => {
       productImage = await selectFirstImagePayload(extracted.productImageCandidates);
     }
 
+    const metadataHint = `${extracted.brand || ""} ${extracted.name || ""}`.trim();
+    const mergedProductImageCandidates = uniqValues([
+      productImage?.sourceUrl || "",
+      ...(extracted.productImageCandidates || []),
+    ]).filter((candidate) => isLikelyProductImageUrl(candidate));
+    const coreProductPathPattern = /(?:\/web\/product\/|\/goods_img\/|\/prd_img\/)/i;
+    const likelyProductImageCandidates = mergedProductImageCandidates.filter(
+      (candidate) => scoreProductImageCandidate(candidate, metadataHint) >= 0
+    );
+    const coreLikelyCandidates = likelyProductImageCandidates.filter((candidate) =>
+      coreProductPathPattern.test(String(candidate || ""))
+    );
+    const baseLikelyCandidates =
+      coreLikelyCandidates.length > 0 ? coreLikelyCandidates : likelyProductImageCandidates;
+    const mergedCoreCandidates = mergedProductImageCandidates.filter((candidate) =>
+      coreProductPathPattern.test(String(candidate || ""))
+    );
+    const baseMergedCandidates =
+      coreLikelyCandidates.length > 0 ? mergedCoreCandidates : mergedProductImageCandidates;
+
+    const isExtraProductPath = (candidate) =>
+      /\/web\/product\/extra\//i.test(String(candidate || ""));
+    const isSmallProductPath = (candidate) =>
+      /\/web\/product\/small\//i.test(String(candidate || ""));
+
+    const mergedNonExtraCandidates = baseMergedCandidates.filter(
+      (candidate) => !isExtraProductPath(candidate)
+    );
+    const nonExtraLikelyCandidates = baseLikelyCandidates.filter(
+      (candidate) => !isExtraProductPath(candidate)
+    );
+    const primaryLikelyCandidates = nonExtraLikelyCandidates.filter(
+      (candidate) => !isSmallProductPath(candidate)
+    );
+    const smallLikelyCandidates = nonExtraLikelyCandidates.filter((candidate) =>
+      isSmallProductPath(candidate)
+    );
+    const extraLikelyCandidates = baseLikelyCandidates.filter((candidate) =>
+      isExtraProductPath(candidate)
+    );
+    const fallbackLikelyCandidates = baseLikelyCandidates;
+    const fallbackMergedCandidates = baseMergedCandidates;
+
+    const prioritizedProductImageCandidates = uniqValues([
+      ...primaryLikelyCandidates,
+      ...smallLikelyCandidates,
+      ...extraLikelyCandidates,
+      ...fallbackLikelyCandidates,
+      ...fallbackMergedCandidates,
+    ]);
+    const validatedPrimary = await selectTopUsableImageUrls(
+      prioritizedProductImageCandidates,
+      {
+        excludedCandidates: [productImage?.sourceUrl || ""],
+        excludedContentHashes: [productImage?.contentHash || ""],
+        limit: 4,
+        maxProbeCount: 18,
+        minBytes: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_BYTES,
+        maxBytes: PRODUCT_METADATA_MAX_IMAGE_BYTES,
+        minWidth: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_WIDTH,
+        minHeight: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_HEIGHT,
+        // Size chart / banner성 비정상 가로세로 비율을 후보에서 제외
+        maxAspectRatio: Math.min(
+          PRODUCT_METADATA_MAX_PRODUCT_IMAGE_ASPECT_RATIO || 3.2,
+          2.8
+        ),
+      }
+    );
+    const validatedSecondary =
+      validatedPrimary.urls.length >= 4
+        ? { urls: [], contentHashes: [] }
+        : await selectTopUsableImageUrls(prioritizedProductImageCandidates, {
+            excludedCandidates: [
+              productImage?.sourceUrl || "",
+              ...validatedPrimary.urls,
+            ],
+            excludedContentHashes: [
+              productImage?.contentHash || "",
+              ...validatedPrimary.contentHashes,
+            ],
+            limit: Math.max(1, 4 - validatedPrimary.urls.length),
+            maxProbeCount: 18,
+            minBytes: Math.max(1024, PRODUCT_METADATA_MIN_PRODUCT_IMAGE_BYTES / 2),
+            maxBytes: PRODUCT_METADATA_MAX_IMAGE_BYTES,
+            minWidth: Math.max(120, PRODUCT_METADATA_MIN_PRODUCT_IMAGE_WIDTH / 2),
+            minHeight: Math.max(120, PRODUCT_METADATA_MIN_PRODUCT_IMAGE_HEIGHT / 2),
+            maxAspectRatio: Math.max(
+              2.8,
+              PRODUCT_METADATA_MAX_PRODUCT_IMAGE_ASPECT_RATIO || 3.2
+            ),
+          });
+    const validatedProductImageCandidates = uniqValues([
+      ...validatedPrimary.urls,
+      ...validatedSecondary.urls,
+    ]);
+    const candidateSeedForRanking = (
+      validatedProductImageCandidates.length > 0
+        ? uniqValues([productImage?.sourceUrl || "", ...validatedProductImageCandidates])
+        : uniqValues([productImage?.sourceUrl || ""])
+    );
+    const rerankedProductImageCandidates = await rerankProductImageCandidatesByModelVisibility(
+      candidateSeedForRanking,
+      {
+        brand: extracted.brand || "",
+        name: extracted.name || "",
+      }
+    );
+    const productImageCandidates = rerankedProductImageCandidates.slice(0, 4);
+
     const hasAnyData = Boolean(
       extracted.brand ||
       extracted.name ||
-      productImage
+      productImage ||
+      productImageCandidates.length > 0
     );
     if (!hasAnyData) {
       return res.status(502).json({
@@ -2475,6 +2962,7 @@ app.post("/api/product-metadata", async (req, res) => {
         brand: extracted.brand || "",
         name: extracted.name || "",
         productImage: productImage || null,
+        productImageCandidates,
       },
     });
   } catch (error) {
@@ -2853,16 +3341,6 @@ app.post("/api/remove-bg", async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-app.listen(PORT, () => {
-  console.log(`[server] listening on http://localhost:${PORT}`);
-});
-
-
-=======
-=======
->>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`[server] listening on http://localhost:${PORT}`);
@@ -2870,7 +3348,3 @@ if (!process.env.VERCEL) {
 }
 
 export default app;
-<<<<<<< HEAD
->>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
-=======
->>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
