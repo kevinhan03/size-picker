@@ -1049,6 +1049,7 @@ export default function App() {
 
   const handleSubmitProduct = async () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
     const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
     if (!hasProductImage) {
       alert('상품 사진은 필수입니다.');
@@ -1057,6 +1058,8 @@ export default function App() {
     if (!hasSizeData) {
       alert('사이즈표 데이터는 필수입니다.');
 =======
+=======
+>>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
     const isSizeChartOptionalCategory = ['acc', 'shoes'].includes(formData.category.trim().toLowerCase());
     if (!productPhotoFile) {
       alert('상품 사진은 필수입니다.');
@@ -1096,6 +1099,7 @@ export default function App() {
   const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
   const isFormValid =
 <<<<<<< HEAD
+<<<<<<< HEAD
     Boolean(formData.brand.trim()) &&
     Boolean(formData.name.trim()) &&
     hasProductImage &&
@@ -1105,6 +1109,8 @@ export default function App() {
     !isAnalyzingTable &&
     !isSaving;
 =======
+=======
+>>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
     (() => {
       const isSizeChartOptionalCategory = ['acc', 'shoes'].includes(formData.category.trim().toLowerCase());
       return (
@@ -1117,6 +1123,9 @@ export default function App() {
         !isSaving
       );
     })();
+<<<<<<< HEAD
+>>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
+=======
 >>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
 
   if (isAdminPage) {
@@ -1379,8 +1388,13 @@ export default function App() {
                   <div className="p-6 md:p-8">
                     <div className="overflow-x-auto rounded-xl border border-gray-800">
 <<<<<<< HEAD
+<<<<<<< HEAD
                       <table className="w-full text-sm text-left">
                         <thead className="text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className={`px-6 py-4 font-bold bg-gray-800 ${i === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: isPrimaryColumnHeader(h) ? '#E5E7EB' : '#00FF00' }}>{String(h)}</th>)}</tr></thead>
+=======
+                      <table className="min-w-max w-full text-left text-xs sm:text-sm">
+                        <thead className="text-[11px] sm:text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className={`px-3 sm:px-6 py-2.5 sm:py-4 font-bold bg-gray-800 whitespace-nowrap min-w-[3.75rem] ${i === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(h) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>{String(h)}</th>)}</tr></thead>
+>>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
 =======
                       <table className="min-w-max w-full text-left text-xs sm:text-sm">
                         <thead className="text-[11px] sm:text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className={`px-3 sm:px-6 py-2.5 sm:py-4 font-bold bg-gray-800 whitespace-nowrap min-w-[3.75rem] ${i === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(h) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>{String(h)}</th>)}</tr></thead>
@@ -1602,7 +1616,11 @@ export default function App() {
                       <tr>
                         {selectedGridProduct.sizeTable.headers.map((header, index) => (
 <<<<<<< HEAD
+<<<<<<< HEAD
                           <th key={index} className={`px-6 py-4 bg-gray-800 text-base font-bold uppercase ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: isPrimaryColumnHeader(header) ? '#E5E7EB' : '#00FF00' }}>
+=======
+                          <th key={index} className={`px-3 sm:px-6 py-2.5 sm:py-4 bg-gray-800 text-xs sm:text-base font-bold uppercase whitespace-nowrap min-w-[3.75rem] ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(header) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>
+>>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
 =======
                           <th key={index} className={`px-3 sm:px-6 py-2.5 sm:py-4 bg-gray-800 text-xs sm:text-base font-bold uppercase whitespace-nowrap min-w-[3.75rem] ${index === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: normalizeCellText(header) === ITEM_LABEL ? '#E5E7EB' : '#00FF00' }}>
 >>>>>>> 44b2fc5db07f5a649c01c18caa2b88ff74901d85
