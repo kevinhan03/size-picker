@@ -103,6 +103,81 @@ const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').t
 const STORAGE_BUCKET = 'product-assets';
 const STORAGE_PREFIX = 'submissions/';
 const CATEGORY_OPTIONS = ['Outer', 'Top', 'Bottom', 'Shoes', 'Acc'] as const;
+const SIZE_REGION_OPTIONS = [
+  { key: 'kr', label: 'Korea' },
+  { key: 'jp', label: 'Japan' },
+  { key: 'us', label: 'US' },
+  { key: 'eu', label: 'EU' },
+  { key: 'uk', label: 'UK' },
+] as const;
+
+type ViewMode = 'search' | 'grid' | 'converter';
+type SizeCategory = 'clothing' | 'shoes';
+type SizeGender = 'men' | 'women';
+type SizeRegionKey = (typeof SIZE_REGION_OPTIONS)[number]['key'];
+
+interface SizeConversionRow {
+  label: string;
+  kr: string;
+  jp: string;
+  us: string;
+  eu: string;
+  uk: string;
+}
+
+const CLOTHING_SIZE_ROWS_BY_GENDER: Record<SizeGender, SizeConversionRow[]> = {
+  men: [
+    { label: 'XS', kr: '85', jp: 'XS', us: '34', eu: '44', uk: '34' },
+    { label: 'S', kr: '90', jp: 'S', us: '36-38', eu: '46-48', uk: '36-38' },
+    { label: 'M', kr: '95', jp: 'M', us: '40', eu: '50', uk: '40' },
+    { label: 'L', kr: '100', jp: 'L', us: '42', eu: '52', uk: '42' },
+    { label: 'XL', kr: '105', jp: 'XL', us: '44', eu: '54', uk: '44' },
+    { label: 'XXL', kr: '110', jp: 'XXL', us: '46', eu: '56', uk: '46' },
+    { label: '3XL', kr: '115', jp: '3XL', us: '48', eu: '58', uk: '48' },
+  ],
+  women: [
+    { label: 'XXS', kr: '60', jp: 'XXS', us: '0', eu: '30', uk: '2' },
+    { label: 'XS', kr: '65', jp: 'XS', us: '0-2', eu: '32-34', uk: '4-6' },
+    { label: 'S', kr: '70', jp: 'S', us: '4-6', eu: '36-38', uk: '8-10' },
+    { label: 'M', kr: '75', jp: 'M', us: '8-10', eu: '40-42', uk: '12-14' },
+    { label: 'L', kr: '80', jp: 'L', us: '12-14', eu: '44-46', uk: '16-18' },
+    { label: 'XL', kr: '85', jp: 'XL', us: '16-18', eu: '48-50', uk: '20-22' },
+    { label: 'XXL', kr: '90', jp: 'XXL', us: '20-22', eu: '52-54', uk: '24-26' },
+  ],
+};
+
+const SHOE_SIZE_ROWS_BY_GENDER: Record<SizeGender, SizeConversionRow[]> = {
+  men: [
+    { label: '230', kr: '230', jp: '23.0', us: '4', eu: '36', uk: '3.5' },
+    { label: '235', kr: '235', jp: '23.5', us: '4.5', eu: '36.5', uk: '4' },
+    { label: '240', kr: '240', jp: '24.0', us: '5.5', eu: '38', uk: '5' },
+    { label: '245', kr: '245', jp: '24.5', us: '6.5', eu: '39', uk: '6' },
+    { label: '250', kr: '250', jp: '25.0', us: '7', eu: '40', uk: '6' },
+    { label: '255', kr: '255', jp: '25.5', us: '7.5', eu: '40.5', uk: '6.5' },
+    { label: '260', kr: '260', jp: '26.0', us: '8', eu: '41', uk: '7' },
+    { label: '265', kr: '265', jp: '26.5', us: '8.5', eu: '42', uk: '7.5' },
+    { label: '270', kr: '270', jp: '27.0', us: '9', eu: '42.5', uk: '8' },
+    { label: '275', kr: '275', jp: '27.5', us: '9.5', eu: '43', uk: '8.5' },
+    { label: '280', kr: '280', jp: '28.0', us: '10', eu: '44', uk: '9' },
+    { label: '285', kr: '285', jp: '28.5', us: '10.5', eu: '44.5', uk: '9.5' },
+    { label: '290', kr: '290', jp: '29.0', us: '11', eu: '45', uk: '10' },
+  ],
+  women: [
+    { label: '220', kr: '220', jp: '22.0', us: '5', eu: '35.5', uk: '2.5' },
+    { label: '225', kr: '225', jp: '22.5', us: '5.5', eu: '36', uk: '3' },
+    { label: '230', kr: '230', jp: '23.0', us: '6', eu: '36.5', uk: '3.5' },
+    { label: '235', kr: '235', jp: '23.5', us: '6.5', eu: '37.5', uk: '4' },
+    { label: '240', kr: '240', jp: '24.0', us: '7', eu: '38', uk: '4.5' },
+    { label: '245', kr: '245', jp: '24.5', us: '7.5', eu: '38.5', uk: '5' },
+    { label: '250', kr: '250', jp: '25.0', us: '8', eu: '39', uk: '5.5' },
+    { label: '255', kr: '255', jp: '25.5', us: '8.5', eu: '40', uk: '6' },
+    { label: '260', kr: '260', jp: '26.0', us: '9', eu: '40.5', uk: '6.5' },
+    { label: '265', kr: '265', jp: '26.5', us: '9.5', eu: '41', uk: '7' },
+    { label: '270', kr: '270', jp: '27.0', us: '10', eu: '42', uk: '7.5' },
+    { label: '275', kr: '275', jp: '27.5', us: '10.5', eu: '42.5', uk: '8' },
+    { label: '280', kr: '280', jp: '28.0', us: '11', eu: '43', uk: '8.5' },
+  ],
+};
 
 const supabase =
   SUPABASE_URL && SUPABASE_ANON_KEY
@@ -314,6 +389,21 @@ const normalizeMeasurementLabel = (value: unknown): string => {
 };
 
 const normalizeSizeLabel = (value: unknown): string => normalizeCellText(value).toUpperCase();
+const normalizeSizeLookupValue = (value: unknown): string =>
+  normalizeCellText(value)
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/MM$/, '');
+
+const findConvertedSize = (
+  rows: SizeConversionRow[],
+  region: SizeRegionKey,
+  size: string
+): SizeConversionRow | null => {
+  const lookup = normalizeSizeLookupValue(size);
+  if (!lookup) return null;
+  return rows.find((row) => normalizeSizeLookupValue(row[region]) === lookup) || null;
+};
 
 const isLikelySizeLabel = (value: unknown): boolean => {
   const text = normalizeSizeLabel(value);
@@ -635,7 +725,11 @@ export default function App() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [viewMode, setViewMode] = useState<'search' | 'grid'>('search');
+  const [viewMode, setViewMode] = useState<ViewMode>('search');
+  const [sizeCategory, setSizeCategory] = useState<SizeCategory>('clothing');
+  const [sizeGender, setSizeGender] = useState<SizeGender>('men');
+  const [sizeRegion, setSizeRegion] = useState<SizeRegionKey>('us');
+  const [sizeValue, setSizeValue] = useState('S');
   const [selectedGridProduct, setSelectedGridProduct] = useState<Product | null>(null);
   const [isAdminCheckingSession, setIsAdminCheckingSession] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
@@ -676,6 +770,7 @@ export default function App() {
   const [isAutofillingFromUrl, setIsAutofillingFromUrl] = useState(false);
   const [autoFillError, setAutoFillError] = useState<string | null>(null);
   const [activeResultRowIndex, setActiveResultRowIndex] = useState<number | null>(null);
+  const [activeConverterRowIndex, setActiveConverterRowIndex] = useState<number | null>(null);
   const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
 
@@ -683,6 +778,19 @@ export default function App() {
   const isSelectionRef = useRef(false);
 
   const allProducts = useMemo(() => [...products], [products]);
+  const sizeRows = useMemo(() => {
+    if (sizeCategory === 'shoes') return SHOE_SIZE_ROWS_BY_GENDER[sizeGender];
+    return CLOTHING_SIZE_ROWS_BY_GENDER[sizeGender];
+  }, [sizeCategory, sizeGender]);
+  const sizeOptions = useMemo(
+    () => sizeRows.map((row) => row[sizeRegion]).filter(Boolean),
+    [sizeRegion, sizeRows]
+  );
+  const convertedSize = useMemo(
+    () => findConvertedSize(sizeRows, sizeRegion, sizeValue),
+    [sizeRegion, sizeRows, sizeValue]
+  );
+
   useEffect(() => {
     let isActive = true;
     const load = async () => {
@@ -729,8 +837,32 @@ export default function App() {
   }, [selectedGridProduct?.id]);
 
   useEffect(() => {
+    if (!convertedSize) {
+      setActiveConverterRowIndex(null);
+      return;
+    }
+
+    const nextIndex = sizeRows.findIndex((row) => row.label === convertedSize.label);
+    setActiveConverterRowIndex(nextIndex >= 0 ? nextIndex : null);
+  }, [convertedSize, sizeRows]);
+
+  useEffect(() => {
     setIsDetailImageZoomed(false);
   }, [selectedGridProduct?.id]);
+
+  useEffect(() => {
+    if (sizeOptions.length === 0) {
+      setSizeValue('');
+      return;
+    }
+
+    const hasCurrentValue = sizeOptions.some(
+      (option) => normalizeSizeLookupValue(option) === normalizeSizeLookupValue(sizeValue)
+    );
+    if (!hasCurrentValue) {
+      setSizeValue(sizeOptions[0]);
+    }
+  }, [sizeCategory, sizeOptions, sizeRegion, sizeValue]);
 
   useEffect(() => {
     const handleOutside = (event: MouseEvent) => {
@@ -798,6 +930,15 @@ export default function App() {
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') void handleSearch();
+  };
+
+  const navigateToView = (nextView: ViewMode) => {
+    setViewMode(nextView);
+    setResult(null);
+    setQuery('');
+    setError(null);
+    setShowSuggestions(false);
+    setSelectedGridProduct(null);
   };
 
   const handleOpenModal = () => {
@@ -1295,14 +1436,36 @@ export default function App() {
     <div className="min-h-screen bg-black text-white font-sans selection:bg-orange-500 selection:text-white">
       <header className="fixed top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { setViewMode('search'); setResult(null); setQuery(''); setError(null); }}>
+          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigateToView('search')}>
             <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center transform rotate-3 hover:rotate-6 transition-transform">
               <Ruler className="text-black w-5 h-5" />
             </div>
             <span className="font-bold text-xl tracking-tight text-orange-500">Size Picker</span>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => { setViewMode('grid'); setResult(null); setQuery(''); setError(null); setSelectedGridProduct(null); }} className="p-2 text-gray-400 hover:text-orange-500 transition rounded-lg hover:bg-gray-800" title="전체 목록 보기">
+            <button
+              onClick={() => navigateToView('converter')}
+              className={`hidden sm:flex items-center justify-center p-2 rounded-lg transition border ${
+                viewMode === 'converter'
+                  ? 'bg-orange-500 text-black border-orange-500'
+                  : 'border-gray-700 text-gray-200 hover:border-orange-500 hover:text-orange-500 hover:bg-gray-900'
+              }`}
+              title="해외사이즈 변환기"
+            >
+              <Globe className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => navigateToView('converter')}
+              className={`sm:hidden p-2 rounded-lg transition ${
+                viewMode === 'converter'
+                  ? 'bg-orange-500 text-black'
+                  : 'text-gray-400 hover:text-orange-500 hover:bg-gray-800'
+              }`}
+              title="해외사이즈 변환기"
+            >
+              <Globe className="w-5 h-5" />
+            </button>
+            <button onClick={() => navigateToView('grid')} className="p-2 text-gray-400 hover:text-orange-500 transition rounded-lg hover:bg-gray-800" title="전체 목록 보기">
               <LayoutGrid className="w-6 h-6" />
             </button>
             <button onClick={handleOpenModal} className="flex items-center gap-2 text-black px-4 py-2 rounded-lg hover:opacity-80 transition shadow-lg text-sm font-bold" style={{ backgroundColor: '#00FF00', boxShadow: 'var(--ui-depth-shadow), 0 0 15px rgba(0,255,0,0.3)' }}>
@@ -1417,6 +1580,223 @@ export default function App() {
               </div>
             )}
           </>
+        )}
+
+        {viewMode === 'converter' && (
+          <div className="w-full max-w-5xl">
+            <div className="overflow-hidden rounded-[28px] border border-gray-800 bg-gray-950 shadow-2xl">
+              <div className="border-b border-gray-800 bg-[radial-gradient(circle_at_top_left,_rgba(249,115,22,0.24),_transparent_35%),linear-gradient(135deg,_rgba(17,24,39,0.96),_rgba(2,6,23,0.98))] px-6 py-8 md:px-8">
+                <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-orange-300">
+                  <Globe className="h-4 w-4" />
+                  Global Size Converter
+                </div>
+                <h2 className="mt-4 text-3xl font-black tracking-tight text-white md:text-4xl">해외사이즈 변환기</h2>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-300 md:text-base">
+                  의류와 신발 카테고리 기준으로 한국, 일본, US, EU, UK 사이즈를 한 번에 비교할 수 있습니다.
+                </p>
+              </div>
+
+              <div className="grid gap-6 px-6 py-6 md:grid-cols-[280px,minmax(0,1fr)] md:px-8 md:py-8">
+                <section className="rounded-3xl border border-gray-800 bg-black/30 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Category</p>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSizeCategory('clothing')}
+                      className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                        sizeCategory === 'clothing'
+                          ? 'border-orange-500 bg-orange-500 text-black'
+                          : 'border-gray-800 bg-gray-900 text-gray-200 hover:border-orange-500 hover:text-orange-400'
+                      }`}
+                    >
+                      의류
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSizeCategory('shoes')}
+                      className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                        sizeCategory === 'shoes'
+                          ? 'border-orange-500 bg-orange-500 text-black'
+                          : 'border-gray-800 bg-gray-900 text-gray-200 hover:border-orange-500 hover:text-orange-400'
+                      }`}
+                    >
+                      신발
+                    </button>
+                  </div>
+
+                  <label className="mt-6 block text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                    Gender
+                  </label>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSizeGender('men')}
+                      className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                        sizeGender === 'men'
+                          ? 'border-orange-500 bg-orange-500 text-black'
+                          : 'border-gray-800 bg-gray-900 text-gray-200 hover:border-orange-500 hover:text-orange-400'
+                      }`}
+                    >
+                      남성
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSizeGender('women')}
+                      className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                        sizeGender === 'women'
+                          ? 'border-orange-500 bg-orange-500 text-black'
+                          : 'border-gray-800 bg-gray-900 text-gray-200 hover:border-orange-500 hover:text-orange-400'
+                      }`}
+                    >
+                      여성
+                    </button>
+                  </div>
+
+                  <label className="mt-6 block text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                    Input Region
+                  </label>
+                  <select
+                    value={sizeRegion}
+                    onChange={(event) => setSizeRegion(event.target.value as SizeRegionKey)}
+                    className="mt-3 w-full rounded-2xl border border-gray-800 bg-gray-900 px-4 py-3 text-sm text-white outline-none transition focus:border-orange-500"
+                  >
+                    {SIZE_REGION_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <label className="mt-6 block text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                    Size
+                  </label>
+                  <select
+                    value={sizeValue}
+                    onChange={(event) => setSizeValue(event.target.value)}
+                    className="mt-3 w-full rounded-2xl border border-gray-800 bg-gray-900 px-4 py-3 text-sm text-white outline-none transition focus:border-orange-500"
+                  >
+                    {sizeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+
+                </section>
+
+                <section className="rounded-3xl border border-gray-800 bg-gray-900/60 p-5 md:p-6">
+                  <div className="flex flex-col gap-3 border-b border-gray-800 pb-5 md:flex-row md:items-end md:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Selected</p>
+                      <h3 className="mt-2 text-2xl font-bold text-white">
+                        {sizeGender === 'men' ? '남성' : '여성'} {sizeCategory === 'clothing' ? '의류' : '신발'} {sizeRegion.toUpperCase()} {sizeValue}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-gray-400">선택한 사이즈를 5개 국가 기준으로 동시에 보여줍니다.</p>
+                  </div>
+
+                  {convertedSize ? (
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                      {SIZE_REGION_OPTIONS.map((option) => (
+                        <div key={option.key} className="rounded-2xl border border-gray-800 bg-black/40 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                            {option.label}
+                          </p>
+                          <p className="mt-3 text-3xl font-black text-white">{convertedSize[option.key]}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-5 text-sm text-red-200">
+                      선택한 조건에 맞는 사이즈를 찾지 못했습니다.
+                    </div>
+                  )}
+
+                  <div className="mt-8 overflow-x-auto rounded-2xl border border-gray-800">
+                    <table className="min-w-full text-left text-sm text-gray-200">
+                      <thead className="bg-gray-950 text-xs uppercase tracking-[0.2em] text-gray-500">
+                        <tr>
+                          <th className="border-r border-gray-800 px-4 py-4">Size</th>
+                          {SIZE_REGION_OPTIONS.map((option) => (
+                            <th key={option.key} className="px-4 py-4">
+                              {option.key.toUpperCase()}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sizeRows.map((row, rowIndex) => {
+                          const isActive = activeConverterRowIndex === rowIndex;
+                          return (
+                            <tr
+                              key={row.label}
+                              onClick={() => setActiveConverterRowIndex(rowIndex)}
+                              className="group cursor-pointer border-t border-gray-800 transition-transform duration-200 active:scale-95"
+                            >
+                              <td
+                                className={`border-r border-gray-800 px-4 py-4 font-semibold transition-all duration-200 ${
+                                  isActive
+                                    ? 'bg-gray-100 text-black'
+                                    : 'bg-transparent text-white group-hover:bg-gray-100 group-hover:text-black'
+                                }`}
+                              >
+                                {row.label}
+                              </td>
+                              <td
+                                className={`px-4 py-4 transition-all duration-200 ${
+                                  isActive
+                                    ? 'bg-gray-100 text-black'
+                                    : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
+                                }`}
+                              >
+                                {row.kr}
+                              </td>
+                              <td
+                                className={`px-4 py-4 transition-all duration-200 ${
+                                  isActive
+                                    ? 'bg-gray-100 text-black'
+                                    : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
+                                }`}
+                              >
+                                {row.jp}
+                              </td>
+                              <td
+                                className={`px-4 py-4 transition-all duration-200 ${
+                                  isActive
+                                    ? 'bg-gray-100 text-black'
+                                    : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
+                                }`}
+                              >
+                                {row.us}
+                              </td>
+                              <td
+                                className={`px-4 py-4 transition-all duration-200 ${
+                                  isActive
+                                    ? 'bg-gray-100 text-black'
+                                    : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
+                                }`}
+                              >
+                                {row.eu}
+                              </td>
+                              <td
+                                className={`px-4 py-4 transition-all duration-200 ${
+                                  isActive
+                                    ? 'bg-gray-100 text-black'
+                                    : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
+                                }`}
+                              >
+                                {row.uk}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
         )}
 
         {viewMode === 'grid' && (
