@@ -790,6 +790,7 @@ export default function App() {
     () => findConvertedSize(sizeRows, sizeRegion, sizeValue),
     [sizeRegion, sizeRows, sizeValue]
   );
+  const shouldHideSearchHero = viewMode === 'search' && Boolean(result) && !isLoading;
 
   useEffect(() => {
     let isActive = true;
@@ -1490,7 +1491,14 @@ export default function App() {
         )}
 
         {viewMode === 'search' && (
-          <div className="w-full max-w-2xl mb-5 text-center">
+          <div
+            className={`w-full max-w-2xl text-center overflow-hidden transition-all duration-500 ease-out ${
+              shouldHideSearchHero
+                ? 'max-h-0 mb-0 opacity-0 -translate-y-4 pointer-events-none'
+                : 'max-h-96 mb-5 opacity-100 translate-y-0'
+            }`}
+            aria-hidden={shouldHideSearchHero}
+          >
             <h1 className="mt-[var(--hero-title-mt)] mb-[var(--hero-title-mb)] text-[length:var(--hero-title-size)] font-extrabold leading-tight tracking-tight">
               <span className="block text-white">모든 옷의 사이즈표</span>
               <span className="block text-orange-500">한 번에 검색하세요</span>
