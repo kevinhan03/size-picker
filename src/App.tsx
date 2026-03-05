@@ -626,6 +626,10 @@ const uploadSubmissionImage = async (file: File): Promise<string> => {
 // (A) submitProduct(form): product_submissions insert only
 const submitProduct = async (form: SubmitProductForm): Promise<void> => {
   assertSupabaseClient();
+  const category = String(form.category || '').trim();
+  if (!category) {
+    throw new Error('카테고리는 필수입니다.');
+  }
   let imagePath = '';
   if (form.productPhoto) {
     imagePath = await uploadSubmissionImage(form.productPhoto);
@@ -642,7 +646,7 @@ const submitProduct = async (form: SubmitProductForm): Promise<void> => {
   const payload = {
     brand: form.brand,
     name: form.name,
-    category: form.category || null,
+    category,
     url: form.url || null,
     image_path: imagePath,
     size_table: form.sizeTable ?? null,
@@ -1218,8 +1222,13 @@ export default function App() {
 
   const handleSubmitProduct = async () => {
     const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
+    const hasCategory = Boolean(formData.category.trim());
     if (!hasProductImage) {
       alert('상품 사진은 필수입니다.');
+      return;
+    }
+    if (!hasCategory) {
+      alert('카테고리는 필수입니다.');
       return;
     }
     if (!hasSizeData) {
@@ -1256,6 +1265,7 @@ export default function App() {
   const isFormValid =
     Boolean(formData.brand.trim()) &&
     Boolean(formData.name.trim()) &&
+    Boolean(formData.category.trim()) &&
     hasProductImage &&
     hasSizeData &&
     !isAutofillingFromUrl &&
