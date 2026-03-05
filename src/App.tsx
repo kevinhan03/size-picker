@@ -1438,10 +1438,10 @@ export default function App() {
       <header className="fixed top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigateToView('search')}>
-            <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center transform rotate-3 hover:rotate-6 transition-transform">
-              <Ruler className="text-black w-5 h-5" />
+            <div className="w-10 h-10 flex items-center justify-center">
+              <img src="/favicon-simple.svg" alt="SPEC logo" className="w-7 h-7 object-contain" />
             </div>
-            <span className="font-bold text-xl tracking-tight text-orange-500">Size Picker</span>
+            <span className="font-bold text-xl tracking-tight text-orange-500">SPEC</span>
           </div>
           <div className="flex items-center gap-4">
             <button
