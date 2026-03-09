@@ -73,13 +73,27 @@ interface ProductMetadataImagePayload {
   base64: string;
 }
 
+interface CaptureBoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface ProductMetadataPayload {
   url: string;
   brand: string;
   name: string;
+  category?: string;
+  image_path?: string;
+  product_image_bbox?: CaptureBoundingBox | null;
+  size_chart_bbox?: CaptureBoundingBox | null;
   productImage: ProductMetadataImagePayload | null;
   productImageCandidates?: string[];
+  sizeTable?: unknown;
 }
+
+const MAX_PRODUCT_IMAGE_CANDIDATES = 24;
 
 interface AdminEditForm {
   brand: string;
@@ -102,7 +116,15 @@ const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').t
 // (C) bucket명을 product-assets로 고정
 const STORAGE_BUCKET = 'product-assets';
 const STORAGE_PREFIX = 'submissions/';
+const DEFAULT_PRODUCT_PLACEHOLDER = '/images/default-product.svg';
 const CATEGORY_OPTIONS = ['Outer', 'Top', 'Bottom', 'Shoes', 'Acc'] as const;
+const CATEGORY_OPTION_BY_LOWER: Record<string, (typeof CATEGORY_OPTIONS)[number]> = {
+  outer: 'Outer',
+  top: 'Top',
+  bottom: 'Bottom',
+  shoes: 'Shoes',
+  acc: 'Acc',
+};
 const SIZE_REGION_OPTIONS = [
   { key: 'kr', label: 'Korea' },
   { key: 'jp', label: 'Japan' },
@@ -115,6 +137,7 @@ type ViewMode = 'search' | 'grid' | 'converter';
 type SizeCategory = 'clothing' | 'shoes';
 type SizeGender = 'men' | 'women';
 type SizeRegionKey = (typeof SIZE_REGION_OPTIONS)[number]['key'];
+type AddProductMode = 'menu' | 'capture' | 'url' | 'manual';
 
 interface SizeConversionRow {
   label: string;
@@ -221,6 +244,11 @@ const dataUrlToFile = (dataUrl: string, fallbackName: string): File => {
   return new File([bytes], `${fallbackName}.${extension}`, { type: mimeType });
 };
 
+const normalizeCategoryOption = (value: string): (typeof CATEGORY_OPTIONS)[number] | '' => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return CATEGORY_OPTION_BY_LOWER[normalized] || '';
+};
+
 const isExternalHttpUrl = (value: string | null | undefined): boolean =>
   /^https?:\/\//i.test(String(value || '').trim());
 
@@ -262,6 +290,60 @@ const resizeImage = (base64Str: string, maxWidth = 300): Promise<string> =>
     img.onerror = () => resolve(base64Str);
   });
 
+const normalizeCaptureBoundingBox = (value: unknown): CaptureBoundingBox | null => {
+  if (!value || typeof value !== 'object') return null;
+  const box = value as Record<string, unknown>;
+  const x = Math.max(0, Math.min(1000, Math.round(Number(box.x) || 0)));
+  const y = Math.max(0, Math.min(1000, Math.round(Number(box.y) || 0)));
+  const width = Math.max(0, Math.min(1000 - x, Math.round(Number(box.width) || 0)));
+  const height = Math.max(0, Math.min(1000 - y, Math.round(Number(box.height) || 0)));
+  if (width <= 0 || height <= 0) return null;
+  return { x, y, width, height };
+};
+
+const cropImageByBoundingBox = (dataUrl: string, box: CaptureBoundingBox | null): Promise<string> =>
+  new Promise((resolve) => {
+    if (!dataUrl || !box) {
+      resolve('');
+      return;
+    }
+
+    const img = new Image();
+    img.src = dataUrl;
+    img.onload = () => {
+      const sourceWidth = img.width;
+      const sourceHeight = img.height;
+      if (!sourceWidth || !sourceHeight) {
+        resolve('');
+        return;
+      }
+
+      const left = Math.max(0, Math.floor((box.x / 1000) * sourceWidth));
+      const top = Math.max(0, Math.floor((box.y / 1000) * sourceHeight));
+      const cropWidth = Math.max(1, Math.floor((box.width / 1000) * sourceWidth));
+      const cropHeight = Math.max(1, Math.floor((box.height / 1000) * sourceHeight));
+      const width = Math.min(cropWidth, sourceWidth - left);
+      const height = Math.min(cropHeight, sourceHeight - top);
+      if (width <= 1 || height <= 1) {
+        resolve('');
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve('');
+        return;
+      }
+
+      ctx.drawImage(img, left, top, width, height, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve('');
+  });
+
 const ProgressiveImage = ({
   src,
   thumbnailSrc,
@@ -270,23 +352,25 @@ const ProgressiveImage = ({
   loading = 'lazy',
   onError,
 }: ProgressiveImageProps) => {
-  const [displaySrc, setDisplaySrc] = useState<string>(thumbnailSrc || src);
+  const [loadedSrc, setLoadedSrc] = useState<string>('');
+  const displaySrc =
+    loadedSrc === src
+      ? src
+      : !src
+        ? thumbnailSrc || ''
+        : !thumbnailSrc || thumbnailSrc === src
+          ? src
+          : thumbnailSrc;
 
   useEffect(() => {
-    if (!src) {
-      setDisplaySrc(thumbnailSrc || '');
-      return;
-    }
-    if (!thumbnailSrc || thumbnailSrc === src) {
-      setDisplaySrc(src);
+    if (!src || !thumbnailSrc || thumbnailSrc === src) {
       return;
     }
 
-    setDisplaySrc(thumbnailSrc);
     const preloader = new Image();
     preloader.src = src;
-    preloader.onload = () => setDisplaySrc(src);
-    preloader.onerror = () => setDisplaySrc(src);
+    preloader.onload = () => setLoadedSrc(src);
+    preloader.onerror = () => setLoadedSrc(src);
 
     return () => {
       preloader.onload = null;
@@ -660,15 +744,53 @@ const submitProduct = async (form: SubmitProductForm): Promise<void> => {
   }
 };
 
+const parseApiJson = async <T,>(response: Response, endpoint: string): Promise<T> => {
+  const rawText = await response.text();
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.includes('application/json')) {
+    const preview = rawText.slice(0, 120).replace(/\s+/g, ' ').trim();
+    throw new Error(`${endpoint} returned non-JSON response (${response.status}). ${preview}`);
+  }
+
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    const preview = rawText.slice(0, 120).replace(/\s+/g, ' ').trim();
+    throw new Error(`${endpoint} returned invalid JSON (${response.status}). ${preview}`);
+  }
+};
+
 const fetchProductMetadataFromUrl = async (url: string): Promise<ProductMetadataPayload> => {
   const response = await fetch('/api/product-metadata', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
   });
-  const payload = await response.json();
+  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: ProductMetadataPayload }>(
+    response,
+    '/api/product-metadata'
+  );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error || 'Failed to extract metadata from URL');
+  }
+  return payload.data as ProductMetadataPayload;
+};
+
+const fetchProductMetadataFromImage = async (
+  base64Image: string,
+  mimeType = 'image/png'
+): Promise<ProductMetadataPayload> => {
+  const response = await fetch('/api/product-metadata-from-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64: base64Image, mimeType }),
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: ProductMetadataPayload }>(
+    response,
+    '/api/product-metadata-from-image'
+  );
+  if (!response.ok || !payload?.ok || !payload?.data) {
+    throw new Error(payload?.error || 'Failed to extract metadata from image');
   }
   return payload.data as ProductMetadataPayload;
 };
@@ -679,7 +801,10 @@ const extractSizeTableFromImage = async (base64Image: string, mimeType = 'image/
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64: base64Image, mimeType }),
   });
-  const payload = await response.json();
+  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: unknown }>(
+    response,
+    '/api/size-table'
+  );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error ?? 'Failed to extract size table');
   }
@@ -696,7 +821,10 @@ const removeBackgroundWithGemini = async (base64Image: string): Promise<string> 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64: base64Image, mimeType: 'image/png' }),
   });
-  const payload = await response.json();
+  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: { imageBase64?: string } }>(
+    response,
+    '/api/remove-bg'
+  );
   if (!response.ok || !payload?.ok || !payload?.data?.imageBase64) return base64Image;
   return String(payload.data.imageBase64);
 };
@@ -715,6 +843,16 @@ const generateFallbackResult = (term: string): Product => ({
   },
 });
 
+const EMPTY_FORM_DATA: FormData = {
+  brand: '',
+  name: '',
+  category: '',
+  url: '',
+  productImage: null,
+  sizeChartImage: null,
+  extractedTable: null,
+};
+
 export default function App() {
   const isAdminPage = typeof window !== 'undefined' && window.location.pathname === '/admin';
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -728,6 +866,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [addProductMode, setAddProductMode] = useState<AddProductMode>('menu');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('search');
   const [sizeCategory, setSizeCategory] = useState<SizeCategory>('clothing');
@@ -756,15 +895,7 @@ export default function App() {
   const [adminActionError, setAdminActionError] = useState<string | null>(null);
   const [isAdminActionLoading, setIsAdminActionLoading] = useState(false);
 
-  const [formData, setFormData] = useState<FormData>({
-    brand: '',
-    name: '',
-    category: '',
-    url: '',
-    productImage: null,
-    sizeChartImage: null,
-    extractedTable: null,
-  });
+  const [formData, setFormData] = useState<FormData>(EMPTY_FORM_DATA);
   const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null);
   const [autofilledProductImageUrl, setAutofilledProductImageUrl] = useState<string | null>(null);
   const [autofilledProductImageCandidates, setAutofilledProductImageCandidates] = useState<string[]>([]);
@@ -772,7 +903,12 @@ export default function App() {
   const [isAnalyzingTable, setIsAnalyzingTable] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAutofillingFromUrl, setIsAutofillingFromUrl] = useState(false);
+  const [isAutofillingFromImage, setIsAutofillingFromImage] = useState(false);
   const [autoFillError, setAutoFillError] = useState<string | null>(null);
+  const [productImageNotice, setProductImageNotice] = useState<string | null>(null);
+  const [aiPreviewImageSrc, setAiPreviewImageSrc] = useState<string | null>(null);
+  const [isAiPreviewLoading, setIsAiPreviewLoading] = useState(false);
+  const [didFallbackAiPreviewImage, setDidFallbackAiPreviewImage] = useState(false);
   const [activeResultRowIndex, setActiveResultRowIndex] = useState<number | null>(null);
   const [activeConverterRowIndex, setActiveConverterRowIndex] = useState<number | null>(null);
   const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
@@ -795,6 +931,19 @@ export default function App() {
     [sizeRegion, sizeRows, sizeValue]
   );
   const shouldHideSearchHero = viewMode === 'search' && Boolean(result) && !isLoading;
+
+  useEffect(() => {
+    const nextSrc = String(autofilledProductImageUrl || '').trim();
+    if (!nextSrc) {
+      setAiPreviewImageSrc(null);
+      setIsAiPreviewLoading(false);
+      setDidFallbackAiPreviewImage(false);
+      return;
+    }
+    setAiPreviewImageSrc(nextSrc);
+    setIsAiPreviewLoading(true);
+    setDidFallbackAiPreviewImage(false);
+  }, [autofilledProductImageUrl]);
 
   useEffect(() => {
     let isActive = true;
@@ -946,13 +1095,32 @@ export default function App() {
     setSelectedGridProduct(null);
   };
 
-  const handleOpenModal = () => {
-    setFormData({ brand: '', name: '', category: '', url: '', productImage: null, sizeChartImage: null, extractedTable: null });
+  const resetAddProductModalState = () => {
+    setFormData(EMPTY_FORM_DATA);
     setProductPhotoFile(null);
     setAutofilledProductImageUrl(null);
     setAutofilledProductImageCandidates([]);
     setAutoFillError(null);
+    setProductImageNotice(null);
+    setAiPreviewImageSrc(null);
+    setIsAiPreviewLoading(false);
+    setDidFallbackAiPreviewImage(false);
+    setIsProcessingImage(false);
+    setIsAnalyzingTable(false);
+    setIsAutofillingFromUrl(false);
+    setIsAutofillingFromImage(false);
+    setIsSaving(false);
+    setAddProductMode('menu');
+  };
+
+  const handleOpenModal = () => {
+    resetAddProductModalState();
     setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    resetAddProductModalState();
+    setIsModalOpen(false);
   };
 
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
@@ -1127,6 +1295,7 @@ export default function App() {
         const dataUrl = await readFileAsDataUrl(file);
         setAutofilledProductImageUrl(null);
         setAutofilledProductImageCandidates([]);
+        setProductImageNotice(null);
         const base64 = dataUrl.split(',')[1] || '';
         setFormData((prev) => ({ ...prev, productImage: dataUrl }));
         setProductPhotoFile(file);
@@ -1168,6 +1337,7 @@ export default function App() {
     const nextUrl = String(imageUrl || '').trim();
     if (!nextUrl) return;
     setAutofilledProductImageUrl(nextUrl);
+    setProductImageNotice(null);
     setProductPhotoFile(null);
     setFormData((prev) => ({ ...prev, productImage: nextUrl }));
     setAutoFillError(null);
@@ -1181,22 +1351,27 @@ export default function App() {
     }
 
     setIsAutofillingFromUrl(true);
+    setIsAiPreviewLoading(true);
     setAutoFillError(null);
+    setProductImageNotice(null);
     setAutofilledProductImageCandidates([]);
 
     try {
       const extracted = await fetchProductMetadataFromUrl(targetUrl);
       const candidateUrls = uniqHttpUrls([
+        extracted.image_path || '',
         ...(Array.isArray(extracted.productImageCandidates) ? extracted.productImageCandidates : []),
         extracted.productImage?.sourceUrl || '',
-      ]).slice(0, 4);
+      ]).slice(0, MAX_PRODUCT_IMAGE_CANDIDATES);
 
       const selectedCandidateUrl = candidateUrls[0] || '';
       setProductPhotoFile(null);
       if (selectedCandidateUrl) {
         setAutofilledProductImageUrl(selectedCandidateUrl);
+        setProductImageNotice(null);
       } else {
         setAutofilledProductImageUrl(null);
+        setProductImageNotice('Official product image was not found from the page. Upload the brand image manually.');
       }
 
       setAutofilledProductImageCandidates(candidateUrls);
@@ -1205,6 +1380,7 @@ export default function App() {
         ...prev,
         brand: extracted.brand || prev.brand,
         name: extracted.name || prev.name,
+        category: normalizeCategoryOption(extracted.category || '') || prev.category,
         url: extracted.url || prev.url,
         productImage: selectedCandidateUrl || prev.productImage,
       }));
@@ -1220,9 +1396,109 @@ export default function App() {
     }
   };
 
+  const handleCaptureUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    void (async () => {
+      const dataUrl = await readFileAsDataUrl(file);
+      const optimizedDataUrl = await resizeImage(dataUrl, 1600);
+      const optimizedBase64 = optimizedDataUrl.split(',')[1] || '';
+      const effectiveMimeType = file.type || 'image/png';
+
+      setIsAutofillingFromImage(true);
+      setAutoFillError(null);
+      setProductImageNotice(null);
+      setIsAnalyzingTable(true);
+      setFormData((prev) => ({ ...prev, sizeChartImage: optimizedDataUrl }));
+
+      try {
+        const extracted = await fetchProductMetadataFromImage(optimizedBase64, effectiveMimeType);
+        const productImageBox = normalizeCaptureBoundingBox(extracted.product_image_bbox ?? null);
+        const sizeChartBox = normalizeCaptureBoundingBox(extracted.size_chart_bbox ?? null);
+        const candidateUrls = uniqHttpUrls([
+          extracted.image_path || '',
+          ...(Array.isArray(extracted.productImageCandidates) ? extracted.productImageCandidates : []),
+          extracted.productImage?.sourceUrl || '',
+        ]).slice(0, MAX_PRODUCT_IMAGE_CANDIDATES);
+        const selectedCandidateUrl = candidateUrls[0] || '';
+        let normalizedTable = normalizeSizeTable(extracted.sizeTable ?? null);
+        const croppedProductImage =
+          !selectedCandidateUrl && productImageBox
+            ? await cropImageByBoundingBox(optimizedDataUrl, productImageBox)
+            : '';
+        if (!normalizedTable && sizeChartBox) {
+          const croppedSizeChartImage = await cropImageByBoundingBox(optimizedDataUrl, sizeChartBox);
+          if (croppedSizeChartImage) {
+            const croppedBase64 = croppedSizeChartImage.split(',')[1] || '';
+            if (croppedBase64) {
+              normalizedTable = await extractSizeTableFromImage(croppedBase64, 'image/png');
+            }
+          }
+        }
+
+        setAutofilledProductImageCandidates(candidateUrls);
+        setProductPhotoFile(null);
+        setAutofilledProductImageUrl(selectedCandidateUrl || null);
+        setProductImageNotice(
+          selectedCandidateUrl
+            ? null
+            : croppedProductImage
+              ? 'Only a screenshot crop was found. Upload the brand product image manually before saving.'
+              : 'Official product image was not found from the screenshot. Upload the brand image manually.'
+        );
+
+        setFormData((prev) => ({
+          ...prev,
+          brand: extracted.brand || prev.brand,
+          name: extracted.name || prev.name,
+          category: normalizeCategoryOption(extracted.category || '') || prev.category,
+          url: extracted.url || prev.url,
+          productImage: selectedCandidateUrl || croppedProductImage || prev.productImage,
+          extractedTable: normalizedTable || prev.extractedTable,
+          sizeChartImage: optimizedDataUrl,
+        }));
+
+        if (!extracted.brand && !extracted.name && !selectedCandidateUrl && !croppedProductImage && !normalizedTable) {
+          setAutoFillError('캡쳐 이미지에서 자동 입력 데이터를 찾지 못했습니다.');
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Image analysis failed.';
+        setAutoFillError(message);
+      } finally {
+        setIsAnalyzingTable(false);
+        setIsAutofillingFromImage(false);
+      }
+    })();
+  };
+
+  const handleAiPreviewLoad = () => {
+    setIsAiPreviewLoading(false);
+  };
+
+  const handleAiPreviewError = (event: SyntheticEvent<HTMLImageElement>) => {
+    const image = event.currentTarget;
+    const currentSrc = String(image.getAttribute('src') || '').trim();
+    if (currentSrc.endsWith(DEFAULT_PRODUCT_PLACEHOLDER)) {
+      setIsAiPreviewLoading(false);
+      return;
+    }
+    setDidFallbackAiPreviewImage(true);
+    setIsAiPreviewLoading(false);
+    setAiPreviewImageSrc(DEFAULT_PRODUCT_PLACEHOLDER);
+  };
+
+  const handleThumbnailLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
+    const image = event.currentTarget;
+    const currentSrc = String(image.getAttribute('src') || '').trim();
+    if (currentSrc.endsWith(DEFAULT_PRODUCT_PLACEHOLDER)) return;
+    image.src = DEFAULT_PRODUCT_PLACEHOLDER;
+  };
+
   const handleSubmitProduct = async () => {
     const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
     const hasCategory = Boolean(formData.category.trim());
+    const hasValidatedSizeTable = Boolean(formData.extractedTable);
     if (!hasProductImage) {
       alert('상품 사진은 필수입니다.');
       return;
@@ -1231,8 +1507,8 @@ export default function App() {
       alert('카테고리는 필수입니다.');
       return;
     }
-    if (!hasSizeData) {
-      alert('사이즈표 데이터는 필수입니다.');
+    if (!hasValidatedSizeTable) {
+      alert('검증된 사이즈표가 필요합니다. 더 선명한 사이즈표 이미지를 업로드해 주세요.');
       return;
     }
     setIsSaving(true);
@@ -1246,7 +1522,7 @@ export default function App() {
         productPhoto: productPhotoFile,
         productImageUrl: autofilledProductImageUrl,
       });
-      setIsModalOpen(false);
+      handleCloseModal();
       setShowSuccessModal(true);
       setTimeout(() => setShowSuccessModal(false), 1000);
       setRetryTrigger((prev) => prev + 1);
@@ -1260,8 +1536,10 @@ export default function App() {
     }
   };
 
-  const hasSizeData = Boolean(formData.extractedTable) || Boolean(formData.sizeChartImage);
+  const hasSizeData = Boolean(formData.extractedTable);
   const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
+  const isPreviewOnlyProductImage =
+    Boolean(formData.productImage) && !productPhotoFile && !autofilledProductImageUrl;
   const isFormValid =
     Boolean(formData.brand.trim()) &&
     Boolean(formData.name.trim()) &&
@@ -1269,9 +1547,265 @@ export default function App() {
     hasProductImage &&
     hasSizeData &&
     !isAutofillingFromUrl &&
+    !isAutofillingFromImage &&
     !isProcessingImage &&
     !isAnalyzingTable &&
     !isSaving;
+  const isCaptureReviewReady =
+    Boolean(formData.brand.trim()) ||
+    Boolean(formData.name.trim()) ||
+    Boolean(formData.category.trim()) ||
+    Boolean(formData.url.trim()) ||
+    Boolean(formData.productImage) ||
+    Boolean(formData.extractedTable);
+
+  const renderProductImageSection = () => (
+    <div className="space-y-2">
+      <label className="text-sm text-gray-400">상품 이미지</label>
+      <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
+        {formData.productImage ? <img src={formData.productImage} className="h-full object-contain" onError={handleThumbnailLoadError} /> : <Camera className="w-8 h-8 text-gray-500" />}
+        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
+      </label>
+      {autofilledProductImageCandidates.length > 0 ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-[11px] text-gray-400">
+            <span>후보 {autofilledProductImageCandidates.length}장</span>
+            <span>왼쪽 카드가 현재 추천 순위입니다.</span>
+          </div>
+          <div className="grid max-h-56 grid-cols-4 gap-2 overflow-y-auto pr-1">
+            {autofilledProductImageCandidates.map((candidateUrl, index) => {
+              const isActive = candidateUrl === autofilledProductImageUrl;
+              return (
+                <button
+                  key={candidateUrl}
+                  type="button"
+                  onClick={() => handleSelectAutofilledProductImage(candidateUrl)}
+                  className={`relative h-16 rounded-lg border overflow-hidden ${isActive ? 'border-orange-500 ring-1 ring-orange-500' : 'border-gray-700 hover:border-gray-500'}`}
+                  title={candidateUrl}
+                >
+                  <img src={candidateUrl} className="w-full h-full object-cover" onError={handleThumbnailLoadError} />
+                  <span className={`absolute left-1 top-1 rounded px-1 py-0.5 text-[10px] font-semibold ${index === 0 ? 'bg-orange-500 text-black' : 'bg-black/70 text-white'}`}>
+                    {index === 0 ? '추천' : index + 1}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+      {isProcessingImage ? <div className="text-xs text-orange-400">이미지 처리 중...</div> : null}
+      {productImageNotice ? <div className="text-xs text-amber-300">{productImageNotice}</div> : null}
+      {isPreviewOnlyProductImage ? (
+        <div className="text-xs text-amber-300">현재 이미지는 미리보기 전용이라 저장용 상품 이미지를 직접 올려야 합니다.</div>
+      ) : null}
+    </div>
+  );
+
+  const renderSizeTableSection = () => (
+    <div className="space-y-2">
+      <label className="text-sm text-gray-400">사이즈표 이미지</label>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <label className="cursor-pointer w-full sm:w-1/2 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+          {formData.extractedTable && !isAnalyzingTable ? (
+            <div className="w-full h-full overflow-auto p-2">
+              <table className="w-full text-[10px] text-left">
+                {formData.extractedTable.headers.length > 0 ? (
+                  <thead className="border-b border-gray-700">
+                    <tr>
+                      {formData.extractedTable.headers.map((header, idx) => (
+                        <th key={idx} className={`px-2 py-1 font-semibold whitespace-nowrap ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${idx === 0 ? 'border-r border-gray-700' : ''}`}>
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                ) : null}
+                <tbody>
+                  {formData.extractedTable.rows.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="border-b border-gray-800">
+                      {row.map((cell, cellIndex) => (
+                        <td key={cellIndex} className={`px-2 py-1 text-gray-200 whitespace-nowrap ${cellIndex === 0 ? 'border-r border-gray-700' : ''}`}>
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : !formData.sizeChartImage ? (
+            <Upload className="w-8 h-8 text-gray-500" />
+          ) : (
+            <img src={formData.sizeChartImage} className="h-full object-contain" />
+          )}
+          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'chart')} />
+        </label>
+        {addProductMode !== 'capture' ? (
+          <p className="text-xs text-gray-400 leading-relaxed">사이즈표 사진을 올리면<br />자동으로 표를 추출합니다.</p>
+        ) : (
+          <p className="text-xs text-gray-400 leading-relaxed">캡쳐본에서 추출한 사이즈표를 확인하세요.<br />필요하면 다시 캡쳐해서 재업로드할 수 있습니다.</p>
+        )}
+      </div>
+      {!formData.extractedTable && formData.sizeChartImage && !isAnalyzingTable ? (
+        <div className="text-xs text-amber-300">사이즈표 이미지는 있지만 검증된 표 추출은 아직 완료되지 않았습니다.</div>
+      ) : null}
+      {addProductMode === 'capture' ? (
+        <label className="cursor-pointer w-full h-20 bg-gray-800 border border-dashed border-gray-700 rounded-xl flex items-center justify-center overflow-hidden hover:border-gray-500 transition">
+          <div className="flex items-center gap-2 text-gray-400">
+            <Camera className="w-4 h-4" />
+            <span className="text-xs">캡쳐본 다시 업로드</span>
+          </div>
+          <input type="file" className="hidden" accept="image/*" onChange={handleCaptureUpload} />
+        </label>
+      ) : null}
+      {isAutofillingFromImage ? <div className="text-xs text-[#1ED760]">캡쳐 이미지 AI 분석 중...</div> : null}
+      {isAnalyzingTable ? <div className="text-xs text-orange-400">사이즈표 추출 중...</div> : null}
+    </div>
+  );
+
+  const renderAddProductForm = () => (
+    <>
+      <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="브랜드명" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
+      <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="상품명" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+      <select
+        className={`w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl ${formData.category ? 'text-white' : 'text-gray-400'}`}
+        value={formData.category}
+        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+      >
+        <option value="">카테고리</option>
+        {CATEGORY_OPTIONS.map((category) => (
+          <option key={category} value={category}>{category}</option>
+        ))}
+      </select>
+      <div className="space-y-2">
+        <div className="relative">
+          <Globe className="absolute left-4 top-3.5 w-4 h-4 text-gray-500" />
+          <input
+            className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl"
+            placeholder="공식 URL (선택)"
+            value={formData.url}
+            onChange={(e) => {
+              setFormData({ ...formData, url: e.target.value });
+              setAutoFillError(null);
+            }}
+          />
+        </div>
+        {addProductMode === 'url' ? (
+          <button
+            onClick={() => void handleAutoFillFromUrl()}
+            disabled={isAutofillingFromUrl || !formData.url.trim() || isSaving}
+            className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition flex items-center justify-center gap-2 ${
+              (isAutofillingFromUrl || !formData.url.trim() || isSaving)
+                ? 'border-gray-700 text-gray-500 bg-gray-800 cursor-not-allowed'
+                : 'border-orange-500/60 text-orange-300 bg-orange-500/10 hover:bg-orange-500/20'
+            }`}
+          >
+            {isAutofillingFromUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {isAutofillingFromUrl ? 'URL 분석 중...' : 'URL로 자동 입력'}
+          </button>
+        ) : null}
+        {autoFillError ? <p className="text-xs text-red-400">{autoFillError}</p> : null}
+      </div>
+      {addProductMode === 'url' ? (
+        <section className="space-y-2 rounded-2xl border border-[#1ED760]/40 bg-[#121212] p-3">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-semibold text-[#1ED760]">AI 추출 이미지 미리보기</label>
+            {isAutofillingFromUrl ? <span className="text-xs text-[#1ED760]">Gemini 분석 중...</span> : null}
+          </div>
+          <div className="relative w-full h-36 rounded-xl overflow-hidden border border-gray-700 bg-gray-900/70 flex items-center justify-center">
+            {!aiPreviewImageSrc && !isAutofillingFromUrl ? (
+              <div className="flex flex-col items-center gap-2 text-gray-500">
+                <Camera className="w-6 h-6" />
+                <span className="text-xs">URL 자동 입력 후 대표 이미지가 표시됩니다.</span>
+              </div>
+            ) : null}
+            {aiPreviewImageSrc ? (
+              <img
+                src={aiPreviewImageSrc}
+                className={`h-full max-w-full object-contain transition-opacity duration-200 ${isAiPreviewLoading ? 'opacity-0' : 'opacity-100'}`}
+                onLoad={handleAiPreviewLoad}
+                onError={handleAiPreviewError}
+                alt="AI extracted product preview"
+              />
+            ) : null}
+            {(isAutofillingFromUrl || isAiPreviewLoading) ? (
+              <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800" />
+            ) : null}
+          </div>
+          {didFallbackAiPreviewImage ? (
+            <p className="text-xs text-amber-300">이미지를 불러오지 못해 기본 이미지로 대체했습니다.</p>
+          ) : null}
+        </section>
+      ) : null}
+      {renderProductImageSection()}
+      {renderSizeTableSection()}
+    </>
+  );
+
+  const renderAddProductModalBody = () => {
+    if (addProductMode === 'menu') {
+      return (
+        <div className="space-y-3">
+          {false ? (
+          <button
+            type="button"
+            onClick={() => setAddProductMode('capture')}
+            className="flex w-full items-center justify-between rounded-2xl border border-gray-700 bg-gray-800/70 px-5 py-4 text-left transition hover:border-[#00FF00] hover:bg-gray-800"
+          >
+            <div>
+              <p className="text-base font-semibold text-white">캡쳐 사진 업로드해서 추가</p>
+              <p className="mt-1 text-sm text-gray-400">캡쳐본에서 상품 정보와 사이즈표를 먼저 추출합니다.</p>
+            </div>
+            <Camera className="h-5 w-5 text-[#00FF00]" />
+          </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setAddProductMode('url')}
+            className="flex w-full items-center justify-between rounded-2xl border border-gray-700 bg-gray-800/70 px-5 py-4 text-left transition hover:border-orange-500 hover:bg-gray-800"
+          >
+            <div>
+              <p className="text-base font-semibold text-white">공식홈페이지 URL 업로드해서 추가</p>
+              <p className="mt-1 text-sm text-gray-400">현재 추출 결과 확인과 이미지 후보 선택 기능을 유지합니다.</p>
+            </div>
+            <Globe className="h-5 w-5 text-orange-400" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddProductMode('manual')}
+            className="flex w-full items-center justify-between rounded-2xl border border-gray-700 bg-gray-800/70 px-5 py-4 text-left transition hover:border-gray-500 hover:bg-gray-800"
+          >
+            <div>
+              <p className="text-base font-semibold text-white">직접 추가</p>
+              <p className="mt-1 text-sm text-gray-400">브랜드명, 상품명, 카테고리, URL, 이미지, 사이즈표를 직접 입력합니다.</p>
+            </div>
+            <Plus className="h-5 w-5 text-gray-300" />
+          </button>
+        </div>
+      );
+    }
+
+    if (addProductMode === 'capture' && !isCaptureReviewReady) {
+      return (
+        <div className="space-y-3">
+          <label className="text-sm text-gray-400">캡쳐 사진 업로드</label>
+          <label className="cursor-pointer flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gray-700 bg-gray-800/60 px-5 py-8 text-center transition hover:border-[#00FF00]">
+            <Camera className="h-10 w-10 text-[#00FF00]" />
+            <div>
+              <p className="text-sm font-semibold text-white">캡쳐본을 업로드하면 상품 정보를 추출합니다.</p>
+              <p className="mt-1 text-xs text-gray-400">브랜드명, 상품명, 카테고리, URL, 이미지, 사이즈표를 자동 분석합니다.</p>
+            </div>
+            <input type="file" className="hidden" accept="image/*" onChange={handleCaptureUpload} />
+          </label>
+          {isAutofillingFromImage ? <div className="text-xs text-[#1ED760]">캡쳐 이미지 AI 분석 중...</div> : null}
+          {isAnalyzingTable ? <div className="text-xs text-orange-400">사이즈표 추출 중...</div> : null}
+          {autoFillError ? <div className="text-xs text-red-400">{autoFillError}</div> : null}
+        </div>
+      );
+    }
+
+    return renderAddProductForm();
+  };
 
   if (isAdminPage) {
     return (
@@ -1838,7 +2372,7 @@ export default function App() {
       </main>
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCloseModal} />
           <div className="ui-add-product-modal bg-gray-900 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh] border border-gray-800">
             <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-900 sticky top-0 z-10 text-white">
               <h3 className="text-lg font-bold" style={{ color: '#00FF00' }}>상품 직접 추가</h3>
@@ -1846,6 +2380,9 @@ export default function App() {
             </div>
 
             <div className="p-6 overflow-y-auto text-white space-y-4">
+              {renderAddProductModalBody()}
+              {false ? (
+                <>
               <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="브랜드명" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
               <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="상품명" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
               <select
@@ -1886,31 +2423,74 @@ export default function App() {
                 {autoFillError ? <p className="text-xs text-red-400">{autoFillError}</p> : null}
               </div>
 
+              <section className="space-y-2 rounded-2xl border border-[#1ED760]/40 bg-[#121212] p-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-[#1ED760]">AI 추출 이미지 미리보기</label>
+                  {isAutofillingFromUrl ? <span className="text-xs text-[#1ED760]">Gemini 분석 중...</span> : null}
+                </div>
+                <div className="relative w-full h-36 rounded-xl overflow-hidden border border-gray-700 bg-gray-900/70 flex items-center justify-center">
+                  {!aiPreviewImageSrc && !isAutofillingFromUrl ? (
+                    <div className="flex flex-col items-center gap-2 text-gray-500">
+                      <Camera className="w-6 h-6" />
+                      <span className="text-xs">URL 자동 입력 후 대표 이미지가 표시됩니다.</span>
+                    </div>
+                  ) : null}
+                  {aiPreviewImageSrc ? (
+                    <img
+                      src={aiPreviewImageSrc || undefined}
+                      className={`h-full max-w-full object-contain transition-opacity duration-200 ${isAiPreviewLoading ? 'opacity-0' : 'opacity-100'}`}
+                      onLoad={handleAiPreviewLoad}
+                      onError={handleAiPreviewError}
+                      alt="AI extracted product preview"
+                    />
+                  ) : null}
+                  {(isAutofillingFromUrl || isAiPreviewLoading) ? (
+                    <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800" />
+                  ) : null}
+                </div>
+                {didFallbackAiPreviewImage ? (
+                  <p className="text-xs text-amber-300">이미지를 불러올 수 없어 기본 이미지로 대체합니다.</p>
+                ) : null}
+              </section>
+
               <div className="space-y-2">
                 <label className="text-sm text-gray-400">상품 이미지</label>
                 <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
-                  {formData.productImage ? <img src={formData.productImage} className="h-full object-contain" /> : <Camera className="w-8 h-8 text-gray-500" />}
+                  {formData.productImage ? <img src={formData.productImage || undefined} className="h-full object-contain" onError={handleThumbnailLoadError} /> : <Camera className="w-8 h-8 text-gray-500" />}
                   <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
                 </label>
-                {autofilledProductImageCandidates.length > 1 ? (
-                  <div className="grid grid-cols-4 gap-2">
-                    {autofilledProductImageCandidates.slice(0, 4).map((candidateUrl) => {
+                {autofilledProductImageCandidates.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[11px] text-gray-400">
+                      <span>후보 {autofilledProductImageCandidates.length}장</span>
+                      <span>왼쪽 위가 현재 추천 순위입니다.</span>
+                    </div>
+                    <div className="grid max-h-56 grid-cols-4 gap-2 overflow-y-auto pr-1">
+                    {autofilledProductImageCandidates.map((candidateUrl, index) => {
                       const isActive = candidateUrl === autofilledProductImageUrl;
                       return (
                         <button
                           key={candidateUrl}
                           type="button"
                           onClick={() => handleSelectAutofilledProductImage(candidateUrl)}
-                          className={`h-16 rounded-lg border overflow-hidden ${isActive ? 'border-orange-500 ring-1 ring-orange-500' : 'border-gray-700 hover:border-gray-500'}`}
+                          className={`relative h-16 rounded-lg border overflow-hidden ${isActive ? 'border-orange-500 ring-1 ring-orange-500' : 'border-gray-700 hover:border-gray-500'}`}
                           title={candidateUrl}
                         >
-                          <img src={candidateUrl} className="w-full h-full object-cover" />
+                          <img src={candidateUrl} className="w-full h-full object-cover" onError={handleThumbnailLoadError} />
+                          <span className={`absolute left-1 top-1 rounded px-1 py-0.5 text-[10px] font-semibold ${index === 0 ? 'bg-orange-500 text-black' : 'bg-black/70 text-white'}`}>
+                            {index === 0 ? '추천' : index + 1}
+                          </span>
                         </button>
                       );
                     })}
+                    </div>
                   </div>
                 ) : null}
                 {isProcessingImage && <div className="text-xs text-orange-400">이미지 처리 중...</div>}
+                {productImageNotice ? <div className="text-xs text-amber-300">{productImageNotice}</div> : null}
+                {isPreviewOnlyProductImage ? (
+                  <div className="text-xs text-amber-300">Current image is preview-only and will not be saved as the product image.</div>
+                ) : null}
               </div>
 
               <div className="space-y-2">
@@ -1920,10 +2500,10 @@ export default function App() {
                     {formData.extractedTable && !isAnalyzingTable ? (
                       <div className="w-full h-full overflow-auto p-2">
                         <table className="w-full text-[10px] text-left">
-                          {formData.extractedTable.headers.length > 0 ? (
+                          {formData.extractedTable?.headers.length ? (
                             <thead className="border-b border-gray-700">
                               <tr>
-                                {formData.extractedTable.headers.map((header, idx) => (
+                                {formData.extractedTable?.headers.map((header, idx) => (
                                   <th key={idx} className={`px-2 py-1 font-semibold whitespace-nowrap ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${idx === 0 ? 'border-r border-gray-700' : ''}`}>
                                     {header}
                                   </th>
@@ -1932,7 +2512,7 @@ export default function App() {
                             </thead>
                           ) : null}
                           <tbody>
-                            {formData.extractedTable.rows.map((row, rowIndex) => (
+                            {formData.extractedTable?.rows.map((row, rowIndex) => (
                               <tr key={rowIndex} className="border-b border-gray-800">
                                 {row.map((cell, cellIndex) => (
                                   <td key={cellIndex} className={`px-2 py-1 text-gray-200 whitespace-nowrap ${cellIndex === 0 ? 'border-r border-gray-700' : ''}`}>
@@ -1947,14 +2527,30 @@ export default function App() {
                     ) : !formData.sizeChartImage ? (
                       <Upload className="w-8 h-8 text-gray-500" />
                     ) : (
-                      <img src={formData.sizeChartImage} className="h-full object-contain" />
+                      <img src={formData.sizeChartImage || undefined} className="h-full object-contain" />
                     )}
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'chart')} />
                   </label>
                   <p className="text-xs text-gray-400 leading-relaxed">사이즈표 사진을 올리면<br />자동으로 표를 추출합니다.</p>
                 </div>
+                {!formData.extractedTable && formData.sizeChartImage && !isAnalyzingTable ? (
+                  <div className="text-xs text-amber-300">Size chart image is present, but a validated table was not extracted yet.</div>
+                ) : null}
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">캡쳐 이미지 업로드</label>
+                  <label className="cursor-pointer w-full h-20 bg-gray-800 border border-dashed border-gray-700 rounded-xl flex items-center justify-center overflow-hidden hover:border-gray-500 transition">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Camera className="w-4 h-4" />
+                      <span className="text-xs">브랜드/상품명/카테고리/URL/이미지/사이즈표 자동 분석</span>
+                    </div>
+                    <input type="file" className="hidden" accept="image/*" onChange={handleCaptureUpload} />
+                  </label>
+                </div>
+                {isAutofillingFromImage ? <div className="text-xs text-[#1ED760]">캡쳐 이미지 AI 분석 중...</div> : null}
                 {isAnalyzingTable && <div className="text-xs text-orange-400">사이즈표 추출 중...</div>}
               </div>
+                </>
+              ) : null}
             </div>
 
             <div className="p-6 border-t border-gray-800 bg-gray-900 flex justify-end gap-3 sticky bottom-0">
