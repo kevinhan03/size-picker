@@ -2441,7 +2441,7 @@ export default function App() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 {filteredGridProducts.map((product) => (
                   <div key={product.id} onClick={() => { setSelectedGridProduct(product); }} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
-                    <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative"><ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-h-full max-w-full object-contain" onError={handleImageLoadError} /></div>
+                    <div className="relative flex h-48 items-center justify-center overflow-hidden rounded-[10px] bg-black/20 p-4"><ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-h-full max-w-full rounded-[5px] object-contain" onError={handleImageLoadError} /></div>
                     <div className="p-5 flex-1 flex flex-col items-center justify-center text-center"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="pt-2 text-sm text-gray-500">{product.category}</div></div>
                   </div>
                 ))}
@@ -2658,7 +2658,7 @@ export default function App() {
       {viewMode === 'grid' && selectedGridProduct && (
         <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedGridProduct(null)} />
-          <div className="ui-product-detail-modal relative bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="ui-product-detail-modal relative bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl md:w-[91%] md:max-w-[58.24rem] md:h-[80.4vh] md:max-h-none">
             <div className="sticky top-0 z-10 bg-gray-900/95 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg sm:text-xl font-bold text-white">상품 상세</h3>
               <button onClick={() => setSelectedGridProduct(null)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition">
@@ -2671,7 +2671,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setIsDetailImageZoomed(true)}
-                  className="w-28 h-28 md:w-36 md:h-36 bg-white rounded-[20px] border border-gray-700 p-2 flex items-center justify-center overflow-hidden cursor-zoom-in"
+                  className="w-28 h-28 md:h-[16.848rem] md:w-[16.848rem] bg-white rounded-[20px] border border-gray-700 p-2 flex items-center justify-center overflow-hidden cursor-zoom-in"
                 >
                   <ProgressiveImage src={selectedGridProduct.image} thumbnailSrc={selectedGridProduct.thumbnailImage} alt={selectedGridProduct.name} className="max-w-full max-h-full object-contain" loading="eager" onError={handleImageLoadError} />
                 </button>
