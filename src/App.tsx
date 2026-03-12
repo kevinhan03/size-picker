@@ -3,6 +3,7 @@ import type { ChangeEvent, KeyboardEvent, SyntheticEvent } from 'react';
 import {
   ArrowRight,
   Camera,
+  ChevronDown,
   Check,
   ExternalLink,
   Globe,
@@ -858,6 +859,8 @@ export default function App() {
   const [productsError, setProductsError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [retryTrigger, setRetryTrigger] = useState(0);
+  const [gridCategoryFilter, setGridCategoryFilter] = useState<string>('');
+  const [isGridCategoryDropdownOpen, setIsGridCategoryDropdownOpen] = useState(false);
 
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Product[]>([]);
@@ -915,9 +918,14 @@ export default function App() {
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const gridCategoryDropdownRef = useRef<HTMLDivElement>(null);
   const isSelectionRef = useRef(false);
 
   const allProducts = useMemo(() => [...products], [products]);
+  const filteredGridProducts = useMemo(() => {
+    if (!gridCategoryFilter) return allProducts;
+    return allProducts.filter((product) => product.category === gridCategoryFilter);
+  }, [allProducts, gridCategoryFilter]);
   const sizeRows = useMemo(() => {
     if (sizeCategory === 'shoes') return SHOE_SIZE_ROWS_BY_GENDER[sizeGender];
     return CLOTHING_SIZE_ROWS_BY_GENDER[sizeGender];
@@ -1005,6 +1013,14 @@ export default function App() {
   }, [selectedGridProduct?.id]);
 
   useEffect(() => {
+    if (!selectedGridProduct) return;
+    const isVisible = filteredGridProducts.some((product) => product.id === selectedGridProduct.id);
+    if (!isVisible) {
+      setSelectedGridProduct(null);
+    }
+  }, [filteredGridProducts, selectedGridProduct]);
+
+  useEffect(() => {
     if (sizeOptions.length === 0) {
       setSizeValue('');
       return;
@@ -1023,9 +1039,27 @@ export default function App() {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
       }
+
+      if (
+        gridCategoryDropdownRef.current &&
+        !gridCategoryDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsGridCategoryDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsGridCategoryDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -2353,16 +2387,62 @@ export default function App() {
 
         {viewMode === 'grid' && (
           <div className="w-full max-w-7xl">
-            <h2 className="mb-6 flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white">
               <LayoutGrid className="w-7 h-7 text-orange-500" />
               전체 상품 보기
-            </h2>
+              </h2>
+              <div ref={gridCategoryDropdownRef} className="relative w-28 sm:mr-4 sm:w-28">
+                <button
+                  type="button"
+                  className={`flex w-full items-center justify-between rounded-[20px] border border-gray-700 bg-gray-900 pl-4 pr-4 py-3 text-left text-xs font-medium ${gridCategoryFilter ? 'text-white' : 'text-gray-400'}`}
+                  onClick={() => setIsGridCategoryDropdownOpen((prev) => !prev)}
+                  aria-haspopup="listbox"
+                  aria-expanded={isGridCategoryDropdownOpen}
+                  aria-label="상품 카테고리 필터"
+                >
+                  <span className="truncate">{gridCategoryFilter || 'Total'}</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 ${isGridCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isGridCategoryDropdownOpen && (
+                  <div
+                    className="absolute left-0 top-full z-20 mt-2 w-full overflow-hidden rounded-[10px] border border-gray-700 bg-gray-900"
+                    role="listbox"
+                    aria-label="상품 카테고리 필터"
+                  >
+                    <button
+                      type="button"
+                      className="block w-full px-4 py-3 text-center text-xs text-white hover:bg-gray-800"
+                      onClick={() => {
+                        setGridCategoryFilter('');
+                        setIsGridCategoryDropdownOpen(false);
+                      }}
+                    >
+                      Total
+                    </button>
+                    {CATEGORY_OPTIONS.map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        className="block w-full px-4 py-3 text-center text-xs text-white hover:bg-gray-800"
+                        onClick={() => {
+                          setGridCategoryFilter(category);
+                          setIsGridCategoryDropdownOpen(false);
+                        }}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
             {allProducts.length === 0 ? <div className="text-center py-20 text-gray-500">등록된 상품이 없습니다.</div> : (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                {allProducts.map((product) => (
+                {filteredGridProducts.map((product) => (
                   <div key={product.id} onClick={() => { setSelectedGridProduct(product); }} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
                     <div className="h-48 bg-black/20 p-4 flex items-center justify-center overflow-hidden relative"><ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-h-full max-w-full object-contain" onError={handleImageLoadError} /></div>
-                    <div className="p-5 flex-1 flex flex-col"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="text-sm text-gray-500 mt-auto pt-2">{product.category}</div></div>
+                    <div className="p-5 flex-1 flex flex-col items-center justify-center text-center"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="pt-2 text-sm text-gray-500">{product.category}</div></div>
                   </div>
                 ))}
               </div>
