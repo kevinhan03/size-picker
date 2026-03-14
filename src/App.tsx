@@ -922,6 +922,20 @@ export default function App() {
   const isSelectionRef = useRef(false);
 
   const allProducts = useMemo(() => [...products], [products]);
+  const gridCategoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { Total: allProducts.length };
+    for (const category of CATEGORY_OPTIONS) {
+      counts[category] = 0;
+    }
+
+    for (const product of allProducts) {
+      if (product.category in counts) {
+        counts[product.category] += 1;
+      }
+    }
+
+    return counts;
+  }, [allProducts]);
   const filteredGridProducts = useMemo(() => {
     if (!gridCategoryFilter) return allProducts;
     return allProducts.filter((product) => product.category === gridCategoryFilter);
@@ -938,6 +952,7 @@ export default function App() {
     () => findConvertedSize(sizeRows, sizeRegion, sizeValue),
     [sizeRegion, sizeRows, sizeValue]
   );
+  const zoomedDetailProduct = selectedGridProduct ?? result;
   const shouldHideSearchHero = viewMode === 'search' && Boolean(result) && !isLoading;
 
   useEffect(() => {
@@ -1010,7 +1025,7 @@ export default function App() {
 
   useEffect(() => {
     setIsDetailImageZoomed(false);
-  }, [selectedGridProduct?.id]);
+  }, [selectedGridProduct?.id, result?.id]);
 
   useEffect(() => {
     if (!selectedGridProduct) return;
@@ -1533,6 +1548,8 @@ export default function App() {
     const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
     const hasCategory = Boolean(formData.category.trim());
     const hasValidatedSizeTable = Boolean(formData.extractedTable);
+    const isSizeTableOptionalCategory =
+      formData.category === 'Shoes' || formData.category === 'Acc';
     if (!hasProductImage) {
       alert('상품 사진은 필수입니다.');
       return;
@@ -1541,7 +1558,7 @@ export default function App() {
       alert('카테고리는 필수입니다.');
       return;
     }
-    if (!hasValidatedSizeTable) {
+    if (!isSizeTableOptionalCategory && !hasValidatedSizeTable) {
       alert('검증된 사이즈표가 필요합니다. 더 선명한 사이즈표 이미지를 업로드해 주세요.');
       return;
     }
@@ -1572,6 +1589,8 @@ export default function App() {
 
   const hasSizeData = Boolean(formData.extractedTable);
   const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
+  const isSizeTableOptionalCategory =
+    formData.category === 'Shoes' || formData.category === 'Acc';
   const isPreviewOnlyProductImage =
     Boolean(formData.productImage) && !productPhotoFile && !autofilledProductImageUrl;
   const isFormValid =
@@ -1579,7 +1598,7 @@ export default function App() {
     Boolean(formData.name.trim()) &&
     Boolean(formData.category.trim()) &&
     hasProductImage &&
-    hasSizeData &&
+    (hasSizeData || isSizeTableOptionalCategory) &&
     !isAutofillingFromUrl &&
     !isAutofillingFromImage &&
     !isProcessingImage &&
@@ -2123,7 +2142,13 @@ export default function App() {
               <div className="mt-12 w-full max-w-4xl">
                 <div className="ui-product-card bg-gray-900 rounded-3xl shadow-2xl overflow-hidden border border-gray-800">
                   <div className="p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row gap-6 md:items-center bg-black/20">
-                    <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl shadow-sm border border-gray-700 flex-shrink-0 overflow-hidden p-2 flex items-center justify-center"><ProgressiveImage src={result.image} thumbnailSrc={result.thumbnailImage} alt={result.name} className="max-w-full max-h-full object-contain" loading="eager" /></div>
+                    <button
+                      type="button"
+                      onClick={() => setIsDetailImageZoomed(true)}
+                      className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl shadow-sm border border-gray-700 flex-shrink-0 overflow-hidden p-2 flex items-center justify-center cursor-zoom-in"
+                    >
+                      <ProgressiveImage src={result.image} thumbnailSrc={result.thumbnailImage} alt={result.name} className="max-w-full max-h-full object-contain" loading="eager" />
+                    </button>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-1"><span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{result.brand}</span><span className="text-gray-500">{result.category}</span></div>
                       <h2 className="text-2xl font-bold text-white mb-2">{result.name}</h2>
@@ -2387,7 +2412,7 @@ export default function App() {
 
         {viewMode === 'grid' && (
           <div className="w-full max-w-7xl">
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-6 flex items-center justify-between gap-4">
               <h2 className="flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white">
               <LayoutGrid className="w-7 h-7 text-orange-500" />
               전체 상품 보기
@@ -2412,25 +2437,27 @@ export default function App() {
                   >
                     <button
                       type="button"
-                      className="block w-full px-4 py-3 text-center text-xs text-white hover:bg-gray-800"
+                      className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white hover:bg-gray-800"
                       onClick={() => {
                         setGridCategoryFilter('');
                         setIsGridCategoryDropdownOpen(false);
                       }}
                     >
-                      Total
+                      <span>Total</span>
+                      <span className="text-[10px] text-gray-400">{gridCategoryCounts.Total}</span>
                     </button>
                     {CATEGORY_OPTIONS.map((category) => (
                       <button
                         key={category}
                         type="button"
-                        className="block w-full px-4 py-3 text-center text-xs text-white hover:bg-gray-800"
+                        className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white hover:bg-gray-800"
                         onClick={() => {
                           setGridCategoryFilter(category);
                           setIsGridCategoryDropdownOpen(false);
                         }}
                       >
-                        {category}
+                        <span>{category}</span>
+                        <span className="text-[10px] text-gray-400">{gridCategoryCounts[category]}</span>
                       </button>
                     ))}
                   </div>
@@ -2650,7 +2677,7 @@ export default function App() {
             <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
               <Check className="w-6 h-6 text-green-400" />
             </div>
-            <h3 className="text-sm font-bold tracking-wide text-green-400">제출 완료</h3>
+            <h3 className="text-sm font-bold tracking-wide text-green-400">COMPLETE</h3>
           </div>
         </div>
       )}
@@ -2738,7 +2765,7 @@ export default function App() {
         </div>
       )}
 
-      {isDetailImageZoomed && selectedGridProduct && (
+      {isDetailImageZoomed && zoomedDetailProduct && (
         <div
           className="fixed inset-0 z-[75] bg-black/90 backdrop-blur-sm p-4 flex items-center justify-center cursor-pointer"
           onClick={() => setIsDetailImageZoomed(false)}
@@ -2746,8 +2773,8 @@ export default function App() {
         >
           <div className="h-[63vh] w-full max-w-6xl flex items-center justify-center">
             <img
-              src={selectedGridProduct.image}
-              alt={selectedGridProduct.name}
+              src={zoomedDetailProduct.image}
+              alt={zoomedDetailProduct.name}
               className="max-w-full max-h-full object-contain cursor-pointer"
               style={{ borderRadius: '20px' }}
             />
