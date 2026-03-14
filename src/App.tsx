@@ -3,7 +3,6 @@ import type { ChangeEvent, KeyboardEvent, SyntheticEvent } from 'react';
 import {
   ArrowRight,
   Camera,
-  ChevronDown,
   Check,
   ExternalLink,
   Globe,
@@ -18,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
+import { CategoryDropdown } from './components/CategoryDropdown';
 
 interface SizeTable {
   headers: string[];
@@ -886,7 +886,6 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const [gridCategoryFilter, setGridCategoryFilter] = useState<string>('');
-  const [isGridCategoryDropdownOpen, setIsGridCategoryDropdownOpen] = useState(false);
 
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Product[]>([]);
@@ -945,7 +944,6 @@ export default function App() {
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const gridCategoryDropdownRef = useRef<HTMLDivElement>(null);
   const isSelectionRef = useRef(false);
 
   const allProducts = useMemo(() => [...products], [products]);
@@ -1090,27 +1088,9 @@ export default function App() {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
       }
-
-      if (
-        gridCategoryDropdownRef.current &&
-        !gridCategoryDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsGridCategoryDropdownOpen(false);
-      }
     };
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsGridCategoryDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -2469,54 +2449,15 @@ export default function App() {
               <LayoutGrid className="w-7 h-7 text-orange-500" />
               전체 상품 보기
               </h2>
-              <div ref={gridCategoryDropdownRef} className="relative w-28 sm:mr-4 sm:w-28">
-                <button
-                  type="button"
-                  className={`flex w-full items-center justify-between rounded-[20px] border border-gray-700 bg-gray-900 pl-4 pr-4 py-3 text-left text-xs font-medium ${gridCategoryFilter ? 'text-white' : 'text-gray-400'}`}
-                  onClick={() => setIsGridCategoryDropdownOpen((prev) => !prev)}
-                  aria-haspopup="listbox"
-                  aria-expanded={isGridCategoryDropdownOpen}
-                  aria-label="상품 카테고리 필터"
-                >
-                  <span className="truncate">{gridCategoryFilter || 'Total'}</span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 ${isGridCategoryDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {isGridCategoryDropdownOpen && (
-                  <div
-                    className="absolute left-0 top-full z-20 mt-2 w-full overflow-hidden rounded-[10px] border border-gray-700 bg-gray-900"
-                    role="listbox"
-                    aria-label="상품 카테고리 필터"
-                  >
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white hover:bg-gray-800"
-                      onClick={() => {
-                        setGridCategoryFilter('');
-                        setIsGridCategoryDropdownOpen(false);
-                      }}
-                    >
-                      <span>Total</span>
-                      <span className="text-[10px] text-gray-400">{gridCategoryCounts.Total}</span>
-                    </button>
-                    {CATEGORY_OPTIONS.map((category) => (
-                      <button
-                        key={category}
-                        type="button"
-                        className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white hover:bg-gray-800"
-                        onClick={() => {
-                          setGridCategoryFilter(category);
-                          setIsGridCategoryDropdownOpen(false);
-                        }}
-                      >
-                        <span>{category}</span>
-                        <span className="text-[10px] text-gray-400">{gridCategoryCounts[category]}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            {allProducts.length === 0 ? <div className="text-center py-20 text-gray-500">등록된 상품이 없습니다.</div> : (
+              <CategoryDropdown
+                options={CATEGORY_OPTIONS}
+                value={gridCategoryFilter}
+                counts={gridCategoryCounts}
+                onChange={setGridCategoryFilter}
+                totalLabel="Total"
+                ariaLabel="상품 카테고리 필터"
+              />
+            </div>            {allProducts.length === 0 ? <div className="text-center py-20 text-gray-500">등록된 상품이 없습니다.</div> : (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 {filteredGridProducts.map((product) => (
                   <div key={product.id} onClick={() => { setSelectedGridProduct(product); }} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
