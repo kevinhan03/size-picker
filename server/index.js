@@ -3107,6 +3107,103 @@ const launchMetadataBrowser = async () => {
   return chromium.launch(options);
 };
 
+const isKreamProductUrl = (urlValue) => {
+  try {
+    const parsed = new URL(String(urlValue || "").trim());
+    return String(parsed.hostname || "").toLowerCase().includes("kream.co.kr");
+  } catch {
+    return false;
+  }
+};
+
+const extractProductMetadataFromUrlWithBrowser = async (rawUrl) => {
+  const safeUrl = assertPublicHttpUrl(rawUrl);
+  let browser = null;
+
+  try {
+    browser = await launchMetadataBrowser();
+    const page = await browser.newPage({
+      viewport: { width: 1440, height: 2200 },
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+    });
+    page.setDefaultTimeout(PRODUCT_METADATA_BROWSER_TIMEOUT_MS);
+    await page.goto(safeUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: PRODUCT_METADATA_BROWSER_TIMEOUT_MS,
+    });
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight * 0.35));
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(500);
+
+    const html = await page.content();
+    const finalPageUrl = assertPublicHttpUrl(page.url() || safeUrl);
+    await page.close();
+
+    const extracted = extractProductMetadataFromHtml({
+      html,
+      pageUrl: finalPageUrl,
+    });
+
+    const productImageDownloadOptions = {
+      minBytes: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_BYTES,
+      minWidth: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_WIDTH,
+      minHeight: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_HEIGHT,
+      maxAspectRatio: PRODUCT_METADATA_MAX_PRODUCT_IMAGE_ASPECT_RATIO,
+    };
+
+    let productImage = await selectFirstImagePayload(
+      extracted.productImageCandidates,
+      [],
+      productImageDownloadOptions
+    );
+    if (!productImage) {
+      productImage = await selectFirstImagePayload(extracted.productImageCandidates);
+    }
+
+    const { imagePath, productImageCandidates } = await prioritizeProductImageCandidates({
+      primaryImage: productImage,
+      candidates: extracted.productImageCandidates || [],
+      brand: extracted.brand || "",
+      name: extracted.name || "",
+      fastMode: PRODUCT_METADATA_URL_FAST_MODE,
+    });
+
+    const hasAnyData = Boolean(
+      extracted.brand ||
+        extracted.name ||
+        extracted.category ||
+        productImage ||
+        productImageCandidates.length > 0
+    );
+    if (!hasAnyData) {
+      const emptyError = new Error("could not extract product metadata from browser-rendered url");
+      emptyError.statusCode = 502;
+      throw emptyError;
+    }
+
+    return {
+      url: finalPageUrl,
+      brand: extracted.brand || "",
+      name: extracted.name || "",
+      category: normalizeProductCategory(extracted.category || ""),
+      image_path: imagePath || "",
+      productImage: productImage || null,
+      productImageCandidates,
+    };
+  } finally {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {
+        // no-op
+      }
+    }
+  }
+};
+
 const extractSizeMetadataFromBrowserDom = async (page) => {
   const domData = await page.evaluate(() => {
     const textBlocks = [];
@@ -3811,6 +3908,9 @@ const extractProductMetadataFromUrl = async (rawUrl) => {
   }
 
   if (!pageResponse) {
+    if (isKreamProductUrl(pageUrl)) {
+      return await extractProductMetadataFromUrlWithBrowser(pageUrl);
+    }
     const fetchError = new Error("failed to fetch product page");
     fetchError.statusCode = 502;
     fetchError.detail = lastFetchDetail || "unknown error";
@@ -3856,6 +3956,9 @@ const extractProductMetadataFromUrl = async (rawUrl) => {
     productImageCandidates.length > 0
   );
   if (!hasAnyData) {
+    if (isKreamProductUrl(finalPageUrl)) {
+      return await extractProductMetadataFromUrlWithBrowser(finalPageUrl);
+    }
     const emptyError = new Error("could not extract product metadata from url");
     emptyError.statusCode = 502;
     throw emptyError;
