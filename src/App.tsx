@@ -95,6 +95,7 @@ interface ProductMetadataPayload {
 }
 
 const MAX_PRODUCT_IMAGE_CANDIDATES = 24;
+const DUPLICATE_PRODUCT_MESSAGE = '이미 등록된 상품입니다';
 
 interface AdminEditForm {
   brand: string;
@@ -125,6 +126,31 @@ const CATEGORY_OPTION_BY_LOWER: Record<string, (typeof CATEGORY_OPTIONS)[number]
   bottom: 'Bottom',
   shoes: 'Shoes',
   acc: 'Acc',
+};
+
+const isDuplicateProductErrorMessage = (message: string): boolean => {
+  const normalized = String(message || '').toLowerCase();
+  return (
+    normalized.includes('products_unique_key') ||
+    normalized.includes('duplicate key value') ||
+    normalized.includes('unique constraint') ||
+    normalized.includes('이미 등록된 상품')
+  );
+};
+
+const normalizeComparableProductUrl = (value: string): string => {
+  const raw = String(value || '').trim();
+  if (!raw || raw === '#') return '';
+
+  try {
+    const parsed = new URL(raw);
+    const hostname = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+    const pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    const search = parsed.search || '';
+    return `${parsed.protocol.toLowerCase()}//${hostname}${pathname}${search}`;
+  } catch {
+    return raw.toLowerCase();
+  }
 };
 const SIZE_REGION_OPTIONS = [
   { key: 'kr', label: 'Korea' },
@@ -871,6 +897,7 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addProductMode, setAddProductMode] = useState<AddProductMode>('menu');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDuplicateProductModal, setShowDuplicateProductModal] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('search');
   const [sizeCategory, setSizeCategory] = useState<SizeCategory>('clothing');
   const [sizeGender, setSizeGender] = useState<SizeGender>('men');
@@ -953,6 +980,15 @@ export default function App() {
     [sizeRegion, sizeRows, sizeValue]
   );
   const zoomedDetailProduct = selectedGridProduct ?? result;
+  const productUrlSet = useMemo(
+    () =>
+      new Set(
+        allProducts
+          .map((product) => normalizeComparableProductUrl(product.url))
+          .filter(Boolean)
+      ),
+    [allProducts]
+  );
   const shouldHideSearchHero = viewMode === 'search' && Boolean(result) && !isLoading;
 
   useEffect(() => {
@@ -1159,6 +1195,7 @@ export default function App() {
     setIsAutofillingFromUrl(false);
     setIsAutofillingFromImage(false);
     setIsSaving(false);
+    setShowDuplicateProductModal(false);
     setAddProductMode('menu');
   };
 
@@ -1407,6 +1444,17 @@ export default function App() {
 
     try {
       const extracted = await fetchProductMetadataFromUrl(targetUrl);
+      const normalizedExtractedUrl = normalizeComparableProductUrl(extracted.url || targetUrl);
+      if (normalizedExtractedUrl && productUrlSet.has(normalizedExtractedUrl)) {
+        setAutoFillError(DUPLICATE_PRODUCT_MESSAGE);
+        setAutofilledProductImageUrl(null);
+        setProductPhotoFile(null);
+        setFormData((prev) => ({
+          ...prev,
+          url: extracted.url || prev.url,
+        }));
+        return;
+      }
       const candidateUrls = uniqHttpUrls([
         extracted.image_path || '',
         ...(Array.isArray(extracted.productImageCandidates) ? extracted.productImageCandidates : []),
@@ -1581,6 +1629,10 @@ export default function App() {
     } catch (submitError: unknown) {
       const message = submitError instanceof Error ? submitError.message : 'Submission failed.';
       console.error('[handleSubmitProduct] submit failed', submitError);
+      if (isDuplicateProductErrorMessage(message)) {
+        setShowDuplicateProductModal(true);
+        return;
+      }
       alert(`제출 실패: ${message}`);
     } finally {
       setIsSaving(false);
@@ -1658,7 +1710,7 @@ export default function App() {
     <div className="space-y-2">
       <label className="text-sm text-gray-400">사이즈표 이미지</label>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <label className="cursor-pointer w-full sm:w-1/2 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+        <label className="cursor-pointer w-full sm:w-2/3 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
           {formData.extractedTable && !isAnalyzingTable ? (
             <div className="w-full h-full overflow-auto p-2">
               <table className="w-full text-[10px] text-left">
@@ -2603,7 +2655,7 @@ export default function App() {
               <div className="space-y-2">
                 <label className="text-sm text-gray-400">사이즈표 이미지</label>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <label className="cursor-pointer w-full sm:w-1/2 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                  <label className="cursor-pointer w-full sm:w-2/3 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
                     {formData.extractedTable && !isAnalyzingTable ? (
                       <div className="w-full h-full overflow-auto p-2">
                         <table className="w-full text-[10px] text-left">
@@ -2678,6 +2730,28 @@ export default function App() {
               <Check className="w-6 h-6 text-green-400" />
             </div>
             <h3 className="text-sm font-bold tracking-wide text-green-400">COMPLETE</h3>
+          </div>
+        </div>
+      )}
+
+      {showDuplicateProductModal && (
+        <div className="fixed inset-0 z-[72] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowDuplicateProductModal(false)}
+          />
+          <div className="relative w-full max-w-sm rounded-3xl border border-red-500/40 bg-gray-950 px-6 py-7 text-center shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/15 text-red-400">
+              <ShieldAlert className="h-6 w-6" />
+            </div>
+            <h3 className="mt-4 text-lg font-bold text-white">이미 등록된 상품입니다</h3>
+            <button
+              type="button"
+              onClick={() => setShowDuplicateProductModal(false)}
+              className="mt-5 inline-flex items-center justify-center rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-black hover:bg-orange-400 transition"
+            >
+              확인
+            </button>
           </div>
         </div>
       )}
