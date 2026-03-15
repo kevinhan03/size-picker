@@ -886,6 +886,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const [gridCategoryFilter, setGridCategoryFilter] = useState<string>('');
+  const [gridSearchQuery, setGridSearchQuery] = useState('');
 
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Product[]>([]);
@@ -962,9 +963,24 @@ export default function App() {
     return counts;
   }, [allProducts]);
   const filteredGridProducts = useMemo(() => {
-    if (!gridCategoryFilter) return allProducts;
-    return allProducts.filter((product) => product.category === gridCategoryFilter);
-  }, [allProducts, gridCategoryFilter]);
+    const normalizedGridSearchQuery = gridSearchQuery.trim().toLowerCase();
+
+    return allProducts.filter((product) => {
+      if (gridCategoryFilter && product.category !== gridCategoryFilter) {
+        return false;
+      }
+
+      if (!normalizedGridSearchQuery) {
+        return true;
+      }
+
+      const searchableText = [product.brand, product.name, product.category, product.url]
+        .join(' ')
+        .toLowerCase();
+
+      return searchableText.includes(normalizedGridSearchQuery);
+    });
+  }, [allProducts, gridCategoryFilter, gridSearchQuery]);
   const sizeRows = useMemo(() => {
     if (sizeCategory === 'shoes') return SHOE_SIZE_ROWS_BY_GENDER[sizeGender];
     return CLOTHING_SIZE_ROWS_BY_GENDER[sizeGender];
@@ -2441,28 +2457,63 @@ export default function App() {
             </div>
           </div>
         )}
-
         {viewMode === 'grid' && (
           <div className="w-full max-w-7xl">
-            <div className="mb-6 flex items-center justify-between gap-4">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white">
-              <LayoutGrid className="w-7 h-7 text-orange-500" />
-              전체 상품 보기
+                <LayoutGrid className="w-7 h-7 text-orange-500" />
+                {'\uC804\uCCB4 \uC0C1\uD488 \uBCF4\uAE30'}
               </h2>
-              <CategoryDropdown
-                options={CATEGORY_OPTIONS}
-                value={gridCategoryFilter}
-                counts={gridCategoryCounts}
-                onChange={setGridCategoryFilter}
-                totalLabel="Total"
-                ariaLabel="상품 카테고리 필터"
-              />
-            </div>            {allProducts.length === 0 ? <div className="text-center py-20 text-gray-500">등록된 상품이 없습니다.</div> : (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+                <label className="relative block w-full sm:w-40">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={gridSearchQuery}
+                    onChange={(event) => setGridSearchQuery(event.target.value)}
+                    placeholder={'\uC0C1\uD488 \uAC80\uC0C9'}
+                    aria-label={'\uC804\uCCB4 \uC0C1\uD488 \uAC80\uC0C9'}
+                    className="w-full rounded-[20px] border border-gray-700 bg-gray-900 py-2.5 pl-10 pr-4 text-xs font-medium text-white placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
+                  />
+                </label>
+                <CategoryDropdown
+                  options={CATEGORY_OPTIONS}
+                  value={gridCategoryFilter}
+                  counts={gridCategoryCounts}
+                  onChange={setGridCategoryFilter}
+                  totalLabel="Total"
+                  ariaLabel={'\uC0C1\uD488 \uCE74\uD14C\uACE0\uB9AC \uD544\uD130'}
+                />
+              </div>
+            </div>
+            {allProducts.length === 0 ? (
+              <div className="text-center py-20 text-gray-500">{'\uB4F1\uB85D\uB41C \uC0C1\uD488\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}</div>
+            ) : filteredGridProducts.length === 0 ? (
+              <div className="text-center py-20 text-gray-500">{'\uAC80\uC0C9 \uC870\uAC74\uC5D0 \uB9DE\uB294 \uC0C1\uD488\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
                 {filteredGridProducts.map((product) => (
-                  <div key={product.id} onClick={() => { setSelectedGridProduct(product); }} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition cursor-pointer group flex flex-col h-full">
-                    <div className="relative flex h-48 items-center justify-center overflow-hidden rounded-[10px] bg-black/20 p-4"><ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-h-full max-w-full rounded-[5px] object-contain" onError={handleImageLoadError} /></div>
-                    <div className="p-5 flex-1 flex flex-col items-center justify-center text-center"><div className="text-xs font-bold text-orange-500 mb-1 uppercase tracking-wide">{product.brand}</div><h3 className="text-lg font-bold text-white mb-1 line-clamp-2 leading-tight">{product.name}</h3><div className="pt-2 text-sm text-gray-500">{product.category}</div></div>
+                  <div
+                    key={product.id}
+                    onClick={() => {
+                      setSelectedGridProduct(product);
+                    }}
+                    className="ui-product-card group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 transition hover:border-orange-500/50"
+                  >
+                    <div className="relative flex h-48 items-center justify-center overflow-hidden rounded-[10px] bg-black/20 p-4">
+                      <ProgressiveImage
+                        src={product.image}
+                        thumbnailSrc={product.thumbnailImage}
+                        alt={product.name}
+                        className="max-h-full max-w-full rounded-[5px] object-contain"
+                        onError={handleImageLoadError}
+                      />
+                    </div>
+                    <div className="flex flex-1 flex-col items-center justify-center p-5 text-center">
+                      <div className="mb-1 text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
+                      <h3 className="mb-1 line-clamp-2 text-lg font-bold leading-tight text-white">{product.name}</h3>
+                      <div className="pt-2 text-sm text-gray-500">{product.category}</div>
+                    </div>
                   </div>
                 ))}
               </div>
