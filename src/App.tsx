@@ -119,14 +119,18 @@ const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').t
 const STORAGE_BUCKET = 'product-assets';
 const STORAGE_PREFIX = 'submissions/';
 const DEFAULT_PRODUCT_PLACEHOLDER = '/images/default-product.svg';
-const CATEGORY_OPTIONS = ['Outer', 'Top', 'Bottom', 'Shoes', 'Acc'] as const;
+const CATEGORY_OPTIONS = ['Outer', 'Top', 'Bottom', 'Shoes', 'Acc', '단종된 상품(빈티지)'] as const;
 const CATEGORY_OPTION_BY_LOWER: Record<string, (typeof CATEGORY_OPTIONS)[number]> = {
   outer: 'Outer',
   top: 'Top',
   bottom: 'Bottom',
   shoes: 'Shoes',
   acc: 'Acc',
+  '단종된 상품(빈티지)': '단종된 상품(빈티지)',
 };
+
+const isOptionalMetadataCategory = (category: string): boolean =>
+  category === 'Shoes' || category === 'Acc' || category === '단종된 상품(빈티지)';
 
 const isDuplicateProductErrorMessage = (message: string): boolean => {
   const normalized = String(message || '').toLowerCase();
@@ -1592,8 +1596,7 @@ export default function App() {
     const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
     const hasCategory = Boolean(formData.category.trim());
     const hasValidatedSizeTable = Boolean(formData.extractedTable);
-    const isSizeTableOptionalCategory =
-      formData.category === 'Shoes' || formData.category === 'Acc';
+    const isSizeTableOptionalCategory = isOptionalMetadataCategory(formData.category);
     if (!hasProductImage) {
       alert('상품 사진은 필수입니다.');
       return;
@@ -1637,8 +1640,7 @@ export default function App() {
 
   const hasSizeData = Boolean(formData.extractedTable);
   const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
-  const isSizeTableOptionalCategory =
-    formData.category === 'Shoes' || formData.category === 'Acc';
+  const isSizeTableOptionalCategory = isOptionalMetadataCategory(formData.category);
   const isPreviewOnlyProductImage =
     Boolean(formData.productImage) && !productPhotoFile && !autofilledProductImageUrl;
   const isFormValid =
