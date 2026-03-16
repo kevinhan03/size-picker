@@ -53,7 +53,7 @@ export function CategoryDropdown({
     <div ref={dropdownRef} className={className}>
       <button
         type="button"
-        className={`flex h-8 w-full items-center justify-between rounded-[20px] border border-gray-700 bg-gray-900 pl-4 pr-4 text-left text-xs font-medium ${value ? 'text-white' : 'text-gray-400'}`}
+        className={`flex h-8 w-full items-center justify-between rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] pl-4 pr-4 text-left text-xs font-medium shadow-[0_16px_36px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-colors ${value ? 'text-white' : 'text-gray-400'}`}
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -64,13 +64,13 @@ export function CategoryDropdown({
       </button>
       {isOpen && (
         <div
-          className="absolute left-0 top-full z-20 mt-2 w-full overflow-hidden rounded-[10px] border border-gray-700 bg-gray-900"
+          className="absolute left-0 top-full z-20 mt-2 w-full overflow-hidden rounded-[14px] border-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.06))] shadow-[0_20px_44px_rgba(0,0,0,0.22)] backdrop-blur-2xl"
           role="listbox"
           aria-label={ariaLabel}
         >
           <button
             type="button"
-            className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white hover:bg-gray-800"
+            className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white transition-colors hover:bg-white/[0.08]"
             onClick={() => handleSelect('')}
           >
             <span>{totalLabel}</span>
@@ -80,7 +80,7 @@ export function CategoryDropdown({
             <button
               key={option}
               type="button"
-              className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white hover:bg-gray-800"
+              className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white transition-colors hover:bg-white/[0.08]"
               onClick={() => handleSelect(option)}
             >
               <span>{option}</span>

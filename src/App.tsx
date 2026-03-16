@@ -2159,22 +2159,23 @@ export default function App() {
           <>
             <div className={`w-full max-w-2xl relative transition-all duration-500 ${result || isLoading ? 'mt-0' : 'mt-4'}`} ref={searchContainerRef}>
               <div className="relative group">
+                <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.18),transparent_30%,transparent_72%,rgba(255,255,255,0.08))]" />
                 <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                   <Search className={`w-6 h-6 transition-colors ${showSuggestions ? 'text-orange-500' : 'text-gray-500'}`} />
                 </div>
                 <input type="text" className="w-full pl-14 pr-14 py-[var(--search-input-py)] bg-gray-900 border-2 border-gray-800 rounded-2xl shadow-xl text-[length:var(--search-input-font-size)] text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all" placeholder="브랜드명 혹은 상품명" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} onFocus={() => { if (query) setShowSuggestions(true); }} />
-                {query && <button onClick={() => { setQuery(''); setSuggestions([]); }} className="absolute inset-y-0 right-14 pr-2 flex items-center text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>}
-                <button onClick={() => { void handleSearch(); }} className="absolute inset-y-2 right-2 p-3 bg-orange-500 rounded-xl text-black hover:bg-orange-400 transition-colors shadow-lg" style={{ boxShadow: 'var(--ui-depth-shadow)' }}><ArrowRight className="w-5 h-5" /></button>
+                {query && <button onClick={() => { setQuery(''); setSuggestions([]); }} className="absolute inset-y-0 right-14 pr-2 flex items-center text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>}
+                <button onClick={() => { void handleSearch(); }} className="absolute inset-y-2 right-2 rounded-xl bg-orange-500 px-3 text-black hover:bg-orange-400 transition-colors shadow-lg" style={{ boxShadow: 'var(--ui-depth-shadow)' }}><ArrowRight className="w-5 h-5" /></button>
               </div>
 
               {showSuggestions && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-gray-900 rounded-xl shadow-2xl border border-gray-800 overflow-hidden z-20 max-h-96 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-2 z-20 max-h-96 overflow-y-auto overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.06))] shadow-[0_20px_48px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
                   {suggestions.length > 0 ? (
                     <ul>
                       {suggestions.map((item) => (
-                        <li key={item.id} onClick={() => { isSelectionRef.current = true; setQuery(item.name); void handleSearch(item); }} className="px-5 py-4 cursor-pointer hover:bg-gray-800 transition-colors flex items-center gap-4 border-b border-gray-800 last:border-0">
-                          <div className="w-10 h-10 bg-gray-800 rounded-md flex-shrink-0 overflow-hidden"><ProgressiveImage src={item.image} thumbnailSrc={item.thumbnailImage} alt={item.name} className="w-full h-full object-cover" onError={handleImageLoadError} /></div>
-                          <div><div className="font-medium text-white">{item.name}</div><div className="text-sm text-gray-500">{item.brand} · {item.category}</div></div>
+                        <li key={item.id} onClick={() => { isSelectionRef.current = true; setQuery(item.name); void handleSearch(item); }} className="flex items-center gap-4 px-5 py-4 cursor-pointer border-b border-white/10 transition-colors hover:bg-white/[0.08] last:border-0">
+                          <div className="w-10 h-10 rounded-md flex-shrink-0 overflow-hidden bg-white/10"><ProgressiveImage src={item.image} thumbnailSrc={item.thumbnailImage} alt={item.name} className="w-full h-full object-cover" onError={handleImageLoadError} /></div>
+                          <div><div className="font-medium text-white">{item.name}</div><div className="text-sm text-gray-400">{item.brand} · {item.category}</div></div>
                         </li>
                       ))}
                     </ul>
@@ -2459,32 +2460,35 @@ export default function App() {
         )}
         {viewMode === 'grid' && (
           <div className="w-full max-w-7xl">
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-6 flex flex-col gap-4">
               <h2 className="flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white">
                 <LayoutGrid className="w-7 h-7 text-orange-500" />
                 {'\uC804\uCCB4 \uC0C1\uD488 \uBCF4\uAE30'}
               </h2>
-              <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:flex-row sm:items-center">
-                <CategoryDropdown
-                  options={CATEGORY_OPTIONS}
-                  value={gridCategoryFilter}
-                  counts={gridCategoryCounts}
-                  onChange={setGridCategoryFilter}
-                  totalLabel="Total"
-                  ariaLabel={'\uC0C1\uD488 \uCE74\uD14C\uACE0\uB9AC \uD544\uD130'}
-                  className="relative w-28 shrink-0"
-                />
-                <label className="relative block w-2/5 sm:w-40">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={gridSearchQuery}
-                    onChange={(event) => setGridSearchQuery(event.target.value)}
-                    placeholder={'\uC0C1\uD488 \uAC80\uC0C9'}
-                    aria-label={'\uC804\uCCB4 \uC0C1\uD488 \uAC80\uC0C9'}
-                    className="h-8 w-full rounded-[20px] border border-gray-700 bg-gray-900 pl-10 pr-4 text-xs font-medium text-white placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
+              <div className="h-10 sm:h-8" />
+              <div className="fixed left-1/2 top-[7.85rem] z-30 w-[calc(100%-2rem)] max-w-7xl -translate-x-1/2 sm:top-[8.3rem]">
+                <div className="ml-auto flex w-fit items-center gap-3">
+                  <CategoryDropdown
+                    options={CATEGORY_OPTIONS}
+                    value={gridCategoryFilter}
+                    counts={gridCategoryCounts}
+                    onChange={setGridCategoryFilter}
+                    totalLabel="Total"
+                    ariaLabel={'\uC0C1\uD488 \uCE74\uD14C\uACE0\uB9AC \uD544\uD130'}
+                    className="relative w-28 shrink-0"
                   />
-                </label>
+                  <label className="relative block w-32 sm:w-40">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={gridSearchQuery}
+                      onChange={(event) => setGridSearchQuery(event.target.value)}
+                      placeholder={'\uC0C1\uD488 \uAC80\uC0C9'}
+                      aria-label={'\uC804\uCCB4 \uC0C1\uD488 \uAC80\uC0C9'}
+                      className="h-8 w-full rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.88),rgba(28,28,28,0.72))] pl-10 pr-4 text-xs font-medium text-white placeholder:text-gray-400 shadow-[0_16px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl focus:outline-none"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
             {allProducts.length === 0 ? (
@@ -2499,21 +2503,23 @@ export default function App() {
                     onClick={() => {
                       setSelectedGridProduct(product);
                     }}
-                    className="ui-product-card group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 transition hover:border-orange-500/50"
+                    className="ui-product-card group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
                   >
-                    <div className="relative flex h-48 items-center justify-center overflow-hidden rounded-[10px] bg-black/20 p-4">
+                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_32%,transparent_68%,rgba(255,255,255,0.1))]" />
+                    <div className="relative mx-1.5 mb-0 mt-1.5 flex h-44 items-center justify-center overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(17,24,39,0.72),rgba(0,0,0,0.46))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:m-3 sm:h-48 sm:rounded-[22px] sm:p-4">
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.12),transparent_28%)]" />
                       <ProgressiveImage
                         src={product.image}
                         thumbnailSrc={product.thumbnailImage}
                         alt={product.name}
-                        className="max-h-full max-w-full rounded-[5px] object-contain"
+                        className="relative z-[1] max-h-full max-w-full rounded-[10px] object-contain"
                         onError={handleImageLoadError}
                       />
                     </div>
-                    <div className="flex flex-1 flex-col justify-center p-5 text-center">
+                    <div className="flex flex-1 flex-col justify-center bg-black/10 px-4 pb-4 pt-3 text-center sm:px-5 sm:pb-5 sm:pt-4">
                       <div className="mb-2 w-full pl-[5%] text-left text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
                       <h3 className="mb-1 w-full pl-[5%] text-left text-lg font-bold leading-tight text-white">{product.name}</h3>
-                      <div className="pt-2 text-sm text-gray-500">{product.category}</div>
+                      <div className="pt-2 text-sm text-gray-300">{product.category}</div>
                     </div>
                   </div>
                 ))}
@@ -2752,22 +2758,25 @@ export default function App() {
       {viewMode === 'grid' && selectedGridProduct && (
         <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedGridProduct(null)} />
-          <div className="ui-product-detail-modal relative bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl md:w-[91%] md:max-w-[58.24rem] md:h-[80.4vh] md:max-h-none">
-            <div className="sticky top-0 z-10 bg-gray-900/95 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+          <div className="ui-product-detail-modal relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]">
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.2),transparent_32%,transparent_68%,rgba(255,255,255,0.08))]" />
+            <div className="sticky top-0 z-10 flex items-center justify-between bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.02)_38%,rgba(255,255,255,0.03)_100%)] px-6 py-4 text-white">
               <h3 className="text-lg sm:text-xl font-bold text-white">상품 상세</h3>
-              <button onClick={() => setSelectedGridProduct(null)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition">
+              <button onClick={() => setSelectedGridProduct(null)} className="rounded-full p-2 text-gray-300 transition hover:bg-white/[0.08] hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 md:p-8">
+            <div className="relative z-[1] bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.02)_38%,rgba(255,255,255,0.03)_100%)] p-6 md:p-8">
               <div className="flex flex-col md:flex-row gap-6 md:items-center">
                 <button
                   type="button"
                   onClick={() => setIsDetailImageZoomed(true)}
-                  className="w-28 h-28 md:h-[16.848rem] md:w-[16.848rem] bg-white rounded-[20px] border border-gray-700 p-2 flex items-center justify-center overflow-hidden cursor-zoom-in"
+                  className="relative isolate flex h-28 w-28 cursor-zoom-in items-center justify-center overflow-visible rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:h-[16.848rem] md:w-[16.848rem]"
                 >
-                  <ProgressiveImage src={selectedGridProduct.image} thumbnailSrc={selectedGridProduct.thumbnailImage} alt={selectedGridProduct.name} className="max-w-full max-h-full object-contain" loading="eager" onError={handleImageLoadError} />
+                  <div className="pointer-events-none absolute inset-[-10%] rounded-[32px] bg-[radial-gradient(circle,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_36%,rgba(255,255,255,0.02)_52%,transparent_74%)] opacity-80 blur-xl" />
+                  <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015)_40%,transparent_100%)]" />
+                  <ProgressiveImage src={selectedGridProduct.image} thumbnailSrc={selectedGridProduct.thumbnailImage} alt={selectedGridProduct.name} className="relative z-[1] max-w-full max-h-full object-contain" loading="eager" onError={handleImageLoadError} />
                 </button>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-2">
@@ -2775,21 +2784,22 @@ export default function App() {
                     <span className="text-gray-500">{selectedGridProduct.category}</span>
                   </div>
                   <h4 className="text-2xl font-bold text-white mb-2">{selectedGridProduct.name}</h4>
-                  <a href={selectedGridProduct.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-gray-400 hover:text-orange-500 transition-colors">
+                  <a href={selectedGridProduct.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-gray-300 transition-colors hover:text-orange-400">
                     공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" />
                   </a>
                 </div>
               </div>
 
-              <div className="mt-8 overflow-x-auto rounded-xl border border-gray-800">
+              <div className="relative mt-8 overflow-x-auto rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018)_55%,transparent)]" />
                 {selectedGridProduct.sizeTable?.headers?.length ? (
-                  <table className="min-w-full w-max text-center text-[11px] sm:text-sm">
-                    <thead className="border-b border-gray-700 text-[11px] sm:text-sm">
+                  <table className="relative z-[1] min-w-full w-max text-center text-[11px] sm:text-sm">
+                    <thead className="text-[11px] sm:text-sm">
                       <tr>
                         {selectedGridProduct.sizeTable.headers.map((header, index) => (
                           <th
                             key={index}
-                            className={`bg-gray-800 whitespace-nowrap px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 sm:text-sm ${index === 0 ? 'border-r border-gray-700' : ''}`}
+                            className={`bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018))] whitespace-nowrap px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 sm:text-sm ${index === 0 ? 'border-r border-white/[0.04]' : ''}`}
                             style={{ color: isPrimaryColumnHeader(header) ? '#E5E7EB' : '#00FF00' }}
                           >
                             {String(header)}
@@ -2804,15 +2814,15 @@ export default function App() {
                           <tr
                             key={rowIndex}
                             onClick={() => setActiveGridDetailRowIndex(rowIndex)}
-                            className="group border-b border-gray-800 cursor-pointer transition-transform duration-200 active:scale-95"
+                            className="group cursor-pointer transition-transform duration-200 active:scale-95"
                           >
                             {row.map((cell, cellIndex) => (
                               <td
                                 key={cellIndex}
-                                className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-all duration-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? 'border-r border-gray-700 text-xs font-bold sm:text-sm' : ''} ${
+                                className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-all duration-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? 'border-r border-white/[0.04] text-xs font-bold sm:text-sm' : ''} ${
                                   isActiveRow
-                                    ? 'bg-gray-100 text-black first:rounded-l-lg last:rounded-r-lg'
-                                    : 'bg-gray-900 text-gray-300 group-hover:bg-gray-100 group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
+                                    ? 'bg-white text-black first:rounded-l-lg last:rounded-r-lg'
+                                    : 'bg-transparent text-gray-200 group-hover:bg-white/[0.92] group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
                                 }`}
                               >
                                 {String(cell)}
@@ -2824,7 +2834,7 @@ export default function App() {
                     </tbody>
                   </table>
                 ) : (
-                  <div className="px-6 py-8 text-center text-gray-400">표시할 사이즈표 데이터가 없습니다.</div>
+                  <div className="px-6 py-8 text-center text-gray-300">표시할 사이즈표 데이터가 없습니다.</div>
                 )}
               </div>
             </div>
