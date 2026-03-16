@@ -2510,9 +2510,9 @@ export default function App() {
                         onError={handleImageLoadError}
                       />
                     </div>
-                    <div className="flex flex-1 flex-col items-center justify-center p-5 text-center">
-                      <div className="mb-1 text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
-                      <h3 className="mb-1 line-clamp-2 text-lg font-bold leading-tight text-white">{product.name}</h3>
+                    <div className="flex flex-1 flex-col justify-center p-5 text-center">
+                      <div className="mb-2 w-full pl-[5%] text-left text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
+                      <h3 className="mb-1 w-full pl-[5%] text-left text-lg font-bold leading-tight text-white">{product.name}</h3>
                       <div className="pt-2 text-sm text-gray-500">{product.category}</div>
                     </div>
                   </div>
