@@ -1848,7 +1848,7 @@ export default function App() {
   const renderAddProductModalBody = () => {
     if (addProductMode === 'menu') {
       return (
-        <div className="space-y-3">
+        <div className="space-y-5">
           {false ? (
           <button
             type="button"
@@ -1865,22 +1865,20 @@ export default function App() {
           <button
             type="button"
             onClick={() => setAddProductMode('url')}
-            className="flex w-full items-center justify-between rounded-2xl border border-gray-700 bg-gray-800/70 px-5 py-4 text-left transition hover:border-orange-500 hover:bg-gray-800"
+            className="flex w-full items-center justify-between rounded-2xl border border-gray-700 bg-gray-800/70 px-5 py-5 text-left transition hover:border-orange-500 hover:bg-gray-800"
           >
             <div>
-              <p className="text-base font-semibold text-white">공식홈페이지 URL 업로드해서 추가</p>
-              <p className="mt-1 text-sm text-gray-400">현재 추출 결과 확인과 이미지 후보 선택 기능을 유지합니다.</p>
+              <p className="text-sm font-semibold text-white sm:text-base">공식홈페이지 URL 업로드해서 추가</p>
             </div>
             <Globe className="h-5 w-5 text-orange-400" />
           </button>
           <button
             type="button"
             onClick={() => setAddProductMode('manual')}
-            className="flex w-full items-center justify-between rounded-2xl border border-gray-700 bg-gray-800/70 px-5 py-4 text-left transition hover:border-gray-500 hover:bg-gray-800"
+            className="flex w-full items-center justify-between rounded-2xl border border-gray-700 bg-gray-800/70 px-5 py-5 text-left transition hover:border-gray-500 hover:bg-gray-800"
           >
             <div>
-              <p className="text-base font-semibold text-white">직접 추가</p>
-              <p className="mt-1 text-sm text-gray-400">브랜드명, 상품명, 카테고리, URL, 이미지, 사이즈표를 직접 입력합니다.</p>
+              <p className="text-sm font-semibold text-white sm:text-base">직접 추가</p>
             </div>
             <Plus className="h-5 w-5 text-gray-300" />
           </button>
@@ -2466,18 +2464,7 @@ export default function App() {
                 <LayoutGrid className="w-7 h-7 text-orange-500" />
                 {'\uC804\uCCB4 \uC0C1\uD488 \uBCF4\uAE30'}
               </h2>
-              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-                <label className="relative block w-full sm:w-40">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={gridSearchQuery}
-                    onChange={(event) => setGridSearchQuery(event.target.value)}
-                    placeholder={'\uC0C1\uD488 \uAC80\uC0C9'}
-                    aria-label={'\uC804\uCCB4 \uC0C1\uD488 \uAC80\uC0C9'}
-                    className="w-full rounded-[20px] border border-gray-700 bg-gray-900 py-2.5 pl-10 pr-4 text-xs font-medium text-white placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
-                  />
-                </label>
+              <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:flex-row sm:items-center">
                 <CategoryDropdown
                   options={CATEGORY_OPTIONS}
                   value={gridCategoryFilter}
@@ -2485,7 +2472,19 @@ export default function App() {
                   onChange={setGridCategoryFilter}
                   totalLabel="Total"
                   ariaLabel={'\uC0C1\uD488 \uCE74\uD14C\uACE0\uB9AC \uD544\uD130'}
+                  className="relative w-28 shrink-0"
                 />
+                <label className="relative block w-2/5 sm:w-40">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={gridSearchQuery}
+                    onChange={(event) => setGridSearchQuery(event.target.value)}
+                    placeholder={'\uC0C1\uD488 \uAC80\uC0C9'}
+                    aria-label={'\uC804\uCCB4 \uC0C1\uD488 \uAC80\uC0C9'}
+                    className="h-8 w-full rounded-[20px] border border-gray-700 bg-gray-900 pl-10 pr-4 text-xs font-medium text-white placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
+                  />
+                </label>
               </div>
             </div>
             {allProducts.length === 0 ? (
@@ -2528,7 +2527,7 @@ export default function App() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCloseModal} />
           <div className="ui-add-product-modal bg-gray-900 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh] border border-gray-800">
             <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-900 sticky top-0 z-10 text-white">
-              <h3 className="text-lg font-bold" style={{ color: '#00FF00' }}>상품 직접 추가</h3>
+              <h3 className="text-lg font-bold" style={{ color: '#00FF00' }}>상품 추가</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-800 rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
 
