@@ -2465,9 +2465,9 @@ export default function App() {
                 <LayoutGrid className="w-7 h-7 text-orange-500" />
                 {'\uC804\uCCB4 \uC0C1\uD488 \uBCF4\uAE30'}
               </h2>
-              <div className="h-10 sm:h-8" />
-              <div className="fixed left-1/2 top-[7.85rem] z-30 w-[calc(100%-2rem)] max-w-7xl -translate-x-1/2 sm:top-[8.3rem]">
-                <div className="ml-auto flex w-fit items-center gap-3">
+              <div className="h-6 sm:h-8" />
+              <div className="fixed left-1/2 top-[5.6rem] z-30 flex w-[calc(100%-2rem)] max-w-7xl -translate-x-1/2 justify-end sm:top-[8.3rem]">
+                <div className="flex w-full max-w-[11.5rem] flex-col-reverse items-end justify-end gap-2 sm:ml-auto sm:w-fit sm:max-w-none sm:flex-row sm:items-center sm:gap-3">
                   <CategoryDropdown
                     options={CATEGORY_OPTIONS}
                     value={gridCategoryFilter}
@@ -2475,17 +2475,17 @@ export default function App() {
                     onChange={setGridCategoryFilter}
                     totalLabel="Total"
                     ariaLabel={'\uC0C1\uD488 \uCE74\uD14C\uACE0\uB9AC \uD544\uD130'}
-                    className="relative w-28 shrink-0"
+                    className="relative w-[5.6rem] shrink-0 sm:w-28"
                   />
-                  <label className="relative block w-32 sm:w-40">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <label className="relative block w-[7.2rem] sm:w-40">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-3 w-3 -translate-y-1/2 text-gray-400 sm:left-4 sm:h-4 sm:w-4" />
                     <input
                       type="text"
                       value={gridSearchQuery}
                       onChange={(event) => setGridSearchQuery(event.target.value)}
                       placeholder={'\uC0C1\uD488 \uAC80\uC0C9'}
                       aria-label={'\uC804\uCCB4 \uC0C1\uD488 \uAC80\uC0C9'}
-                      className="h-8 w-full rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.88),rgba(28,28,28,0.72))] pl-10 pr-4 text-xs font-medium text-white placeholder:text-gray-400 shadow-[0_16px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl focus:outline-none"
+                      className="h-[1.7rem] w-full rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.88),rgba(28,28,28,0.72))] pl-8 pr-3 text-[0.7rem] font-medium text-white placeholder:text-gray-400 shadow-[0_16px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl focus:outline-none sm:h-8 sm:pl-10 sm:pr-4 sm:text-xs"
                     />
                   </label>
                 </div>
@@ -2518,7 +2518,7 @@ export default function App() {
                     </div>
                     <div className="flex flex-1 flex-col justify-center bg-black/10 px-4 pb-4 pt-3 text-center sm:px-5 sm:pb-5 sm:pt-4">
                       <div className="mb-2 w-full pl-[5%] text-left text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
-                      <h3 className="mb-1 w-full pl-[5%] text-left text-lg font-bold leading-tight text-white">{product.name}</h3>
+                      <h3 className="mb-1 w-full pl-[5%] text-left text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
                       <div className="pt-2 text-sm text-gray-300">{product.category}</div>
                     </div>
                   </div>
@@ -2772,7 +2772,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setIsDetailImageZoomed(true)}
-                  className="relative isolate flex h-28 w-28 cursor-zoom-in items-center justify-center overflow-visible rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:h-[16.848rem] md:w-[16.848rem]"
+                  className="relative isolate flex h-[10.5rem] w-[10.5rem] cursor-zoom-in items-center justify-center overflow-visible rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:h-[16.848rem] md:w-[16.848rem]"
                 >
                   <div className="pointer-events-none absolute inset-[-10%] rounded-[32px] bg-[radial-gradient(circle,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_36%,rgba(255,255,255,0.02)_52%,transparent_74%)] opacity-80 blur-xl" />
                   <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015)_40%,transparent_100%)]" />

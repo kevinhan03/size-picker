@@ -27,7 +27,7 @@
   :root {
     --app-page-min-h: 100vh;
     --app-main-min-h: 100vh;
-    --app-main-pt: 7rem;
+    --app-main-pt: 5.5rem;
     --app-main-pb: calc(3.5rem + var(--app-safe-bottom));
     --app-main-px: 0.875rem;
     --header-logo-size: 1.05rem;

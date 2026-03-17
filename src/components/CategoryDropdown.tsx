@@ -53,14 +53,14 @@ export function CategoryDropdown({
     <div ref={dropdownRef} className={className}>
       <button
         type="button"
-        className={`flex h-8 w-full items-center justify-between rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] pl-4 pr-4 text-left text-xs font-medium shadow-[0_16px_36px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-colors ${value ? 'text-white' : 'text-gray-400'}`}
+        className={`flex h-[1.7rem] w-full items-center justify-between rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] pl-3 pr-3 text-left text-[0.7rem] font-medium shadow-[0_16px_36px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-colors sm:h-8 sm:pl-4 sm:pr-4 sm:text-xs ${value ? 'text-white' : 'text-gray-400'}`}
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={ariaLabel}
       >
         <span className="truncate">{value || totalLabel}</span>
-        <ChevronDown className={`h-4 w-4 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-3 w-3 shrink-0 sm:h-4 sm:w-4 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       {isOpen && (
         <div
@@ -70,21 +70,21 @@ export function CategoryDropdown({
         >
           <button
             type="button"
-            className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white transition-colors hover:bg-white/[0.08]"
+            className="flex w-full items-center justify-between px-3 py-2 text-left text-[0.7rem] text-white transition-colors hover:bg-white/[0.08] sm:px-4 sm:py-3 sm:text-xs"
             onClick={() => handleSelect('')}
           >
             <span>{totalLabel}</span>
-            <span className="text-[10px] text-gray-400">{counts[totalLabel] ?? 0}</span>
+            <span className="text-[9px] text-gray-400 sm:text-[10px]">{counts[totalLabel] ?? 0}</span>
           </button>
           {options.map((option) => (
             <button
               key={option}
               type="button"
-              className="flex w-full items-center justify-between px-4 py-3 text-left text-xs text-white transition-colors hover:bg-white/[0.08]"
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-[0.7rem] text-white transition-colors hover:bg-white/[0.08] sm:px-4 sm:py-3 sm:text-xs"
               onClick={() => handleSelect(option)}
             >
               <span>{option}</span>
-              <span className="text-[10px] text-gray-400">{counts[option] ?? 0}</span>
+              <span className="text-[9px] text-gray-400 sm:text-[10px]">{counts[option] ?? 0}</span>
             </button>
           ))}
         </div>
