@@ -658,6 +658,80 @@ const isPrimaryColumnHeader = (value: unknown): boolean => {
   const normalized = normalizeCellText(value);
   return normalized === ITEM_LABEL || normalized === SIZE_COLUMN_LABEL || /^size$/i.test(normalized);
 };
+
+const parseFirstNumber = (value: string): number | null => {
+  const match = value.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = parseFloat(match[0]);
+  return isFinite(n) ? n : null;
+};
+
+const extractMeasurements = (headers: string[], row: string[]): Map<string, number> => {
+  const map = new Map<string, number>();
+  for (let i = 1; i < headers.length; i++) {
+    const label = normalizeMeasurementLabel(headers[i]);
+    if (!label) continue;
+    const val = parseFirstNumber(row[i] ?? '');
+    if (val !== null) map.set(label, val);
+  }
+  return map;
+};
+
+const scoreMeasurementSimilarity = (a: Map<string, number>, b: Map<string, number>): number => {
+  let totalWeight = 0;
+  let weightedDiff = 0;
+  a.forEach((aVal, label) => {
+    const bVal = b.get(label);
+    if (bVal === undefined) return;
+    const weight = label === TOTAL_LENGTH_LABEL ? 2 : 1;
+    weightedDiff += weight * Math.abs(aVal - bVal);
+    totalWeight += weight;
+  });
+  return totalWeight === 0 ? Infinity : weightedDiff / totalWeight;
+};
+
+interface SizeRecommendation {
+  product: Product;
+  rowIndex: number;
+  score: number;
+}
+
+const computeSizeRecommendations = (
+  source: Product,
+  selectedRowIndex: number,
+  candidates: Product[],
+  maxResults = 3
+): SizeRecommendation[] => {
+  if (!source.sizeTable) return [];
+  const sourceRow = source.sizeTable.rows[selectedRowIndex];
+  if (!sourceRow) return [];
+  const sourceMeasurements = extractMeasurements(source.sizeTable.headers, sourceRow);
+  if (sourceMeasurements.size === 0) return [];
+
+  const results: SizeRecommendation[] = [];
+  for (const product of candidates) {
+    if (product.id === source.id) continue;
+    if (product.category !== source.category) continue;
+    if (!product.sizeTable?.rows?.length) continue;
+    const hasOverlap = [...sourceMeasurements.keys()].some((k) =>
+      product.sizeTable!.headers.slice(1).map(normalizeMeasurementLabel).includes(k)
+    );
+    if (!hasOverlap) continue;
+    let bestRowIndex = 0;
+    let bestScore = Infinity;
+    for (let i = 0; i < product.sizeTable.rows.length; i++) {
+      const m = extractMeasurements(product.sizeTable.headers, product.sizeTable.rows[i]);
+      const score = scoreMeasurementSimilarity(sourceMeasurements, m);
+      if (score < bestScore) {
+        bestScore = score;
+        bestRowIndex = i;
+      }
+    }
+    if (bestScore < Infinity) results.push({ product, rowIndex: bestRowIndex, score: bestScore });
+  }
+  return results.sort((a, b) => a.score - b.score).slice(0, maxResults);
+};
+
 // (B) toPublicUrl(path): getPublicUrl
 const toPublicUrl = (
   path: string | null | undefined,
@@ -952,6 +1026,14 @@ export default function App() {
   const isSelectionRef = useRef(false);
 
   const allProducts = useMemo(() => [...products], [products]);
+  const sizeRecommendations = useMemo<SizeRecommendation[]>(() => {
+    if (activeGridDetailRowIndex === null || !selectedGridProduct) return [];
+    return computeSizeRecommendations(selectedGridProduct, activeGridDetailRowIndex, allProducts);
+  }, [selectedGridProduct, activeGridDetailRowIndex, allProducts]);
+  const searchResultRecommendations = useMemo<SizeRecommendation[]>(() => {
+    if (activeResultRowIndex === null || !result) return [];
+    return computeSizeRecommendations(result, activeResultRowIndex, allProducts);
+  }, [result, activeResultRowIndex, allProducts]);
   const gridCategoryCounts = useMemo(() => {
     const counts: Record<string, number> = { Total: allProducts.length };
     for (const category of CATEGORY_OPTIONS) {
@@ -2236,6 +2318,56 @@ export default function App() {
                       </table>
                     </div>
                   </div>
+                  {searchResultRecommendations.length > 0 && (
+                    <div className="mt-6">
+                      <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">
+                        유사한 핏의 상품
+                      </h5>
+                      <div className="flex flex-col gap-2">
+                        {searchResultRecommendations.map(({ product, rowIndex }) => {
+                          const matchedRow = product.sizeTable!.rows[rowIndex];
+                          const sizeLabel = matchedRow[0] || '';
+                          const measurements = product.sizeTable!.headers
+                            .slice(1)
+                            .map((h, i) => ({ label: normalizeMeasurementLabel(h) || h, value: matchedRow[i + 1] || '' }))
+                            .filter(({ value }) => value !== '');
+                          return (
+                            <button
+                              key={product.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedGridProduct(product);
+                                setActiveGridDetailRowIndex(null);
+                              }}
+                              className="flex items-start gap-3 rounded-2xl bg-white/[0.05] px-4 py-3 text-left transition hover:bg-white/[0.1] active:scale-[0.98]"
+                            >
+                              <img
+                                src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER}
+                                alt={product.name}
+                                className="mt-0.5 h-12 w-12 flex-shrink-0 rounded-xl bg-white/[0.06] object-contain"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-bold uppercase text-orange-400">{product.brand}</p>
+                                <p className="truncate text-sm font-medium text-white">{product.name}</p>
+                                {measurements.length > 0 && (
+                                  <div className="mt-1.5 flex flex-wrap gap-1">
+                                    {measurements.map(({ label, value }) => (
+                                      <span key={label} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-gray-300">
+                                        {label} {value}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-shrink-0 text-right">
+                                <p className="text-sm font-bold text-white">{sizeLabel}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -2837,6 +2969,57 @@ export default function App() {
                   <div className="px-6 py-8 text-center text-gray-300">표시할 사이즈표 데이터가 없습니다.</div>
                 )}
               </div>
+
+              {sizeRecommendations.length > 0 && (
+                <div className="mt-6">
+                  <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">
+                    유사한 핏의 상품
+                  </h5>
+                  <div className="flex flex-col gap-2">
+                    {sizeRecommendations.map(({ product, rowIndex }) => {
+                      const matchedRow = product.sizeTable!.rows[rowIndex];
+                      const sizeLabel = matchedRow[0] || '';
+                      const measurements = product.sizeTable!.headers
+                        .slice(1)
+                        .map((h, i) => ({ label: normalizeMeasurementLabel(h) || h, value: matchedRow[i + 1] || '' }))
+                        .filter(({ value }) => value !== '');
+                      return (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedGridProduct(product);
+                            setActiveGridDetailRowIndex(null);
+                          }}
+                          className="flex items-start gap-3 rounded-2xl bg-white/[0.05] px-4 py-3 text-left transition hover:bg-white/[0.1] active:scale-[0.98]"
+                        >
+                          <img
+                            src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER}
+                            alt={product.name}
+                            className="mt-0.5 h-12 w-12 flex-shrink-0 rounded-xl bg-white/[0.06] object-contain"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold uppercase text-orange-400">{product.brand}</p>
+                            <p className="truncate text-sm font-medium text-white">{product.name}</p>
+                            {measurements.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {measurements.map(({ label, value }) => (
+                                  <span key={label} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-gray-300">
+                                    {label} {value}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-shrink-0 text-right">
+                            <p className="text-sm font-bold text-white">{sizeLabel}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
