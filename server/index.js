@@ -247,6 +247,7 @@ const MEASUREMENT_ALIAS_MAP = {
   "total": TOTAL_LENGTH_LABEL,
   "\uC18C\uB9E4": "\uC18C\uB9E4",
   "\uC18C\uB9E4\uAE38\uC774": "\uC18C\uB9E4",
+  "\uC18C\uB9E4\uAE30\uC7A5": "\uC18C\uB9E4",
   "\uD654\uC7A5": "\uC18C\uB9E4",
   "sleeve": "\uC18C\uB9E4",
   "\uC5B4\uAE68": "\uC5B4\uAE68",
@@ -299,17 +300,17 @@ const isTotalLengthAliasKey = (aliasKey) =>
 
 const inferMeasurementLabelFromAliasKey = (aliasKey) => {
   if (!aliasKey) return "";
-  if (aliasKey.includes("shoulder")) return "\uC5B4\uAE68";
-  if (aliasKey.includes("chest") || aliasKey.includes("bust") || aliasKey.includes("bodywidth") || aliasKey.includes("pit")) {
+  if (aliasKey.includes("shoulder") || aliasKey.includes("\uC5B4\uAE68")) return "\uC5B4\uAE68";
+  if (aliasKey.includes("chest") || aliasKey.includes("bust") || aliasKey.includes("bodywidth") || aliasKey.includes("pit") || aliasKey.includes("\uAC00\uC2B4") || aliasKey.includes("\uD488")) {
     return "\uAC00\uC2B4";
   }
-  if (aliasKey.includes("sleeve") || aliasKey.includes("arm")) return "\uC18C\uB9E4";
-  if (aliasKey.includes("waist")) return "\uD5C8\uB9AC";
-  if (aliasKey.includes("hip")) return "\uC5C9\uB369\uC774";
-  if (aliasKey.includes("thigh")) return "\uD5C8\uBC85\uC9C0";
-  if (aliasKey.includes("rise")) return "\uBC11\uC704";
-  if (aliasKey.includes("hem")) return "\uBC11\uB2E8";
-  if (aliasKey.includes("inseam")) return "\uC778\uC2EC";
+  if (aliasKey.includes("sleeve") || aliasKey.includes("arm") || aliasKey.includes("\uC18C\uB9E4") || aliasKey.includes("\uD654\uC7A5")) return "\uC18C\uB9E4";
+  if (aliasKey.includes("waist") || aliasKey.includes("\uD5C8\uB9AC")) return "\uD5C8\uB9AC";
+  if (aliasKey.includes("hip") || aliasKey.includes("\uC5C9\uB369\uC774") || aliasKey.includes("\uD799")) return "\uC5C9\uB369\uC774";
+  if (aliasKey.includes("thigh") || aliasKey.includes("\uD5C8\uBC85\uC9C0")) return "\uD5C8\uBC85\uC9C0";
+  if (aliasKey.includes("rise") || aliasKey.includes("\uBC11\uC704")) return "\uBC11\uC704";
+  if (aliasKey.includes("hem") || aliasKey.includes("\uBC11\uB2E8")) return "\uBC11\uB2E8";
+  if (aliasKey.includes("inseam") || aliasKey.includes("\uC778\uC2EC")) return "\uC778\uC2EC";
   return "";
 };
 
@@ -318,8 +319,11 @@ const normalizeMeasurementLabel = (value) => {
   if (!raw) return "";
   const sanitizedRaw = raw.replace(/^(?:cm|mm|in(?:ch)?)\s+/i, "");
   const aliasKey = normalizeAliasKey(sanitizedRaw);
+  if (MEASUREMENT_ALIAS_MAP[aliasKey]) return MEASUREMENT_ALIAS_MAP[aliasKey];
+  const inferred = inferMeasurementLabelFromAliasKey(aliasKey);
+  if (inferred) return inferred;
   if (isTotalLengthAliasKey(aliasKey)) return TOTAL_LENGTH_LABEL;
-  return MEASUREMENT_ALIAS_MAP[aliasKey] || inferMeasurementLabelFromAliasKey(aliasKey) || sanitizedRaw;
+  return sanitizedRaw;
 };
 
 const normalizeSizeLabel = (value) => normalizeCellText(value).toUpperCase();

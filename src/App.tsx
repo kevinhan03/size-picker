@@ -387,6 +387,7 @@ const MEASUREMENT_ALIAS_MAP: Record<string, string> = {
   total: TOTAL_LENGTH_LABEL,
   "\uC18C\uB9E4": "\uC18C\uB9E4",
   "\uC18C\uB9E4\uAE38\uC774": "\uC18C\uB9E4",
+  "\uC18C\uB9E4\uAE30\uC7A5": "\uC18C\uB9E4",
   "\uD654\uC7A5": "\uC18C\uB9E4",
   sleeve: "\uC18C\uB9E4",
   "\uC5B4\uAE68": "\uC5B4\uAE68",
@@ -431,15 +432,15 @@ const isTotalLengthAliasKey = (aliasKey: string): boolean =>
 
 const inferMeasurementLabelFromAliasKey = (aliasKey: string): string => {
   if (!aliasKey) return '';
-  if (aliasKey.includes('shoulder')) return '\uC5B4\uAE68';
-  if (aliasKey.includes('chest') || aliasKey.includes('bust') || aliasKey.includes('bodywidth') || aliasKey.includes('pit')) return '\uAC00\uC2B4';
-  if (aliasKey.includes('sleeve') || aliasKey.includes('arm')) return '\uC18C\uB9E4';
-  if (aliasKey.includes('waist')) return '\uD5C8\uB9AC';
-  if (aliasKey.includes('hip')) return '\uC5C9\uB369\uC774';
-  if (aliasKey.includes('thigh')) return '\uD5C8\uBC85\uC9C0';
-  if (aliasKey.includes('rise')) return '\uBC11\uC704';
-  if (aliasKey.includes('hem')) return '\uBC11\uB2E8';
-  if (aliasKey.includes('inseam')) return '\uC778\uC2EC';
+  if (aliasKey.includes('shoulder') || aliasKey.includes('\uC5B4\uAE68')) return '\uC5B4\uAE68';
+  if (aliasKey.includes('chest') || aliasKey.includes('bust') || aliasKey.includes('bodywidth') || aliasKey.includes('pit') || aliasKey.includes('\uAC00\uC2B4') || aliasKey.includes('\uD488')) return '\uAC00\uC2B4';
+  if (aliasKey.includes('sleeve') || aliasKey.includes('arm') || aliasKey.includes('\uC18C\uB9E4') || aliasKey.includes('\uD654\uC7A5')) return '\uC18C\uB9E4';
+  if (aliasKey.includes('waist') || aliasKey.includes('\uD5C8\uB9AC')) return '\uD5C8\uB9AC';
+  if (aliasKey.includes('hip') || aliasKey.includes('\uC5C9\uB369\uC774') || aliasKey.includes('\uD799')) return '\uC5C9\uB369\uC774';
+  if (aliasKey.includes('thigh') || aliasKey.includes('\uD5C8\uBC85\uC9C0')) return '\uD5C8\uBC85\uC9C0';
+  if (aliasKey.includes('rise') || aliasKey.includes('\uBC11\uC704')) return '\uBC11\uC704';
+  if (aliasKey.includes('hem') || aliasKey.includes('\uBC11\uB2E8')) return '\uBC11\uB2E8';
+  if (aliasKey.includes('inseam') || aliasKey.includes('\uC778\uC2EC')) return '\uC778\uC2EC';
   return '';
 };
 
@@ -447,8 +448,11 @@ const normalizeMeasurementLabel = (value: unknown): string => {
   const raw = normalizeCellText(value);
   if (!raw) return '';
   const aliasKey = normalizeAliasKey(raw);
+  if (MEASUREMENT_ALIAS_MAP[aliasKey]) return MEASUREMENT_ALIAS_MAP[aliasKey];
+  const inferred = inferMeasurementLabelFromAliasKey(aliasKey);
+  if (inferred) return inferred;
   if (isTotalLengthAliasKey(aliasKey)) return TOTAL_LENGTH_LABEL;
-  return MEASUREMENT_ALIAS_MAP[aliasKey] || inferMeasurementLabelFromAliasKey(aliasKey) || raw;
+  return raw;
 };
 
 const normalizeSizeLabel = (value: unknown): string => normalizeCellText(value).toUpperCase();
@@ -970,6 +974,7 @@ export default function App() {
   const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const [authUser, setAuthUser] = useState<{ email?: string } | null>(null);
+  const [tableEditingCell, setTableEditingCell] = useState<{ kind: 'header'; colIdx: number } | { kind: 'row'; rowIdx: number; colIdx: number } | null>(null);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const isSelectionRef = useRef(false);
@@ -1448,6 +1453,7 @@ export default function App() {
       const optimizedDataUrl = await resizeImage(dataUrl, 1600);
       const optimizedBase64 = optimizedDataUrl.split(',')[1] || '';
       setFormData((prev) => ({ ...prev, sizeChartImage: optimizedDataUrl, extractedTable: null }));
+      setTableEditingCell(null);
       setIsAnalyzingTable(true);
       try {
         const tableData = await extractSizeTableFromImage(optimizedBase64, 'image/png');
@@ -1746,42 +1752,39 @@ export default function App() {
     </div>
   );
 
+  const commitTableCell = (value: string) => {
+    if (!tableEditingCell) return;
+    setFormData((prev) => {
+      if (!prev.extractedTable) return prev;
+      if (tableEditingCell.kind === 'header') {
+        const headers = [...prev.extractedTable.headers];
+        headers[tableEditingCell.colIdx] = value;
+        return { ...prev, extractedTable: { ...prev.extractedTable, headers } };
+      }
+      const rows = prev.extractedTable.rows.map((row, ri) =>
+        ri === tableEditingCell.rowIdx
+          ? row.map((cell, ci) => (ci === tableEditingCell.colIdx ? value : cell))
+          : row
+      );
+      return { ...prev, extractedTable: { ...prev.extractedTable, rows } };
+    });
+    setTableEditingCell(null);
+  };
+
   const renderSizeTableSection = () => (
     <div className="space-y-2">
       <label className="text-sm text-gray-400">사이즈표 이미지</label>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <label className="cursor-pointer w-full sm:w-2/3 h-28 bg-white/[0.06] border-2 border-dashed border-white/15 rounded-xl flex items-center justify-center shrink-0 overflow-hidden hover:bg-white/[0.09] hover:border-white/25 transition backdrop-blur-sm">
-          {formData.extractedTable && !isAnalyzingTable ? (
-            <div className="w-full h-full overflow-auto p-2">
-              <table className="w-full text-[10px] text-left">
-                {formData.extractedTable.headers.length > 0 ? (
-                  <thead className="border-b border-gray-700">
-                    <tr>
-                      {formData.extractedTable.headers.map((header, idx) => (
-                        <th key={idx} className={`px-2 py-1 font-semibold whitespace-nowrap ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${idx === 0 ? 'border-r border-gray-700' : ''}`}>
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                ) : null}
-                <tbody>
-                  {formData.extractedTable.rows.map((row, rowIndex) => (
-                    <tr key={rowIndex} className="border-b border-gray-800">
-                      {row.map((cell, cellIndex) => (
-                        <td key={cellIndex} className={`px-2 py-1 text-gray-200 whitespace-nowrap ${cellIndex === 0 ? 'border-r border-gray-700' : ''}`}>
-                          {cell}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : !formData.sizeChartImage ? (
+        <label className="cursor-pointer w-full sm:w-2/3 h-28 bg-white/[0.06] border-2 border-dashed border-white/15 rounded-xl flex items-center justify-center shrink-0 overflow-hidden hover:bg-white/[0.09] hover:border-white/25 transition backdrop-blur-sm relative">
+          {!formData.sizeChartImage ? (
             <Upload className="w-8 h-8 text-gray-500" />
           ) : (
             <img src={formData.sizeChartImage} className="h-full object-contain" />
+          )}
+          {isAnalyzingTable && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <span className="text-xs text-orange-400">사이즈표 추출 중...</span>
+            </div>
           )}
           <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'chart')} />
         </label>
@@ -1794,6 +1797,71 @@ export default function App() {
       {!formData.extractedTable && formData.sizeChartImage && !isAnalyzingTable ? (
         <div className="text-xs text-amber-300">사이즈표 이미지는 있지만 검증된 표 추출은 아직 완료되지 않았습니다.</div>
       ) : null}
+      {formData.extractedTable && !isAnalyzingTable ? (
+        <div className="rounded-xl border border-white/10 overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.04] border-b border-white/10">
+            <span className="text-[10px] text-gray-400">추출된 사이즈표 — 셀을 클릭하면 수정할 수 있습니다</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              {formData.extractedTable.headers.length > 0 ? (
+                <thead className="border-b border-white/10">
+                  <tr>
+                    {formData.extractedTable.headers.map((header, colIdx) => (
+                      <th
+                        key={colIdx}
+                        onClick={() => setTableEditingCell({ kind: 'header', colIdx })}
+                        className={`px-2 py-1.5 font-semibold whitespace-nowrap cursor-pointer hover:bg-white/[0.06] transition ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${colIdx === 0 ? 'border-r border-white/10' : ''}`}
+                      >
+                        {tableEditingCell?.kind === 'header' && tableEditingCell.colIdx === colIdx ? (
+                          <input
+                            autoFocus
+                            defaultValue={header}
+                            onBlur={(e) => commitTableCell(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') commitTableCell((e.target as HTMLInputElement).value);
+                              if (e.key === 'Escape') setTableEditingCell(null);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
+                          />
+                        ) : header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              ) : null}
+              <tbody>
+                {formData.extractedTable.rows.map((row, rowIdx) => (
+                  <tr key={rowIdx} className="border-b border-white/[0.06]">
+                    {row.map((cell, colIdx) => (
+                      <td
+                        key={colIdx}
+                        onClick={() => setTableEditingCell({ kind: 'row', rowIdx, colIdx })}
+                        className={`px-2 py-1.5 whitespace-nowrap cursor-pointer hover:bg-white/[0.06] transition ${colIdx === 0 ? 'text-gray-300 border-r border-white/10' : 'text-gray-400'}`}
+                      >
+                        {tableEditingCell?.kind === 'row' && tableEditingCell.rowIdx === rowIdx && tableEditingCell.colIdx === colIdx ? (
+                          <input
+                            autoFocus
+                            defaultValue={cell}
+                            onBlur={(e) => commitTableCell(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') commitTableCell((e.target as HTMLInputElement).value);
+                              if (e.key === 'Escape') setTableEditingCell(null);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
+                          />
+                        ) : cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
       {addProductMode === 'capture' ? (
         <label className="cursor-pointer w-full h-20 bg-white/[0.06] border border-dashed border-white/15 rounded-xl flex items-center justify-center overflow-hidden hover:border-white/25 hover:bg-white/[0.09] transition backdrop-blur-sm">
           <div className="flex items-center gap-2 text-gray-400">
@@ -1804,7 +1872,6 @@ export default function App() {
         </label>
       ) : null}
       {isAutofillingFromImage ? <div className="text-xs text-[#1ED760]">캡쳐 이미지 AI 분석 중...</div> : null}
-      {isAnalyzingTable ? <div className="text-xs text-orange-400">사이즈표 추출 중...</div> : null}
     </div>
   );
 
