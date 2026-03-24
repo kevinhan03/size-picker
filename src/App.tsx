@@ -978,6 +978,24 @@ export default function App() {
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const isSelectionRef = useRef(false);
+  const gridDetailRecommendationsRef = useRef<HTMLDivElement>(null);
+  const gridDetailModalRef = useRef<HTMLDivElement>(null);
+
+  const smoothScrollTo = (container: HTMLElement, targetY: number, duration = 520) => {
+    const start = container.scrollTop;
+    const distance = targetY - start;
+    if (Math.abs(distance) < 2) return;
+    const startTime = performance.now();
+    const easeInOutCubic = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      container.scrollTop = start + distance * easeInOutCubic(progress);
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
 
   const allProducts = useMemo(() => [...products], [products]);
   const sizeRecommendations = useMemo<SizeRecommendation[]>(() => {
@@ -2816,7 +2834,7 @@ export default function App() {
       {viewMode === 'grid' && selectedGridProduct && (
         <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedGridProduct(null)} />
-          <div className="ui-product-detail-modal relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]">
+          <div ref={gridDetailModalRef} className="ui-product-detail-modal relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]">
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.2),transparent_32%,transparent_68%,rgba(255,255,255,0.08))]" />
             <div className="sticky top-0 z-10 flex items-center justify-between bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.02)_38%,rgba(255,255,255,0.03)_100%)] px-6 py-4 text-white">
               <h3 className="text-lg sm:text-xl font-bold text-white">상품 상세</h3>
@@ -2871,7 +2889,16 @@ export default function App() {
                         return (
                           <tr
                             key={rowIndex}
-                            onClick={() => setActiveGridDetailRowIndex(rowIndex)}
+                            onClick={() => {
+                              setActiveGridDetailRowIndex(rowIndex);
+                              setTimeout(() => {
+                                const modal = gridDetailModalRef.current;
+                                const target = gridDetailRecommendationsRef.current;
+                                if (!modal || !target) return;
+                                const targetY = target.offsetTop - modal.offsetTop - 16;
+                                smoothScrollTo(modal, targetY);
+                              }, 50);
+                            }}
                             className="group cursor-pointer transition-transform duration-200 active:scale-95"
                           >
                             {row.map((cell, cellIndex) => (
@@ -2897,7 +2924,7 @@ export default function App() {
               </div>
 
               {sizeRecommendations.length > 0 && (
-                <div className="mt-6">
+                <div ref={gridDetailRecommendationsRef} className="mt-6">
                   <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">
                     유사한 핏의 상품
                   </h5>

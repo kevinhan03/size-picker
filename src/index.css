@@ -119,3 +119,13 @@ textarea {
 .ui-product-detail-modal {
   box-shadow: var(--ui-depth-shadow);
 }
+
+.ui-add-product-modal .overflow-y-auto,
+.ui-product-detail-modal {
+  scrollbar-width: none;
+}
+
+.ui-add-product-modal .overflow-y-auto::-webkit-scrollbar,
+.ui-product-detail-modal::-webkit-scrollbar {
+  display: none;
+}
