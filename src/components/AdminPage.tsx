@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ChangeEvent, SyntheticEvent } from 'react';
 import { Ruler, Upload } from 'lucide-react';
 import { ProgressiveImage } from './ProgressiveImage';
@@ -51,6 +52,7 @@ interface AdminPageProps {
   onStartEdit: (product: Product) => void;
   onCancelEdit: () => void;
   onEditFormChange: (updater: (prev: AdminEditForm) => AdminEditForm) => void;
+  onExtractedTableChange: (table: SizeTable) => void;
   onImageLoadError: (event: SyntheticEvent<HTMLImageElement>) => void;
 }
 
@@ -84,8 +86,30 @@ export const AdminPage = ({
   onStartEdit,
   onCancelEdit,
   onEditFormChange,
+  onExtractedTableChange,
   onImageLoadError,
 }: AdminPageProps) => {
+  const [tableEditingCell, setTableEditingCell] = useState<
+    { kind: 'header'; colIdx: number } | { kind: 'row'; rowIdx: number; colIdx: number } | null
+  >(null);
+
+  const commitTableCell = (value: string) => {
+    if (!tableEditingCell || !adminExtractedTable) return;
+    if (tableEditingCell.kind === 'header') {
+      const headers = [...adminExtractedTable.headers];
+      headers[tableEditingCell.colIdx] = value;
+      onExtractedTableChange({ ...adminExtractedTable, headers });
+    } else {
+      const rows = adminExtractedTable.rows.map((row, ri) =>
+        ri === tableEditingCell.rowIdx
+          ? row.map((cell, ci) => (ci === tableEditingCell.colIdx ? value : cell))
+          : row
+      );
+      onExtractedTableChange({ ...adminExtractedTable, rows });
+    }
+    setTableEditingCell(null);
+  };
+
   return (
     <div className="min-h-screen bg-black text-white font-sans">
       <header className="sticky top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-40">
@@ -197,12 +221,25 @@ export const AdminPage = ({
                                 <table className="w-full text-xs text-left">
                                   <thead className="border-b border-gray-700">
                                     <tr>
-                                      {adminExtractedTable.headers.map((header, idx) => (
+                                      {adminExtractedTable.headers.map((header, colIdx) => (
                                         <th
-                                          key={idx}
-                                          className={`px-3 py-2 font-semibold whitespace-nowrap ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${idx === 0 ? 'border-r border-gray-700' : ''}`}
+                                          key={colIdx}
+                                          onClick={() => setTableEditingCell({ kind: 'header', colIdx })}
+                                          className={`px-3 py-2 font-semibold whitespace-nowrap cursor-pointer hover:bg-gray-800 transition ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${colIdx === 0 ? 'border-r border-gray-700' : ''}`}
                                         >
-                                          {header}
+                                          {tableEditingCell?.kind === 'header' && tableEditingCell.colIdx === colIdx ? (
+                                            <input
+                                              autoFocus
+                                              defaultValue={header}
+                                              onBlur={(e) => commitTableCell(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') commitTableCell((e.target as HTMLInputElement).value);
+                                                if (e.key === 'Escape') setTableEditingCell(null);
+                                              }}
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
+                                            />
+                                          ) : header}
                                         </th>
                                       ))}
                                     </tr>
@@ -210,8 +247,26 @@ export const AdminPage = ({
                                   <tbody>
                                     {adminExtractedTable.rows.map((row, rowIdx) => (
                                       <tr key={rowIdx} className="border-b border-gray-800">
-                                        {row.map((cell, cellIdx) => (
-                                          <td key={cellIdx} className={`px-3 py-2 text-gray-200 whitespace-nowrap ${cellIdx === 0 ? 'border-r border-gray-700' : ''}`}>{cell}</td>
+                                        {row.map((cell, colIdx) => (
+                                          <td
+                                            key={colIdx}
+                                            onClick={() => setTableEditingCell({ kind: 'row', rowIdx, colIdx })}
+                                            className={`px-3 py-2 whitespace-nowrap cursor-pointer hover:bg-gray-800 transition ${colIdx === 0 ? 'text-gray-200 border-r border-gray-700' : 'text-gray-400'}`}
+                                          >
+                                            {tableEditingCell?.kind === 'row' && tableEditingCell.rowIdx === rowIdx && tableEditingCell.colIdx === colIdx ? (
+                                              <input
+                                                autoFocus
+                                                defaultValue={cell}
+                                                onBlur={(e) => commitTableCell(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') commitTableCell((e.target as HTMLInputElement).value);
+                                                  if (e.key === 'Escape') setTableEditingCell(null);
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
+                                              />
+                                            ) : cell}
+                                          </td>
                                         ))}
                                       </tr>
                                     ))}

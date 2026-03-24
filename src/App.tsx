@@ -2045,6 +2045,7 @@ export default function App() {
         onStartEdit={startProductEdit}
         onCancelEdit={() => { setEditingProductId(null); setAdminActionError(null); setAdminProductPhotoFile(null); setAdminSizeChartImage(null); }}
         onEditFormChange={setAdminEditForm}
+        onExtractedTableChange={setAdminExtractedTable}
         onImageLoadError={handleImageLoadError}
       />
     );
