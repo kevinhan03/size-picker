@@ -8,16 +8,19 @@ import {
   Globe,
   LayoutGrid,
   Loader2,
+  LogIn,
   Plus,
   RefreshCw,
-  Ruler,
   Search,
   ShieldAlert,
   Upload,
   X,
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
+import { AdminPage } from './components/AdminPage';
 import { CategoryDropdown } from './components/CategoryDropdown';
+import { LoginPage } from './components/LoginPage';
+import { ProgressiveImage } from './components/ProgressiveImage';
 
 interface SizeTable {
   headers: string[];
@@ -104,15 +107,6 @@ interface AdminEditForm {
   url: string;
 }
 
-interface ProgressiveImageProps {
-  src: string;
-  thumbnailSrc?: string;
-  alt: string;
-  className?: string;
-  loading?: 'lazy' | 'eager';
-  onError?: (event: SyntheticEvent<HTMLImageElement>) => void;
-}
-
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '').trim();
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 // (C) bucket명을 product-assets로 고정
@@ -164,7 +158,7 @@ const SIZE_REGION_OPTIONS = [
   { key: 'uk', label: 'UK' },
 ] as const;
 
-type ViewMode = 'search' | 'grid' | 'converter';
+type ViewMode = 'search' | 'grid' | 'converter' | 'login';
 type SizeCategory = 'clothing' | 'shoes';
 type SizeGender = 'men' | 'women';
 type SizeRegionKey = (typeof SIZE_REGION_OPTIONS)[number]['key'];
@@ -374,52 +368,6 @@ const cropImageByBoundingBox = (dataUrl: string, box: CaptureBoundingBox | null)
     };
     img.onerror = () => resolve('');
   });
-
-const ProgressiveImage = ({
-  src,
-  thumbnailSrc,
-  alt,
-  className,
-  loading = 'lazy',
-  onError,
-}: ProgressiveImageProps) => {
-  const [loadedSrc, setLoadedSrc] = useState<string>('');
-  const displaySrc =
-    loadedSrc === src
-      ? src
-      : !src
-        ? thumbnailSrc || ''
-        : !thumbnailSrc || thumbnailSrc === src
-          ? src
-          : thumbnailSrc;
-
-  useEffect(() => {
-    if (!src || !thumbnailSrc || thumbnailSrc === src) {
-      return;
-    }
-
-    const preloader = new Image();
-    preloader.src = src;
-    preloader.onload = () => setLoadedSrc(src);
-    preloader.onerror = () => setLoadedSrc(src);
-
-    return () => {
-      preloader.onload = null;
-      preloader.onerror = null;
-    };
-  }, [src, thumbnailSrc]);
-
-  return (
-    <img
-      src={displaySrc || src}
-      alt={alt}
-      className={className}
-      loading={loading}
-      decoding="async"
-      onError={onError}
-    />
-  );
-};
 
 const TOTAL_LENGTH_LABEL = '\uCD1D\uC7A5';
 const ITEM_LABEL = '\uD56D\uBAA9';
@@ -1021,6 +969,7 @@ export default function App() {
   const [activeConverterRowIndex, setActiveConverterRowIndex] = useState<number | null>(null);
   const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
+  const [authUser, setAuthUser] = useState<{ email?: string } | null>(null);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const isSelectionRef = useRef(false);
@@ -1090,6 +1039,17 @@ export default function App() {
     [allProducts]
   );
   const shouldHideSearchHero = viewMode === 'search' && Boolean(result) && !isLoading;
+
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthUser(data.session?.user ?? null);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const nextSrc = String(autofilledProductImageUrl || '').trim();
@@ -1747,7 +1707,7 @@ export default function App() {
   const renderProductImageSection = () => (
     <div className="space-y-2">
       <label className="text-sm text-gray-400">상품 이미지</label>
-      <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
+      <label className="cursor-pointer w-full h-28 bg-white/[0.06] border-2 border-dashed border-white/15 rounded-xl flex items-center justify-center overflow-hidden hover:bg-white/[0.09] hover:border-white/25 transition backdrop-blur-sm">
         {formData.productImage ? <img src={formData.productImage} className="h-full object-contain" onError={handleThumbnailLoadError} /> : <Camera className="w-8 h-8 text-gray-500" />}
         <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
       </label>
@@ -1790,7 +1750,7 @@ export default function App() {
     <div className="space-y-2">
       <label className="text-sm text-gray-400">사이즈표 이미지</label>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <label className="cursor-pointer w-full sm:w-2/3 h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+        <label className="cursor-pointer w-full sm:w-2/3 h-28 bg-white/[0.06] border-2 border-dashed border-white/15 rounded-xl flex items-center justify-center shrink-0 overflow-hidden hover:bg-white/[0.09] hover:border-white/25 transition backdrop-blur-sm">
           {formData.extractedTable && !isAnalyzingTable ? (
             <div className="w-full h-full overflow-auto p-2">
               <table className="w-full text-[10px] text-left">
@@ -1835,7 +1795,7 @@ export default function App() {
         <div className="text-xs text-amber-300">사이즈표 이미지는 있지만 검증된 표 추출은 아직 완료되지 않았습니다.</div>
       ) : null}
       {addProductMode === 'capture' ? (
-        <label className="cursor-pointer w-full h-20 bg-gray-800 border border-dashed border-gray-700 rounded-xl flex items-center justify-center overflow-hidden hover:border-gray-500 transition">
+        <label className="cursor-pointer w-full h-20 bg-white/[0.06] border border-dashed border-white/15 rounded-xl flex items-center justify-center overflow-hidden hover:border-white/25 hover:bg-white/[0.09] transition backdrop-blur-sm">
           <div className="flex items-center gap-2 text-gray-400">
             <Camera className="w-4 h-4" />
             <span className="text-xs">캡쳐본 다시 업로드</span>
@@ -1850,10 +1810,10 @@ export default function App() {
 
   const renderAddProductForm = () => (
     <>
-      <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="브랜드명" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
-      <input className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl" placeholder="상품명" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+      <input className="w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-white/20 focus:bg-white/[0.1] transition" placeholder="브랜드명" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
+      <input className="w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-white/20 focus:bg-white/[0.1] transition" placeholder="상품명" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
       <select
-        className={`w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl ${formData.category ? 'text-white' : 'text-gray-400'}`}
+        className={`w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl backdrop-blur-sm focus:outline-none focus:border-white/20 transition [&>option]:bg-gray-900 [&>option]:text-white ${formData.category ? 'text-white' : 'text-gray-400'}`}
         value={formData.category}
         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
       >
@@ -1866,7 +1826,7 @@ export default function App() {
         <div className="relative">
           <Globe className="absolute left-4 top-3.5 w-4 h-4 text-gray-500" />
           <input
-            className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl"
+            className="w-full pl-10 pr-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-white/20 focus:bg-white/[0.1] transition"
             placeholder="공식 URL (선택)"
             value={formData.url}
             onChange={(e) => {
@@ -1881,7 +1841,7 @@ export default function App() {
             disabled={isAutofillingFromUrl || !formData.url.trim() || isSaving}
             className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition flex items-center justify-center gap-2 ${
               (isAutofillingFromUrl || !formData.url.trim() || isSaving)
-                ? 'border-gray-700 text-gray-500 bg-gray-800 cursor-not-allowed'
+                ? 'border-white/10 text-gray-500 bg-white/[0.04] cursor-not-allowed'
                 : 'border-orange-500/60 text-orange-300 bg-orange-500/10 hover:bg-orange-500/20'
             }`}
           >
@@ -1947,7 +1907,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setAddProductMode('url')}
-            className="flex w-full items-center justify-between rounded-2xl border border-gray-700 bg-gray-800/70 px-5 py-5 text-left transition hover:border-orange-500 hover:bg-gray-800"
+            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-5 py-5 text-left transition hover:border-orange-500/60 hover:bg-white/[0.1]"
           >
             <div>
               <p className="text-sm font-semibold text-white sm:text-base">공식홈페이지 URL 업로드해서 추가</p>
@@ -1957,7 +1917,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setAddProductMode('manual')}
-            className="flex w-full items-center justify-between rounded-2xl border border-gray-700 bg-gray-800/70 px-5 py-5 text-left transition hover:border-gray-500 hover:bg-gray-800"
+            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-5 py-5 text-left transition hover:border-white/20 hover:bg-white/[0.1]"
           >
             <div>
               <p className="text-sm font-semibold text-white sm:text-base">직접 추가</p>
@@ -1972,7 +1932,7 @@ export default function App() {
       return (
         <div className="space-y-3">
           <label className="text-sm text-gray-400">캡쳐 사진 업로드</label>
-          <label className="cursor-pointer flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gray-700 bg-gray-800/60 px-5 py-8 text-center transition hover:border-[#00FF00]">
+          <label className="cursor-pointer flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.06] backdrop-blur-sm px-5 py-8 text-center transition hover:border-[#00FF00]/60 hover:bg-white/[0.09]">
             <Camera className="h-10 w-10 text-[#00FF00]" />
             <div>
               <p className="text-sm font-semibold text-white">캡쳐본을 업로드하면 상품 정보를 추출합니다.</p>
@@ -1992,171 +1952,34 @@ export default function App() {
 
   if (isAdminPage) {
     return (
-      <div className="min-h-screen bg-black text-white font-sans">
-        <header className="sticky top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-40">
-          <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Ruler className="w-5 h-5 text-orange-500" />
-              <h1 className="text-lg font-bold text-white">관리자 상품 관리</h1>
-            </div>
-            {isAdminAuthenticated ? (
-              <button
-                onClick={() => void handleAdminLogout()}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800"
-              >
-                로그아웃
-              </button>
-            ) : null}
-          </div>
-        </header>
-
-        <main className="max-w-5xl mx-auto px-4 py-8">
-          {isAdminCheckingSession ? (
-            <div className="text-gray-400">관리자 세션 확인 중...</div>
-          ) : null}
-
-          {!isAdminCheckingSession && !isAdminAuthenticated ? (
-            <div className="max-w-md mx-auto bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
-              <h2 className="text-xl font-bold text-white">관리자 로그인</h2>
-              <input
-                type="password"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500"
-                placeholder="관리자 비밀번호"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void handleAdminLogin();
-                }}
-              />
-              {adminAuthError ? <p className="text-sm text-red-400">{adminAuthError}</p> : null}
-              <button
-                onClick={() => void handleAdminLogin()}
-                disabled={isAdminAuthSubmitting}
-                className={`w-full px-4 py-3 rounded-xl text-sm font-bold text-black ${isAdminAuthSubmitting ? 'bg-gray-600 text-gray-300 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}
-              >
-                {isAdminAuthSubmitting ? '로그인 중...' : '로그인'}
-              </button>
-            </div>
-          ) : null}
-
-          {!isAdminCheckingSession && isAdminAuthenticated ? (
-            <div className="space-y-4">
-              {productsError ? (
-                <div className="bg-orange-900/40 border border-orange-500 text-orange-200 px-4 py-3 rounded-xl">
-                  {productsError}
-                </div>
-              ) : null}
-              {adminActionError ? (
-                <div className="bg-red-900/40 border border-red-500 text-red-200 px-4 py-3 rounded-xl">
-                  {adminActionError}
-                </div>
-              ) : null}
-
-              {allProducts.length === 0 ? (
-                <div className="text-center py-16 text-gray-500">등록된 상품이 없습니다.</div>
-              ) : (
-                <div className="space-y-3">
-                  {allProducts.map((product) => (
-                    <div key={product.id} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                        <div className="w-20 h-20 bg-white rounded-xl p-2 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
-                          <ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-w-full max-h-full object-contain" onError={handleImageLoadError} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          {editingProductId === product.id ? (
-                            <div className="space-y-3">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.brand} onChange={(e) => setAdminEditForm((prev) => ({ ...prev, brand: e.target.value }))} placeholder="브랜드명" />
-                                <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.name} onChange={(e) => setAdminEditForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="상품명" />
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <select
-                                  className={`w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg ${adminEditForm.category ? 'text-white' : 'text-gray-400'}`}
-                                  value={adminEditForm.category}
-                                  onChange={(e) => setAdminEditForm((prev) => ({ ...prev, category: e.target.value }))}
-                                >
-                                  <option value="">카테고리</option>
-                                  {CATEGORY_OPTIONS.map((category) => (
-                                    <option key={category} value={category}>{category}</option>
-                                  ))}
-                                </select>
-                                <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.url} onChange={(e) => setAdminEditForm((prev) => ({ ...prev, url: e.target.value }))} placeholder="공식 URL (선택)" />
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="space-y-2">
-                                  <p className="text-xs text-gray-400">상품 이미지 교체</p>
-                                  <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-                                    {adminImagePreview ? <img src={adminImagePreview} className="h-full object-contain" /> : <Upload className="w-6 h-6 text-gray-500" />}
-                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleAdminFileUpload(e, 'product')} />
-                                  </label>
-                                </div>
-                                <div className="space-y-2">
-                                  <p className="text-xs text-gray-400">사이즈표 이미지 재분석</p>
-                                  <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-                                    {adminSizeChartImage ? <img src={adminSizeChartImage} className="h-full object-contain" /> : <Upload className="w-6 h-6 text-gray-500" />}
-                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleAdminFileUpload(e, 'chart')} />
-                                  </label>
-                                </div>
-                              </div>
-                              {isAdminAnalyzingTable ? <div className="text-xs text-orange-400">사이즈표 재분석 중...</div> : null}
-                              <div className="overflow-x-auto rounded-lg border border-gray-700">
-                                {adminExtractedTable?.headers?.length ? (
-                                  <table className="w-full text-xs text-left">
-                                    <thead className="border-b border-gray-700">
-                                      <tr>
-                                        {adminExtractedTable.headers.map((header, idx) => (
-                                          <th
-                                            key={idx}
-                                            className={`px-3 py-2 font-semibold whitespace-nowrap ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${idx === 0 ? 'border-r border-gray-700' : ''}`}
-                                          >
-                                            {header}
-                                          </th>
-                                        ))}
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {adminExtractedTable.rows.map((row, rowIdx) => (
-                                        <tr key={rowIdx} className="border-b border-gray-800">
-                                          {row.map((cell, cellIdx) => (
-                                            <td key={cellIdx} className={`px-3 py-2 text-gray-200 whitespace-nowrap ${cellIdx === 0 ? 'border-r border-gray-700' : ''}`}>{cell}</td>
-                                          ))}
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                ) : (
-                                  <div className="px-3 py-4 text-xs text-gray-500">사이즈표 데이터가 없습니다.</div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => void handleAdminUpdateProduct(product.id)} disabled={isAdminActionLoading || isAdminAnalyzingTable} className={`px-4 py-2 rounded-lg text-sm font-bold text-black ${(isAdminActionLoading || isAdminAnalyzingTable) ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}>저장</button>
-                                <button onClick={() => { setEditingProductId(null); setAdminActionError(null); setAdminProductPhotoFile(null); setAdminSizeChartImage(null); }} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800">취소</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                              <div>
-                                <p className="text-xs font-bold text-orange-500 uppercase tracking-wide">{product.brand}</p>
-                                <p className="text-base font-semibold text-white">{product.name}</p>
-                                <p className="text-sm text-gray-400 mt-1">{product.category}</p>
-                                <p className="text-sm text-gray-500 mt-1 break-all">{product.url && product.url !== '#' ? product.url : 'URL 없음'}</p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => startProductEdit(product)} className="px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-800">수정</button>
-                                <button onClick={() => void handleAdminDeleteProduct(product.id)} disabled={isAdminActionLoading} className={`px-3 py-2 rounded-lg text-sm font-medium ${isAdminActionLoading ? 'text-gray-500 bg-gray-800 cursor-not-allowed' : 'text-red-300 hover:bg-red-900/30'}`}>삭제</button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null}
-        </main>
-      </div>
+      <AdminPage
+        isAdminAuthenticated={isAdminAuthenticated}
+        isAdminCheckingSession={isAdminCheckingSession}
+        adminPassword={adminPassword}
+        adminAuthError={adminAuthError}
+        isAdminAuthSubmitting={isAdminAuthSubmitting}
+        productsError={productsError}
+        adminActionError={adminActionError}
+        allProducts={allProducts}
+        editingProductId={editingProductId}
+        adminEditForm={adminEditForm}
+        adminImagePreview={adminImagePreview}
+        adminSizeChartImage={adminSizeChartImage}
+        isAdminAnalyzingTable={isAdminAnalyzingTable}
+        adminExtractedTable={adminExtractedTable}
+        isAdminActionLoading={isAdminActionLoading}
+        onLogout={() => void handleAdminLogout()}
+        onLogin={() => void handleAdminLogin()}
+        onPasswordChange={setAdminPassword}
+        onPasswordKeyDown={(key) => { if (key === 'Enter') void handleAdminLogin(); }}
+        onFileUpload={handleAdminFileUpload}
+        onUpdateProduct={(id) => void handleAdminUpdateProduct(id)}
+        onDeleteProduct={(id) => void handleAdminDeleteProduct(id)}
+        onStartEdit={startProductEdit}
+        onCancelEdit={() => { setEditingProductId(null); setAdminActionError(null); setAdminProductPhotoFile(null); setAdminSizeChartImage(null); }}
+        onEditFormChange={setAdminEditForm}
+        onImageLoadError={handleImageLoadError}
+      />
     );
   }
 
@@ -2173,10 +1996,10 @@ export default function App() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigateToView('converter')}
-              className={`hidden sm:flex items-center justify-center p-2 rounded-lg transition border ${
+              className={`hidden sm:flex items-center justify-center p-2 rounded-xl transition border backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
                 viewMode === 'converter'
                   ? 'bg-orange-500 text-black border-orange-500'
-                  : 'border-gray-700 text-gray-200 hover:border-orange-500 hover:text-orange-500 hover:bg-gray-900'
+                  : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] border-white/20 text-gray-200 hover:border-orange-500/60 hover:text-orange-400'
               }`}
               title="해외사이즈 변환기"
             >
@@ -2184,22 +2007,50 @@ export default function App() {
             </button>
             <button
               onClick={() => navigateToView('converter')}
-              className={`sm:hidden p-2 rounded-lg transition ${
+              className={`sm:hidden p-2 rounded-xl transition border backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
                 viewMode === 'converter'
-                  ? 'bg-orange-500 text-black'
-                  : 'text-gray-400 hover:text-orange-500 hover:bg-gray-800'
+                  ? 'bg-orange-500 text-black border-orange-500'
+                  : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] border-white/20 text-gray-300 hover:border-orange-500/60 hover:text-orange-400'
               }`}
               title="해외사이즈 변환기"
             >
               <Globe className="w-5 h-5" />
             </button>
-            <button onClick={() => navigateToView('grid')} className="p-2 text-gray-400 hover:text-orange-500 transition rounded-lg hover:bg-gray-800" title="전체 목록 보기">
+            <button
+              onClick={() => navigateToView('grid')}
+              className="p-2 text-gray-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] backdrop-blur-xl border border-white/20 hover:text-orange-400 hover:border-orange-500/60 transition rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
+              title="전체 목록 보기"
+            >
               <LayoutGrid className="w-6 h-6" />
             </button>
-            <button onClick={handleOpenModal} className="flex items-center gap-2 text-black px-4 py-2 rounded-lg hover:opacity-80 transition shadow-lg text-sm font-bold" style={{ backgroundColor: '#00FF00', boxShadow: 'var(--ui-depth-shadow), 0 0 15px rgba(0,255,0,0.3)' }}>
+            <button
+              onClick={handleOpenModal}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition backdrop-blur-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] text-[#00FF00] hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] shadow-[0_4px_16px_rgba(0,255,0,0.15)]"
+            >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">상품 추가</span>
             </button>
+            {authUser ? (
+              <button
+                onClick={() => void supabase?.auth.signOut()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition backdrop-blur-xl border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] text-gray-200 hover:border-orange-500/60 hover:text-orange-400 shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
+              >
+                <LogIn className="w-4 h-4" />
+                <span className="hidden sm:inline truncate max-w-[80px]">{authUser.email?.split('@')[0]}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => navigateToView('login')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition backdrop-blur-xl border shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
+                  viewMode === 'login'
+                    ? 'bg-orange-500 text-black border-orange-500'
+                    : 'border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] text-gray-200 hover:border-orange-500/60 hover:text-orange-400'
+                }`}
+              >
+                <LogIn className="w-4 h-4" />
+                <span className="hidden sm:inline">로그인</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -2215,6 +2066,13 @@ export default function App() {
               <RefreshCw className="w-4 h-4" /> 데이터 다시 불러오기
             </button>
           </div>
+        )}
+
+        {viewMode === 'login' && supabase && (
+          <LoginPage
+            supabase={supabase}
+            onSuccess={() => navigateToView('search')}
+          />
         )}
 
         {viewMode === 'search' && (
@@ -2663,10 +2521,10 @@ export default function App() {
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCloseModal} />
-          <div className="ui-add-product-modal bg-gray-900 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh] border border-gray-800">
-            <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-900 sticky top-0 z-10 text-white">
+          <div className="ui-add-product-modal bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.06))] backdrop-blur-2xl rounded-3xl w-full max-w-lg shadow-[0_24px_60px_rgba(0,0,0,0.5)] overflow-hidden relative flex flex-col max-h-[90vh] border border-white/10">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-black/20 sticky top-0 z-10 text-white backdrop-blur-sm">
               <h3 className="text-lg font-bold" style={{ color: '#00FF00' }}>상품 추가</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-800 rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/[0.1] rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
 
             <div className="p-6 overflow-y-auto text-white space-y-4">
@@ -2843,8 +2701,8 @@ export default function App() {
               ) : null}
             </div>
 
-            <div className="p-6 border-t border-gray-800 bg-gray-900 flex justify-end gap-3 sticky bottom-0">
-              <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition">취소</button>
+            <div className="p-6 border-t border-white/10 bg-black/20 backdrop-blur-sm flex justify-end gap-3 sticky bottom-0">
+              <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 bg-white/[0.06] border border-white/10 hover:bg-white/[0.12] hover:text-white transition">취소</button>
               <button onClick={handleSubmitProduct} disabled={!isFormValid} className={`px-5 py-2.5 rounded-xl text-sm font-bold text-black transition flex items-center gap-2 ${!isFormValid ? 'bg-gray-700 cursor-not-allowed text-gray-500' : 'hover:bg-orange-400'}`} style={!isFormValid ? {} : { backgroundColor: '#F97316' }}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {isSaving ? '제출 중...' : '상품 등록하기'}
