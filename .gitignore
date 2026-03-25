@@ -19,6 +19,9 @@ dist-ssr
 localhost.pem
 localhost-key.pem
 
+# MCP configuration (contains API keys)
+.mcp.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
