@@ -791,10 +791,9 @@ const submitProduct = async (form: SubmitProductForm): Promise<void> => {
     url: form.url || null,
     image_path: imagePath,
     size_table: form.sizeTable ?? null,
-    status: 'pending',
   };
 
-  const { error } = await supabase!.from('product_submissions').insert(payload);
+  const { error } = await supabase!.from('products').insert(payload);
   if (error) {
     console.error('[submitProduct] insert failed', error.message, error);
     throw new Error(error.message);

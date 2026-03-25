@@ -1,10 +1,10 @@
 import express from "express";
 import cors from "cors";
+import { rateLimit } from "express-rate-limit";
 import dotenv from "dotenv";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
-import { chromium } from "playwright";
 
 dotenv.config();
 
@@ -22,6 +22,7 @@ const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || "").trim
 const ADMIN_SESSION_COOKIE_NAME = "sizepicker_admin_session";
 const ADMIN_SESSION_TTL_SECONDS = Number(process.env.ADMIN_SESSION_TTL_SECONDS || 60 * 60 * 8);
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const IS_VERCEL = Boolean(process.env.VERCEL);
 const PRODUCT_METADATA_FETCH_TIMEOUT_MS = Number(process.env.PRODUCT_METADATA_FETCH_TIMEOUT_MS || 12000);
 const PRODUCT_METADATA_MAX_IMAGE_BYTES = Number(process.env.PRODUCT_METADATA_MAX_IMAGE_BYTES || 8 * 1024 * 1024);
 const PRODUCT_METADATA_MAX_SIZE_CHART_PAGES = Number(
@@ -83,8 +84,50 @@ const supabase =
       })
     : null;
 
-app.use(cors({ origin: true, credentials: true }));
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // no-origin requests (curl, mobile apps, same-origin) are always allowed
+      if (!origin) return callback(null, true);
+      // in development, allow all origins
+      if (!IS_PRODUCTION) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "25mb" }));
+
+// Rate limiters — uses in-memory store (per-instance).
+// On Vercel serverless each cold start gets a fresh counter, so limits are
+// best-effort rather than globally enforced. Attach a Redis store for strict enforcement.
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many requests, please try again later." },
+});
+const geminiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many requests, please try again later." },
+});
+const productInsertLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { ok: false, error: "Too many requests, please try again later." },
+});
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, port: PORT, ts: new Date().toISOString() });
@@ -136,10 +179,10 @@ const toProductWriteErrorResponse = (error, fallbackMessage) => {
 };
 
 const safeCompare = (left, right) => {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  if (leftBuffer.length !== rightBuffer.length) return false;
-  return timingSafeEqual(leftBuffer, rightBuffer);
+  // Hash both sides to fixed length to prevent timing attacks via length leak
+  const leftHash = createHash("sha256").update(String(left)).digest();
+  const rightHash = createHash("sha256").update(String(right)).digest();
+  return timingSafeEqual(leftHash, rightHash);
 };
 
 const signValue = (value) =>
@@ -181,7 +224,11 @@ const parseCookies = (cookieHeader = "") =>
       const key = item.slice(0, separator).trim();
       const value = item.slice(separator + 1).trim();
       if (!key) return acc;
-      acc[key] = decodeURIComponent(value);
+      try {
+        acc[key] = decodeURIComponent(value);
+      } catch {
+        acc[key] = value;
+      }
       return acc;
     }, {});
 
@@ -2470,10 +2517,10 @@ const extractSizeTableWithGemini = async ({ imageBase64, mimeType = "image/png" 
   for (const model of SIZE_TABLE_GEMINI_MODEL_CANDIDATES) {
     for (const prompt of SIZE_TABLE_GEMINI_PROMPT_CANDIDATES) {
       const response = await fetch(
-        `${GEMINI_API_BASE}/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+        `${GEMINI_API_BASE}/models/${model}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
           body: JSON.stringify({
             contents: [
               {
@@ -2547,10 +2594,10 @@ const assessProductImageWithGemini = async ({
 
   for (const model of PRODUCT_IMAGE_GEMINI_MODEL_CANDIDATES) {
     const response = await fetch(
-      `${GEMINI_API_BASE}/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+      `${GEMINI_API_BASE}/models/${model}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
         body: JSON.stringify({
           contents: [
             {
@@ -2622,10 +2669,10 @@ const extractProductMetadataFromImageWithGemini = async ({
   let lastErrorText = "";
   for (const model of SIZE_TABLE_GEMINI_MODEL_CANDIDATES) {
     const response = await fetch(
-      `${GEMINI_API_BASE}/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+      `${GEMINI_API_BASE}/models/${model}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
         body: JSON.stringify({
           contents: [
             {
@@ -3080,6 +3127,7 @@ const selectFirstImagePayload = async (candidates, excludedCandidates = [], opti
 };
 
 const getPlaywrightExecutablePath = () => {
+  if (IS_VERCEL) return "";
   const candidates = [
     String(process.env.PLAYWRIGHT_EXECUTABLE_PATH || "").trim(),
     "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -3097,16 +3145,19 @@ const getPlaywrightExecutablePath = () => {
 };
 
 const launchMetadataBrowser = async () => {
+  if (IS_VERCEL) {
+    const error = new Error("Browser-based scraping is not available on Vercel");
+    error.statusCode = 503;
+    throw error;
+  }
+  const { chromium } = await import("playwright");
   const executablePath = getPlaywrightExecutablePath();
   const options = {
     headless: true,
     timeout: PRODUCT_METADATA_BROWSER_TIMEOUT_MS,
   };
   if (executablePath) {
-    return chromium.launch({
-      ...options,
-      executablePath,
-    });
+    return chromium.launch({ ...options, executablePath });
   }
   return chromium.launch(options);
 };
@@ -3496,7 +3547,7 @@ const fetchSizeMetadataFromLinkedPage = async (linkedPageUrl) => {
       }),
       ...extractSizeChartPageCandidatesFromHtml({ html, pageUrl: finalUrl }),
     ]);
-    const browserMetadata = sizeTable
+    const browserMetadata = (sizeTable || IS_VERCEL)
       ? null
       : await fetchSizeMetadataFromLinkedPageWithBrowser(finalUrl);
 
@@ -3516,6 +3567,7 @@ const fetchSizeMetadataFromLinkedPage = async (linkedPageUrl) => {
       ]),
     };
   } catch {
+    if (IS_VERCEL) return { sizeTable: null, sizeChartImageCandidates: [], sizeChartPageCandidates: [] };
     return await fetchSizeMetadataFromLinkedPageWithBrowser(safeUrl);
   }
 };
@@ -3912,7 +3964,7 @@ const extractProductMetadataFromUrl = async (rawUrl) => {
   }
 
   if (!pageResponse) {
-    if (isKreamProductUrl(pageUrl)) {
+    if (!IS_VERCEL && isKreamProductUrl(pageUrl)) {
       return await extractProductMetadataFromUrlWithBrowser(pageUrl);
     }
     const fetchError = new Error("failed to fetch product page");
@@ -3960,7 +4012,7 @@ const extractProductMetadataFromUrl = async (rawUrl) => {
     productImageCandidates.length > 0
   );
   if (!hasAnyData) {
-    if (isKreamProductUrl(finalPageUrl)) {
+    if (!IS_VERCEL && isKreamProductUrl(finalPageUrl)) {
       return await extractProductMetadataFromUrlWithBrowser(finalPageUrl);
     }
     const emptyError = new Error("could not extract product metadata from url");
@@ -4061,241 +4113,8 @@ app.post("/api/product-metadata", async (req, res) => {
       error: error?.message || "product metadata extraction error",
     });
   }
-
-  let pageUrl = "";
-  try {
-    pageUrl = assertPublicHttpUrl(rawUrl);
-  } catch (error) {
-    const statusCode = Number(error?.statusCode) || 400;
-    return res.status(statusCode).json({
-      ok: false,
-      error: error?.message || "invalid url",
-    });
-  }
-
-  try {
-    const preferredPageUrl = normalizePreferredStoreUrl(pageUrl);
-    const pageUrlCandidates = uniqValues([
-      preferredPageUrl,
-      pageUrl,
-      toWwwHostUrl(preferredPageUrl),
-      toWwwHostUrl(pageUrl),
-    ]);
-
-    let pageResponse = null;
-    let effectiveRequestedPageUrl = preferredPageUrl || pageUrl;
-    let lastFetchDetail = "";
-
-    for (const candidatePageUrl of pageUrlCandidates) {
-      if (!candidatePageUrl) continue;
-      try {
-        const response = await fetchWithTimeout(candidatePageUrl, {
-          method: "GET",
-          redirect: "follow",
-          headers: {
-            "user-agent": "Mozilla/5.0",
-            accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-          },
-        });
-
-        if (!response.ok) {
-          lastFetchDetail = `${response.status} ${response.statusText}`;
-          continue;
-        }
-
-        const responseContentType = String(response.headers.get("content-type") || "").toLowerCase();
-        if (!responseContentType.includes("text/html")) {
-          lastFetchDetail = `non-html response: ${responseContentType || "unknown content-type"}`;
-          continue;
-        }
-
-        pageResponse = response;
-        effectiveRequestedPageUrl = candidatePageUrl;
-        break;
-      } catch (error) {
-        lastFetchDetail = error?.message || "request failed";
-      }
-    }
-
-    if (!pageResponse) {
-      return res.status(502).json({
-        ok: false,
-        error: "failed to fetch product page",
-        detail: lastFetchDetail || "unknown error",
-      });
-    }
-
-    const html = await pageResponse.text();
-    const finalPageUrl = assertPublicHttpUrl(pageResponse.url || effectiveRequestedPageUrl);
-    const extracted = extractProductMetadataFromHtml({
-      html,
-      pageUrl: finalPageUrl,
-    });
-
-    const productImageDownloadOptions = {
-      minBytes: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_BYTES,
-      minWidth: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_WIDTH,
-      minHeight: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_HEIGHT,
-      maxAspectRatio: PRODUCT_METADATA_MAX_PRODUCT_IMAGE_ASPECT_RATIO,
-    };
-
-    let productImage = await selectFirstImagePayload(
-      extracted.productImageCandidates,
-      [],
-      productImageDownloadOptions
-    );
-    if (!productImage) {
-      productImage = await selectFirstImagePayload(extracted.productImageCandidates);
-    }
-
-    const metadataHint = `${extracted.brand || ""} ${extracted.name || ""}`.trim();
-    const mergedProductImageCandidates = uniqValues([
-      productImage?.sourceUrl || "",
-      ...(extracted.productImageCandidates || []),
-    ]).filter((candidate) => isLikelyProductImageUrl(candidate));
-    const coreProductPathPattern = /(?:\/web\/product\/|\/goods_img\/|\/prd_img\/)/i;
-    const likelyProductImageCandidates = mergedProductImageCandidates.filter(
-      (candidate) => scoreProductImageCandidate(candidate, metadataHint) >= 0
-    );
-    const coreLikelyCandidates = likelyProductImageCandidates.filter((candidate) =>
-      coreProductPathPattern.test(String(candidate || ""))
-    );
-    const baseLikelyCandidates =
-      coreLikelyCandidates.length > 0 ? coreLikelyCandidates : likelyProductImageCandidates;
-    const mergedCoreCandidates = mergedProductImageCandidates.filter((candidate) =>
-      coreProductPathPattern.test(String(candidate || ""))
-    );
-    const baseMergedCandidates =
-      coreLikelyCandidates.length > 0 ? mergedCoreCandidates : mergedProductImageCandidates;
-
-    const isExtraProductPath = (candidate) =>
-      /\/web\/product\/extra\//i.test(String(candidate || ""));
-    const isSmallProductPath = (candidate) =>
-      /\/web\/product\/small\//i.test(String(candidate || ""));
-
-    const mergedNonExtraCandidates = baseMergedCandidates.filter(
-      (candidate) => !isExtraProductPath(candidate)
-    );
-    const nonExtraLikelyCandidates = baseLikelyCandidates.filter(
-      (candidate) => !isExtraProductPath(candidate)
-    );
-    const primaryLikelyCandidates = nonExtraLikelyCandidates.filter(
-      (candidate) => !isSmallProductPath(candidate)
-    );
-    const smallLikelyCandidates = nonExtraLikelyCandidates.filter((candidate) =>
-      isSmallProductPath(candidate)
-    );
-    const extraLikelyCandidates = baseLikelyCandidates.filter((candidate) =>
-      isExtraProductPath(candidate)
-    );
-    const fallbackLikelyCandidates = baseLikelyCandidates;
-    const fallbackMergedCandidates = baseMergedCandidates;
-
-    const prioritizedProductImageCandidates = uniqValues([
-      ...primaryLikelyCandidates,
-      ...smallLikelyCandidates,
-      ...extraLikelyCandidates,
-      ...fallbackLikelyCandidates,
-      ...fallbackMergedCandidates,
-    ]);
-    const validatedPrimary = await selectTopUsableImageUrls(
-      prioritizedProductImageCandidates,
-      {
-        excludedCandidates: [productImage?.sourceUrl || ""],
-        excludedContentHashes: [productImage?.contentHash || ""],
-        limit: 4,
-        maxProbeCount: 18,
-        minBytes: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_BYTES,
-        maxBytes: PRODUCT_METADATA_MAX_IMAGE_BYTES,
-        minWidth: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_WIDTH,
-        minHeight: PRODUCT_METADATA_MIN_PRODUCT_IMAGE_HEIGHT,
-        // Size chart / banner성 비정상 가로세로 비율을 후보에서 제외
-        maxAspectRatio: Math.min(
-          PRODUCT_METADATA_MAX_PRODUCT_IMAGE_ASPECT_RATIO || 3.2,
-          2.8
-        ),
-      }
-    );
-    const validatedSecondary =
-      validatedPrimary.urls.length >= 4
-        ? { urls: [], contentHashes: [] }
-        : await selectTopUsableImageUrls(prioritizedProductImageCandidates, {
-            excludedCandidates: [
-              productImage?.sourceUrl || "",
-              ...validatedPrimary.urls,
-            ],
-            excludedContentHashes: [
-              productImage?.contentHash || "",
-              ...validatedPrimary.contentHashes,
-            ],
-            limit: Math.max(1, 4 - validatedPrimary.urls.length),
-            maxProbeCount: 18,
-            minBytes: Math.max(1024, PRODUCT_METADATA_MIN_PRODUCT_IMAGE_BYTES / 2),
-            maxBytes: PRODUCT_METADATA_MAX_IMAGE_BYTES,
-            minWidth: Math.max(120, PRODUCT_METADATA_MIN_PRODUCT_IMAGE_WIDTH / 2),
-            minHeight: Math.max(120, PRODUCT_METADATA_MIN_PRODUCT_IMAGE_HEIGHT / 2),
-            maxAspectRatio: Math.max(
-              2.8,
-              PRODUCT_METADATA_MAX_PRODUCT_IMAGE_ASPECT_RATIO || 3.2
-            ),
-          });
-    const validatedProductImageCandidates = uniqValues([
-      ...validatedPrimary.urls,
-      ...validatedSecondary.urls,
-    ]);
-    const candidateSeedForRanking = (
-      validatedProductImageCandidates.length > 0
-        ? uniqValues([productImage?.sourceUrl || "", ...validatedProductImageCandidates])
-        : uniqValues([productImage?.sourceUrl || ""])
-    );
-    const rerankedProductImageCandidates = await rerankProductImageCandidatesByModelVisibility(
-      candidateSeedForRanking,
-      {
-        brand: extracted.brand || "",
-        name: extracted.name || "",
-      }
-    );
-    const productImageCandidates = rerankedProductImageCandidates.slice(0, 4);
-    const imagePath = pickFirstNonEmpty([
-      productImage?.sourceUrl || "",
-      ...productImageCandidates,
-    ]);
-
-    const hasAnyData = Boolean(
-      extracted.brand ||
-      extracted.name ||
-      extracted.category ||
-      productImage ||
-      productImageCandidates.length > 0
-    );
-    if (!hasAnyData) {
-      return res.status(502).json({
-        ok: false,
-        error: "could not extract product metadata from url",
-      });
-    }
-
-    return res.json({
-      ok: true,
-      data: {
-        url: finalPageUrl,
-        brand: extracted.brand || "",
-        name: extracted.name || "",
-        category: normalizeProductCategory(extracted.category || ""),
-        image_path: imagePath || "",
-        productImage: productImage || null,
-        productImageCandidates,
-      },
-    });
-  } catch (error) {
-    const statusCode = Number(error?.statusCode) || 500;
-    return res.status(statusCode).json({
-      ok: false,
-      error: error?.message || "product metadata extraction error",
-    });
-  }
 });
+
 
 app.get("/api/products", async (_req, res) => {
   try {
@@ -4317,7 +4136,7 @@ app.get("/api/products", async (_req, res) => {
   }
 });
 
-app.post("/api/products", async (req, res) => {
+app.post("/api/products", productInsertLimiter, async (req, res) => {
   const brand = String(req.body?.brand || "").trim();
   const name = String(req.body?.name || "").trim();
   const category = String(req.body?.category || "User Uploaded").trim();
@@ -4375,7 +4194,7 @@ app.get("/api/admin/session", (req, res) => {
   });
 });
 
-app.post("/api/admin/login", (req, res) => {
+app.post("/api/admin/login", adminLoginLimiter, (req, res) => {
   const password = String(req.body?.password || "");
 
   try {
@@ -4560,17 +4379,17 @@ const assertGeminiKey = () => {
 
 const callGemini = async (model, body) => {
   const response = await fetch(
-    `${GEMINI_API_BASE}/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+    `${GEMINI_API_BASE}/models/${model}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
       body: JSON.stringify(body),
     }
   );
   return response;
 };
 
-app.post("/api/size-table", async (req, res) => {
+app.post("/api/size-table", geminiLimiter, async (req, res) => {
   const imageBase64 = String(req.body?.imageBase64 || "").trim();
   const mimeType = String(req.body?.mimeType || "image/png").trim();
 
@@ -4601,7 +4420,7 @@ app.post("/api/size-table", async (req, res) => {
   }
 });
 
-app.post("/api/product-metadata-from-image", async (req, res) => {
+app.post("/api/product-metadata-from-image", geminiLimiter, async (req, res) => {
   const imageBase64 = String(req.body?.imageBase64 || "").trim();
   const mimeType = String(req.body?.mimeType || "image/png").trim();
 
