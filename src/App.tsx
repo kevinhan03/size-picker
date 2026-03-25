@@ -2075,9 +2075,9 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigateToView('search')}>
             <div className="w-10 h-10 flex items-center justify-center">
-              <img src="/favicon-simple.svg" alt="SPEC logo" className="w-7 h-7 object-contain" />
+              <img src="/favicon-simple.svg" alt="DIGDA logo" className="w-7 h-7 object-contain" />
             </div>
-            <span className="font-bold text-xl tracking-tight text-orange-500">SPEC</span>
+            <span className="font-bold text-xl tracking-tight text-orange-500">DIGDA</span>
           </div>
           <div className="flex items-center gap-4">
             <button
