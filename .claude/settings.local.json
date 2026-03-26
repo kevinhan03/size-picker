@@ -9,7 +9,14 @@
       "mcp__supabase__list_tables",
       "mcp__supabase__list_projects",
       "mcp__supabase__execute_sql",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(cd:*)",
+      "Bash(sed -n '178,192p' C:/dev/sizepicker/src/App.tsx)",
+      "Bash(sed -n '360,368p' C:/dev/sizepicker/src/App.tsx)",
+      "Bash(sed -n '572,580p' C:/dev/sizepicker/src/App.tsx)",
+      "Bash(sed -n '1353,1373p' C:/dev/sizepicker/src/App.tsx)",
+      "Bash(sed -n '2107,2115p' C:/dev/sizepicker/src/App.tsx)",
+      "Bash(node --check C:/dev/sizepicker/server/index.js)"
     ]
   }
 }

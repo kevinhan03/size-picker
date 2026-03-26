@@ -3162,6 +3162,80 @@ const launchMetadataBrowser = async () => {
   return chromium.launch(options);
 };
 
+const isZaraProductUrl = (urlValue) => {
+  try {
+    const hostname = new URL(String(urlValue || "")).hostname.replace(/^www\./, "").toLowerCase();
+    return hostname === "zara.com";
+  } catch {
+    return false;
+  }
+};
+
+const ZARA_STORE_IDS = {
+  kr: 25009458, us: 11710, gb: 10701, jp: 12374,
+  de: 13046, fr: 13047, es: 10702, it: 10703,
+};
+
+const extractZaraMetadataFromInditexApi = async (pageUrl) => {
+  let referenceId = null;
+  let countryCode = "kr";
+  try {
+    const parsed = new URL(String(pageUrl || ""));
+    const pathMatch = parsed.pathname.match(/^\/([a-z]{2})\//);
+    if (pathMatch) countryCode = pathMatch[1].toLowerCase();
+    // v1 쿼리 파라미터가 Inditex API의 referenceId
+    referenceId = parsed.searchParams.get("v1");
+    // v1 없으면 경로의 -p{id}.html 에서 추출
+    if (!referenceId) {
+      const fileMatch = parsed.pathname.match(/-p(\d+)\.html/i);
+      if (fileMatch) referenceId = fileMatch[1];
+    }
+  } catch {
+    return null;
+  }
+  if (!referenceId) return null;
+
+  const storeId = ZARA_STORE_IDS[countryCode] || ZARA_STORE_IDS.kr;
+  const apiUrl = `https://www.zara.com/itxrest/2/catalog/store/${storeId}/product/${referenceId}/detail`;
+
+  try {
+    const response = await fetchWithTimeout(apiUrl, {
+      headers: {
+        accept: "application/json, text/plain, */*",
+        "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        referer: "https://www.zara.com/",
+      },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data || typeof data !== "object") return null;
+
+    const name = normalizeCellText(data.name || "");
+    if (!name) return null;
+
+    const productImageCandidates = [];
+    for (const color of (data.colors || [])) {
+      for (const media of (color.xmedia || [])) {
+        const url = media.url || (media.path && media.name ? `https://static.zara.net${media.path}/${media.name}` : "");
+        if (url && /^https?:\/\//.test(url)) productImageCandidates.push(url);
+      }
+    }
+
+    return {
+      url: pageUrl,
+      brand: "Zara",
+      name,
+      category: normalizeProductCategory(""),
+      image_path: productImageCandidates[0] || "",
+      productImage: null,
+      productImageCandidates: productImageCandidates.slice(0, 24),
+    };
+  } catch {
+    return null;
+  }
+};
+
 const isKreamProductUrl = (urlValue) => {
   try {
     const parsed = new URL(String(urlValue || "").trim());
@@ -3938,9 +4012,11 @@ const extractProductMetadataFromUrl = async (rawUrl) => {
         method: "GET",
         redirect: "follow",
         headers: {
-          "user-agent": "Mozilla/5.0",
-          accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+          accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
           "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+          "cache-control": "no-cache",
+          "pragma": "no-cache",
         },
       });
 
@@ -4014,6 +4090,10 @@ const extractProductMetadataFromUrl = async (rawUrl) => {
   if (!hasAnyData) {
     if (!IS_VERCEL && isKreamProductUrl(finalPageUrl)) {
       return await extractProductMetadataFromUrlWithBrowser(finalPageUrl);
+    }
+    if (isZaraProductUrl(finalPageUrl)) {
+      const zaraData = await extractZaraMetadataFromInditexApi(finalPageUrl);
+      if (zaraData) return zaraData;
     }
     const emptyError = new Error("could not extract product metadata from url");
     emptyError.statusCode = 502;
