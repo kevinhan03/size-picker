@@ -74,10 +74,23 @@ export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
         if (authError) throw authError;
         onSuccess();
       } else {
+        const trimmedUsername = username.trim();
+
+        // username 중복 체크
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('username', trimmedUsername)
+          .maybeSingle();
+        if (existing) {
+          setError('이미 사용중인 이름입니다. 다른 이름을 사용해 주세요.');
+          return;
+        }
+
         const { error: authError } = await supabase.auth.signUp({
           email: trimmedEmail,
           password: trimmedPassword,
-          options: { data: { username: username.trim() } },
+          options: { data: { username: trimmedUsername } },
         });
         if (authError) throw authError;
         setSignupEmail(trimmedEmail);
