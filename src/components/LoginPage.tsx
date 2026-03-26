@@ -27,6 +27,7 @@ export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [signupEmail, setSignupEmail] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
     setError(null);
@@ -79,7 +80,7 @@ export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
           options: { data: { username: username.trim() } },
         });
         if (authError) throw authError;
-        setInfo('가입 확인 이메일을 발송했습니다. 이메일을 확인해 주세요.');
+        setSignupEmail(trimmedEmail);
         reset();
         setTab('login');
       }
@@ -92,6 +93,28 @@ export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
   };
 
   return (
+    <>
+      {signupEmail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-8 shadow-[0_8px_40px_rgba(0,0,0,0.6)] max-w-sm w-full mx-4 text-center">
+            <div className="text-4xl mb-4">✉️</div>
+            <h2 className="text-white font-bold text-lg mb-2">이메일 인증이 필요해요</h2>
+            <p className="text-gray-400 text-sm mb-1">
+              <span className="text-orange-400 font-semibold">{signupEmail}</span> 으로
+            </p>
+            <p className="text-gray-300 text-sm mb-6">
+              인증 메일을 보냈어요.<br />
+              메일함에서 <span className="text-orange-400 font-semibold">인증 버튼</span>을 눌러주세요.
+            </p>
+            <button
+              onClick={() => setSignupEmail(null)}
+              className="w-full py-3 rounded-xl text-sm font-bold bg-orange-500 hover:bg-orange-400 text-black transition"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     <div className="w-full max-w-md mx-auto mt-16 px-4">
       <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] border border-white/10 rounded-2xl p-8 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
         {/* Tab switcher */}
@@ -218,5 +241,6 @@ export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
