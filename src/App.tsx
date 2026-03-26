@@ -158,7 +158,7 @@ const SIZE_REGION_OPTIONS = [
   { key: 'uk', label: 'UK' },
 ] as const;
 
-type ViewMode = 'search' | 'grid' | 'converter' | 'login';
+type ViewMode = 'search' | 'grid' | 'converter' | 'login' | 'mypage';
 type SizeCategory = 'clothing' | 'shoes';
 type SizeGender = 'men' | 'women';
 type SizeRegionKey = (typeof SIZE_REGION_OPTIONS)[number]['key'];
@@ -919,7 +919,7 @@ export default function App() {
 
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [result, setResult] = useState<Product | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -972,13 +972,15 @@ export default function App() {
   const [activeConverterRowIndex, setActiveConverterRowIndex] = useState<number | null>(null);
   const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
-  const [authUser, setAuthUser] = useState<{ email?: string } | null>(null);
+  const [authUser, setAuthUser] = useState<{ email?: string; user_metadata?: Record<string, unknown> } | null>(null);
   const [tableEditingCell, setTableEditingCell] = useState<{ kind: 'header'; colIdx: number } | { kind: 'row'; rowIdx: number; colIdx: number } | null>(null);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const isSelectionRef = useRef(false);
   const gridDetailRecommendationsRef = useRef<HTMLDivElement>(null);
   const gridDetailModalRef = useRef<HTMLDivElement>(null);
+  const searchResultModalRef = useRef<HTMLDivElement>(null);
+  const searchResultRecommendationsRef = useRef<HTMLDivElement>(null);
 
   const smoothScrollTo = (container: HTMLElement, targetY: number, duration = 520) => {
     const start = container.scrollTop;
@@ -1207,28 +1209,22 @@ export default function App() {
     };
   }, [isAdminPage]);
 
-  const handleSearch = async (searchItem: Product | null = null) => {
+  const handleSearch = (searchItem: Product | null = null) => {
     const term = searchItem ? searchItem.name : query;
     if (!term) return;
     setViewMode('search');
     setResult(null);
     setError(null);
-    setIsLoading(true);
     setShowSuggestions(false);
 
-    try {
-      const matchedProducts = await searchProducts(term);
-      let found = searchItem || matchedProducts.find((item) => `${item.brand} ${item.name}`.toLowerCase().includes(term.toLowerCase()));
-      if (!found) found = generateFallbackResult(term);
-      setResult(found);
-      setQuery('');
-      setProductsError(null);
-    } catch (searchError: unknown) {
-      const message = searchError instanceof Error ? searchError.message : 'Search failed.';
-      setProductsError(message);
-    } finally {
-      setIsLoading(false);
-    }
+    const keyword = term.toLowerCase();
+    const found =
+      searchItem ||
+      allProducts.find((item) => `${item.brand} ${item.name}`.toLowerCase().includes(keyword)) ||
+      generateFallbackResult(term);
+    setResult(found);
+    setQuery('');
+    setProductsError(null);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -2072,11 +2068,21 @@ export default function App() {
     <div className="min-h-screen bg-black text-white font-sans selection:bg-orange-500 selection:text-white">
       <header className="fixed top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigateToView('search')}>
-            <div className="w-10 h-10 flex items-center justify-center">
-              <img src="/favicon-simple.svg" alt="DIGDA logo" className="w-7 h-7 object-contain" />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateToView('search')}>
+              <div className="w-10 h-10 flex items-center justify-center">
+                <img src="/favicon-simple.svg" alt="DIGDA logo" className="w-7 h-7 object-contain" />
+              </div>
+              <span className="font-bold text-xl tracking-tight text-orange-500">DIGDA</span>
             </div>
-            <span className="font-bold text-xl tracking-tight text-orange-500">DIGDA</span>
+            {authUser && (
+              <span
+                className="text-gray-500 text-xs font-medium cursor-pointer hover:text-gray-300 transition"
+                onClick={() => navigateToView('mypage')}
+              >
+                | {String(authUser.user_metadata?.username ?? authUser.email?.split('@')[0] ?? '')}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <button
@@ -2115,15 +2121,7 @@ export default function App() {
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">상품 추가</span>
             </button>
-            {authUser ? (
-              <button
-                onClick={() => void supabase?.auth.signOut()}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition backdrop-blur-xl border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] text-gray-200 hover:border-orange-500/60 hover:text-orange-400 shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
-              >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden sm:inline truncate max-w-[80px]">{authUser.email?.split('@')[0]}</span>
-              </button>
-            ) : (
+            {!authUser && (
               <button
                 onClick={() => navigateToView('login')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition backdrop-blur-xl border shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
@@ -2158,6 +2156,23 @@ export default function App() {
             supabase={supabase}
             onSuccess={() => navigateToView('search')}
           />
+        )}
+
+        {viewMode === 'mypage' && authUser && (
+          <div className="w-full max-w-md mx-auto mt-16 px-4">
+            <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] border border-white/10 rounded-2xl p-8 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+              <h2 className="text-white font-bold text-lg mb-1">마이페이지</h2>
+              <p className="text-gray-500 text-sm mb-8">
+                {String(authUser.user_metadata?.username ?? authUser.email?.split('@')[0] ?? '')}
+              </p>
+              <button
+                onClick={() => { void supabase?.auth.signOut(); navigateToView('search'); }}
+                className="w-full py-3 rounded-xl text-sm font-bold transition border border-red-500/40 bg-[linear-gradient(180deg,rgba(239,68,68,0.15),rgba(239,68,68,0.05))] text-red-400 hover:bg-[linear-gradient(180deg,rgba(239,68,68,0.25),rgba(239,68,68,0.1))] hover:border-red-500/70"
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
         )}
 
         {viewMode === 'search' && (
@@ -2212,108 +2227,6 @@ export default function App() {
             {isLoading && <div className="mt-10 text-gray-300">검색 중...</div>}
             {error && !isLoading && <div className="mt-6 text-red-300">{error}</div>}
 
-            {result && !isLoading && (
-              <div className="mt-12 w-full max-w-4xl">
-                <div className="ui-product-card bg-gray-900 rounded-3xl shadow-2xl overflow-hidden border border-gray-800">
-                  <div className="p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row gap-6 md:items-center bg-black/20">
-                    <button
-                      type="button"
-                      onClick={() => setIsDetailImageZoomed(true)}
-                      className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl shadow-sm border border-gray-700 flex-shrink-0 overflow-hidden p-2 flex items-center justify-center cursor-zoom-in"
-                    >
-                      <ProgressiveImage src={result.image} thumbnailSrc={result.thumbnailImage} alt={result.name} className="max-w-full max-h-full object-contain" loading="eager" />
-                    </button>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-1"><span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{result.brand}</span><span className="text-gray-500">{result.category}</span></div>
-                      <h2 className="text-2xl font-bold text-white mb-2">{result.name}</h2>
-                      <a href={result.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-gray-400 hover:text-orange-500 transition-colors">공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" /></a>
-                    </div>
-                  </div>
-                  <div className="p-6 md:p-8">
-                    <div className="overflow-x-auto rounded-xl border border-gray-800">
-                      <table className="w-full text-sm text-left">
-                        <thead className="text-xs uppercase border-b border-gray-700"><tr>{result.sizeTable?.headers?.map((h, i) => <th key={i} className={`px-6 py-4 font-bold bg-gray-800 ${i === 0 ? 'border-r border-gray-700' : ''}`} style={{ color: isPrimaryColumnHeader(h) ? '#E5E7EB' : '#00FF00' }}>{String(h)}</th>)}</tr></thead>
-                        <tbody>
-                          {result.sizeTable?.rows?.map((row, rowIdx) => {
-                            const isActiveRow = activeResultRowIndex === rowIdx;
-                            return (
-                              <tr
-                                key={rowIdx}
-                                onClick={() => setActiveResultRowIndex(rowIdx)}
-                                className="group border-b border-gray-800 cursor-pointer transition-transform duration-200 active:scale-95"
-                              >
-                                {row.map((cell, cellIdx) => (
-                                  <td
-                                    key={cellIdx}
-                                    className={`px-6 py-4 font-medium transition-all duration-200 ${cellIdx === 0 ? 'border-r border-gray-700' : ''} ${
-                                      isActiveRow
-                                        ? 'bg-gray-100 text-black first:rounded-l-lg last:rounded-r-lg'
-                                        : 'bg-gray-900 text-gray-300 group-hover:bg-gray-100 group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
-                                    }`}
-                                  >
-                                    {String(cell)}
-                                  </td>
-                                ))}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  {searchResultRecommendations.length > 0 && (
-                    <div className="mt-6">
-                      <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">
-                        유사한 핏의 상품
-                      </h5>
-                      <div className="flex flex-col gap-2">
-                        {searchResultRecommendations.map(({ product, rowIndex }) => {
-                          const matchedRow = product.sizeTable!.rows[rowIndex];
-                          const sizeLabel = matchedRow[0] || '';
-                          const measurements = product.sizeTable!.headers
-                            .slice(1)
-                            .map((h, i) => ({ label: normalizeMeasurementLabel(h) || h, value: matchedRow[i + 1] || '' }))
-                            .filter(({ value }) => value !== '');
-                          return (
-                            <button
-                              key={product.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedGridProduct(product);
-                                setActiveGridDetailRowIndex(null);
-                              }}
-                              className="flex items-start gap-3 rounded-2xl bg-white/[0.05] px-4 py-3 text-left transition hover:bg-white/[0.1] active:scale-[0.98]"
-                            >
-                              <img
-                                src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER}
-                                alt={product.name}
-                                className="mt-0.5 h-12 w-12 flex-shrink-0 rounded-xl bg-white/[0.06] object-contain"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-bold uppercase text-orange-400">{product.brand}</p>
-                                <p className="truncate text-sm font-medium text-white">{product.name}</p>
-                                {measurements.length > 0 && (
-                                  <div className="mt-1.5 flex flex-wrap gap-1">
-                                    {measurements.map(({ label, value }) => (
-                                      <span key={label} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-gray-300">
-                                        {label} {value}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex-shrink-0 text-right">
-                                <p className="text-sm font-bold text-white">{sizeLabel}</p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </>
         )}
 
@@ -2959,6 +2872,142 @@ export default function App() {
                                   <span key={label} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-gray-300">
                                     {label} {value}
                                   </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-shrink-0 text-right">
+                            <p className="text-sm font-bold text-white">{sizeLabel}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setResult(null)} />
+          <div ref={searchResultModalRef} className="ui-product-detail-modal relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]">
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.2),transparent_32%,transparent_68%,rgba(255,255,255,0.08))]" />
+            <div className="sticky top-0 z-10 flex items-center justify-between bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.02)_38%,rgba(255,255,255,0.03)_100%)] px-6 py-4 text-white">
+              <h3 className="text-lg sm:text-xl font-bold text-white">상품 상세</h3>
+              <button onClick={() => setResult(null)} className="rounded-full p-2 text-gray-300 transition hover:bg-white/[0.08] hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="relative z-[1] bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.02)_38%,rgba(255,255,255,0.03)_100%)] p-6 md:p-8">
+              <div className="flex flex-col md:flex-row gap-6 md:items-center">
+                <button
+                  type="button"
+                  onClick={() => setIsDetailImageZoomed(true)}
+                  className="relative isolate flex h-[10.5rem] w-[10.5rem] cursor-zoom-in items-center justify-center overflow-visible rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:h-[16.848rem] md:w-[16.848rem]"
+                >
+                  <div className="pointer-events-none absolute inset-[-10%] rounded-[32px] bg-[radial-gradient(circle,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_36%,rgba(255,255,255,0.02)_52%,transparent_74%)] opacity-80 blur-xl" />
+                  <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015)_40%,transparent_100%)]" />
+                  <ProgressiveImage src={result.image} thumbnailSrc={result.thumbnailImage} alt={result.name} className="relative z-[1] max-w-full max-h-full object-contain" loading="eager" onError={handleImageLoadError} />
+                </button>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-2">
+                    <span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{result.brand}</span>
+                    <span className="text-gray-500">{result.category}</span>
+                  </div>
+                  <h4 className="text-2xl font-bold text-white mb-2">{result.name}</h4>
+                  <a href={result.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-gray-300 transition-colors hover:text-orange-400">
+                    공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                </div>
+              </div>
+
+              <div className="relative mt-8 overflow-x-auto rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018)_55%,transparent)]" />
+                {result.sizeTable?.headers?.length ? (
+                  <table className="relative z-[1] min-w-full w-max text-center text-[11px] sm:text-sm">
+                    <thead className="text-[11px] sm:text-sm">
+                      <tr>
+                        {result.sizeTable.headers.map((header, index) => (
+                          <th
+                            key={index}
+                            className={`bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018))] whitespace-nowrap px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 sm:text-sm ${index === 0 ? 'border-r border-white/[0.04]' : ''}`}
+                            style={{ color: isPrimaryColumnHeader(header) ? '#E5E7EB' : '#00FF00' }}
+                          >
+                            {String(header)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.sizeTable.rows.map((row, rowIdx) => {
+                        const isActiveRow = activeResultRowIndex === rowIdx;
+                        return (
+                          <tr
+                            key={rowIdx}
+                            onClick={() => {
+                              setActiveResultRowIndex(rowIdx);
+                              setTimeout(() => {
+                                const modal = searchResultModalRef.current;
+                                const target = searchResultRecommendationsRef.current;
+                                if (!modal || !target) return;
+                                const targetY = target.offsetTop - modal.offsetTop - 16;
+                                smoothScrollTo(modal, targetY);
+                              }, 50);
+                            }}
+                            className="group cursor-pointer transition-transform duration-200 active:scale-95"
+                          >
+                            {row.map((cell, cellIdx) => (
+                              <td
+                                key={cellIdx}
+                                className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-all duration-200 sm:px-4 sm:py-3 sm:text-sm ${cellIdx === 0 ? 'border-r border-white/[0.04] text-xs font-bold sm:text-sm' : ''} ${
+                                  isActiveRow
+                                    ? 'bg-white text-black first:rounded-l-lg last:rounded-r-lg'
+                                    : 'bg-transparent text-gray-200 group-hover:bg-white/[0.92] group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
+                                }`}
+                              >
+                                {String(cell)}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="px-6 py-8 text-center text-gray-300">표시할 사이즈표 데이터가 없습니다.</div>
+                )}
+              </div>
+
+              {searchResultRecommendations.length > 0 && (
+                <div ref={searchResultRecommendationsRef} className="mt-6">
+                  <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">유사한 핏의 상품</h5>
+                  <div className="flex flex-col gap-2">
+                    {searchResultRecommendations.map(({ product, rowIndex }) => {
+                      const matchedRow = product.sizeTable!.rows[rowIndex];
+                      const sizeLabel = matchedRow[0] || '';
+                      const measurements = product.sizeTable!.headers
+                        .slice(1)
+                        .map((h, i) => ({ label: normalizeMeasurementLabel(h) || h, value: matchedRow[i + 1] || '' }))
+                        .filter(({ value }) => value !== '');
+                      return (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => { setResult(product); setActiveResultRowIndex(null); }}
+                          className="flex items-start gap-3 rounded-2xl bg-white/[0.05] px-4 py-3 text-left transition hover:bg-white/[0.1] active:scale-[0.98]"
+                        >
+                          <img src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER} alt={product.name} className="mt-0.5 h-12 w-12 flex-shrink-0 rounded-xl bg-white/[0.06] object-contain" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold uppercase text-orange-400">{product.brand}</p>
+                            <p className="truncate text-sm font-medium text-white">{product.name}</p>
+                            {measurements.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {measurements.map(({ label, value }) => (
+                                  <span key={label} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-gray-300">{label} {value}</span>
                                 ))}
                               </div>
                             )}
