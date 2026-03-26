@@ -2166,10 +2166,19 @@ export default function App() {
             if (!trimmed) { setUsernameError('이름을 입력하세요.'); return; }
             setIsSubmittingUsername(true);
             setUsernameError(null);
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (!currentUser) {
+              await supabase.auth.signOut();
+              setNeedsUsername(false);
+              setUsernameError(null);
+              setIsSubmittingUsername(false);
+              navigateToView('login');
+              return;
+            }
             const { data: existing } = await supabase.from('users').select('username').eq('username', trimmed).maybeSingle();
             if (existing) { setUsernameError('이미 사용중인 이름입니다.'); setIsSubmittingUsername(false); return; }
-            const { error: insertError } = await supabase.from('users').insert({ id: authUser!.id, username: trimmed });
-            if (insertError) { console.error('users insert error:', insertError); setUsernameError(`오류: ${insertError.message}`); setIsSubmittingUsername(false); return; }
+            const { error: insertError } = await supabase.from('users').insert({ id: currentUser.id, username: trimmed });
+            if (insertError) { console.error('users insert error:', insertError); setUsernameError('오류가 발생했습니다. 다시 시도해주세요.'); setIsSubmittingUsername(false); return; }
             setNeedsUsername(false);
             setDbUsername(trimmed);
             setPendingUsername('');
