@@ -978,6 +978,8 @@ export default function App() {
   const [pendingUsername, setPendingUsername] = useState('');
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isSubmittingUsername, setIsSubmittingUsername] = useState(false);
+  const [googleAuthError, setGoogleAuthError] = useState<string | null>(null);
+  const [googleSignupComplete, setGoogleSignupComplete] = useState(false);
   const [tableEditingCell, setTableEditingCell] = useState<{ kind: 'header'; colIdx: number } | { kind: 'row'; rowIdx: number; colIdx: number } | null>(null);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -1073,8 +1075,20 @@ export default function App() {
     setAuthUser(user);
     if (!user || !supabase) { setDbUsername(null); return; }
     const { data } = await supabase.from('users').select('id, username').eq('id', user.id).maybeSingle();
-    if (!data) { setNeedsUsername(true); }
-    else { setDbUsername(data.username as string); }
+    if (!data) {
+      const intent = localStorage.getItem('google_oauth_intent');
+      localStorage.removeItem('google_oauth_intent');
+      if (intent === 'login') {
+        void supabase.auth.signOut();
+        setAuthUser(null);
+        setGoogleAuthError('가입되지 않은 구글 계정입니다. 회원가입 탭에서 구글로 가입해 주세요.');
+        setViewMode('login');
+      } else {
+        setNeedsUsername(true);
+      }
+    } else {
+      setDbUsername(data.username as string);
+    }
   };
 
   useEffect(() => {
@@ -2157,6 +2171,8 @@ export default function App() {
           <LoginPage
             supabase={supabase}
             onSuccess={() => navigateToView('search')}
+            googleAuthError={googleAuthError}
+            onClearGoogleAuthError={() => setGoogleAuthError(null)}
           />
         )}
 
@@ -2182,13 +2198,13 @@ export default function App() {
             setNeedsUsername(false);
             setDbUsername(trimmed);
             setPendingUsername('');
-            navigateToView('search');
+            setGoogleSignupComplete(true);
           };
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
               <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-8 shadow-[0_8px_40px_rgba(0,0,0,0.6)] max-w-sm w-full mx-4">
-                <h2 className="text-white font-bold text-lg mb-1">사용할 이름을 입력하세요</h2>
-                <p className="text-gray-500 text-sm mb-6">다른 유저에게 표시될 이름입니다.</p>
+                <h2 className="text-white font-bold text-lg mb-1">닉네임을 설정해주세요</h2>
+                <p className="text-gray-500 text-sm mb-6">구글 회원가입 마지막 단계입니다.</p>
                 <input
                   type="text"
                   value={pendingUsername}
@@ -2214,6 +2230,22 @@ export default function App() {
             </div>
           );
         })()}
+
+        {googleSignupComplete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-8 shadow-[0_8px_40px_rgba(0,0,0,0.6)] max-w-sm w-full mx-4 text-center">
+              <div className="text-5xl mb-4">🎉</div>
+              <h2 className="text-white font-bold text-lg mb-2">회원가입이 완료됐습니다!</h2>
+              <p className="text-gray-400 text-sm mb-6">이제 구글 계정으로 로그인할 수 있어요.</p>
+              <button
+                onClick={() => { setGoogleSignupComplete(false); navigateToView('search'); }}
+                className="w-full py-3 rounded-xl text-sm font-bold bg-orange-500 hover:bg-orange-400 text-black transition"
+              >
+                시작하기
+              </button>
+            </div>
+          </div>
+        )}
 
         {viewMode === 'mypage' && authUser && (
           <div className="w-full max-w-md mx-auto mt-16 px-4">

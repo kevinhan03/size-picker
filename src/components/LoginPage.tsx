@@ -7,6 +7,8 @@ type AuthTab = 'login' | 'signup';
 interface LoginPageProps {
   supabase: SupabaseClient;
   onSuccess: () => void;
+  googleAuthError?: string | null;
+  onClearGoogleAuthError?: () => void;
 }
 
 const GoogleIcon = () => (
@@ -18,7 +20,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
+export const LoginPage = ({ supabase, onSuccess, googleAuthError, onClearGoogleAuthError }: LoginPageProps) => {
   const [tab, setTab] = useState<AuthTab>('login');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -31,11 +33,12 @@ export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
 
   const handleGoogleLogin = async () => {
     setError(null);
+    localStorage.setItem('google_oauth_intent', tab);
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
     });
-    if (authError) setError(authError.message);
+    if (authError) { localStorage.removeItem('google_oauth_intent'); setError(authError.message); }
   };
 
   const reset = () => {
@@ -50,6 +53,7 @@ export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
   const switchTab = (next: AuthTab) => {
     setTab(next);
     reset();
+    onClearGoogleAuthError?.();
   };
 
   const handleSubmit = async () => {
@@ -243,13 +247,19 @@ export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
             </div>
           </div>
 
+          {googleAuthError && (
+            <p className="text-sm text-red-400 bg-red-900/20 border border-red-500/30 rounded-lg px-3 py-2">
+              {googleAuthError}
+            </p>
+          )}
+
           <button
             onClick={() => void handleGoogleLogin()}
             type="button"
             className="w-full py-3 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 bg-white hover:bg-gray-100 text-gray-900"
           >
             <GoogleIcon />
-            Google로 계속하기
+            {tab === 'login' ? 'Google로 로그인' : 'Google로 회원가입'}
           </button>
         </div>
       </div>
