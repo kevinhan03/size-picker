@@ -16,7 +16,11 @@
       "Bash(sed -n '572,580p' C:/dev/sizepicker/src/App.tsx)",
       "Bash(sed -n '1353,1373p' C:/dev/sizepicker/src/App.tsx)",
       "Bash(sed -n '2107,2115p' C:/dev/sizepicker/src/App.tsx)",
-      "Bash(node --check C:/dev/sizepicker/server/index.js)"
+      "Bash(node --check C:/dev/sizepicker/server/index.js)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(awk 'NR>=1791 && NR<=1900' src/App.tsx)",
+      "Bash(node:*)"
     ]
   }
 }
