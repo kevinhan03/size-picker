@@ -972,7 +972,12 @@ export default function App() {
   const [activeConverterRowIndex, setActiveConverterRowIndex] = useState<number | null>(null);
   const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
-  const [authUser, setAuthUser] = useState<{ email?: string; user_metadata?: Record<string, unknown> } | null>(null);
+  const [authUser, setAuthUser] = useState<{ id?: string; email?: string; user_metadata?: Record<string, unknown> } | null>(null);
+  const [dbUsername, setDbUsername] = useState<string | null>(null);
+  const [needsUsername, setNeedsUsername] = useState(false);
+  const [pendingUsername, setPendingUsername] = useState('');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [isSubmittingUsername, setIsSubmittingUsername] = useState(false);
   const [tableEditingCell, setTableEditingCell] = useState<{ kind: 'header'; colIdx: number } | { kind: 'row'; rowIdx: number; colIdx: number } | null>(null);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -1064,13 +1069,21 @@ export default function App() {
   );
   const shouldHideSearchHero = viewMode === 'search' && Boolean(result) && !isLoading;
 
+  const checkAndSetUser = async (user: { id?: string; email?: string; user_metadata?: Record<string, unknown> } | null) => {
+    setAuthUser(user);
+    if (!user || !supabase) { setDbUsername(null); return; }
+    const { data } = await supabase.from('users').select('id, username').eq('id', user.id).maybeSingle();
+    if (!data) { setNeedsUsername(true); }
+    else { setDbUsername(data.username as string); }
+  };
+
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => {
-      setAuthUser(data.session?.user ?? null);
+      void checkAndSetUser(data.session?.user ?? null);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ?? null);
+      void checkAndSetUser(session?.user ?? null);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -2080,7 +2093,7 @@ export default function App() {
                 className="text-gray-500 text-xs font-medium cursor-pointer hover:text-gray-300 transition"
                 onClick={() => navigateToView('mypage')}
               >
-                | {String(authUser.user_metadata?.username ?? authUser.email?.split('@')[0] ?? '')}
+                | {String(dbUsername ?? authUser.email?.split('@')[0] ?? '')}
               </span>
             )}
           </div>
@@ -2147,12 +2160,58 @@ export default function App() {
           />
         )}
 
+        {needsUsername && supabase && (() => {
+          const submitUsername = async () => {
+            const trimmed = pendingUsername.trim();
+            if (!trimmed) { setUsernameError('이름을 입력하세요.'); return; }
+            setIsSubmittingUsername(true);
+            setUsernameError(null);
+            const { data: existing } = await supabase.from('users').select('username').eq('username', trimmed).maybeSingle();
+            if (existing) { setUsernameError('이미 사용중인 이름입니다.'); setIsSubmittingUsername(false); return; }
+            const { error: insertError } = await supabase.from('users').insert({ id: authUser!.id, username: trimmed });
+            if (insertError) { setUsernameError('오류가 발생했습니다. 다시 시도해주세요.'); setIsSubmittingUsername(false); return; }
+            setNeedsUsername(false);
+            setDbUsername(trimmed);
+            setPendingUsername('');
+            navigateToView('search');
+          };
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+              <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-8 shadow-[0_8px_40px_rgba(0,0,0,0.6)] max-w-sm w-full mx-4">
+                <h2 className="text-white font-bold text-lg mb-1">사용할 이름을 입력하세요</h2>
+                <p className="text-gray-500 text-sm mb-6">다른 유저에게 표시될 이름입니다.</p>
+                <input
+                  type="text"
+                  value={pendingUsername}
+                  onChange={(e) => setPendingUsername(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void submitUsername(); }}
+                  placeholder="사용할 이름을 입력하세요"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 placeholder:text-sm focus:outline-none focus:border-orange-500 transition mb-3"
+                  autoFocus
+                />
+                {usernameError && (
+                  <p className="text-sm text-red-400 bg-red-900/20 border border-red-500/30 rounded-lg px-3 py-2 mb-3">
+                    {usernameError}
+                  </p>
+                )}
+                <button
+                  disabled={isSubmittingUsername}
+                  onClick={() => void submitUsername()}
+                  className={`w-full py-3 rounded-xl text-sm font-bold transition ${isSubmittingUsername ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400 text-black'}`}
+                >
+                  {isSubmittingUsername ? '저장 중...' : '완료'}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {viewMode === 'mypage' && authUser && (
           <div className="w-full max-w-md mx-auto mt-16 px-4">
             <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] border border-white/10 rounded-2xl p-8 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
               <h2 className="text-white font-bold text-lg mb-1">마이페이지</h2>
               <p className="text-gray-500 text-sm mb-8">
-                {String(authUser.user_metadata?.username ?? authUser.email?.split('@')[0] ?? '')}
+                {String(dbUsername ?? authUser.email?.split('@')[0] ?? '')}
               </p>
               <button
                 onClick={() => { void supabase?.auth.signOut(); navigateToView('search'); }}

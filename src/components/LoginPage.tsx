@@ -78,7 +78,7 @@ export const LoginPage = ({ supabase, onSuccess }: LoginPageProps) => {
 
         // username 중복 체크
         const { data: existing } = await supabase
-          .from('profiles')
+          .from('users')
           .select('username')
           .eq('username', trimmedUsername)
           .maybeSingle();
