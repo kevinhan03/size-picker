@@ -1890,10 +1890,10 @@ export default function App() {
 
   const renderAddProductForm = () => (
     <>
-      <input className="w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-white/20 focus:bg-white/[0.1] transition" placeholder="브랜드명" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
-      <input className="w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-white/20 focus:bg-white/[0.1] transition" placeholder="상품명" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+      <input className="w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-orange-500 focus:bg-white/[0.1] transition" placeholder="브랜드명" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} />
+      <input className="w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-orange-500 focus:bg-white/[0.1] transition" placeholder="상품명" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
       <select
-        className={`w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl backdrop-blur-sm focus:outline-none focus:border-white/20 transition [&>option]:bg-gray-900 [&>option]:text-white ${formData.category ? 'text-white' : 'text-gray-400'}`}
+        className={`w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl backdrop-blur-sm focus:outline-none focus:border-orange-500 transition [&>option]:bg-gray-900 [&>option]:text-white ${formData.category ? 'text-white' : 'text-gray-400'}`}
         value={formData.category}
         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
       >
@@ -1906,7 +1906,7 @@ export default function App() {
         <div className="relative">
           <Globe className="absolute left-4 top-3.5 w-4 h-4 text-gray-500" />
           <input
-            className="w-full pl-10 pr-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-white/20 focus:bg-white/[0.1] transition"
+            className="w-full pl-10 pr-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-orange-500 focus:bg-white/[0.1] transition"
             placeholder="공식 URL (선택)"
             value={formData.url}
             onChange={(e) => {
@@ -2087,7 +2087,7 @@ export default function App() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigateToView('converter')}
-              className={`hidden sm:flex items-center justify-center p-2 rounded-xl transition border backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
+              className={`p-1.5 rounded-lg transition border backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
                 viewMode === 'converter'
                   ? 'bg-orange-500 text-black border-orange-500'
                   : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] border-white/20 text-gray-200 hover:border-orange-500/60 hover:text-orange-400'
@@ -2097,28 +2097,17 @@ export default function App() {
               <Globe className="w-4 h-4" />
             </button>
             <button
-              onClick={() => navigateToView('converter')}
-              className={`sm:hidden p-2 rounded-xl transition border backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
-                viewMode === 'converter'
-                  ? 'bg-orange-500 text-black border-orange-500'
-                  : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] border-white/20 text-gray-300 hover:border-orange-500/60 hover:text-orange-400'
-              }`}
-              title="해외사이즈 변환기"
-            >
-              <Globe className="w-5 h-5" />
-            </button>
-            <button
               onClick={() => navigateToView('grid')}
-              className="p-2 text-gray-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] backdrop-blur-xl border border-white/20 hover:text-orange-400 hover:border-orange-500/60 transition rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
+              className="p-1.5 text-gray-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] backdrop-blur-xl border border-white/20 hover:text-orange-400 hover:border-orange-500/60 transition rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
               title="전체 목록 보기"
             >
-              <LayoutGrid className="w-6 h-6" />
+              <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={handleOpenModal}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition backdrop-blur-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] text-[#00FF00] hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] shadow-[0_4px_16px_rgba(0,255,0,0.15)]"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] text-[#00FF00] hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] shadow-[0_4px_16px_rgba(0,255,0,0.15)]"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">상품 추가</span>
             </button>
             {!authUser && (
