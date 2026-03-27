@@ -118,7 +118,7 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
       brand: product.brand,
       name: product.name,
       category: product.category === 'Uncategorized' ? '' : product.category,
-      url: product.url === '#' ? '' : product.url,
+      url: product.url,
     });
     setAdminImagePath(product.imagePath ?? null);
     setAdminImagePreview(product.image);

@@ -82,7 +82,7 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
     brand,
     name,
     category: String(row.category ?? 'Uncategorized'),
-    url: String(row.url ?? '#'),
+    url: String(row.url ?? ''),
     image: toPublicUrl(imagePath),
     thumbnailImage: toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 }),
     imagePath,

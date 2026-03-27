@@ -33,6 +33,13 @@ export function SizeConverterView({
   activeConverterRowIndex,
   setActiveConverterRowIndex,
 }: SizeConverterViewProps) {
+  const getRowCellClassName = (isActive: boolean) =>
+    `px-2 py-2.5 whitespace-nowrap transition-all duration-200 sm:px-3 sm:py-3 ${
+      isActive
+        ? 'bg-gray-100 text-black'
+        : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
+    }`;
+
   return (
     <div className="w-full max-w-[72rem]">
       <div className="overflow-hidden rounded-[24px] border border-gray-800 bg-gray-950 shadow-2xl">
@@ -192,51 +199,11 @@ export function SizeConverterView({
                         >
                           {row.label}
                         </td>
-                        <td
-                          className={`px-2 py-2.5 whitespace-nowrap transition-all duration-200 sm:px-3 sm:py-3 ${
-                            isActive
-                              ? 'bg-gray-100 text-black'
-                              : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
-                          }`}
-                        >
-                          {row.kr}
-                        </td>
-                        <td
-                          className={`px-2 py-2.5 whitespace-nowrap transition-all duration-200 sm:px-3 sm:py-3 ${
-                            isActive
-                              ? 'bg-gray-100 text-black'
-                              : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
-                          }`}
-                        >
-                          {row.jp}
-                        </td>
-                        <td
-                          className={`px-2 py-2.5 whitespace-nowrap transition-all duration-200 sm:px-3 sm:py-3 ${
-                            isActive
-                              ? 'bg-gray-100 text-black'
-                              : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
-                          }`}
-                        >
-                          {row.us}
-                        </td>
-                        <td
-                          className={`px-2 py-2.5 whitespace-nowrap transition-all duration-200 sm:px-3 sm:py-3 ${
-                            isActive
-                              ? 'bg-gray-100 text-black'
-                              : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
-                          }`}
-                        >
-                          {row.eu}
-                        </td>
-                        <td
-                          className={`px-2 py-2.5 whitespace-nowrap transition-all duration-200 sm:px-3 sm:py-3 ${
-                            isActive
-                              ? 'bg-gray-100 text-black'
-                              : 'bg-transparent text-gray-200 group-hover:bg-gray-100 group-hover:text-black'
-                          }`}
-                        >
-                          {row.uk}
-                        </td>
+                        {SIZE_REGION_OPTIONS.map((option) => (
+                          <td key={option.key} className={getRowCellClassName(isActive)}>
+                            {row[option.key]}
+                          </td>
+                        ))}
                       </tr>
                     );
                   })}
