@@ -1,32 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ChangeEvent, KeyboardEvent, SyntheticEvent } from 'react';
+import type { KeyboardEvent, SyntheticEvent } from 'react';
 import {
   ArrowRight,
-  Camera,
   Check,
   Globe,
   LayoutGrid,
-  Loader2,
   LogIn,
   Plus,
   RefreshCw,
   Search,
   ShieldAlert,
-  Upload,
   X,
 } from 'lucide-react';
+import { AddProductModal } from './components/AddProductModal';
 import { AdminPage } from './components/AdminPage';
-import { CategoryDropdown } from './components/CategoryDropdown';
+import { GoogleSignupCompleteModal } from './components/GoogleSignupCompleteModal';
+import { GridView } from './components/GridView';
+import { NeedsUsernameModal } from './components/NeedsUsernameModal';
 import { LoginPage } from './components/LoginPage';
 import { ProgressiveImage } from './components/ProgressiveImage';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { SizeConverterView } from './components/SizeConverterView';
+import { useAdminAuth } from './hooks/useAdminAuth';
+import { useAuth } from './hooks/useAuth';
 import { useProductForm } from './hooks/useProductForm';
 import type {
   Product,
-  AdminEditForm,
   SizeRecommendation,
-  SizeTable,
   ViewMode,
   SizeCategory,
   SizeGender,
@@ -36,15 +36,9 @@ import {
   CATEGORY_OPTIONS,
   CLOTHING_SIZE_ROWS_BY_GENDER,
   SHOE_SIZE_ROWS_BY_GENDER,
-  ITEM_LABEL,
 } from './constants';
 import { supabase } from './lib/supabase';
 import {
-  readFileAsDataUrl,
-  resizeImage,
-} from './utils/image';
-import {
-  normalizeCellText,
   normalizeSizeLookupValue,
   computeSizeRecommendations,
   findConvertedSize,
@@ -53,11 +47,7 @@ import {
   normalizeComparableProductUrl,
   generateFallbackResult,
 } from './utils/product';
-import {
-  searchProducts,
-  uploadSubmissionImage,
-  extractSizeTableFromImage,
-} from './api';
+import { searchProducts } from './api';
 
 
 
@@ -83,39 +73,16 @@ export default function App() {
   const [sizeRegion, setSizeRegion] = useState<SizeRegionKey>('us');
   const [sizeValue, setSizeValue] = useState('S');
   const [selectedGridProduct, setSelectedGridProduct] = useState<Product | null>(null);
-  const [isAdminCheckingSession, setIsAdminCheckingSession] = useState(false);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
-  const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
-  const [isAdminAuthSubmitting, setIsAdminAuthSubmitting] = useState(false);
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [adminEditForm, setAdminEditForm] = useState<AdminEditForm>({
-    brand: '',
-    name: '',
-    category: '',
-    url: '',
+  const admin = useAdminAuth({
+    isAdminPage,
+    onProductMutated: () => setRetryTrigger((prev) => prev + 1),
+    onProductDeleted: (id) => { if (selectedGridProduct?.id === id) setSelectedGridProduct(null); },
   });
-  const [adminImagePath, setAdminImagePath] = useState<string | null>(null);
-  const [adminImagePreview, setAdminImagePreview] = useState<string>('');
-  const [adminProductPhotoFile, setAdminProductPhotoFile] = useState<File | null>(null);
-  const [adminSizeChartImage, setAdminSizeChartImage] = useState<string | null>(null);
-  const [adminExtractedTable, setAdminExtractedTable] = useState<SizeTable | null>(null);
-  const [isAdminAnalyzingTable, setIsAdminAnalyzingTable] = useState(false);
-  const [adminActionError, setAdminActionError] = useState<string | null>(null);
-  const [isAdminActionLoading, setIsAdminActionLoading] = useState(false);
 
   const [activeResultRowIndex, setActiveResultRowIndex] = useState<number | null>(null);
   const [activeConverterRowIndex, setActiveConverterRowIndex] = useState<number | null>(null);
   const [activeGridDetailRowIndex, setActiveGridDetailRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
-  const [authUser, setAuthUser] = useState<{ id?: string; email?: string; user_metadata?: Record<string, unknown> } | null>(null);
-  const [dbUsername, setDbUsername] = useState<string | null>(null);
-  const [needsUsername, setNeedsUsername] = useState(false);
-  const [pendingUsername, setPendingUsername] = useState('');
-  const [usernameError, setUsernameError] = useState<string | null>(null);
-  const [isSubmittingUsername, setIsSubmittingUsername] = useState(false);
-  const [googleAuthError, setGoogleAuthError] = useState<string | null>(null);
-  const [googleSignupComplete, setGoogleSignupComplete] = useState(false);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const isSelectionRef = useRef(false);
@@ -216,37 +183,6 @@ export default function App() {
     },
   });
 
-  const checkAndSetUser = async (user: { id?: string; email?: string; user_metadata?: Record<string, unknown> } | null) => {
-    setAuthUser(user);
-    if (!user || !supabase) { setDbUsername(null); return; }
-    const { data } = await supabase.from('users').select('id, username').eq('id', user.id).maybeSingle();
-    if (!data) {
-      const intent = localStorage.getItem('google_oauth_intent');
-      localStorage.removeItem('google_oauth_intent');
-      if (intent === 'login') {
-        void supabase.auth.signOut();
-        setAuthUser(null);
-        setGoogleAuthError('가입되지 않은 구글 계정입니다. 회원가입 탭에서 구글로 가입해 주세요.');
-        setViewMode('login');
-      } else {
-        setNeedsUsername(true);
-      }
-    } else {
-      setDbUsername(data.username as string);
-    }
-  };
-
-  useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => {
-      void checkAndSetUser(data.session?.user ?? null);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      void checkAndSetUser(session?.user ?? null);
-    });
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
   useEffect(() => {
     let isActive = true;
     const load = async () => {
@@ -338,36 +274,6 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
 
-  useEffect(() => {
-    if (!isAdminPage) return;
-
-    let isActive = true;
-    setIsAdminCheckingSession(true);
-    void (async () => {
-      try {
-        const response = await fetch('/api/admin/session', { credentials: 'include' });
-        const payload = await response.json();
-        if (!response.ok || !payload?.ok) {
-          throw new Error(payload?.error || '관리자 세션 확인 실패');
-        }
-        if (!isActive) return;
-        setIsAdminAuthenticated(Boolean(payload?.data?.authenticated));
-        setAdminAuthError(null);
-      } catch (sessionError: unknown) {
-        if (!isActive) return;
-        const message = sessionError instanceof Error ? sessionError.message : '관리자 세션 확인 실패';
-        setAdminAuthError(message);
-        setIsAdminAuthenticated(false);
-      } finally {
-        if (isActive) setIsAdminCheckingSession(false);
-      }
-    })();
-
-    return () => {
-      isActive = false;
-    };
-  }, [isAdminPage]);
-
   const handleSearch = (searchItem: Product | null = null) => {
     const term = searchItem ? searchItem.name : query;
     if (!term) return;
@@ -399,493 +305,42 @@ export default function App() {
     setSelectedGridProduct(null);
   };
 
+  const auth = useAuth({ onNavigateToLogin: () => navigateToView('login') });
+
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.onerror = null;
     event.currentTarget.style.display = 'none';
   };
 
-  const handleAdminLogin = async () => {
-    if (!adminPassword.trim()) {
-      setAdminAuthError('관리자 비밀번호를 입력하세요.');
-      return;
-    }
-
-    setIsAdminAuthSubmitting(true);
-    try {
-      const response = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ password: adminPassword }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || '관리자 로그인 실패');
-      }
-      setIsAdminAuthenticated(true);
-      setAdminPassword('');
-      setAdminAuthError(null);
-    } catch (loginError: unknown) {
-      const message = loginError instanceof Error ? loginError.message : '관리자 로그인 실패';
-      setAdminAuthError(message);
-      setIsAdminAuthenticated(false);
-    } finally {
-      setIsAdminAuthSubmitting(false);
-    }
-  };
-
-  const handleAdminLogout = async () => {
-    try {
-      await fetch('/api/admin/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } finally {
-      setIsAdminAuthenticated(false);
-      setEditingProductId(null);
-      setAdminPassword('');
-    }
-  };
-
-  const startProductEdit = (product: Product) => {
-    setEditingProductId(product.id);
-    setAdminEditForm({
-      brand: product.brand,
-      name: product.name,
-      category: product.category === 'Uncategorized' ? '' : product.category,
-      url: product.url === '#' ? '' : product.url,
-    });
-    setAdminImagePath(product.imagePath ?? null);
-    setAdminImagePreview(product.image);
-    setAdminProductPhotoFile(null);
-    setAdminSizeChartImage(null);
-    setAdminExtractedTable(product.sizeTable ?? null);
-    setAdminActionError(null);
-  };
-
-  const handleAdminFileUpload = (event: ChangeEvent<HTMLInputElement>, type: 'product' | 'chart') => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (type === 'product') {
-      void (async () => {
-        const dataUrl = await readFileAsDataUrl(file);
-        setAdminProductPhotoFile(file);
-        setAdminImagePreview(dataUrl);
-      })();
-      return;
-    }
-
-    void (async () => {
-      const dataUrl = await readFileAsDataUrl(file);
-      const optimizedDataUrl = await resizeImage(dataUrl, 1600);
-      const optimizedBase64 = optimizedDataUrl.split(',')[1] || '';
-      setAdminSizeChartImage(optimizedDataUrl);
-      setIsAdminAnalyzingTable(true);
-      try {
-        const tableData = await extractSizeTableFromImage(optimizedBase64, 'image/png');
-        setAdminExtractedTable(tableData);
-      } catch (extractError: unknown) {
-        const message = extractError instanceof Error ? extractError.message : 'Size table extraction failed.';
-        setAdminActionError(`사이즈표 재분석 실패: ${message}`);
-      } finally {
-        setIsAdminAnalyzingTable(false);
-      }
-    })();
-  };
-
-  const handleAdminUpdateProduct = async (id: string) => {
-    if (!adminEditForm.brand.trim() || !adminEditForm.name.trim()) {
-      setAdminActionError('브랜드명과 상품명은 비워둘 수 없습니다.');
-      return;
-    }
-
-    setIsAdminActionLoading(true);
-    try {
-      let nextImagePath = adminImagePath;
-      if (adminProductPhotoFile) {
-        nextImagePath = await uploadSubmissionImage(adminProductPhotoFile);
-        setAdminImagePath(nextImagePath);
-      }
-
-      const response = await fetch(`/api/admin/products/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          brand: adminEditForm.brand.trim(),
-          name: adminEditForm.name.trim(),
-          category: adminEditForm.category || null,
-          url: adminEditForm.url || null,
-          imagePath: nextImagePath,
-          sizeTable: adminExtractedTable,
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || '상품 수정 실패');
-      }
-      setEditingProductId(null);
-      setAdminProductPhotoFile(null);
-      setAdminSizeChartImage(null);
-      setRetryTrigger((prev) => prev + 1);
-      setAdminActionError(null);
-    } catch (updateError: unknown) {
-      const message = updateError instanceof Error ? updateError.message : '상품 수정 실패';
-      setAdminActionError(message);
-    } finally {
-      setIsAdminActionLoading(false);
-    }
-  };
-
-  const handleAdminDeleteProduct = async (id: string) => {
-    if (!window.confirm('이 상품을 삭제하시겠습니까?')) return;
-
-    setIsAdminActionLoading(true);
-    try {
-      const response = await fetch(`/api/admin/products/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || '상품 삭제 실패');
-      }
-      if (selectedGridProduct?.id === id) setSelectedGridProduct(null);
-      setRetryTrigger((prev) => prev + 1);
-      setAdminActionError(null);
-    } catch (deleteError: unknown) {
-      const message = deleteError instanceof Error ? deleteError.message : '상품 삭제 실패';
-      setAdminActionError(message);
-    } finally {
-      setIsAdminActionLoading(false);
-    }
-  };
-
-  const renderProductImageSection = () => (
-    <div className="space-y-2">
-      <label className="text-sm text-gray-400">상품 이미지</label>
-      <label className="cursor-pointer w-full h-28 bg-white/[0.06] border-2 border-dashed border-white/15 rounded-xl flex items-center justify-center overflow-hidden hover:bg-white/[0.09] hover:border-white/25 transition backdrop-blur-sm">
-        {form.formData.productImage ? <img src={form.formData.productImage} className="h-full object-contain" onError={form.handleThumbnailLoadError} /> : <Camera className="w-8 h-8 text-gray-500" />}
-        <input type="file" className="hidden" accept="image/*" onChange={(e) => form.handleFileUpload(e, 'product')} />
-      </label>
-      {form.autofilledProductImageCandidates.length > 0 ? (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-[11px] text-gray-400">
-            <span>후보 {form.autofilledProductImageCandidates.length}장</span>
-            <span>왼쪽 카드가 현재 추천 순위입니다.</span>
-          </div>
-          <div className="grid max-h-56 grid-cols-4 gap-2 overflow-y-auto pr-1">
-            {form.autofilledProductImageCandidates.map((candidateUrl, index) => {
-              const isActive = candidateUrl === form.autofilledProductImageUrl;
-              return (
-                <button
-                  key={candidateUrl}
-                  type="button"
-                  onClick={() => form.handleSelectAutofilledProductImage(candidateUrl)}
-                  className={`relative h-16 rounded-lg border overflow-hidden ${isActive ? 'border-orange-500 ring-1 ring-orange-500' : 'border-gray-700 hover:border-gray-500'}`}
-                  title={candidateUrl}
-                >
-                  <img src={candidateUrl} className="w-full h-full object-cover" onError={form.handleThumbnailLoadError} />
-                  <span className={`absolute left-1 top-1 rounded px-1 py-0.5 text-[10px] font-semibold ${index === 0 ? 'bg-orange-500 text-black' : 'bg-black/70 text-white'}`}>
-                    {index === 0 ? '추천' : index + 1}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-      {form.isProcessingImage ? <div className="text-xs text-orange-400">이미지 처리 중...</div> : null}
-      {form.productImageNotice ? <div className="text-xs text-amber-300">{form.productImageNotice}</div> : null}
-      {form.isPreviewOnlyProductImage ? (
-        <div className="text-xs text-amber-300">현재 이미지는 미리보기 전용이라 저장용 상품 이미지를 직접 올려야 합니다.</div>
-      ) : null}
-    </div>
-  );
-
-  const commitTableCell = (value: string) => {
-    const cell = form.tableEditingCell;
-    if (!cell) return;
-    form.setFormData((prev) => {
-      if (!prev.extractedTable) return prev;
-      if (cell.kind === 'header') {
-        const headers = [...prev.extractedTable.headers];
-        headers[cell.colIdx] = value;
-        return { ...prev, extractedTable: { ...prev.extractedTable, headers } };
-      }
-      const rows = prev.extractedTable.rows.map((row, ri) =>
-        ri === cell.rowIdx
-          ? row.map((c, ci) => (ci === cell.colIdx ? value : c))
-          : row
-      );
-      return { ...prev, extractedTable: { ...prev.extractedTable, rows } };
-    });
-    form.setTableEditingCell(null);
-  };
-
-  const renderSizeTableSection = () => (
-    <div className="space-y-2">
-      <label className="text-sm text-gray-400">사이즈표 이미지</label>
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <label className="cursor-pointer w-full sm:w-2/3 h-28 bg-white/[0.06] border-2 border-dashed border-white/15 rounded-xl flex items-center justify-center shrink-0 overflow-hidden hover:bg-white/[0.09] hover:border-white/25 transition backdrop-blur-sm relative">
-          {!form.formData.sizeChartImage ? (
-            <Upload className="w-8 h-8 text-gray-500" />
-          ) : (
-            <img src={form.formData.sizeChartImage} className="h-full object-contain" />
-          )}
-          {form.isAnalyzingTable && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <span className="text-xs text-orange-400">사이즈표 추출 중...</span>
-            </div>
-          )}
-          <input type="file" className="hidden" accept="image/*" onChange={(e) => form.handleFileUpload(e, 'chart')} />
-        </label>
-        {form.addProductMode !== 'capture' ? (
-          <p className="text-xs text-gray-400 leading-relaxed">사이즈표 사진을 올리면<br />자동으로 표를 추출합니다.</p>
-        ) : (
-          <p className="text-xs text-gray-400 leading-relaxed">캡쳐본에서 추출한 사이즈표를 확인하세요.<br />필요하면 다시 캡쳐해서 재업로드할 수 있습니다.</p>
-        )}
-      </div>
-      {!form.formData.extractedTable && form.formData.sizeChartImage && !form.isAnalyzingTable ? (
-        <div className="text-xs text-amber-300">사이즈표 이미지는 있지만 검증된 표 추출은 아직 완료되지 않았습니다.</div>
-      ) : null}
-      {form.formData.extractedTable && !form.isAnalyzingTable ? (
-        <div className="rounded-xl border border-white/10 overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.04] border-b border-white/10">
-            <span className="text-[10px] text-gray-400">추출된 사이즈표 — 셀을 클릭하면 수정할 수 있습니다</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              {form.formData.extractedTable.headers.length > 0 ? (
-                <thead className="border-b border-white/10">
-                  <tr>
-                    {form.formData.extractedTable.headers.map((header, colIdx) => (
-                      <th
-                        key={colIdx}
-                        onClick={() => form.setTableEditingCell({ kind: 'header', colIdx })}
-                        className={`px-2 py-1.5 font-semibold whitespace-nowrap cursor-pointer hover:bg-white/[0.06] transition ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${colIdx === 0 ? 'border-r border-white/10' : ''}`}
-                      >
-                        {form.tableEditingCell?.kind === 'header' && form.tableEditingCell.colIdx === colIdx ? (
-                          <input
-                            autoFocus
-                            defaultValue={header}
-                            onBlur={(e) => commitTableCell(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') commitTableCell((e.target as HTMLInputElement).value);
-                              if (e.key === 'Escape') form.setTableEditingCell(null);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
-                          />
-                        ) : header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-              ) : null}
-              <tbody>
-                {form.formData.extractedTable.rows.map((row, rowIdx) => (
-                  <tr key={rowIdx} className="border-b border-white/[0.06]">
-                    {row.map((cell, colIdx) => (
-                      <td
-                        key={colIdx}
-                        onClick={() => form.setTableEditingCell({ kind: 'row', rowIdx, colIdx })}
-                        className={`px-2 py-1.5 whitespace-nowrap cursor-pointer hover:bg-white/[0.06] transition ${colIdx === 0 ? 'text-gray-300 border-r border-white/10' : 'text-gray-400'}`}
-                      >
-                        {form.tableEditingCell?.kind === 'row' && form.tableEditingCell.rowIdx === rowIdx && form.tableEditingCell.colIdx === colIdx ? (
-                          <input
-                            autoFocus
-                            defaultValue={cell}
-                            onBlur={(e) => commitTableCell(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') commitTableCell((e.target as HTMLInputElement).value);
-                              if (e.key === 'Escape') form.setTableEditingCell(null);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
-                          />
-                        ) : cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : null}
-      {form.addProductMode === 'capture' ? (
-        <label className="cursor-pointer w-full h-20 bg-white/[0.06] border border-dashed border-white/15 rounded-xl flex items-center justify-center overflow-hidden hover:border-white/25 hover:bg-white/[0.09] transition backdrop-blur-sm">
-          <div className="flex items-center gap-2 text-gray-400">
-            <Camera className="w-4 h-4" />
-            <span className="text-xs">캡쳐본 다시 업로드</span>
-          </div>
-          <input type="file" className="hidden" accept="image/*" onChange={form.handleCaptureUpload} />
-        </label>
-      ) : null}
-      {form.isAutofillingFromImage ? <div className="text-xs text-[#1ED760]">캡쳐 이미지 AI 분석 중...</div> : null}
-    </div>
-  );
-
-  const renderAddProductForm = () => (
-    <>
-      <input className="w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-orange-500 focus:bg-white/[0.1] transition" placeholder="브랜드명" value={form.formData.brand} onChange={(e) => form.setFormData({ ...form.formData, brand: e.target.value })} />
-      <input className="w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-orange-500 focus:bg-white/[0.1] transition" placeholder="상품명" value={form.formData.name} onChange={(e) => form.setFormData({ ...form.formData, name: e.target.value })} />
-      <select
-        className={`w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl backdrop-blur-sm focus:outline-none focus:border-orange-500 transition [&>option]:bg-gray-900 [&>option]:text-white ${form.formData.category ? 'text-white' : 'text-gray-400'}`}
-        value={form.formData.category}
-        onChange={(e) => form.setFormData({ ...form.formData, category: e.target.value })}
-      >
-        <option value="">카테고리</option>
-        {CATEGORY_OPTIONS.map((category) => (
-          <option key={category} value={category}>{category}</option>
-        ))}
-      </select>
-      <div className="space-y-2">
-        <div className="relative">
-          <Globe className="absolute left-4 top-3.5 w-4 h-4 text-gray-500" />
-          <input
-            className="w-full pl-10 pr-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl text-white placeholder:text-white backdrop-blur-sm focus:outline-none focus:border-orange-500 focus:bg-white/[0.1] transition"
-            placeholder="공식 URL (선택)"
-            value={form.formData.url}
-            onChange={(e) => {
-              form.setFormData({ ...form.formData, url: e.target.value });
-              form.setAutoFillError(null);
-            }}
-          />
-        </div>
-        {form.addProductMode === 'url' ? (
-          <button
-            onClick={() => void form.handleAutoFillFromUrl()}
-            disabled={form.isAutofillingFromUrl || !form.formData.url.trim() || form.isSaving}
-            className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition flex items-center justify-center gap-2 ${
-              (form.isAutofillingFromUrl || !form.formData.url.trim() || form.isSaving)
-                ? 'border-white/10 text-gray-500 bg-white/[0.04] cursor-not-allowed'
-                : 'border-orange-500/60 text-orange-300 bg-orange-500/10 hover:bg-orange-500/20'
-            }`}
-          >
-            {form.isAutofillingFromUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {form.isAutofillingFromUrl ? 'URL 분석 중...' : 'URL로 자동 입력'}
-          </button>
-        ) : null}
-        {form.autoFillError ? <p className="text-xs text-red-400">{form.autoFillError}</p> : null}
-      </div>
-      {form.addProductMode === 'url' ? (
-        <section className="space-y-2 rounded-2xl border border-[#1ED760]/40 bg-[#121212] p-3">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-semibold text-[#1ED760]">AI 추출 이미지 미리보기</label>
-            {form.isAutofillingFromUrl ? <span className="text-xs text-[#1ED760]">Gemini 분석 중...</span> : null}
-          </div>
-          <div className="relative w-full h-36 rounded-xl overflow-hidden border border-gray-700 bg-gray-900/70 flex items-center justify-center">
-            {!form.aiPreviewImageSrc && !form.isAutofillingFromUrl ? (
-              <div className="flex flex-col items-center gap-2 text-gray-500">
-                <Camera className="w-6 h-6" />
-                <span className="text-xs">URL 자동 입력 후 대표 이미지가 표시됩니다.</span>
-              </div>
-            ) : null}
-            {form.aiPreviewImageSrc ? (
-              <img
-                src={form.aiPreviewImageSrc}
-                className={`h-full max-w-full object-contain transition-opacity duration-200 ${form.isAiPreviewLoading ? 'opacity-0' : 'opacity-100'}`}
-                onLoad={form.handleAiPreviewLoad}
-                onError={form.handleAiPreviewError}
-                alt="AI extracted product preview"
-              />
-            ) : null}
-            {(form.isAutofillingFromUrl || form.isAiPreviewLoading) ? (
-              <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800" />
-            ) : null}
-          </div>
-          {form.didFallbackAiPreviewImage ? (
-            <p className="text-xs text-amber-300">이미지를 불러오지 못해 기본 이미지로 대체했습니다.</p>
-          ) : null}
-        </section>
-      ) : null}
-      {renderProductImageSection()}
-      {renderSizeTableSection()}
-    </>
-  );
-
-  const renderAddProductModalBody = () => {
-    if (form.addProductMode === 'menu') {
-      return (
-        <div className="space-y-5">
-          <button
-            type="button"
-            onClick={() => form.setAddProductMode('url')}
-            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-5 py-5 text-left transition hover:border-orange-500/60 hover:bg-white/[0.1]"
-          >
-            <div>
-              <p className="text-sm font-semibold text-white sm:text-base">공식홈페이지 URL 업로드해서 추가</p>
-            </div>
-            <Globe className="h-5 w-5 text-orange-400" />
-          </button>
-          <button
-            type="button"
-            onClick={() => form.setAddProductMode('manual')}
-            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-5 py-5 text-left transition hover:border-white/20 hover:bg-white/[0.1]"
-          >
-            <div>
-              <p className="text-sm font-semibold text-white sm:text-base">직접 추가</p>
-            </div>
-            <Plus className="h-5 w-5 text-gray-300" />
-          </button>
-        </div>
-      );
-    }
-
-    if (form.addProductMode === 'capture' && !form.isCaptureReviewReady) {
-      return (
-        <div className="space-y-3">
-          <label className="text-sm text-gray-400">캡쳐 사진 업로드</label>
-          <label className="cursor-pointer flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.06] backdrop-blur-sm px-5 py-8 text-center transition hover:border-[#00FF00]/60 hover:bg-white/[0.09]">
-            <Camera className="h-10 w-10 text-[#00FF00]" />
-            <div>
-              <p className="text-sm font-semibold text-white">캡쳐본을 업로드하면 상품 정보를 추출합니다.</p>
-              <p className="mt-1 text-xs text-gray-400">브랜드명, 상품명, 카테고리, URL, 이미지, 사이즈표를 자동 분석합니다.</p>
-            </div>
-            <input type="file" className="hidden" accept="image/*" onChange={form.handleCaptureUpload} />
-          </label>
-          {form.isAutofillingFromImage ? <div className="text-xs text-[#1ED760]">캡쳐 이미지 AI 분석 중...</div> : null}
-          {form.isAnalyzingTable ? <div className="text-xs text-orange-400">사이즈표 추출 중...</div> : null}
-          {form.autoFillError ? <div className="text-xs text-red-400">{form.autoFillError}</div> : null}
-        </div>
-      );
-    }
-
-    return renderAddProductForm();
-  };
-
   if (isAdminPage) {
     return (
       <AdminPage
-        isAdminAuthenticated={isAdminAuthenticated}
-        isAdminCheckingSession={isAdminCheckingSession}
-        adminPassword={adminPassword}
-        adminAuthError={adminAuthError}
-        isAdminAuthSubmitting={isAdminAuthSubmitting}
+        isAdminAuthenticated={admin.isAdminAuthenticated}
+        isAdminCheckingSession={admin.isAdminCheckingSession}
+        adminPassword={admin.adminPassword}
+        adminAuthError={admin.adminAuthError}
+        isAdminAuthSubmitting={admin.isAdminAuthSubmitting}
         productsError={productsError}
-        adminActionError={adminActionError}
+        adminActionError={admin.adminActionError}
         allProducts={allProducts}
-        editingProductId={editingProductId}
-        adminEditForm={adminEditForm}
-        adminImagePreview={adminImagePreview}
-        adminSizeChartImage={adminSizeChartImage}
-        isAdminAnalyzingTable={isAdminAnalyzingTable}
-        adminExtractedTable={adminExtractedTable}
-        isAdminActionLoading={isAdminActionLoading}
-        onLogout={() => void handleAdminLogout()}
-        onLogin={() => void handleAdminLogin()}
-        onPasswordChange={setAdminPassword}
-        onPasswordKeyDown={(key) => { if (key === 'Enter') void handleAdminLogin(); }}
-        onFileUpload={handleAdminFileUpload}
-        onUpdateProduct={(id) => void handleAdminUpdateProduct(id)}
-        onDeleteProduct={(id) => void handleAdminDeleteProduct(id)}
-        onStartEdit={startProductEdit}
-        onCancelEdit={() => { setEditingProductId(null); setAdminActionError(null); setAdminProductPhotoFile(null); setAdminSizeChartImage(null); }}
-        onEditFormChange={setAdminEditForm}
-        onExtractedTableChange={setAdminExtractedTable}
+        editingProductId={admin.editingProductId}
+        adminEditForm={admin.adminEditForm}
+        adminImagePreview={admin.adminImagePreview}
+        adminSizeChartImage={admin.adminSizeChartImage}
+        isAdminAnalyzingTable={admin.isAdminAnalyzingTable}
+        adminExtractedTable={admin.adminExtractedTable}
+        isAdminActionLoading={admin.isAdminActionLoading}
+        onLogout={() => void admin.handleAdminLogout()}
+        onLogin={() => void admin.handleAdminLogin()}
+        onPasswordChange={admin.setAdminPassword}
+        onPasswordKeyDown={(key) => { if (key === 'Enter') void admin.handleAdminLogin(); }}
+        onFileUpload={admin.handleAdminFileUpload}
+        onUpdateProduct={(id) => void admin.handleAdminUpdateProduct(id)}
+        onDeleteProduct={(id) => void admin.handleAdminDeleteProduct(id)}
+        onStartEdit={admin.startProductEdit}
+        onCancelEdit={admin.cancelEdit}
+        onEditFormChange={admin.setAdminEditForm}
+        onExtractedTableChange={admin.setAdminExtractedTable}
         onImageLoadError={handleImageLoadError}
       />
     );
@@ -902,12 +357,12 @@ export default function App() {
               </div>
               <span className="font-bold text-xl tracking-tight text-orange-500">DIGDA</span>
             </div>
-            {authUser && (
+            {auth.authUser && (
               <span
                 className="text-gray-500 text-xs font-medium cursor-pointer hover:text-gray-300 transition"
                 onClick={() => navigateToView('mypage')}
               >
-                | {String(dbUsername ?? authUser.email?.split('@')[0] ?? '')}
+                | {String(auth.dbUsername ?? auth.authUser.email?.split('@')[0] ?? '')}
               </span>
             )}
           </div>
@@ -937,7 +392,7 @@ export default function App() {
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">상품 추가</span>
             </button>
-            {!authUser && (
+            {!auth.authUser && (
               <button
                 onClick={() => navigateToView('login')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition backdrop-blur-xl border shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
@@ -971,88 +426,33 @@ export default function App() {
           <LoginPage
             supabase={supabase}
             onSuccess={() => navigateToView('search')}
-            googleAuthError={googleAuthError}
-            onClearGoogleAuthError={() => setGoogleAuthError(null)}
+            googleAuthError={auth.googleAuthError}
+            onClearGoogleAuthError={() => auth.setGoogleAuthError(null)}
           />
         )}
 
-        {needsUsername && supabase && (() => {
-          const submitUsername = async () => {
-            const trimmed = pendingUsername.trim();
-            if (!trimmed) { setUsernameError('이름을 입력하세요.'); return; }
-            setIsSubmittingUsername(true);
-            setUsernameError(null);
-            const { data: { user: currentUser } } = await supabase!.auth.getUser();
-            if (!currentUser) {
-              await supabase!.auth.signOut();
-              setNeedsUsername(false);
-              setUsernameError(null);
-              setIsSubmittingUsername(false);
-              navigateToView('login');
-              return;
-            }
-            const { data: existing } = await supabase!.from('users').select('username').eq('username', trimmed).maybeSingle();
-            if (existing) { setUsernameError('이미 사용중인 이름입니다.'); setIsSubmittingUsername(false); return; }
-            const { error: insertError } = await supabase!.from('users').insert({ id: currentUser.id, username: trimmed });
-            if (insertError) { console.error('users insert error:', insertError); setUsernameError('오류가 발생했습니다. 다시 시도해주세요.'); setIsSubmittingUsername(false); return; }
-            setNeedsUsername(false);
-            setDbUsername(trimmed);
-            setPendingUsername('');
-            setGoogleSignupComplete(true);
-          };
-          return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-              <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-8 shadow-[0_8px_40px_rgba(0,0,0,0.6)] max-w-sm w-full mx-4">
-                <h2 className="text-white font-bold text-lg mb-1">닉네임을 설정해주세요</h2>
-                <p className="text-gray-500 text-sm mb-6">구글 회원가입 마지막 단계입니다.</p>
-                <input
-                  type="text"
-                  value={pendingUsername}
-                  onChange={(e) => setPendingUsername(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') void submitUsername(); }}
-                  placeholder="사용할 이름을 입력하세요"
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 placeholder:text-sm focus:outline-none focus:border-orange-500 transition mb-3"
-                  autoFocus
-                />
-                {usernameError && (
-                  <p className="text-sm text-red-400 bg-red-900/20 border border-red-500/30 rounded-lg px-3 py-2 mb-3">
-                    {usernameError}
-                  </p>
-                )}
-                <button
-                  disabled={isSubmittingUsername}
-                  onClick={() => void submitUsername()}
-                  className={`w-full py-3 rounded-xl text-sm font-bold transition ${isSubmittingUsername ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400 text-black'}`}
-                >
-                  {isSubmittingUsername ? '저장 중...' : '완료'}
-                </button>
-              </div>
-            </div>
-          );
-        })()}
-
-        {googleSignupComplete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-8 shadow-[0_8px_40px_rgba(0,0,0,0.6)] max-w-sm w-full mx-4 text-center">
-              <div className="text-5xl mb-4">🎉</div>
-              <h2 className="text-white font-bold text-lg mb-2">회원가입이 완료됐습니다!</h2>
-              <p className="text-gray-400 text-sm mb-6">이제 구글 계정으로 로그인할 수 있어요.</p>
-              <button
-                onClick={() => { setGoogleSignupComplete(false); navigateToView('search'); }}
-                className="w-full py-3 rounded-xl text-sm font-bold bg-orange-500 hover:bg-orange-400 text-black transition"
-              >
-                시작하기
-              </button>
-            </div>
-          </div>
+        {auth.needsUsername && supabase && (
+          <NeedsUsernameModal
+            pendingUsername={auth.pendingUsername}
+            onUsernameChange={auth.setPendingUsername}
+            onSubmit={() => void auth.submitUsername(() => {})}
+            usernameError={auth.usernameError}
+            isSubmitting={auth.isSubmittingUsername}
+          />
         )}
 
-        {viewMode === 'mypage' && authUser && (
+        {auth.googleSignupComplete && (
+          <GoogleSignupCompleteModal
+            onStart={() => { auth.setGoogleSignupComplete(false); navigateToView('search'); }}
+          />
+        )}
+
+        {viewMode === 'mypage' && auth.authUser && (
           <div className="w-full max-w-md mx-auto mt-16 px-4">
             <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] border border-white/10 rounded-2xl p-8 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
               <h2 className="text-white font-bold text-lg mb-1">마이페이지</h2>
               <p className="text-gray-500 text-sm mb-8">
-                {String(dbUsername ?? authUser.email?.split('@')[0] ?? '')}
+                {String(auth.dbUsername ?? auth.authUser.email?.split('@')[0] ?? '')}
               </p>
               <button
                 onClick={() => { void supabase?.auth.signOut(); navigateToView('search'); }}
@@ -1137,98 +537,20 @@ export default function App() {
           />
         )}
         {viewMode === 'grid' && (
-          <div className="w-full max-w-7xl">
-            <div className="mb-6 flex flex-col gap-4">
-              <h2 className="flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white">
-                <LayoutGrid className="w-7 h-7 text-orange-500" />
-                {'\uC804\uCCB4 \uC0C1\uD488 \uBCF4\uAE30'}
-              </h2>
-              <div className="h-6 sm:h-8" />
-              <div className="fixed left-1/2 top-[5.6rem] z-30 flex w-[calc(100%-2rem)] max-w-7xl -translate-x-1/2 justify-end sm:top-[8.3rem]">
-                <div className="flex w-full max-w-[11.5rem] flex-col-reverse items-end justify-end gap-2 sm:ml-auto sm:w-fit sm:max-w-none sm:flex-row sm:items-center sm:gap-3">
-                  <CategoryDropdown
-                    options={CATEGORY_OPTIONS}
-                    value={gridCategoryFilter}
-                    counts={gridCategoryCounts}
-                    onChange={setGridCategoryFilter}
-                    totalLabel="Total"
-                    ariaLabel={'\uC0C1\uD488 \uCE74\uD14C\uACE0\uB9AC \uD544\uD130'}
-                    className="relative w-[5.6rem] shrink-0 sm:w-28"
-                  />
-                  <label className="relative block w-[7.2rem] sm:w-40">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-3 w-3 -translate-y-1/2 text-gray-400 sm:left-4 sm:h-4 sm:w-4" />
-                    <input
-                      type="text"
-                      value={gridSearchQuery}
-                      onChange={(event) => setGridSearchQuery(event.target.value)}
-                      placeholder={'\uC0C1\uD488 \uAC80\uC0C9'}
-                      aria-label={'\uC804\uCCB4 \uC0C1\uD488 \uAC80\uC0C9'}
-                      className="h-[1.7rem] w-full rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.88),rgba(28,28,28,0.72))] pl-8 pr-3 text-[0.7rem] font-medium text-white placeholder:text-gray-400 shadow-[0_16px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl focus:outline-none sm:h-8 sm:pl-10 sm:pr-4 sm:text-xs"
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-            {allProducts.length === 0 ? (
-              <div className="text-center py-20 text-gray-500">{'\uB4F1\uB85D\uB41C \uC0C1\uD488\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}</div>
-            ) : filteredGridProducts.length === 0 ? (
-              <div className="text-center py-20 text-gray-500">{'\uAC80\uC0C9 \uC870\uAC74\uC5D0 \uB9DE\uB294 \uC0C1\uD488\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}</div>
-            ) : (
-              <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
-                {filteredGridProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    onClick={() => {
-                      setSelectedGridProduct(product);
-                    }}
-                    className="ui-product-card group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
-                  >
-                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_32%,transparent_68%,rgba(255,255,255,0.1))]" />
-                    <div className="relative mx-1.5 mb-0 mt-1.5 flex h-44 items-center justify-center overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(17,24,39,0.72),rgba(0,0,0,0.46))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:m-3 sm:h-48 sm:rounded-[22px] sm:p-4">
-                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.12),transparent_28%)]" />
-                      <ProgressiveImage
-                        src={product.image}
-                        thumbnailSrc={product.thumbnailImage}
-                        alt={product.name}
-                        className="relative z-[1] max-h-full max-w-full rounded-[10px] object-contain"
-                        onError={handleImageLoadError}
-                      />
-                    </div>
-                    <div className="flex flex-1 flex-col justify-center bg-black/10 px-4 pb-4 pt-3 text-center sm:px-5 sm:pb-5 sm:pt-4">
-                      <div className="mb-2 w-full pl-[5%] text-left text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
-                      <h3 className="mb-1 w-full pl-[5%] text-left text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
-                      <div className="pt-2 text-sm text-gray-300">{product.category}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <GridView
+            allProducts={allProducts}
+            filteredGridProducts={filteredGridProducts}
+            gridCategoryCounts={gridCategoryCounts}
+            gridCategoryFilter={gridCategoryFilter}
+            setGridCategoryFilter={setGridCategoryFilter}
+            gridSearchQuery={gridSearchQuery}
+            setGridSearchQuery={setGridSearchQuery}
+            onProductClick={setSelectedGridProduct}
+            onImageError={handleImageLoadError}
+          />
         )}
       </main>
-      {form.isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={form.closeModal} />
-          <div className="ui-add-product-modal bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.06))] backdrop-blur-2xl rounded-3xl w-full max-w-lg shadow-[0_24px_60px_rgba(0,0,0,0.5)] overflow-hidden relative flex flex-col max-h-[90vh] border border-white/10">
-            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-black/20 sticky top-0 z-10 text-white backdrop-blur-sm">
-              <h3 className="text-lg font-bold" style={{ color: '#00FF00' }}>상품 추가</h3>
-              <button onClick={() => form.closeModal()} className="p-2 hover:bg-white/[0.1] rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-
-            <div className="p-6 overflow-y-auto text-white space-y-4">
-              {renderAddProductModalBody()}
-            </div>
-
-            <div className="p-6 border-t border-white/10 bg-black/20 backdrop-blur-sm flex justify-end gap-3 sticky bottom-0">
-              <button onClick={() => form.closeModal()} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 bg-white/[0.06] border border-white/10 hover:bg-white/[0.12] hover:text-white transition">취소</button>
-              <button onClick={form.handleSubmitProduct} disabled={!form.isFormValid} className={`px-5 py-2.5 rounded-xl text-sm font-bold text-black transition flex items-center gap-2 ${!form.isFormValid ? 'bg-gray-700 cursor-not-allowed text-gray-500' : 'hover:bg-orange-400'}`} style={!form.isFormValid ? {} : { backgroundColor: '#F97316' }}>
-                {form.isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {form.isSaving ? '제출 중...' : '상품 등록하기'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddProductModal form={form} />
 
       {showSuccessModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none">
