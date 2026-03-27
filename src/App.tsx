@@ -239,6 +239,10 @@ export default function App() {
     );
   }
 
+  if (auth.isAuthLoading) {
+    return <div className="min-h-screen bg-black" />;
+  }
+
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-orange-500 selection:text-white">
       <AppHeader

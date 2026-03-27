@@ -1,5 +1,6 @@
 import { createApp } from "./config/app.js";
 import { IS_VERCEL, PORT } from "./config/env.js";
+import { registerAuthRoutes } from "./routes/auth.js";
 import { registerProductRoutes } from "./routes/products.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 import { registerMetadataRoutes } from "./routes/metadata.js";
@@ -8,6 +9,11 @@ import { createServices } from "./bootstrap/services.js";
 
 const app = createApp();
 const services = createServices();
+
+registerAuthRoutes(app, {
+  supabase: services.supabase,
+  assertSupabaseConfig: services.assertSupabaseConfig,
+});
 
 registerMetadataRoutes(app, {
   extractProductMetadataFromUrl: services.extractProductMetadataFromUrl,
