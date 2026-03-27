@@ -41,8 +41,9 @@ export function useAuth({ onNavigateToLogin }: UseAuthOptions) {
     processingUserIdRef.current = user.id ?? null;
 
     // intent는 async 작업 전에 미리 읽어야 다른 concurrent call에게 빼앗기지 않음
-    const intent = localStorage.getItem('google_oauth_intent');
+    const rawIntent = localStorage.getItem('google_oauth_intent');
     localStorage.removeItem('google_oauth_intent');
+    const intent = rawIntent === 'login' || rawIntent === 'signup' ? rawIntent : null;
 
     const { data } = await supabase.from('users').select('id, username').eq('id', user.id).maybeSingle();
 

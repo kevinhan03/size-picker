@@ -18,7 +18,7 @@ Backend health check: `http://localhost:8787/health`
 
 ### Frontend
 
-**Entry:** `src/App.tsx` (~434 lines) — single-page app with no router. View state toggles between `'search'`, `'grid'`, `'converter'`, `'login'`, `'mypage'` modes. Admin dashboard renders at `/admin` path.
+**Entry:** `src/App.tsx` (~438 lines) — single-page app with no router. View state toggles between `'search'`, `'grid'`, `'converter'`, `'login'`, `'mypage'` modes. Admin dashboard renders at `/admin` path.
 
 **Structure:**
 ```
@@ -62,7 +62,7 @@ src/
 
 ### Backend
 
-**Entry:** `server/index.js` (~65 lines) — bootstrap + route registration only. Deployed as a Vercel serverless function via `api/index.js`.
+**Entry:** `server/index.js` (~71 lines) — bootstrap + route registration only. Deployed as a Vercel serverless function via `api/index.js`.
 
 **Structure:**
 ```
@@ -75,6 +75,7 @@ server/
 ├── routes/
 │   ├── admin.js              # Product CRUD, image upload, size table extraction
 │   ├── ai.js                 # Gemini API routes (size table, metadata, image analysis)
+│   ├── auth.js               # Auth cleanup (unregistered Google OAuth users)
 │   ├── metadata.js           # Product metadata fetching from URL
 │   └── products.js           # Public product listing
 ├── services/
@@ -91,6 +92,7 @@ server/
 - `GET /api/products` — list all products
 - `POST /api/products` — create product
 - `/api/admin/*` — admin CRUD, image upload (requires HMAC-SHA256 session cookie)
+- `/api/auth/cleanup-unregistered` — remove unregistered Google OAuth user from auth
 - `/api/metadata/*` — metadata extraction from URL
 - `/api/ai/*` — Gemini AI endpoints
 
@@ -131,7 +133,7 @@ Additional tables: `users` (stores usernames for Google OAuth users).
 
 ## Environment Variables
 
-Server (`.env`): `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `PORT` (default 8787), `SUPABASE_PRODUCTS_TABLE` (default `products`), `SUPABASE_STORAGE_BUCKET` (default `product-assets`), `ADMIN_SESSION_TTL_SECONDS` (default 28800)
+Server (`.env`): `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `PORT` (default 8787), `SUPABASE_PRODUCTS_TABLE` (default `products`), `SUPABASE_STORAGE_BUCKET` (default `product-assets`), `ADMIN_SESSION_TTL_SECONDS` (default 28800), `ALLOWED_ORIGINS` (comma-separated list of allowed frontend origins; used for CORS and admin CSRF validation — **required in production**)
 
 Client (`.env`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
