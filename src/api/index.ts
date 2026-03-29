@@ -13,15 +13,12 @@ import { getFileExtension } from '../utils/image';
 import { normalizeSizeTable } from '../utils/sizeTable';
 import { normalizeProduct } from '../utils/product';
 
-export const searchProducts = async (query: string): Promise<Product[]> => {
+export const fetchAllProducts = async (): Promise<Product[]> => {
   assertSupabaseClient();
-  const keyword = query.trim();
-  let request = supabase!
+  const { data, error } = await supabase!
     .from('products')
     .select('id,brand,name,category,url,size_table,created_at,image_path')
     .order('created_at', { ascending: false });
-  if (keyword) request = request.or(`brand.ilike.%${keyword}%,name.ilike.%${keyword}%`);
-  const { data, error } = await request;
   if (error) throw new Error(error.message);
   const rows = Array.isArray(data) ? (data as ProductRow[]) : [];
   return rows
@@ -51,7 +48,6 @@ export const uploadSubmissionImage = async (file: File): Promise<string> => {
 };
 
 export const submitProduct = async (form: SubmitProductForm): Promise<void> => {
-  assertSupabaseClient();
   const category = String(form.category || '').trim();
   if (!category) {
     throw new Error('카테고리는 필수입니다.');
@@ -66,19 +62,17 @@ export const submitProduct = async (form: SubmitProductForm): Promise<void> => {
     throw new Error('상품 사진은 필수입니다.');
   }
 
-  const payload = {
+  const { response, payload } = await postJson<object, unknown>('/api/products', {
     brand: form.brand,
     name: form.name,
     category,
     url: form.url || null,
     image_path: imagePath,
-    size_table: form.sizeTable ?? null,
-  };
-
-  const { error } = await supabase!.from('products').insert(payload);
-  if (error) {
-    console.error('[submitProduct] insert failed', error.message, error);
-    throw new Error(error.message);
+    sizeTable: form.sizeTable ?? null,
+  });
+  if (!response.ok || !payload?.ok) {
+    console.error('[submitProduct] insert failed', payload?.error);
+    throw new Error(payload?.error || 'Product submission failed');
   }
 };
 
@@ -98,15 +92,29 @@ const parseApiJson = async <T,>(response: Response, endpoint: string): Promise<T
   }
 };
 
-export const fetchProductMetadataFromUrl = async (url: string): Promise<ProductMetadataPayload> => {
-  const response = await fetch('/api/product-metadata', {
+interface ApiEnvelope<T> {
+  ok?: boolean;
+  error?: string;
+  data?: T;
+}
+
+const postJson = async <TRequest, TResponse>(
+  endpoint: string,
+  body: TRequest
+): Promise<{ response: Response; payload: ApiEnvelope<TResponse> }> => {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify(body),
   });
-  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: ProductMetadataPayload }>(
-    response,
-    '/api/product-metadata'
+  const payload = await parseApiJson<ApiEnvelope<TResponse>>(response, endpoint);
+  return { response, payload };
+};
+
+export const fetchProductMetadataFromUrl = async (url: string): Promise<ProductMetadataPayload> => {
+  const { response, payload } = await postJson<{ url: string }, ProductMetadataPayload>(
+    '/api/product-metadata',
+    { url }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error || 'Failed to extract metadata from URL');
@@ -118,14 +126,12 @@ export const fetchProductMetadataFromImage = async (
   base64Image: string,
   mimeType = 'image/png'
 ): Promise<ProductMetadataPayload> => {
-  const response = await fetch('/api/product-metadata-from-image', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64: base64Image, mimeType }),
-  });
-  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: ProductMetadataPayload }>(
-    response,
-    '/api/product-metadata-from-image'
+  const { response, payload } = await postJson<
+    { imageBase64: string; mimeType: string },
+    ProductMetadataPayload
+  >(
+    '/api/product-metadata-from-image',
+    { imageBase64: base64Image, mimeType }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error || 'Failed to extract metadata from image');
@@ -134,14 +140,9 @@ export const fetchProductMetadataFromImage = async (
 };
 
 export const extractSizeTableFromImage = async (base64Image: string, mimeType = 'image/png'): Promise<SizeTable> => {
-  const response = await fetch('/api/size-table', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64: base64Image, mimeType }),
-  });
-  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: unknown }>(
-    response,
-    '/api/size-table'
+  const { response, payload } = await postJson<{ imageBase64: string; mimeType: string }, unknown>(
+    '/api/size-table',
+    { imageBase64: base64Image, mimeType }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error ?? 'Failed to extract size table');
@@ -154,14 +155,12 @@ export const extractSizeTableFromImage = async (base64Image: string, mimeType = 
 };
 
 export const removeBackgroundWithGemini = async (base64Image: string): Promise<string> => {
-  const response = await fetch('/api/remove-bg', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64: base64Image, mimeType: 'image/png' }),
-  });
-  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: { imageBase64?: string } }>(
-    response,
-    '/api/remove-bg'
+  const { response, payload } = await postJson<
+    { imageBase64: string; mimeType: string },
+    { imageBase64?: string }
+  >(
+    '/api/remove-bg',
+    { imageBase64: base64Image, mimeType: 'image/png' }
   );
   if (!response.ok || !payload?.ok || !payload?.data?.imageBase64) return base64Image;
   return String(payload.data.imageBase64);

@@ -6,10 +6,10 @@ import { useAdminAuth } from "../../src/hooks/useAdminAuth";
 import { useProducts } from "../../src/hooks/useProducts";
 
 export default function AdminRoutePage() {
-  const { productsError, products, setRetryTrigger } = useProducts();
+  const { productsError, products, retryProductsLoad } = useProducts();
   const admin = useAdminAuth({
     isAdminPage: true,
-    onProductMutated: () => setRetryTrigger((prev) => prev + 1),
+    onProductMutated: () => retryProductsLoad(),
     onProductDeleted: () => {},
   });
 

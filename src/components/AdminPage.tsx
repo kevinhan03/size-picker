@@ -35,7 +35,6 @@ interface BrandRule {
 interface BrandBackfillChange {
   id: string;
   name: string;
-  url: string;
   previousBrand: string;
   canonicalBrand: string;
   updated: boolean;
@@ -88,9 +87,8 @@ interface AdminPageProps {
   onImageLoadError: (event: SyntheticEvent<HTMLImageElement>) => void;
 }
 
-const CATEGORY_OPTIONS = ['Outer', 'Top', 'Bottom', 'Shoes', 'Acc', '단종된 상품(빈티지)'] as const;
+const CATEGORY_OPTIONS = ['Outer', 'Top', 'Bottom', 'Shoes', 'Acc', '기타'] as const;
 const ITEM_LABEL = '항목';
-const normalizeCellText = (value: unknown): string => String(value ?? '').replace(/\s+/g, ' ').trim();
 
 export const AdminPage = ({
   isAdminAuthenticated,
@@ -130,74 +128,92 @@ export const AdminPage = ({
   onExtractedTableChange,
   onImageLoadError,
 }: AdminPageProps) => {
-  const brandRuleTypes: Array<{ value: BrandRule['matchType']; label: string }> = [
-    { value: 'domain', label: 'domain' },
-    { value: 'url', label: 'url' },
-    { value: 'brand', label: 'brand' },
-    { value: 'brand_contains', label: 'brand_contains' },
-  ];
-
-  const [tableEditingCell, setTableEditingCell] = useState<
-    { kind: 'header'; colIdx: number } | { kind: 'row'; rowIdx: number; colIdx: number } | null
+  const [editingCell, setEditingCell] = useState<
+    { kind: 'header'; col: number } | { kind: 'row'; row: number; col: number } | null
   >(null);
 
-  const commitTableCell = (value: string) => {
-    if (!tableEditingCell || !adminExtractedTable) return;
-    if (tableEditingCell.kind === 'header') {
+  const updateCell = (value: string) => {
+    if (!editingCell || !adminExtractedTable) return;
+    if (editingCell.kind === 'header') {
       const headers = [...adminExtractedTable.headers];
-      headers[tableEditingCell.colIdx] = value;
+      headers[editingCell.col] = value;
       onExtractedTableChange({ ...adminExtractedTable, headers });
     } else {
-      const rows = adminExtractedTable.rows.map((row, ri) =>
-        ri === tableEditingCell.rowIdx
-          ? row.map((cell, ci) => (ci === tableEditingCell.colIdx ? value : cell))
+      const rows = adminExtractedTable.rows.map((row, rowIdx) =>
+        rowIdx === editingCell.row
+          ? row.map((cell, colIdx) => (colIdx === editingCell.col ? value : cell))
           : row
       );
       onExtractedTableChange({ ...adminExtractedTable, rows });
     }
-    setTableEditingCell(null);
+    setEditingCell(null);
+  };
+
+  const renderTableCell = (value: string, row: number, col: number, header = false) => {
+    const active =
+      editingCell &&
+      ((header && editingCell.kind === 'header' && editingCell.col === col) ||
+        (!header &&
+          editingCell.kind === 'row' &&
+          editingCell.row === row &&
+          editingCell.col === col));
+
+    if (active) {
+      return (
+        <input
+          autoFocus
+          defaultValue={value}
+          onBlur={(event) => updateCell(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') updateCell((event.target as HTMLInputElement).value);
+            if (event.key === 'Escape') setEditingCell(null);
+          }}
+          onClick={(event) => event.stopPropagation()}
+          className="w-full min-w-[40px] border-b border-orange-400 bg-transparent text-white outline-none"
+        />
+      );
+    }
+
+    return value;
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans">
-      <header className="sticky top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-40">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-black text-white">
+      <header className="sticky top-0 z-40 border-b border-gray-800 bg-black/90 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <Ruler className="w-5 h-5 text-orange-500" />
-            <h1 className="text-lg font-bold text-white">관리자 상품 관리</h1>
+            <Ruler className="h-5 w-5 text-orange-500" />
+            <h1 className="text-lg font-bold">관리자 상품 관리</h1>
           </div>
           {isAdminAuthenticated ? (
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800"
-            >
+            <button onClick={onLogout} className="rounded-lg px-4 py-2 text-sm hover:bg-gray-800">
               로그아웃
             </button>
           ) : null}
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        {isAdminCheckingSession ? (
-          <div className="text-gray-400">관리자 세션 확인 중...</div>
-        ) : null}
+      <main className="mx-auto max-w-5xl space-y-4 px-4 py-8">
+        {isAdminCheckingSession ? <div className="text-gray-400">관리자 세션 확인 중...</div> : null}
 
         {!isAdminCheckingSession && !isAdminAuthenticated ? (
-          <div className="max-w-md mx-auto bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
-            <h2 className="text-xl font-bold text-white">관리자 로그인</h2>
+          <div className="mx-auto max-w-md space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-6">
+            <h2 className="text-xl font-bold">관리자 로그인</h2>
             <input
               type="password"
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500"
-              placeholder="관리자 비밀번호"
               value={adminPassword}
-              onChange={(e) => onPasswordChange(e.target.value)}
+              placeholder="관리자 비밀번호"
+              onChange={(event) => onPasswordChange(event.target.value)}
               onKeyDown={(event) => onPasswordKeyDown(event.key)}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3"
             />
             {adminAuthError ? <p className="text-sm text-red-400">{adminAuthError}</p> : null}
             <button
               onClick={onLogin}
               disabled={isAdminAuthSubmitting}
-              className={`w-full px-4 py-3 rounded-xl text-sm font-bold text-black ${isAdminAuthSubmitting ? 'bg-gray-600 text-gray-300 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}
+              className={`w-full rounded-xl px-4 py-3 text-sm font-bold text-black ${
+                isAdminAuthSubmitting ? 'bg-gray-600 text-gray-300' : 'bg-orange-500 hover:bg-orange-400'
+              }`}
             >
               {isAdminAuthSubmitting ? '로그인 중...' : '로그인'}
             </button>
@@ -205,34 +221,32 @@ export const AdminPage = ({
         ) : null}
 
         {!isAdminCheckingSession && isAdminAuthenticated ? (
-          <div className="space-y-4">
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <>
+            <section className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-white">브랜드 표준화 규칙</h2>
-                  <p className="text-sm text-gray-400">
-                    저장하면 새 상품 추출과 기존 상품 수정에 바로 적용됩니다.
-                  </p>
+                  <h2 className="text-lg font-bold">브랜드 표준화 규칙</h2>
+                  <p className="text-sm text-gray-400">추출 브랜드명과 기존 상품 브랜드명을 한 이름으로 맞춥니다.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={onBrandRulesBackfill}
                     disabled={isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium ${isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'text-orange-200 hover:bg-orange-900/30 border border-orange-500/40'}`}
+                    className="rounded-lg border border-orange-500/40 px-4 py-2 text-sm text-orange-200 hover:bg-orange-900/30 disabled:cursor-not-allowed disabled:border-gray-800 disabled:bg-gray-800 disabled:text-gray-500"
                   >
-                    {isBrandBackfillRunning ? '일괄 적용 중...' : '기존 상품 일괄 적용'}
+                    {isBrandBackfillRunning ? '적용 중...' : '기존 상품 일괄 적용'}
                   </button>
                   <button
                     onClick={onBrandRulesReload}
                     disabled={isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium ${isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'text-gray-200 hover:bg-gray-800'}`}
+                    className="rounded-lg px-3 py-2 text-sm hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-500"
                   >
                     새로고침
                   </button>
                   <button
                     onClick={onBrandRulesSave}
                     disabled={isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold text-black ${isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}
+                    className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-black hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
                   >
                     {isBrandRulesSaving ? '저장 중...' : '규칙 저장'}
                   </button>
@@ -241,7 +255,7 @@ export const AdminPage = ({
 
               <div className="overflow-x-auto rounded-xl border border-gray-800">
                 <table className="w-full min-w-[760px] text-sm">
-                  <thead className="bg-gray-950/60 border-b border-gray-800 text-gray-300">
+                  <thead className="border-b border-gray-800 bg-gray-950/60 text-gray-300">
                     <tr>
                       <th className="px-3 py-3 text-left">매칭 타입</th>
                       <th className="px-3 py-3 text-left">매칭 값</th>
@@ -250,281 +264,149 @@ export const AdminPage = ({
                     </tr>
                   </thead>
                   <tbody>
+                    {brandRules.length === 0 ? (
+                      <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-500">등록된 규칙이 없습니다.</td></tr>
+                    ) : null}
                     {brandRules.map((rule, index) => (
                       <tr key={`${rule.matchType}-${index}`} className="border-b border-gray-800">
                         <td className="px-3 py-3">
                           <select
-                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
                             value={rule.matchType}
-                            onChange={(e) =>
-                              onBrandRulesChange((prev) =>
-                                prev.map((item, itemIndex) =>
-                                  itemIndex === index
-                                    ? { ...item, matchType: e.target.value as BrandRule['matchType'] }
-                                    : item
-                                )
-                              )
-                            }
+                            onChange={(event) => onBrandRulesChange((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, matchType: event.target.value as BrandRule['matchType'] } : item))}
+                            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2"
                           >
-                            {brandRuleTypes.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
+                            <option value="domain">domain</option>
+                            <option value="url">url</option>
+                            <option value="brand">brand</option>
+                            <option value="brand_contains">brand_contains</option>
                           </select>
                         </td>
                         <td className="px-3 py-3">
                           <input
-                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
                             value={rule.matchValue}
-                            onChange={(e) =>
-                              onBrandRulesChange((prev) =>
-                                prev.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, matchValue: e.target.value } : item
-                                )
-                              )
-                            }
-                            placeholder="afterpray.com / after pray / afterpray"
+                            onChange={(event) => onBrandRulesChange((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, matchValue: event.target.value } : item))}
+                            placeholder="afterpray.com / after pray"
+                            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2"
                           />
                         </td>
                         <td className="px-3 py-3">
                           <input
-                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
                             value={rule.canonicalBrand}
-                            onChange={(e) =>
-                              onBrandRulesChange((prev) =>
-                                prev.map((item, itemIndex) =>
-                                  itemIndex === index
-                                    ? { ...item, canonicalBrand: e.target.value }
-                                    : item
-                                )
-                              )
-                            }
+                            onChange={(event) => onBrandRulesChange((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, canonicalBrand: event.target.value } : item))}
                             placeholder="애프터프레이(afterpray)"
+                            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2"
                           />
                         </td>
                         <td className="px-3 py-3">
-                          <button
-                            onClick={() =>
-                              onBrandRulesChange((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-                            }
-                            className="px-3 py-2 rounded-lg text-sm text-red-300 hover:bg-red-900/30"
-                          >
-                            삭제
-                          </button>
+                          <button onClick={() => onBrandRulesChange((prev) => prev.filter((_, itemIndex) => itemIndex !== index))} className="rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-red-900/30">삭제</button>
                         </td>
                       </tr>
                     ))}
-                    {brandRules.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-3 py-6 text-center text-gray-500">
-                          등록된 브랜드 규칙이 없습니다.
-                        </td>
-                      </tr>
-                    ) : null}
                   </tbody>
                 </table>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="text-xs text-gray-500">
-                  `domain`: 도메인 기준, `brand`: 추출 브랜드명 정확히 일치, `brand_contains`: 부분 일치, `url`: URL 포함 문자열
-                </div>
+              <div className="flex flex-col gap-3 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+                <div>`domain`은 도메인, `brand`는 정확히 일치, `brand_contains`는 부분 일치, `url`은 URL 포함 문자열 기준입니다.</div>
                 <button
-                  onClick={() =>
-                    onBrandRulesChange((prev) => [
-                      ...prev,
-                      { matchType: 'domain', matchValue: '', canonicalBrand: '' },
-                    ])
-                  }
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-800"
+                  onClick={() => onBrandRulesChange((prev) => [...prev, { matchType: 'domain', matchValue: '', canonicalBrand: '' }])}
+                  className="rounded-lg px-4 py-2 text-sm text-gray-200 hover:bg-gray-800"
                 >
                   규칙 추가
                 </button>
               </div>
+
               {brandBackfillResult ? (
-                <div className="rounded-xl border border-gray-800 bg-black/30 p-4 space-y-3">
-                  <div className="flex flex-wrap gap-3 text-sm">
+                <div className="rounded-xl border border-gray-800 bg-black/30 p-4 text-sm">
+                  <div className="flex flex-wrap gap-3">
                     <span className="text-green-400">업데이트: {brandBackfillResult.updatedCount}</span>
                     <span className="text-gray-400">유지: {brandBackfillResult.skippedCount}</span>
                     <span className="text-red-400">실패: {brandBackfillResult.failedCount}</span>
                   </div>
                   {brandBackfillResult.changes.length > 0 ? (
-                    <div className="max-h-64 overflow-auto rounded-lg border border-gray-800">
+                    <div className="mt-3 max-h-64 overflow-auto rounded-lg border border-gray-800">
                       <table className="w-full text-xs">
-                        <thead className="bg-gray-950/70 text-gray-400">
-                          <tr>
-                            <th className="px-3 py-2 text-left">상품</th>
-                            <th className="px-3 py-2 text-left">이전 브랜드</th>
-                            <th className="px-3 py-2 text-left">변경 브랜드</th>
-                            <th className="px-3 py-2 text-left">상태</th>
-                          </tr>
-                        </thead>
+                        <thead className="bg-gray-950/70 text-gray-400"><tr><th className="px-3 py-2 text-left">상품</th><th className="px-3 py-2 text-left">기존 브랜드</th><th className="px-3 py-2 text-left">표준 브랜드</th><th className="px-3 py-2 text-left">결과</th></tr></thead>
                         <tbody>
                           {brandBackfillResult.changes.slice(0, 50).map((change) => (
                             <tr key={change.id} className="border-t border-gray-800">
-                              <td className="px-3 py-2 text-gray-200">{change.name || change.id}</td>
+                              <td className="px-3 py-2">{change.name || change.id}</td>
                               <td className="px-3 py-2 text-gray-400">{change.previousBrand}</td>
-                              <td className="px-3 py-2 text-white">{change.canonicalBrand}</td>
-                              <td className={`px-3 py-2 ${change.updated ? 'text-green-400' : 'text-red-400'}`}>
-                                {change.updated ? '완료' : change.error || '실패'}
-                              </td>
+                              <td className="px-3 py-2">{change.canonicalBrand}</td>
+                              <td className={`px-3 py-2 ${change.updated ? 'text-green-400' : 'text-red-400'}`}>{change.updated ? '적용됨' : change.error || '실패'}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
-                  ) : (
-                    <div className="text-xs text-gray-500">변경된 기존 상품이 없습니다.</div>
-                  )}
+                  ) : <div className="mt-3 text-xs text-gray-500">변경된 상품이 없습니다.</div>}
                 </div>
               ) : null}
-            </div>
+            </section>
 
-            {productsError ? (
-              <div className="bg-orange-900/40 border border-orange-500 text-orange-200 px-4 py-3 rounded-xl">
-                {productsError}
-              </div>
-            ) : null}
-            {adminActionError ? (
-              <div className="bg-red-900/40 border border-red-500 text-red-200 px-4 py-3 rounded-xl">
-                {adminActionError}
-              </div>
-            ) : null}
+            {productsError ? <div className="rounded-xl border border-orange-500 bg-orange-900/40 px-4 py-3 text-orange-200">{productsError}</div> : null}
+            {adminActionError ? <div className="rounded-xl border border-red-500 bg-red-900/40 px-4 py-3 text-red-200">{adminActionError}</div> : null}
 
-            {allProducts.length === 0 ? (
-              <div className="text-center py-16 text-gray-500">등록된 상품이 없습니다.</div>
-            ) : (
-              <div className="space-y-3">
-                {allProducts.map((product) => (
-                  <div key={product.id} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                      <div className="w-20 h-20 bg-white rounded-xl p-2 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
-                        <ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-w-full max-h-full object-contain" onError={onImageLoadError} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {editingProductId === product.id ? (
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.brand} onChange={(e) => onEditFormChange((prev) => ({ ...prev, brand: e.target.value }))} placeholder="브랜드명" />
-                              <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.name} onChange={(e) => onEditFormChange((prev) => ({ ...prev, name: e.target.value }))} placeholder="상품명" />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <select
-                                className={`w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg ${adminEditForm.category ? 'text-white' : 'text-gray-400'}`}
-                                value={adminEditForm.category}
-                                onChange={(e) => onEditFormChange((prev) => ({ ...prev, category: e.target.value }))}
-                              >
-                                <option value="">카테고리</option>
-                                {CATEGORY_OPTIONS.map((category) => (
-                                  <option key={category} value={category}>{category}</option>
-                                ))}
-                              </select>
-                              <input className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg" value={adminEditForm.url} onChange={(e) => onEditFormChange((prev) => ({ ...prev, url: e.target.value }))} placeholder="공식 URL (선택)" />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="space-y-2">
-                                <p className="text-xs text-gray-400">상품 이미지 교체</p>
-                                <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-                                  {adminImagePreview ? <img src={adminImagePreview} className="h-full object-contain" /> : <Upload className="w-6 h-6 text-gray-500" />}
-                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => onFileUpload(e, 'product')} />
-                                </label>
-                              </div>
-                              <div className="space-y-2">
-                                <p className="text-xs text-gray-400">사이즈표 이미지 재분석</p>
-                                <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-                                  {adminSizeChartImage ? <img src={adminSizeChartImage} className="h-full object-contain" /> : <Upload className="w-6 h-6 text-gray-500" />}
-                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => onFileUpload(e, 'chart')} />
-                                </label>
-                              </div>
-                            </div>
-                            {isAdminAnalyzingTable ? <div className="text-xs text-orange-400">사이즈표 재분석 중...</div> : null}
-                            <div className="overflow-x-auto rounded-lg border border-gray-700">
-                              {adminExtractedTable?.headers?.length ? (
-                                <table className="w-full text-xs text-left">
-                                  <thead className="border-b border-gray-700">
-                                    <tr>
-                                      {adminExtractedTable.headers.map((header, colIdx) => (
-                                        <th
-                                          key={colIdx}
-                                          onClick={() => setTableEditingCell({ kind: 'header', colIdx })}
-                                          className={`px-3 py-2 font-semibold whitespace-nowrap cursor-pointer hover:bg-gray-800 transition ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${colIdx === 0 ? 'border-r border-gray-700' : ''}`}
-                                        >
-                                          {tableEditingCell?.kind === 'header' && tableEditingCell.colIdx === colIdx ? (
-                                            <input
-                                              autoFocus
-                                              defaultValue={header}
-                                              onBlur={(e) => commitTableCell(e.target.value)}
-                                              onKeyDown={(e) => {
-                                                if (e.key === 'Enter') commitTableCell((e.target as HTMLInputElement).value);
-                                                if (e.key === 'Escape') setTableEditingCell(null);
-                                              }}
-                                              onClick={(e) => e.stopPropagation()}
-                                              className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
-                                            />
-                                          ) : header}
-                                        </th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {adminExtractedTable.rows.map((row, rowIdx) => (
-                                      <tr key={rowIdx} className="border-b border-gray-800">
-                                        {row.map((cell, colIdx) => (
-                                          <td
-                                            key={colIdx}
-                                            onClick={() => setTableEditingCell({ kind: 'row', rowIdx, colIdx })}
-                                            className={`px-3 py-2 whitespace-nowrap cursor-pointer hover:bg-gray-800 transition ${colIdx === 0 ? 'text-gray-200 border-r border-gray-700' : 'text-gray-400'}`}
-                                          >
-                                            {tableEditingCell?.kind === 'row' && tableEditingCell.rowIdx === rowIdx && tableEditingCell.colIdx === colIdx ? (
-                                              <input
-                                                autoFocus
-                                                defaultValue={cell}
-                                                onBlur={(e) => commitTableCell(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Enter') commitTableCell((e.target as HTMLInputElement).value);
-                                                  if (e.key === 'Escape') setTableEditingCell(null);
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
-                                              />
-                                            ) : cell}
-                                          </td>
-                                        ))}
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              ) : (
-                                <div className="px-3 py-4 text-xs text-gray-500">사이즈표 데이터가 없습니다.</div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button onClick={() => onUpdateProduct(product.id)} disabled={isAdminActionLoading || isAdminAnalyzingTable} className={`px-4 py-2 rounded-lg text-sm font-bold text-black ${(isAdminActionLoading || isAdminAnalyzingTable) ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}>저장</button>
-                              <button onClick={onCancelEdit} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800">취소</button>
-                            </div>
+            {allProducts.length === 0 ? <div className="py-16 text-center text-gray-500">등록된 상품이 없습니다.</div> : null}
+            <div className="space-y-3">
+              {allProducts.map((product) => (
+                <div key={product.id} className="rounded-2xl border border-gray-800 bg-gray-900 p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-700 bg-white p-2">
+                      <ProgressiveImage src={product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="max-h-full max-w-full object-contain" onError={onImageLoadError} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {editingProductId === product.id ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <input value={adminEditForm.brand} onChange={(event) => onEditFormChange((prev) => ({ ...prev, brand: event.target.value }))} placeholder="브랜드명" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2" />
+                            <input value={adminEditForm.name} onChange={(event) => onEditFormChange((prev) => ({ ...prev, name: event.target.value }))} placeholder="상품명" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2" />
                           </div>
-                        ) : (
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                            <div>
-                              <p className="text-xs font-bold text-orange-500 uppercase tracking-wide">{product.brand}</p>
-                              <p className="text-base font-semibold text-white">{product.name}</p>
-                              <p className="text-sm text-gray-400 mt-1">{product.category}</p>
-                              <p className="text-sm text-gray-500 mt-1 break-all">{product.url && product.url !== '#' ? product.url : 'URL 없음'}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button onClick={() => onStartEdit(product)} className="px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-800">수정</button>
-                              <button onClick={() => onDeleteProduct(product.id)} disabled={isAdminActionLoading} className={`px-3 py-2 rounded-lg text-sm font-medium ${isAdminActionLoading ? 'text-gray-500 bg-gray-800 cursor-not-allowed' : 'text-red-300 hover:bg-red-900/30'}`}>삭제</button>
-                            </div>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <select value={adminEditForm.category} onChange={(event) => onEditFormChange((prev) => ({ ...prev, category: event.target.value }))} className={`w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 ${adminEditForm.category ? 'text-white' : 'text-gray-400'}`}>
+                              <option value="">카테고리 선택</option>
+                              {CATEGORY_OPTIONS.map((category) => <option key={category} value={category}>{category}</option>)}
+                            </select>
+                            <input value={adminEditForm.url} onChange={(event) => onEditFormChange((prev) => ({ ...prev, url: event.target.value }))} placeholder="상품 URL (선택)" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2" />
                           </div>
-                        )}
-                      </div>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <label className="space-y-2"><p className="text-xs text-gray-400">상품 이미지 교체</p><div className="flex h-28 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-700 bg-gray-800">{adminImagePreview ? <img src={adminImagePreview} alt="" className="h-full object-contain" /> : <Upload className="h-6 w-6 text-gray-500" />}<input type="file" className="hidden" accept="image/*" onChange={(event) => onFileUpload(event, 'product')} /></div></label>
+                            <label className="space-y-2"><p className="text-xs text-gray-400">사이즈표 이미지 분석</p><div className="flex h-28 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-700 bg-gray-800">{adminSizeChartImage ? <img src={adminSizeChartImage} alt="" className="h-full object-contain" /> : <Upload className="h-6 w-6 text-gray-500" />}<input type="file" className="hidden" accept="image/*" onChange={(event) => onFileUpload(event, 'chart')} /></div></label>
+                          </div>
+                          {isAdminAnalyzingTable ? <div className="text-xs text-orange-400">사이즈표를 분석하는 중입니다...</div> : null}
+                          <div className="overflow-x-auto rounded-lg border border-gray-700">
+                            {adminExtractedTable?.headers?.length ? (
+                              <table className="w-full text-left text-xs">
+                                <thead className="border-b border-gray-700"><tr>{adminExtractedTable.headers.map((header, colIdx) => <th key={colIdx} onClick={() => setEditingCell({ kind: 'header', col: colIdx })} className={`cursor-pointer whitespace-nowrap px-3 py-2 font-semibold hover:bg-gray-800 ${String(header).trim() === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${colIdx === 0 ? 'border-r border-gray-700' : ''}`}>{renderTableCell(header, 0, colIdx, true)}</th>)}</tr></thead>
+                                <tbody>{adminExtractedTable.rows.map((row, rowIdx) => <tr key={rowIdx} className="border-b border-gray-800">{row.map((cell, colIdx) => <td key={colIdx} onClick={() => setEditingCell({ kind: 'row', row: rowIdx, col: colIdx })} className={`cursor-pointer whitespace-nowrap px-3 py-2 hover:bg-gray-800 ${colIdx === 0 ? 'border-r border-gray-700 text-gray-200' : 'text-gray-400'}`}>{renderTableCell(cell, rowIdx, colIdx)}</td>)}</tr>)}</tbody>
+                              </table>
+                            ) : <div className="px-3 py-4 text-xs text-gray-500">추출된 사이즈표가 없습니다.</div>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => onUpdateProduct(product.id)} disabled={isAdminActionLoading || isAdminAnalyzingTable} className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-black hover:bg-orange-400 disabled:bg-gray-700 disabled:text-gray-400">저장</button>
+                            <button onClick={onCancelEdit} className="rounded-lg px-4 py-2 text-sm text-gray-300 hover:bg-gray-800">취소</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</p>
+                            <p className="text-base font-semibold">{product.name}</p>
+                            <p className="mt-1 text-sm text-gray-400">{product.category}</p>
+                            <p className="mt-1 break-all text-sm text-gray-500">{product.url && product.url !== '#' ? product.url : 'URL 없음'}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => onStartEdit(product)} className="rounded-lg px-3 py-2 text-sm text-gray-200 hover:bg-gray-800">수정</button>
+                            <button onClick={() => onDeleteProduct(product.id)} disabled={isAdminActionLoading} className="rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-red-900/30 disabled:bg-gray-800 disabled:text-gray-500">삭제</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          </>
         ) : null}
       </main>
     </div>

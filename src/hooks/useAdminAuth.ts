@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import type { AdminEditForm, BrandBackfillResult, BrandRule, Product, SizeTable } from '../types';
-import {
-  readFileAsDataUrl,
-  resizeImage,
-} from '../utils/image';
+import { readFileAsDataUrl, resizeImage } from '../utils/image';
 import {
   backfillBrandRules,
-  fetchBrandRules,
-  uploadSubmissionImage,
   extractSizeTableFromImage,
+  fetchBrandRules,
   saveBrandRules,
+  uploadSubmissionImage,
 } from '../api';
 
 interface UseAdminAuthOptions {
@@ -19,7 +16,11 @@ interface UseAdminAuthOptions {
   onProductDeleted: (id: string) => void;
 }
 
-export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }: UseAdminAuthOptions) {
+export function useAdminAuth({
+  isAdminPage,
+  onProductMutated,
+  onProductDeleted,
+}: UseAdminAuthOptions) {
   const [isAdminCheckingSession, setIsAdminCheckingSession] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
@@ -34,13 +35,14 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
     url: '',
   });
   const [adminImagePath, setAdminImagePath] = useState<string | null>(null);
-  const [adminImagePreview, setAdminImagePreview] = useState<string>('');
+  const [adminImagePreview, setAdminImagePreview] = useState('');
   const [adminProductPhotoFile, setAdminProductPhotoFile] = useState<File | null>(null);
   const [adminSizeChartImage, setAdminSizeChartImage] = useState<string | null>(null);
   const [adminExtractedTable, setAdminExtractedTable] = useState<SizeTable | null>(null);
   const [isAdminAnalyzingTable, setIsAdminAnalyzingTable] = useState(false);
   const [adminActionError, setAdminActionError] = useState<string | null>(null);
   const [isAdminActionLoading, setIsAdminActionLoading] = useState(false);
+
   const [brandRules, setBrandRules] = useState<BrandRule[]>([]);
   const [isBrandRulesLoading, setIsBrandRulesLoading] = useState(false);
   const [isBrandRulesSaving, setIsBrandRulesSaving] = useState(false);
@@ -65,22 +67,27 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
 
     let isActive = true;
     setIsAdminCheckingSession(true);
+
     void (async () => {
       try {
         const response = await fetch('/api/admin/session', { credentials: 'include' });
         const payload = await response.json();
         if (!response.ok || !payload?.ok) {
-          throw new Error(payload?.error || '관리자 세션 확인 실패');
+          throw new Error(payload?.error || '관리자 세션 확인에 실패했습니다.');
         }
+
         if (!isActive) return;
-      setIsAdminAuthenticated(Boolean(payload?.data?.authenticated));
-      setAdminAuthError(null);
-      if (Boolean(payload?.data?.authenticated)) {
-        await loadBrandRules();
-      }
+        const authenticated = Boolean(payload?.data?.authenticated);
+        setIsAdminAuthenticated(authenticated);
+        setAdminAuthError(null);
+
+        if (authenticated) {
+          await loadBrandRules();
+        }
       } catch (sessionError: unknown) {
         if (!isActive) return;
-        const message = sessionError instanceof Error ? sessionError.message : '관리자 세션 확인 실패';
+        const message =
+          sessionError instanceof Error ? sessionError.message : '관리자 세션 확인에 실패했습니다.';
         setAdminAuthError(message);
         setIsAdminAuthenticated(false);
       } finally {
@@ -95,7 +102,7 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
 
   const handleAdminLogin = async () => {
     if (!adminPassword.trim()) {
-      setAdminAuthError('관리자 비밀번호를 입력하세요.');
+      setAdminAuthError('관리자 비밀번호를 입력해 주세요.');
       return;
     }
 
@@ -109,14 +116,16 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
       });
       const payload = await response.json();
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || '관리자 로그인 실패');
+        throw new Error(payload?.error || '관리자 로그인에 실패했습니다.');
       }
+
       setIsAdminAuthenticated(true);
       setAdminPassword('');
       setAdminAuthError(null);
       await loadBrandRules();
     } catch (loginError: unknown) {
-      const message = loginError instanceof Error ? loginError.message : '관리자 로그인 실패';
+      const message =
+        loginError instanceof Error ? loginError.message : '관리자 로그인에 실패했습니다.';
       setAdminAuthError(message);
       setIsAdminAuthenticated(false);
     } finally {
@@ -144,7 +153,7 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
       brand: product.brand,
       name: product.name,
       category: product.category === 'Uncategorized' ? '' : product.category,
-      url: product.url === '#' ? '' : product.url,
+      url: product.url,
     });
     setAdminImagePath(product.imagePath ?? null);
     setAdminImagePreview(product.image);
@@ -154,7 +163,10 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
     setAdminActionError(null);
   };
 
-  const handleAdminFileUpload = (event: ChangeEvent<HTMLInputElement>, type: 'product' | 'chart') => {
+  const handleAdminFileUpload = (
+    event: ChangeEvent<HTMLInputElement>,
+    type: 'product' | 'chart'
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -177,8 +189,9 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
         const tableData = await extractSizeTableFromImage(optimizedBase64, 'image/png');
         setAdminExtractedTable(tableData);
       } catch (extractError: unknown) {
-        const message = extractError instanceof Error ? extractError.message : 'Size table extraction failed.';
-        setAdminActionError(`사이즈표 재분석 실패: ${message}`);
+        const message =
+          extractError instanceof Error ? extractError.message : 'Size table extraction failed.';
+        setAdminActionError(`사이즈표 추출에 실패했습니다: ${message}`);
       } finally {
         setIsAdminAnalyzingTable(false);
       }
@@ -214,15 +227,17 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
       });
       const payload = await response.json();
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || '상품 수정 실패');
+        throw new Error(payload?.error || '상품 수정에 실패했습니다.');
       }
+
       setEditingProductId(null);
       setAdminProductPhotoFile(null);
       setAdminSizeChartImage(null);
       onProductMutated();
       setAdminActionError(null);
     } catch (updateError: unknown) {
-      const message = updateError instanceof Error ? updateError.message : '상품 수정 실패';
+      const message =
+        updateError instanceof Error ? updateError.message : '상품 수정에 실패했습니다.';
       setAdminActionError(message);
     } finally {
       setIsAdminActionLoading(false);
@@ -240,13 +255,15 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
       });
       const payload = await response.json();
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || '상품 삭제 실패');
+        throw new Error(payload?.error || '상품 삭제에 실패했습니다.');
       }
+
       onProductDeleted(id);
       onProductMutated();
       setAdminActionError(null);
     } catch (deleteError: unknown) {
-      const message = deleteError instanceof Error ? deleteError.message : '상품 삭제 실패';
+      const message =
+        deleteError instanceof Error ? deleteError.message : '상품 삭제에 실패했습니다.';
       setAdminActionError(message);
     } finally {
       setIsAdminActionLoading(false);
@@ -272,7 +289,9 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
         (rule) => !rule.matchType || !rule.matchValue || !rule.canonicalBrand
       )
     ) {
-      setAdminActionError('브랜드 규칙의 모든 행에 매칭 타입, 매칭 값, 표준 브랜드명을 입력하세요.');
+      setAdminActionError(
+        '브랜드 규칙의 모든 행에 매칭 타입, 매칭 값, 표준 브랜드명을 입력해 주세요.'
+      );
       return;
     }
 
@@ -297,7 +316,8 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
       setAdminActionError(null);
       onProductMutated();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '기존 상품 브랜드 일괄 적용에 실패했습니다.';
+      const message =
+        error instanceof Error ? error.message : '기존 상품 브랜드 일괄 적용에 실패했습니다.';
       setAdminActionError(message);
     } finally {
       setIsBrandBackfillRunning(false);

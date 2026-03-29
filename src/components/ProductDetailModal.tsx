@@ -82,14 +82,18 @@ export function ProductDetailModal({
                 <span className="text-gray-500">{product.category}</span>
               </div>
               <h4 className="text-2xl font-bold text-white mb-2">{product.name}</h4>
-              <a
-                href={product.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center text-sm text-gray-300 transition-colors hover:text-orange-400"
-              >
-                공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" />
-              </a>
+              {product.url ? (
+                <a
+                  href={product.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-sm text-gray-300 transition-colors hover:text-orange-400"
+                >
+                  공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" />
+                </a>
+              ) : (
+                <span className="text-sm text-gray-600">URL 없음</span>
+              )}
             </div>
           </div>
 
