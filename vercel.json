@@ -1,8 +1,0 @@
-{
-  "functions": {
-    "app/api/product-metadata/route.ts": { "maxDuration": 60 },
-    "app/api/product-metadata-from-image/route.ts": { "maxDuration": 60 },
-    "app/api/size-table/route.ts": { "maxDuration": 60 },
-    "app/api/remove-bg/route.ts": { "maxDuration": 60 }
-  }
-}
