@@ -13,7 +13,6 @@ import {
   X,
 } from 'lucide-react';
 import { AddProductModal } from './components/AddProductModal';
-import { AdminPage } from './components/AdminPage';
 import { GoogleSignupCompleteModal } from './components/GoogleSignupCompleteModal';
 import { GridView } from './components/GridView';
 import { NeedsUsernameModal } from './components/NeedsUsernameModal';
@@ -21,7 +20,6 @@ import { LoginPage } from './components/LoginPage';
 import { ProgressiveImage } from './components/ProgressiveImage';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { SizeConverterView } from './components/SizeConverterView';
-import { useAdminAuth } from './hooks/useAdminAuth';
 import { useAuth } from './hooks/useAuth';
 import { useProductForm } from './hooks/useProductForm';
 import type {
@@ -47,16 +45,13 @@ import {
   normalizeComparableProductUrl,
   generateFallbackResult,
 } from './utils/product';
-import { searchProducts } from './api';
+import { useProducts } from './hooks/useProducts';
 
 
 
 
 export default function App() {
-  const isAdminPage = typeof window !== 'undefined' && window.location.pathname === '/admin';
-  const [productsError, setProductsError] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [retryTrigger, setRetryTrigger] = useState(0);
+  const { productsError, products, setProductsError, setRetryTrigger } = useProducts();
   const [gridCategoryFilter, setGridCategoryFilter] = useState<string>('');
   const [gridSearchQuery, setGridSearchQuery] = useState('');
 
@@ -73,11 +68,6 @@ export default function App() {
   const [sizeRegion, setSizeRegion] = useState<SizeRegionKey>('us');
   const [sizeValue, setSizeValue] = useState('S');
   const [selectedGridProduct, setSelectedGridProduct] = useState<Product | null>(null);
-  const admin = useAdminAuth({
-    isAdminPage,
-    onProductMutated: () => setRetryTrigger((prev) => prev + 1),
-    onProductDeleted: (id) => { if (selectedGridProduct?.id === id) setSelectedGridProduct(null); },
-  });
 
   const [activeResultRowIndex, setActiveResultRowIndex] = useState<number | null>(null);
   const [activeConverterRowIndex, setActiveConverterRowIndex] = useState<number | null>(null);
@@ -183,25 +173,6 @@ export default function App() {
     },
   });
 
-  useEffect(() => {
-    let isActive = true;
-    const load = async () => {
-      try {
-        const loaded = await searchProducts('');
-        if (!isActive) return;
-        setProducts(loaded);
-        setProductsError(null);
-      } catch (loadError: unknown) {
-        if (!isActive) return;
-        const message = loadError instanceof Error ? loadError.message : '상품 데이터를 불러오는 중 오류가 발생했습니다.';
-        setProductsError(message);
-      }
-    };
-    void load();
-    return () => {
-      isActive = false;
-    };
-  }, [retryTrigger]);
 
   useEffect(() => {
     if (isSelectionRef.current) {
@@ -311,40 +282,6 @@ export default function App() {
     event.currentTarget.onerror = null;
     event.currentTarget.style.display = 'none';
   };
-
-  if (isAdminPage) {
-    return (
-      <AdminPage
-        isAdminAuthenticated={admin.isAdminAuthenticated}
-        isAdminCheckingSession={admin.isAdminCheckingSession}
-        adminPassword={admin.adminPassword}
-        adminAuthError={admin.adminAuthError}
-        isAdminAuthSubmitting={admin.isAdminAuthSubmitting}
-        productsError={productsError}
-        adminActionError={admin.adminActionError}
-        allProducts={allProducts}
-        editingProductId={admin.editingProductId}
-        adminEditForm={admin.adminEditForm}
-        adminImagePreview={admin.adminImagePreview}
-        adminSizeChartImage={admin.adminSizeChartImage}
-        isAdminAnalyzingTable={admin.isAdminAnalyzingTable}
-        adminExtractedTable={admin.adminExtractedTable}
-        isAdminActionLoading={admin.isAdminActionLoading}
-        onLogout={() => void admin.handleAdminLogout()}
-        onLogin={() => void admin.handleAdminLogin()}
-        onPasswordChange={admin.setAdminPassword}
-        onPasswordKeyDown={(key) => { if (key === 'Enter') void admin.handleAdminLogin(); }}
-        onFileUpload={admin.handleAdminFileUpload}
-        onUpdateProduct={(id) => void admin.handleAdminUpdateProduct(id)}
-        onDeleteProduct={(id) => void admin.handleAdminDeleteProduct(id)}
-        onStartEdit={admin.startProductEdit}
-        onCancelEdit={admin.cancelEdit}
-        onEditFormChange={admin.setAdminEditForm}
-        onExtractedTableChange={admin.setAdminExtractedTable}
-        onImageLoadError={handleImageLoadError}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-orange-500 selection:text-white">

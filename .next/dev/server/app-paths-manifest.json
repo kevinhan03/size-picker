@@ -1,0 +1,10 @@
+{
+  "/admin/page": "app/admin/page.js",
+  "/api/admin/brand-rules/backfill/route": "app/api/admin/brand-rules/backfill/route.js",
+  "/api/admin/brand-rules/route": "app/api/admin/brand-rules/route.js",
+  "/api/admin/login/route": "app/api/admin/login/route.js",
+  "/api/admin/session/route": "app/api/admin/session/route.js",
+  "/api/product-metadata/route": "app/api/product-metadata/route.js",
+  "/api/size-table/route": "app/api/size-table/route.js",
+  "/page": "app/page.js"
+}

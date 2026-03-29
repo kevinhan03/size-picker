@@ -1,0 +1,18 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/admin/page": "/admin",
+  "/api/admin/brand-rules/backfill/route": "/api/admin/brand-rules/backfill",
+  "/api/admin/brand-rules/route": "/api/admin/brand-rules",
+  "/api/admin/login/route": "/api/admin/login",
+  "/api/admin/logout/route": "/api/admin/logout",
+  "/api/admin/products/[id]/route": "/api/admin/products/[id]",
+  "/api/admin/session/route": "/api/admin/session",
+  "/api/auth/cleanup-unregistered/route": "/api/auth/cleanup-unregistered",
+  "/api/product-metadata-from-image/route": "/api/product-metadata-from-image",
+  "/api/product-metadata/route": "/api/product-metadata",
+  "/api/products/route": "/api/products",
+  "/api/remove-bg/route": "/api/remove-bg",
+  "/api/size-table/route": "/api/size-table",
+  "/page": "/"
+}

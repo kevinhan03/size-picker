@@ -26,6 +26,29 @@ interface AdminEditForm {
   url: string;
 }
 
+interface BrandRule {
+  matchType: 'domain' | 'url' | 'brand' | 'brand_contains';
+  matchValue: string;
+  canonicalBrand: string;
+}
+
+interface BrandBackfillChange {
+  id: string;
+  name: string;
+  url: string;
+  previousBrand: string;
+  canonicalBrand: string;
+  updated: boolean;
+  error: string;
+}
+
+interface BrandBackfillResult {
+  updatedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  changes: BrandBackfillChange[];
+}
+
 interface AdminPageProps {
   isAdminAuthenticated: boolean;
   isAdminCheckingSession: boolean;
@@ -42,8 +65,17 @@ interface AdminPageProps {
   isAdminAnalyzingTable: boolean;
   adminExtractedTable: SizeTable | null;
   isAdminActionLoading: boolean;
+  brandRules: BrandRule[];
+  isBrandRulesLoading: boolean;
+  isBrandRulesSaving: boolean;
+  isBrandBackfillRunning: boolean;
+  brandBackfillResult: BrandBackfillResult | null;
   onLogout: () => void;
   onLogin: () => void;
+  onBrandRulesReload: () => void;
+  onBrandRulesSave: () => void;
+  onBrandRulesBackfill: () => void;
+  onBrandRulesChange: (updater: (prev: BrandRule[]) => BrandRule[]) => void;
   onPasswordChange: (value: string) => void;
   onPasswordKeyDown: (key: string) => void;
   onFileUpload: (event: ChangeEvent<HTMLInputElement>, type: 'product' | 'chart') => void;
@@ -76,8 +108,17 @@ export const AdminPage = ({
   isAdminAnalyzingTable,
   adminExtractedTable,
   isAdminActionLoading,
+  brandRules,
+  isBrandRulesLoading,
+  isBrandRulesSaving,
+  isBrandBackfillRunning,
+  brandBackfillResult,
   onLogout,
   onLogin,
+  onBrandRulesReload,
+  onBrandRulesSave,
+  onBrandRulesBackfill,
+  onBrandRulesChange,
   onPasswordChange,
   onPasswordKeyDown,
   onFileUpload,
@@ -89,6 +130,13 @@ export const AdminPage = ({
   onExtractedTableChange,
   onImageLoadError,
 }: AdminPageProps) => {
+  const brandRuleTypes: Array<{ value: BrandRule['matchType']; label: string }> = [
+    { value: 'domain', label: 'domain' },
+    { value: 'url', label: 'url' },
+    { value: 'brand', label: 'brand' },
+    { value: 'brand_contains', label: 'brand_contains' },
+  ];
+
   const [tableEditingCell, setTableEditingCell] = useState<
     { kind: 'header'; colIdx: number } | { kind: 'row'; rowIdx: number; colIdx: number } | null
   >(null);
@@ -158,6 +206,181 @@ export const AdminPage = ({
 
         {!isAdminCheckingSession && isAdminAuthenticated ? (
           <div className="space-y-4">
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white">브랜드 표준화 규칙</h2>
+                  <p className="text-sm text-gray-400">
+                    저장하면 새 상품 추출과 기존 상품 수정에 바로 적용됩니다.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onBrandRulesBackfill}
+                    disabled={isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium ${isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'text-orange-200 hover:bg-orange-900/30 border border-orange-500/40'}`}
+                  >
+                    {isBrandBackfillRunning ? '일괄 적용 중...' : '기존 상품 일괄 적용'}
+                  </button>
+                  <button
+                    onClick={onBrandRulesReload}
+                    disabled={isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium ${isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'text-gray-200 hover:bg-gray-800'}`}
+                  >
+                    새로고침
+                  </button>
+                  <button
+                    onClick={onBrandRulesSave}
+                    disabled={isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold text-black ${isBrandRulesLoading || isBrandRulesSaving || isBrandBackfillRunning ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-400'}`}
+                  >
+                    {isBrandRulesSaving ? '저장 중...' : '규칙 저장'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-gray-800">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead className="bg-gray-950/60 border-b border-gray-800 text-gray-300">
+                    <tr>
+                      <th className="px-3 py-3 text-left">매칭 타입</th>
+                      <th className="px-3 py-3 text-left">매칭 값</th>
+                      <th className="px-3 py-3 text-left">표준 브랜드명</th>
+                      <th className="px-3 py-3 text-left">동작</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {brandRules.map((rule, index) => (
+                      <tr key={`${rule.matchType}-${index}`} className="border-b border-gray-800">
+                        <td className="px-3 py-3">
+                          <select
+                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                            value={rule.matchType}
+                            onChange={(e) =>
+                              onBrandRulesChange((prev) =>
+                                prev.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, matchType: e.target.value as BrandRule['matchType'] }
+                                    : item
+                                )
+                              )
+                            }
+                          >
+                            {brandRuleTypes.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-3">
+                          <input
+                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                            value={rule.matchValue}
+                            onChange={(e) =>
+                              onBrandRulesChange((prev) =>
+                                prev.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, matchValue: e.target.value } : item
+                                )
+                              )
+                            }
+                            placeholder="afterpray.com / after pray / afterpray"
+                          />
+                        </td>
+                        <td className="px-3 py-3">
+                          <input
+                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                            value={rule.canonicalBrand}
+                            onChange={(e) =>
+                              onBrandRulesChange((prev) =>
+                                prev.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, canonicalBrand: e.target.value }
+                                    : item
+                                )
+                              )
+                            }
+                            placeholder="애프터프레이(afterpray)"
+                          />
+                        </td>
+                        <td className="px-3 py-3">
+                          <button
+                            onClick={() =>
+                              onBrandRulesChange((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+                            }
+                            className="px-3 py-2 rounded-lg text-sm text-red-300 hover:bg-red-900/30"
+                          >
+                            삭제
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {brandRules.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-6 text-center text-gray-500">
+                          등록된 브랜드 규칙이 없습니다.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="text-xs text-gray-500">
+                  `domain`: 도메인 기준, `brand`: 추출 브랜드명 정확히 일치, `brand_contains`: 부분 일치, `url`: URL 포함 문자열
+                </div>
+                <button
+                  onClick={() =>
+                    onBrandRulesChange((prev) => [
+                      ...prev,
+                      { matchType: 'domain', matchValue: '', canonicalBrand: '' },
+                    ])
+                  }
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-800"
+                >
+                  규칙 추가
+                </button>
+              </div>
+              {brandBackfillResult ? (
+                <div className="rounded-xl border border-gray-800 bg-black/30 p-4 space-y-3">
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    <span className="text-green-400">업데이트: {brandBackfillResult.updatedCount}</span>
+                    <span className="text-gray-400">유지: {brandBackfillResult.skippedCount}</span>
+                    <span className="text-red-400">실패: {brandBackfillResult.failedCount}</span>
+                  </div>
+                  {brandBackfillResult.changes.length > 0 ? (
+                    <div className="max-h-64 overflow-auto rounded-lg border border-gray-800">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-950/70 text-gray-400">
+                          <tr>
+                            <th className="px-3 py-2 text-left">상품</th>
+                            <th className="px-3 py-2 text-left">이전 브랜드</th>
+                            <th className="px-3 py-2 text-left">변경 브랜드</th>
+                            <th className="px-3 py-2 text-left">상태</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {brandBackfillResult.changes.slice(0, 50).map((change) => (
+                            <tr key={change.id} className="border-t border-gray-800">
+                              <td className="px-3 py-2 text-gray-200">{change.name || change.id}</td>
+                              <td className="px-3 py-2 text-gray-400">{change.previousBrand}</td>
+                              <td className="px-3 py-2 text-white">{change.canonicalBrand}</td>
+                              <td className={`px-3 py-2 ${change.updated ? 'text-green-400' : 'text-red-400'}`}>
+                                {change.updated ? '완료' : change.error || '실패'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500">변경된 기존 상품이 없습니다.</div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+
             {productsError ? (
               <div className="bg-orange-900/40 border border-orange-500 text-orange-200 px-4 py-3 rounded-xl">
                 {productsError}

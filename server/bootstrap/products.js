@@ -1,0 +1,31 @@
+import {
+  DUPLICATE_PRODUCT_ERROR_MESSAGE,
+  SUPABASE_PRODUCTS_TABLE,
+  SUBMISSIONS_STORAGE_PREFIX,
+  assertSupabaseConfig,
+  backfillProductBrands,
+  fetchProductsRows,
+  insertProductRow,
+  normalizeBrandName,
+  normalizeProductRow,
+  parseSizeTable,
+  removeOldProductImageIfUnused,
+  supabase,
+  toProductWriteErrorResponse,
+} from "../shared.js";
+
+export const createProductStack = () => ({
+  DUPLICATE_PRODUCT_ERROR_MESSAGE,
+  SUPABASE_PRODUCTS_TABLE,
+  SUBMISSIONS_STORAGE_PREFIX,
+  assertSupabaseConfig,
+  backfillProductBrands,
+  fetchProductsRows,
+  insertProductRow,
+  normalizeBrandName,
+  normalizeProductRow,
+  parseSizeTable,
+  removeOldProductImageIfUnused,
+  supabase,
+  toProductWriteErrorResponse,
+});

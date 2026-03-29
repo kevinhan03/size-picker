@@ -8,6 +8,8 @@ export const supabase =
 
 export const assertSupabaseClient = () => {
   if (!supabase) {
-    throw new Error('VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing');
+    throw new Error(
+      'Supabase public env is missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+    );
   }
 };

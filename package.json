@@ -4,23 +4,20 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev:web": "node scripts/run-vite.mjs dev --host 127.0.0.1 --port 5173 --strictPort",
-    "dev:server": "node server/index.js",
-    "dev:server:only": "npm run dev:server",
-    "dev": "concurrently --kill-others-on-fail --names web,server \"npm run dev:web\" \"npm run dev:server\"",
-    "build": "tsc -b && node scripts/run-vite.mjs build",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "eslint .",
-    "preview": "node scripts/run-vite.mjs preview"
+    "backfill:brands": "node scripts/backfill-brand-names.mjs",
+    "backfill:brands:dry": "node scripts/backfill-brand-names.mjs --dry-run",
+    "backfill:brands:report": "node scripts/backfill-brand-names.mjs --dry-run --report"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
     "@supabase/supabase-js": "^2.50.5",
     "@vercel/analytics": "^1.6.1",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "express-rate-limit": "^8.3.1",
     "lucide-react": "^0.564.0",
+    "next": "latest",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
@@ -29,26 +26,20 @@
     "node-domexception": "^2.0.2"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.39.1",
-    "@rollup/wasm-node": "^4.57.1",
     "@tailwindcss/line-clamp": "^0.4.4",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-basic-ssl": "^1.1.0",
-    "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.24",
-    "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
+    "eslint-config-next": "latest",
     "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "playwright": "^1.58.2",
     "postcss": "^8.5.6",
-    "rollup": "npm:@rollup/wasm-node@^4.57.1",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.48.0",
-    "vite": "^5.4.19"
+    "typescript-eslint": "^8.48.0"
   }
 }

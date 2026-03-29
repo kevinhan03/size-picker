@@ -1,0 +1,144 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/api/admin/products/[id]",
+      "regex": "^/api/admin/products/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/admin/products/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/api/admin/brand-rules",
+      "regex": "^/api/admin/brand\\-rules(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/brand\\-rules(?:/)?$"
+    },
+    {
+      "page": "/api/admin/brand-rules/backfill",
+      "regex": "^/api/admin/brand\\-rules/backfill(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/brand\\-rules/backfill(?:/)?$"
+    },
+    {
+      "page": "/api/admin/login",
+      "regex": "^/api/admin/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/login(?:/)?$"
+    },
+    {
+      "page": "/api/admin/logout",
+      "regex": "^/api/admin/logout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/logout(?:/)?$"
+    },
+    {
+      "page": "/api/admin/session",
+      "regex": "^/api/admin/session(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/session(?:/)?$"
+    },
+    {
+      "page": "/api/auth/cleanup-unregistered",
+      "regex": "^/api/auth/cleanup\\-unregistered(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/cleanup\\-unregistered(?:/)?$"
+    },
+    {
+      "page": "/api/product-metadata",
+      "regex": "^/api/product\\-metadata(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/product\\-metadata(?:/)?$"
+    },
+    {
+      "page": "/api/product-metadata-from-image",
+      "regex": "^/api/product\\-metadata\\-from\\-image(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/product\\-metadata\\-from\\-image(?:/)?$"
+    },
+    {
+      "page": "/api/products",
+      "regex": "^/api/products(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/products(?:/)?$"
+    },
+    {
+      "page": "/api/remove-bg",
+      "regex": "^/api/remove\\-bg(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/remove\\-bg(?:/)?$"
+    },
+    {
+      "page": "/api/size-table",
+      "regex": "^/api/size\\-table(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/size\\-table(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

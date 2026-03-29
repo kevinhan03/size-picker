@@ -80,6 +80,29 @@ export interface AdminEditForm {
   url: string;
 }
 
+export interface BrandRule {
+  matchType: 'domain' | 'url' | 'brand' | 'brand_contains';
+  matchValue: string;
+  canonicalBrand: string;
+}
+
+export interface BrandBackfillChange {
+  id: string;
+  name: string;
+  url: string;
+  previousBrand: string;
+  canonicalBrand: string;
+  updated: boolean;
+  error: string;
+}
+
+export interface BrandBackfillResult {
+  updatedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  changes: BrandBackfillChange[];
+}
+
 export interface SizeConversionRow {
   label: string;
   kr: string;

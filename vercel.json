@@ -1,18 +1,8 @@
 {
-  "framework": "vite",
   "functions": {
-    "api/index.js": {
-      "maxDuration": 60
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+    "app/api/product-metadata/route.ts": { "maxDuration": 60 },
+    "app/api/product-metadata-from-image/route.ts": { "maxDuration": 60 },
+    "app/api/size-table/route.ts": { "maxDuration": 60 },
+    "app/api/remove-bg/route.ts": { "maxDuration": 60 }
+  }
 }

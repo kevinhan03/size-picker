@@ -1,0 +1,18 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/api/admin/brand-rules/backfill/route": "app/api/admin/brand-rules/backfill/route.js",
+  "/api/admin/brand-rules/route": "app/api/admin/brand-rules/route.js",
+  "/api/admin/login/route": "app/api/admin/login/route.js",
+  "/api/admin/logout/route": "app/api/admin/logout/route.js",
+  "/api/admin/products/[id]/route": "app/api/admin/products/[id]/route.js",
+  "/api/admin/session/route": "app/api/admin/session/route.js",
+  "/api/auth/cleanup-unregistered/route": "app/api/auth/cleanup-unregistered/route.js",
+  "/api/product-metadata-from-image/route": "app/api/product-metadata-from-image/route.js",
+  "/api/product-metadata/route": "app/api/product-metadata/route.js",
+  "/api/products/route": "app/api/products/route.js",
+  "/api/remove-bg/route": "app/api/remove-bg/route.js",
+  "/api/size-table/route": "app/api/size-table/route.js",
+  "/page": "app/page.js"
+}

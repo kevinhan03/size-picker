@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent } from 'react';
-import type { AdminEditForm, Product, SizeTable } from '../types';
+import type { AdminEditForm, BrandBackfillResult, BrandRule, Product, SizeTable } from '../types';
 import {
   readFileAsDataUrl,
   resizeImage,
 } from '../utils/image';
 import {
+  backfillBrandRules,
+  fetchBrandRules,
   uploadSubmissionImage,
   extractSizeTableFromImage,
+  saveBrandRules,
 } from '../api';
 
 interface UseAdminAuthOptions {
@@ -38,6 +41,24 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
   const [isAdminAnalyzingTable, setIsAdminAnalyzingTable] = useState(false);
   const [adminActionError, setAdminActionError] = useState<string | null>(null);
   const [isAdminActionLoading, setIsAdminActionLoading] = useState(false);
+  const [brandRules, setBrandRules] = useState<BrandRule[]>([]);
+  const [isBrandRulesLoading, setIsBrandRulesLoading] = useState(false);
+  const [isBrandRulesSaving, setIsBrandRulesSaving] = useState(false);
+  const [isBrandBackfillRunning, setIsBrandBackfillRunning] = useState(false);
+  const [brandBackfillResult, setBrandBackfillResult] = useState<BrandBackfillResult | null>(null);
+
+  const loadBrandRules = async () => {
+    setIsBrandRulesLoading(true);
+    try {
+      const rules = await fetchBrandRules();
+      setBrandRules(rules);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '브랜드 규칙을 불러오지 못했습니다.';
+      setAdminActionError(message);
+    } finally {
+      setIsBrandRulesLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAdminPage) return;
@@ -52,8 +73,11 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
           throw new Error(payload?.error || '관리자 세션 확인 실패');
         }
         if (!isActive) return;
-        setIsAdminAuthenticated(Boolean(payload?.data?.authenticated));
-        setAdminAuthError(null);
+      setIsAdminAuthenticated(Boolean(payload?.data?.authenticated));
+      setAdminAuthError(null);
+      if (Boolean(payload?.data?.authenticated)) {
+        await loadBrandRules();
+      }
       } catch (sessionError: unknown) {
         if (!isActive) return;
         const message = sessionError instanceof Error ? sessionError.message : '관리자 세션 확인 실패';
@@ -90,6 +114,7 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
       setIsAdminAuthenticated(true);
       setAdminPassword('');
       setAdminAuthError(null);
+      await loadBrandRules();
     } catch (loginError: unknown) {
       const message = loginError instanceof Error ? loginError.message : '관리자 로그인 실패';
       setAdminAuthError(message);
@@ -109,6 +134,7 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
       setIsAdminAuthenticated(false);
       setEditingProductId(null);
       setAdminPassword('');
+      setBrandRules([]);
     }
   };
 
@@ -234,6 +260,50 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
     setAdminSizeChartImage(null);
   };
 
+  const handleBrandRulesSave = async () => {
+    const normalizedRules = brandRules.map((rule) => ({
+      matchType: rule.matchType,
+      matchValue: rule.matchValue.trim(),
+      canonicalBrand: rule.canonicalBrand.trim(),
+    }));
+
+    if (
+      normalizedRules.some(
+        (rule) => !rule.matchType || !rule.matchValue || !rule.canonicalBrand
+      )
+    ) {
+      setAdminActionError('브랜드 규칙의 모든 행에 매칭 타입, 매칭 값, 표준 브랜드명을 입력하세요.');
+      return;
+    }
+
+    setIsBrandRulesSaving(true);
+    try {
+      const saved = await saveBrandRules(normalizedRules);
+      setBrandRules(saved);
+      setAdminActionError(null);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '브랜드 규칙 저장에 실패했습니다.';
+      setAdminActionError(message);
+    } finally {
+      setIsBrandRulesSaving(false);
+    }
+  };
+
+  const handleBrandRulesBackfill = async () => {
+    setIsBrandBackfillRunning(true);
+    try {
+      const result = await backfillBrandRules();
+      setBrandBackfillResult(result);
+      setAdminActionError(null);
+      onProductMutated();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '기존 상품 브랜드 일괄 적용에 실패했습니다.';
+      setAdminActionError(message);
+    } finally {
+      setIsBrandBackfillRunning(false);
+    }
+  };
+
   return {
     isAdminCheckingSession,
     isAdminAuthenticated,
@@ -253,6 +323,13 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
     adminActionError,
     setAdminActionError,
     isAdminActionLoading,
+    brandRules,
+    setBrandRules,
+    isBrandRulesLoading,
+    isBrandRulesSaving,
+    isBrandBackfillRunning,
+    brandBackfillResult,
+    loadBrandRules,
     handleAdminLogin,
     handleAdminLogout,
     startProductEdit,
@@ -260,5 +337,7 @@ export function useAdminAuth({ isAdminPage, onProductMutated, onProductDeleted }
     handleAdminFileUpload,
     handleAdminUpdateProduct,
     handleAdminDeleteProduct,
+    handleBrandRulesSave,
+    handleBrandRulesBackfill,
   };
 }

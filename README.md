@@ -1,4 +1,4 @@
-# Size Picker (Vite + Express Proxy)
+# Size Picker (Next.js)
 
 ## Why this structure
 
@@ -31,10 +31,43 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 SUPABASE_PRODUCTS_TABLE=products
 ```
 
-3. Run web + server together
+3. Add public Supabase env for the browser
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+```
+
+Legacy `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are still read as a fallback, but new setups should use `NEXT_PUBLIC_*`.
+
+4. Run the app
 ```bash
 npm run dev
 ```
+
+## Brand rules
+
+Manage brand canonicalization rules in the admin page.
+
+- Open `/admin`
+- Add or edit rules in the `브랜드 표준화 규칙` section
+- Save the rules to apply them immediately
+
+Supported rule types:
+
+- `domain`: match by site hostname such as `afterpray.com`
+- `url`: match when the product URL contains the given text
+- `brand`: exact match against extracted brand text
+- `brand_contains`: partial match against extracted brand text
+
+Backfill existing Supabase rows:
+
+```bash
+npm run backfill:brands:dry
+npm run backfill:brands:report
+npm run backfill:brands
+```
+
+`npm run backfill:brands:report` writes only the pending changes to `tmp/brand-backfill-report.csv`.
 
 ## Vercel env split (Production / Preview)
 
@@ -53,8 +86,8 @@ Do not upload `.env` files directly to Vercel.
 
 ### Public env (client-exposed)
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 ### Private env (server-only)
 
