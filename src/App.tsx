@@ -259,6 +259,19 @@ export default function App() {
               void supabase?.auth.signOut();
               navigateToView('search');
             }}
+            onDeleteAccount={() => {
+              const shouldDelete = window.confirm(
+                'Delete your account permanently? This cannot be undone.'
+              );
+              if (!shouldDelete) return;
+              void auth.deleteAccount().then((deleted) => {
+                if (deleted) {
+                  navigateToView('search');
+                }
+              });
+            }}
+            isDeletingAccount={auth.isDeletingAccount}
+            deleteAccountError={auth.deleteAccountError}
           />
         )}
 

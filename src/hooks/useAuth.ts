@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { deleteMyAccount } from '../api';
 import { supabase } from '../lib/supabase';
 
 type AuthUser = { id?: string; email?: string; user_metadata?: Record<string, unknown> } | null;
@@ -17,6 +18,8 @@ export function useAuth({ onNavigateToLogin }: UseAuthOptions) {
   const [googleAuthError, setGoogleAuthError] = useState<string | null>(null);
   const [googleSignupComplete, setGoogleSignupComplete] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
 
   // onNavigateToLogin을 ref로 보관 → checkAndSetUser 의존성에서 제거
   // (App 렌더마다 새 함수가 넘어와도 useEffect/checkAndSetUser가 재생성되지 않음)
@@ -120,6 +123,29 @@ export function useAuth({ onNavigateToLogin }: UseAuthOptions) {
     onSuccess();
   };
 
+  const deleteAccount = async () => {
+    if (!supabase || isDeletingAccount) return false;
+    setDeleteAccountError(null);
+    setIsDeletingAccount(true);
+    try {
+      await deleteMyAccount();
+      await supabase.auth.signOut();
+      setAuthUser(null);
+      setDbUsername(null);
+      setNeedsUsername(false);
+      setPendingUsername('');
+      setUsernameError(null);
+      setGoogleSignupComplete(false);
+      onNavigateToLoginRef.current();
+      return true;
+    } catch (error: any) {
+      setDeleteAccountError(error?.message || 'Failed to delete account');
+      return false;
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   return {
     authUser,
     dbUsername,
@@ -133,6 +159,9 @@ export function useAuth({ onNavigateToLogin }: UseAuthOptions) {
     setGoogleAuthError,
     googleSignupComplete,
     setGoogleSignupComplete,
+    isDeletingAccount,
+    deleteAccountError,
+    deleteAccount,
     submitUsername,
   };
 }

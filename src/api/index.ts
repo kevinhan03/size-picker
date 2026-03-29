@@ -212,3 +212,28 @@ export const backfillBrandRules = async (): Promise<BrandBackfillResult> => {
   }
   return payload.data;
 };
+
+export const deleteMyAccount = async (): Promise<void> => {
+  assertSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase!.auth.getSession();
+  const accessToken = String(session?.access_token || '').trim();
+  if (!accessToken) {
+    throw new Error('Authentication is required');
+  }
+
+  const response = await fetch('/api/auth/delete-account', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string }>(
+    response,
+    '/api/auth/delete-account'
+  );
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || 'Failed to delete account');
+  }
+};
