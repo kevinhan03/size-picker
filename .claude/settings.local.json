@@ -20,7 +20,8 @@
       "Bash(npx tsc:*)",
       "Bash(npx eslint:*)",
       "Bash(awk 'NR>=1791 && NR<=1900' src/App.tsx)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx claude:*)"
     ]
   }
 }

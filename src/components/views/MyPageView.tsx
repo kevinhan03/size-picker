@@ -27,7 +27,7 @@ export function MyPageView({
         <button
           onClick={onDeleteAccount}
           disabled={isDeletingAccount}
-          className="mt-3 w-full py-2 rounded-lg text-xs transition border border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 disabled:cursor-not-allowed disabled:text-gray-600"
+          className="mt-8 w-full py-2 rounded-lg text-xs transition border border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 disabled:cursor-not-allowed disabled:text-gray-600"
         >
           {isDeletingAccount ? 'Deleting account...' : 'Delete account'}
         </button>

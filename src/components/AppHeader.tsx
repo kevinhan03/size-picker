@@ -72,7 +72,7 @@ export function AppHeader({
           {!authUser && (
             <button
               onClick={onLoginClick}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition backdrop-blur-xl border shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
                 viewMode === 'login'
                   ? 'bg-orange-500 text-black border-orange-500'
                   : 'border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] text-gray-200 hover:border-orange-500/60 hover:text-orange-400'
