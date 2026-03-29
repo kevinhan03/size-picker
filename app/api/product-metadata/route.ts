@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createMetadataStack } from "../../../server/bootstrap/metadata.js";
 
-const { extractProductMetadataFromUrl, normalizeProductCategory } = createMetadataStack();
+const { extractProductMetadataFromUrl, normalizeProductCategory, refreshBrandRulesCache } =
+  createMetadataStack();
 
 export const maxDuration = 60;
 
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
   const rawUrl = String(body?.url || "").trim();
 
   try {
+    await refreshBrandRulesCache();
     const metadata = await extractProductMetadataFromUrl(rawUrl);
 
     return NextResponse.json({

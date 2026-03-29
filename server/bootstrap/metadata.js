@@ -1,6 +1,7 @@
 import {
   normalizeProductCategory,
   normalizeBrandName,
+  refreshBrandRulesCache,
   extractProductMetadataFromUrl,
   fetchLinkedSizeMetadataDeep,
   prioritizeProductImageCandidates,
@@ -10,6 +11,7 @@ import {
 export const createMetadataStack = () => ({
   normalizeProductCategory,
   normalizeBrandName,
+  refreshBrandRulesCache,
   extractProductMetadataFromUrl,
   fetchLinkedSizeMetadataDeep,
   prioritizeProductImageCandidates,

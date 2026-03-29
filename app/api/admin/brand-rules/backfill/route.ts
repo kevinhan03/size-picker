@@ -5,7 +5,7 @@ import {
 } from "../../../../../server/auth/admin-session.js";
 import { createProductStack } from "../../../../../server/bootstrap/products.js";
 
-const { backfillProductBrands } = createProductStack();
+const { backfillProductBrands, refreshBrandRulesCache } = createProductStack();
 
 const adminUnauthorized = () =>
   NextResponse.json(
@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   if (!verifyAdminSessionToken(token)) return adminUnauthorized();
 
   try {
+    await refreshBrandRulesCache({ force: true });
     const result = await backfillProductBrands();
     return NextResponse.json({
       ok: true,

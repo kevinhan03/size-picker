@@ -6,12 +6,14 @@ const {
   insertProductRow,
   normalizeBrandName,
   normalizeProductRow,
+  refreshBrandRulesCache,
   toProductWriteErrorResponse,
 } =
   createProductStack();
 
 export async function GET() {
   try {
+    await refreshBrandRulesCache();
     const rows = await fetchProductsRows();
     const products = rows
       .map((row: unknown) => normalizeProductRow(row))
@@ -36,6 +38,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const body = await request.json();
   const url = String(body?.url || "#").trim();
+  await refreshBrandRulesCache();
   const brand = normalizeBrandName(String(body?.brand || "").trim(), { url });
   const name = String(body?.name || "").trim();
   const category = String(body?.category || "User Uploaded").trim();

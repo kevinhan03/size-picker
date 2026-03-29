@@ -13,6 +13,7 @@ const {
   normalizeBrandName,
   normalizeProductCategory,
   prioritizeProductImageCandidates,
+  refreshBrandRulesCache,
   resolveProductMetadataFromHints,
 } = createMetadataStack();
 
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await refreshBrandRulesCache();
     const metadataResult = await extractProductMetadataFromImageWithGemini({ imageBase64, mimeType });
     if (!metadataResult?.data) {
       return NextResponse.json(

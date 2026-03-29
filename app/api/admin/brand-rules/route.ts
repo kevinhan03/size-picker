@@ -6,6 +6,7 @@ import {
 import {
   getBrandRules,
   normalizeBrandRule,
+  refreshBrandRulesCache,
   writeBrandRules,
 } from "../../../../server/shared.js";
 
@@ -18,6 +19,7 @@ const adminUnauthorized = () =>
 export async function GET(request: Request) {
   const token = getAdminTokenFromCookieHeader(request.headers.get("cookie") ?? "");
   if (!verifyAdminSessionToken(token)) return adminUnauthorized();
+  await refreshBrandRulesCache({ force: true });
 
   return NextResponse.json({
     ok: true,
@@ -51,7 +53,7 @@ export async function PUT(request: Request) {
       );
     }
 
-    const savedRules = writeBrandRules(normalizedRules);
+    const savedRules = await writeBrandRules(normalizedRules);
     return NextResponse.json({
       ok: true,
       data: {

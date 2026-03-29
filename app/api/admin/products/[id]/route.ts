@@ -10,6 +10,7 @@ const {
   assertSupabaseConfig,
   normalizeBrandName,
   parseSizeTable,
+  refreshBrandRulesCache,
   removeOldProductImageIfUnused,
   supabase,
   toProductWriteErrorResponse,
@@ -40,6 +41,7 @@ export async function PATCH(
   const body = await request.json();
   const payload: Record<string, unknown> = {};
   const requestedUrl = "url" in body ? String(body?.url || "").trim() : "";
+  await refreshBrandRulesCache();
   if ("brand" in body) {
     payload.brand = normalizeBrandName(String(body?.brand || "").trim(), {
       url: requestedUrl,
