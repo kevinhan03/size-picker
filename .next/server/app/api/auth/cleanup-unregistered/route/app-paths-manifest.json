@@ -1,3 +1,0 @@
-{
-  "/api/auth/cleanup-unregistered/route": "app/api/auth/cleanup-unregistered/route.js"
-}
