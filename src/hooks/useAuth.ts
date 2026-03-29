@@ -78,7 +78,13 @@ export function useAuth({ onNavigateToLogin }: UseAuthOptions) {
   }, []); // onNavigateToLogin을 의존성에서 제거 → 리스너가 딱 한 번만 등록됨
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      setAuthUser(null);
+      setDbUsername(null);
+      setNeedsUsername(false);
+      setIsAuthLoading(false);
+      return;
+    }
     supabase.auth.getSession().then(({ data }) => {
       void checkAndSetUser(data.session?.user ?? null);
     });
