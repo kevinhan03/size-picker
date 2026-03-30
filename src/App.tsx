@@ -219,7 +219,7 @@ export default function App() {
               onClick={productsState.retryProductsLoad}
               className="flex items-center gap-2 px-4 py-2 bg-orange-800 hover:bg-orange-700 rounded-lg text-sm font-bold transition whitespace-nowrap"
             >
-              <RefreshCw className="w-4 h-4" /> ���� �߻� �� �ٽ� �õ�
+              <RefreshCw className="w-4 h-4" /> 오류 발생 시 다시 시도
             </button>
           </div>
         )}

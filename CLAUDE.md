@@ -5,25 +5,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Dev Commands
 
 ```bash
-npm run dev          # Run frontend (Vite HTTPS, port 5173) + backend (Express, port 8787) together
-npm run dev:web      # Frontend only
-npm run dev:server   # Backend only
-npm run build        # tsc -b + Vite bundle
+npm install          # Install dependencies (required after switching from Vite to Next.js)
+npm run dev          # Next.js dev server (http://localhost:3000)
+npm run build        # Next.js production build
+npm run start        # Start production server
 npm run lint         # ESLint (flat config)
+npm run backfill:brands      # Apply brand rules to all products in DB
+npm run backfill:brands:dry  # Dry run (no writes)
 ```
-
-Backend health check: `http://localhost:8787/health`
 
 ## Architecture
 
-### Frontend
+This is a **Next.js App Router** full-stack app. The backend no longer runs as a separate Express server — all API routes are Next.js Route Handlers inside `app/api/`.
 
-**Entry:** `src/App.tsx` (~438 lines) — single-page app with no router. View state toggles between `'search'`, `'grid'`, `'converter'`, `'login'`, `'mypage'` modes. Admin dashboard renders at `/admin` path.
+### Pages
+
+| Path | File | Notes |
+|------|------|-------|
+| `/` | `app/page.tsx` | Renders `src/App.tsx` (client component) |
+| `/admin` | `app/admin/page.tsx` | Renders `src/App.tsx` with admin path |
+| Layout | `app/layout.tsx` | Sets `<html lang="ko">`, favicon, metadata |
+
+### Frontend (src/)
+
+The UI is a React SPA mounted via `"use client"` Next.js pages. No router — view state is managed in `src/App.tsx`.
+
+**Entry:** `src/App.tsx` — view state toggles between `'search'`, `'grid'`, `'converter'`, `'login'`, `'mypage'` modes.
 
 **Structure:**
 ```
 src/
-├── api/index.ts              # Fetch-based API client (product CRUD, metadata, images)
+├── api/index.ts              # Fetch-based API client (products, metadata, images, brand rules)
 ├── components/
 │   ├── add-product/          # AddProductFormFields, ProductImageSection, SizeTableSection
 │   ├── admin/                # AdminLoginPanel, AdminProductEditor, AdminProductsList
@@ -40,7 +52,7 @@ src/
 │   ├── ProductDetailModal.tsx
 │   ├── ProgressiveImage.tsx
 │   └── SizeConverterView.tsx
-├── constants/index.ts        # Category options, storage bucket names
+├── constants/index.ts        # Category options, size conversion tables, storage bucket names
 ├── hooks/
 │   ├── product-form/helpers.ts
 │   ├── useAdminAuth.ts       # Admin authentication & product CRUD
@@ -50,7 +62,7 @@ src/
 │   ├── useProducts.ts        # Product list fetching & caching
 │   ├── useProductSearch.ts   # Search with suggestions
 │   └── useSizeConverterState.ts
-├── lib/supabase.ts           # Supabase client initialization
+├── lib/supabase.ts           # Supabase client (anon key, client-side only)
 ├── types/index.ts            # TypeScript interfaces
 └── utils/
     ├── image.ts              # Image resizing, cropping, data URL conversion
@@ -58,57 +70,61 @@ src/
     └── sizeTable.ts          # Size table lookup, recommendations, normalization
 ```
 
-**Pattern:** Container/Presentational separation — logic lives in hooks (`hooks/`), UI in components (`components/`).
+**Pattern:** Container/Presentational — logic lives in hooks (`hooks/`), UI in components (`components/`).
 
-### Backend
+### API Routes (app/api/)
 
-**Entry:** `server/index.js` (~71 lines) — bootstrap + route registration only. Deployed as a Vercel serverless function via `api/index.js`.
+All routes return `{ ok: boolean, error?: string, data?: T }`.
 
-**Structure:**
+| Method | Route | Auth | Purpose |
+|--------|-------|------|---------|
+| GET | `/api/products` | None | List all products |
+| POST | `/api/products` | None | Create product |
+| GET | `/api/admin/session` | Cookie | Check admin session |
+| POST | `/api/admin/login` | None | Login with password |
+| POST | `/api/admin/logout` | Cookie | Logout |
+| GET | `/api/admin/brand-rules` | Cookie | Fetch brand rules |
+| PUT | `/api/admin/brand-rules` | Cookie | Save brand rules |
+| POST | `/api/admin/brand-rules/backfill` | Cookie | Apply rules to all products |
+| PATCH | `/api/admin/products/[id]` | Cookie | Update product |
+| DELETE | `/api/admin/products/[id]` | Cookie | Delete product |
+| POST | `/api/product-metadata` | None | Extract metadata from URL |
+| POST | `/api/product-metadata-from-image` | None | Extract metadata from screenshot |
+| POST | `/api/size-table` | None | Extract size table from image (Gemini) |
+| POST | `/api/remove-bg` | None | Remove background (Gemini) |
+| POST | `/api/auth/delete-account` | Bearer | Delete user account |
+| POST | `/api/auth/cleanup-unregistered` | None | Remove unregistered OAuth users |
+
+### Backend Business Logic (server/)
+
+API routes import from `server/` — this is **server-side only code**, never bundled to the client.
+
 ```
 server/
-├── index.js                  # Entry: createApp → createServices → register routes → listen
-├── auth/admin-session.js     # Admin session token generation/verification
-├── bootstrap/                # Service factory pattern (gemini, metadata, products, services)
-├── config/                   # Express app setup, env loading, rate limits
-├── middleware/requireAdminAuth.js
-├── routes/
-│   ├── admin.js              # Product CRUD, image upload, size table extraction
-│   ├── ai.js                 # Gemini API routes (size table, metadata, image analysis)
-│   ├── auth.js               # Auth cleanup (unregistered Google OAuth users)
-│   ├── metadata.js           # Product metadata fetching from URL
-│   └── products.js           # Public product listing
-├── services/
-│   ├── gemini.js             # Google Gemini API wrapper
-│   ├── products.js           # Supabase product queries
-│   ├── product-metadata.js   # Metadata extraction orchestration
-│   └── product-metadata/     # Modular extraction (browser, html, images, ranking, search, url)
-│       └── size-table/extraction.js
-├── utils/size-table.js
-└── lib/supabase.js           # Supabase client (server-side, service role key)
+├── shared.js                 # Core: Supabase client, HMAC session, brand rules, size table logic (~4000+ lines)
+├── auth/admin-session.js     # Re-exports session helpers from shared.js
+├── bootstrap/
+│   ├── products.js           # createProductStack() — product CRUD, brand normalization
+│   ├── gemini.js             # createGeminiStack() — Gemini API calls, size table extraction
+│   ├── metadata.js           # createMetadataStack() — metadata extraction orchestration
+│   └── services.js           # Composes all stacks
+├── config/
+│   ├── brand-rules.csv       # Fallback brand canonicalization rules (if Supabase storage unavailable)
+│   └── env.js                # Environment variable validation
+└── lib/supabase.js           # Server-side Supabase client (service role key)
 ```
 
-**Key Routes:**
-- `GET /api/products` — list all products
-- `POST /api/products` — create product
-- `/api/admin/*` — admin CRUD, image upload (requires HMAC-SHA256 session cookie)
-- `/api/auth/cleanup-unregistered` — remove unregistered Google OAuth user from auth
-- `/api/metadata/*` — metadata extraction from URL
-- `/api/ai/*` — Gemini AI endpoints
-
-### Routing
-
-**Vercel:** `vercel.json` rewrites `/api/*` → `api/index.js` (serverless), all other paths → `index.html` (SPA).
-
-**Dev proxy:** Vite proxies `/api/*` to `http://localhost:8787` (configured in `vite.config.ts`).
+`server/shared.js` is a monolithic module — all constants, Supabase client, HMAC auth, brand rules cache, size table normalization, and product metadata extraction live here. Bootstrap factories (`createProductStack()`, `createGeminiStack()`, etc.) wrap exports from `shared.js` for dependency injection.
 
 ## Key Architectural Rules
 
-- **API keys must never be in the frontend.** Gemini API key and Supabase service role key are server-only.
+- **API keys must never be in the frontend.** `GEMINI_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are server-only.
 - **Gemini must be called server-side only.** Use structured output (JSON Schema) for size-table extraction — never parse raw model text.
-- **Frontend uses Supabase anon key** (`VITE_SUPABASE_*`); backend uses service role key (`SUPABASE_SERVICE_ROLE_KEY`).
+- **Frontend uses Supabase anon key** (`NEXT_PUBLIC_SUPABASE_*`); backend uses service role key (`SUPABASE_SERVICE_ROLE_KEY`).
 - **Admin endpoints** (`/api/admin/*`) require HMAC-SHA256 session tokens via `HttpOnly` cookies.
 - **Authentication:** Google OAuth via Supabase Auth. `useAuth.ts` manages user session; `useAdminAuth.ts` manages admin session separately.
+- **`server/` is server-only.** Never import from `server/` in `src/` components or hooks.
+- **`next.config.ts`** marks `@google/genai` as `serverExternalPackages` to prevent it from being bundled client-side.
 
 ## Data Model
 
@@ -127,15 +143,32 @@ interface Product {
 }
 ```
 
-Supabase `products` table uses snake_case columns (`size_table`, `created_at`); the frontend/API maps to camelCase.
+Supabase `products` table uses snake_case columns (`size_table`, `created_at`, `image_path`); the frontend/API maps to camelCase.
 
 Additional tables: `users` (stores usernames for Google OAuth users).
 
 ## Environment Variables
 
-Server (`.env`): `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `PORT` (default 8787), `SUPABASE_PRODUCTS_TABLE` (default `products`), `SUPABASE_STORAGE_BUCKET` (default `product-assets`), `ADMIN_SESSION_TTL_SECONDS` (default 28800), `ALLOWED_ORIGINS` (comma-separated list of allowed frontend origins; used for CORS and admin CSRF validation — **required in production**)
+Single `.env` file (used by Next.js for both client and server):
 
-Client (`.env`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+```
+# Server-only (no NEXT_PUBLIC_ prefix — never exposed to client)
+GEMINI_API_KEY
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+ADMIN_PASSWORD
+ADMIN_SESSION_SECRET
+SUPABASE_PRODUCTS_TABLE          # default: products
+SUPABASE_STORAGE_BUCKET          # default: product-assets
+ADMIN_SESSION_TTL_SECONDS        # default: 28800 (8h)
+ALLOWED_ORIGINS                  # comma-separated CORS origins — required in production
+
+# Client-accessible (NEXT_PUBLIC_ prefix)
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+```
+
+Note: `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are legacy names from the old Vite setup. Use `NEXT_PUBLIC_*` going forward.
 
 Use `.env.production.example` / `.env.preview.example` as templates for Vercel environment splits.
 

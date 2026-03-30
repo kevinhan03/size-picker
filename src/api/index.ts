@@ -100,15 +100,22 @@ interface ApiEnvelope<T> {
 
 const postJson = async <TRequest, TResponse>(
   endpoint: string,
-  body: TRequest
+  body: TRequest,
+  extraHeaders?: Record<string, string>
 ): Promise<{ response: Response; payload: ApiEnvelope<TResponse> }> => {
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
     body: JSON.stringify(body),
   });
   const payload = await parseApiJson<ApiEnvelope<TResponse>>(response, endpoint);
   return { response, payload };
+};
+
+const getAccessToken = async (): Promise<string> => {
+  assertSupabaseClient();
+  const { data: { session } } = await supabase!.auth.getSession();
+  return String(session?.access_token || '').trim();
 };
 
 export const fetchProductMetadataFromUrl = async (url: string): Promise<ProductMetadataPayload> => {
@@ -140,9 +147,11 @@ export const fetchProductMetadataFromImage = async (
 };
 
 export const extractSizeTableFromImage = async (base64Image: string, mimeType = 'image/png'): Promise<SizeTable> => {
+  const token = await getAccessToken();
   const { response, payload } = await postJson<{ imageBase64: string; mimeType: string }, unknown>(
     '/api/size-table',
-    { imageBase64: base64Image, mimeType }
+    { imageBase64: base64Image, mimeType },
+    token ? { Authorization: `Bearer ${token}` } : undefined
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error ?? 'Failed to extract size table');
@@ -155,12 +164,14 @@ export const extractSizeTableFromImage = async (base64Image: string, mimeType = 
 };
 
 export const removeBackgroundWithGemini = async (base64Image: string): Promise<string> => {
+  const token = await getAccessToken();
   const { response, payload } = await postJson<
     { imageBase64: string; mimeType: string },
     { imageBase64?: string }
   >(
     '/api/remove-bg',
-    { imageBase64: base64Image, mimeType: 'image/png' }
+    { imageBase64: base64Image, mimeType: 'image/png' },
+    token ? { Authorization: `Bearer ${token}` } : undefined
   );
   if (!response.ok || !payload?.ok || !payload?.data?.imageBase64) return base64Image;
   return String(payload.data.imageBase64);

@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   const imagePath = String(body?.image_path ?? body?.imagePath ?? "").trim();
   const image = String(body?.image || "").trim();
   const sizeTable = body?.sizeTable ?? null;
-  const createdAt = String(body?.createdAt || new Date().toISOString()).trim();
+  const createdAt = new Date().toISOString();
 
   if (!brand || !name) {
     return NextResponse.json(
