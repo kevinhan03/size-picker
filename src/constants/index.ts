@@ -3,13 +3,8 @@ import type { SizeGender, SizeConversionRow, AddProductFormData } from '../types
 export const MAX_PRODUCT_IMAGE_CANDIDATES = 24;
 export const DUPLICATE_PRODUCT_MESSAGE = '이미 등록된 상품입니다';
 
-const NEXT_PUBLIC_SUPABASE_URL = String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
-const NEXT_PUBLIC_SUPABASE_ANON_KEY = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
-const VITE_SUPABASE_URL = String(process.env.VITE_SUPABASE_URL || '').trim();
-const VITE_SUPABASE_ANON_KEY = String(process.env.VITE_SUPABASE_ANON_KEY || '').trim();
-
-export const SUPABASE_URL = NEXT_PUBLIC_SUPABASE_URL || VITE_SUPABASE_URL;
-export const SUPABASE_ANON_KEY = NEXT_PUBLIC_SUPABASE_ANON_KEY || VITE_SUPABASE_ANON_KEY;
+export const SUPABASE_URL = String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+export const SUPABASE_ANON_KEY = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
 export const STORAGE_BUCKET = 'product-assets';
 export const STORAGE_PREFIX = 'submissions/';
 export const DEFAULT_PRODUCT_PLACEHOLDER = '/images/default-product.svg';

@@ -109,7 +109,7 @@ export function useAuth({ onNavigateToLogin }: UseAuthOptions) {
       setNeedsUsername(false);
       setUsernameError(null);
       setIsSubmittingUsername(false);
-      onNavigateToLogin();
+      onNavigateToLoginRef.current();
       return;
     }
     const { data: existing } = await supabase!.from('users').select('username').eq('username', trimmed).maybeSingle();
