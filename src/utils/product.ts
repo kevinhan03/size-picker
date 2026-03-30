@@ -6,6 +6,11 @@ import { normalizeSizeTable } from './sizeTable';
 export const isExternalHttpUrl = (value: string | null | undefined): boolean =>
   /^https?:\/\//i.test(String(value || '').trim());
 
+export const getProductPageUrl = (product: { id: string; slug?: string | null }): string => {
+  const slug = String(product.slug || '').trim();
+  return slug ? `/product/${product.id}-${slug}` : `/product/${product.id}`;
+};
+
 export const uniqHttpUrls = (values: Array<string | null | undefined>): string[] => {
   const seen = new Set<string>();
   const output: string[] = [];

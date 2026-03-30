@@ -12,6 +12,7 @@ export interface Product {
   image: string;
   thumbnailImage?: string;
   imagePath?: string | null;
+  slug?: string | null;
   sizeTable: SizeTable | null;
   createdAt?: string;
 }

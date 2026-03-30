@@ -21,7 +21,7 @@ import { useProductSearch } from './hooks/useProductSearch';
 import { useSizeConverterState } from './hooks/useSizeConverterState';
 import type { Product, SizeRecommendation, ViewMode } from './types';
 import { computeSizeRecommendations, normalizeSizeLookupValue } from './utils/sizeTable';
-import { normalizeComparableProductUrl } from './utils/product';
+import { getProductPageUrl, normalizeComparableProductUrl } from './utils/product';
 
 const smoothScrollTo = (container: HTMLElement, targetY: number, duration = 520) => {
   const start = container.scrollTop;
@@ -186,7 +186,22 @@ export default function App() {
     setActiveGridDetailRowIndex(null);
     setIsDetailImageZoomed(false);
     setSelectedGridProduct(product);
+    if (product) {
+      window.history.pushState({ productModal: product.id }, '', getProductPageUrl(product));
+    } else {
+      window.history.pushState(null, '', '/');
+    }
   };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setSelectedGridProduct(null);
+      setActiveGridDetailRowIndex(null);
+      setIsDetailImageZoomed(false);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   if (auth.isAuthLoading) {
     return <div className="min-h-screen bg-black" />;
