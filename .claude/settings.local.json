@@ -22,7 +22,8 @@
       "Bash(awk 'NR>=1791 && NR<=1900' src/App.tsx)",
       "Bash(node:*)",
       "Bash(npx claude:*)",
-      "mcp__supabase__apply_migration"
+      "mcp__supabase__apply_migration",
+      "Bash(ls C:devsizepicker/*.json)"
     ]
   }
 }
