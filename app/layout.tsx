@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { ClientProviders } from "../src/components/ClientProviders";
 import { fetchInitialProducts } from "../server/utils/products-list";
-import "../src/index.css";
+import "./globals.css";
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
