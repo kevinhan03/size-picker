@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import {
+  ADMIN_PASSWORD,
+  assertAdminConfig,
   getAdminTokenFromCookieHeader,
   verifyAdminSessionToken,
 } from "../../../../server/auth/admin-session.js";
-import { ADMIN_PASSWORD, assertAdminConfig } from "../../../../server/shared.js";
 
 export async function GET(request: Request) {
   try {
     assertAdminConfig();
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "admin config missing",
+        error: getErrorMessage(error, "admin config missing"),
       },
-      { status: 500 }
+      { status: getErrorStatusCode(error) }
     );
   }
 

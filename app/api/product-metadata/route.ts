@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { createMetadataStack } from "../../../server/bootstrap/metadata.js";
-
-const { extractProductMetadataFromUrl, normalizeProductCategory, refreshBrandRulesCache } =
-  createMetadataStack();
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
+import {
+  extractProductMetadataFromUrl,
+  normalizeProductCategory,
+  refreshBrandRulesCache,
+} from "../../../server/bootstrap/metadata.js";
 
 export const maxDuration = 60;
 
@@ -28,14 +30,13 @@ export async function POST(request: Request) {
           : [],
       },
     });
-  } catch (error: any) {
-    const statusCode = Number(error?.statusCode) || 500;
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "product metadata extraction error",
+        error: getErrorMessage(error, "product metadata extraction error"),
       },
-      { status: statusCode }
+      { status: getErrorStatusCode(error) }
     );
   }
 }

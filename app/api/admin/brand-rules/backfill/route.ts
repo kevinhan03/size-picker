@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import {
   getAdminTokenFromCookieHeader,
   verifyAdminSessionToken,
 } from "../../../../../server/auth/admin-session.js";
-import { createProductStack } from "../../../../../server/bootstrap/products.js";
-
-const { backfillProductBrands, refreshBrandRulesCache } = createProductStack();
+import { refreshBrandRulesCache } from "../../../../../server/utils/brand-rules.js";
+import { backfillProductBrands } from "../../../../../server/utils/product.js";
 
 const adminUnauthorized = () =>
   NextResponse.json(
@@ -24,13 +24,13 @@ export async function POST(request: Request) {
       ok: true,
       data: result,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "brand backfill error",
+        error: getErrorMessage(error, "brand backfill error"),
       },
-      { status: 500 }
+      { status: getErrorStatusCode(error) }
     );
   }
 }

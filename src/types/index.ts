@@ -120,7 +120,6 @@ export interface SizeRecommendation {
   score: number;
 }
 
-export type ViewMode = 'search' | 'grid' | 'converter' | 'login' | 'mypage';
 export type SizeCategory = 'clothing' | 'shoes';
 export type SizeGender = 'men' | 'women';
 export type SizeRegionKey = 'kr' | 'jp' | 'us' | 'eu' | 'uk';

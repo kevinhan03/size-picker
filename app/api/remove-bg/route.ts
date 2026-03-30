@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { createGeminiStack } from "../../../server/bootstrap/gemini.js";
-import { createProductStack } from "../../../server/bootstrap/products.js";
-
-const { assertGeminiKey, callGemini } = createGeminiStack();
-const { supabase } = createProductStack();
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
+import { assertGeminiKey, callGemini } from "../../../server/bootstrap/gemini.js";
+import { supabase } from "../../../server/lib/supabase.js";
 
 export const maxDuration = 60;
 
@@ -79,14 +77,14 @@ export async function POST(request: Request) {
       ok: true,
       data: { imageBase64: outputBase64 },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
         data: { imageBase64 },
-        error: error?.message || "remove-bg error",
+        error: getErrorMessage(error, "remove-bg error"),
       },
-      { status: 500 }
+      { status: getErrorStatusCode(error) }
     );
   }
 }

@@ -1,17 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
-import { fetchAllProducts } from '../api';
-import type { Product } from '../types';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchAllProducts } from "../api";
+import type { Product } from "../types";
 
-export function useProducts() {
+export function useProducts(initialProducts: Product[] = []) {
   const [productsError, setProductsError] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [retryTrigger, setRetryTrigger] = useState(0);
+  const didInitRef = useRef(initialProducts.length > 0);
 
   const retryProductsLoad = useCallback(() => {
     setRetryTrigger((prev) => prev + 1);
   }, []);
 
   useEffect(() => {
+    if (retryTrigger === 0 && didInitRef.current) {
+      return;
+    }
+
     let isActive = true;
 
     const load = async () => {
@@ -23,9 +28,7 @@ export function useProducts() {
       } catch (loadError: unknown) {
         if (!isActive) return;
         const message =
-          loadError instanceof Error
-            ? loadError.message
-            : '��ǰ �����͸� �ҷ����� �� ������ �߻��߽��ϴ�.';
+          loadError instanceof Error ? loadError.message : "상품 정보를 불러오는 중 오류가 발생했습니다.";
         setProductsError(message);
       }
     };

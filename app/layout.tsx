@@ -1,9 +1,30 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { ClientProviders } from "../src/components/ClientProviders";
+import { fetchInitialProducts } from "../server/utils/products-list";
 import "../src/index.css";
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined);
+
 export const metadata: Metadata = {
-  title: "DIGDA",
+  metadataBase: siteUrl ? new URL(siteUrl) : undefined,
+  title: {
+    default: "DIGDA",
+    template: "%s | DIGDA",
+  },
+  description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
+  openGraph: {
+    title: "DIGDA",
+    description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DIGDA",
+    description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
+  },
   icons: {
     icon: "/favicon-simple.svg",
   },
@@ -14,14 +35,23 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
+  modal,
 }: Readonly<{
   children: ReactNode;
+  modal: ReactNode;
 }>) {
+  const initialProducts = await fetchInitialProducts().catch(() => []);
+
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <ClientProviders initialProducts={initialProducts}>
+          {children}
+          {modal}
+        </ClientProviders>
+      </body>
     </html>
   );
 }

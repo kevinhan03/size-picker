@@ -51,7 +51,7 @@ export function useProductSearch({
 
   const handleSearch = (searchItem: Product | null = null) => {
     const term = searchItem ? searchItem.name : query;
-    if (!term) return;
+    if (!term) return null;
 
     setResult(null);
     setError(null);
@@ -66,6 +66,7 @@ export function useProductSearch({
     setResult(found);
     setQuery('');
     onSearchSettled();
+    return found;
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {

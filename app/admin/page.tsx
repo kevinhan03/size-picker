@@ -1,63 +1,14 @@
-"use client";
+import type { Metadata } from "next";
+import { AdminRoutePageClient } from "../../src/components/pages/AdminRoutePageClient";
 
-import type { SyntheticEvent } from "react";
-import { AdminPage } from "../../src/components/AdminPage";
-import { useAdminAuth } from "../../src/hooks/useAdminAuth";
-import { useProducts } from "../../src/hooks/useProducts";
+export const metadata: Metadata = {
+  title: "관리자",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function AdminRoutePage() {
-  const { productsError, products, retryProductsLoad } = useProducts();
-  const admin = useAdminAuth({
-    isAdminPage: true,
-    onProductMutated: () => retryProductsLoad(),
-    onProductDeleted: () => {},
-  });
-
-  const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
-    event.currentTarget.onerror = null;
-    event.currentTarget.style.display = "none";
-  };
-
-  return (
-    <AdminPage
-      isAdminAuthenticated={admin.isAdminAuthenticated}
-      isAdminCheckingSession={admin.isAdminCheckingSession}
-      adminPassword={admin.adminPassword}
-      adminAuthError={admin.adminAuthError}
-      isAdminAuthSubmitting={admin.isAdminAuthSubmitting}
-      productsError={productsError}
-      adminActionError={admin.adminActionError}
-      allProducts={products}
-      editingProductId={admin.editingProductId}
-      adminEditForm={admin.adminEditForm}
-      adminImagePreview={admin.adminImagePreview}
-      adminSizeChartImage={admin.adminSizeChartImage}
-      isAdminAnalyzingTable={admin.isAdminAnalyzingTable}
-      adminExtractedTable={admin.adminExtractedTable}
-      isAdminActionLoading={admin.isAdminActionLoading}
-      brandRules={admin.brandRules}
-      isBrandRulesLoading={admin.isBrandRulesLoading}
-      isBrandRulesSaving={admin.isBrandRulesSaving}
-      isBrandBackfillRunning={admin.isBrandBackfillRunning}
-      brandBackfillResult={admin.brandBackfillResult}
-      onLogout={() => void admin.handleAdminLogout()}
-      onLogin={() => void admin.handleAdminLogin()}
-      onBrandRulesReload={() => void admin.loadBrandRules()}
-      onBrandRulesSave={() => void admin.handleBrandRulesSave()}
-      onBrandRulesBackfill={() => void admin.handleBrandRulesBackfill()}
-      onBrandRulesChange={admin.setBrandRules}
-      onPasswordChange={admin.setAdminPassword}
-      onPasswordKeyDown={(key) => {
-        if (key === "Enter") void admin.handleAdminLogin();
-      }}
-      onFileUpload={admin.handleAdminFileUpload}
-      onUpdateProduct={(id) => void admin.handleAdminUpdateProduct(id)}
-      onDeleteProduct={(id) => void admin.handleAdminDeleteProduct(id)}
-      onStartEdit={admin.startProductEdit}
-      onCancelEdit={admin.cancelEdit}
-      onEditFormChange={admin.setAdminEditForm}
-      onExtractedTableChange={admin.setAdminExtractedTable}
-      onImageLoadError={handleImageLoadError}
-    />
-  );
+  return <AdminRoutePageClient />;
 }

@@ -49,7 +49,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   process.exit(1);
 }
 
-const { normalizeBrandName } = await import('../server/shared.js');
+const { normalizeBrandName } = await import('../server/utils/brand-rules.js');
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: {
     persistSession: false,

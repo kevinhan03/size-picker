@@ -1,20 +1,14 @@
 import { NextResponse } from "next/server";
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import {
   getAdminTokenFromCookieHeader,
   verifyAdminSessionToken,
 } from "../../../../../server/auth/admin-session.js";
-import { createProductStack } from "../../../../../server/bootstrap/products.js";
-
-const {
-  SUPABASE_PRODUCTS_TABLE,
-  assertSupabaseConfig,
-  normalizeBrandName,
-  parseSizeTable,
-  refreshBrandRulesCache,
-  removeOldProductImageIfUnused,
-  supabase,
-  toProductWriteErrorResponse,
-} = createProductStack();
+import { SUPABASE_PRODUCTS_TABLE } from "../../../../../server/config/env.js";
+import { assertSupabaseConfig, supabase } from "../../../../../server/lib/supabase.js";
+import { normalizeBrandName, refreshBrandRulesCache } from "../../../../../server/utils/brand-rules.js";
+import { removeOldProductImageIfUnused, toProductWriteErrorResponse } from "../../../../../server/utils/product.js";
+import { parseSizeTable } from "../../../../../server/utils/size-table.js";
 
 const adminUnauthorized = () =>
   NextResponse.json(
@@ -78,10 +72,7 @@ export async function PATCH(
 
   try {
     assertSupabaseConfig();
-    const db = supabase;
-    if (!db) {
-      throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing in server .env");
-    }
+    const db = supabase!;
     const hasImagePathInPayload = Object.prototype.hasOwnProperty.call(payload, "image_path");
     let previousImagePath: string | null = null;
 
@@ -124,7 +115,7 @@ export async function PATCH(
       ok: true,
       data: { product: data },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const { statusCode, message } = toProductWriteErrorResponse(error, "product update error");
     return NextResponse.json({ ok: false, error: message }, { status: statusCode });
   }
@@ -148,10 +139,7 @@ export async function DELETE(
 
   try {
     assertSupabaseConfig();
-    const db = supabase;
-    if (!db) {
-      throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing in server .env");
-    }
+    const db = supabase!;
     const { data, error } = await db
       .from(SUPABASE_PRODUCTS_TABLE)
       .delete()
@@ -173,13 +161,13 @@ export async function DELETE(
       ok: true,
       data: { id: productId },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "product delete error",
+        error: getErrorMessage(error, "product delete error"),
       },
-      { status: 500 }
+      { status: getErrorStatusCode(error) }
     );
   }
 }

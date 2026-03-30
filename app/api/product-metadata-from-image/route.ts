@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
-import { createGeminiStack } from "../../../server/bootstrap/gemini.js";
-import { createMetadataStack } from "../../../server/bootstrap/metadata.js";
-
-const {
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
+import {
   alignAndValidateSizeTableByOptionLabels,
   extractProductMetadataFromImageWithGemini,
   extractSizeTableFromImageCandidates,
   extractSizeTableWithGemini,
-} = createGeminiStack();
-const {
+} from "../../../server/bootstrap/gemini.js";
+import {
   fetchLinkedSizeMetadataDeep,
   normalizeBrandName,
   normalizeProductCategory,
   prioritizeProductImageCandidates,
   refreshBrandRulesCache,
   resolveProductMetadataFromHints,
-} = createMetadataStack();
+} from "../../../server/bootstrap/metadata.js";
 
 const normalizeCellText = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
 const pickFirstNonEmpty = (values: unknown[]) => {
@@ -189,14 +187,13 @@ export async function POST(request: Request) {
         },
       },
     });
-  } catch (error: any) {
-    const statusCode = Number(error?.statusCode) || 500;
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "product-metadata-from-image error",
+        error: getErrorMessage(error, "product-metadata-from-image error"),
       },
-      { status: statusCode }
+      { status: getErrorStatusCode(error) }
     );
   }
 }

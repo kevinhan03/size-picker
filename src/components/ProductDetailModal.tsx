@@ -1,9 +1,9 @@
-import type { RefObject, SyntheticEvent } from 'react';
-import { ExternalLink, X } from 'lucide-react';
-import { ProgressiveImage } from './ProgressiveImage';
-import type { Product, SizeRecommendation } from '../types';
-import { DEFAULT_PRODUCT_PLACEHOLDER } from '../constants';
-import { isPrimaryColumnHeader, normalizeMeasurementLabel } from '../utils/sizeTable';
+import type { RefObject, SyntheticEvent } from "react";
+import { ExternalLink, X } from "lucide-react";
+import { ProgressiveImage } from "./ProgressiveImage";
+import type { Product, SizeRecommendation } from "../types";
+import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
+import { isPrimaryColumnHeader, normalizeMeasurementLabel } from "../utils/sizeTable";
 
 interface ProductDetailModalProps {
   product: Product;
@@ -48,18 +48,18 @@ export function ProductDetailModal({
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div
         ref={modalRef}
-        className="ui-product-detail-modal relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
+        className="ui-product-detail-modal relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
       >
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.2),transparent_32%,transparent_68%,rgba(255,255,255,0.08))]" />
         <div className="sticky top-0 z-10 flex items-center justify-between bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.02)_38%,rgba(255,255,255,0.03)_100%)] px-6 py-4 text-white">
-          <h3 className="text-lg sm:text-xl font-bold text-white">상품 상세</h3>
+          <h3 className="text-lg font-bold text-white sm:text-xl">상품 상세</h3>
           <button onClick={onClose} className="rounded-full p-2 text-gray-300 transition hover:bg-white/[0.08] hover:text-white">
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="relative z-[1] bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.02)_38%,rgba(255,255,255,0.03)_100%)] p-6 md:p-8">
-          <div className="flex flex-col md:flex-row gap-6 md:items-center">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center">
             <button
               type="button"
               onClick={onZoomImage}
@@ -71,17 +71,17 @@ export function ProductDetailModal({
                 src={product.image}
                 thumbnailSrc={product.thumbnailImage}
                 alt={product.name}
-                className="relative z-[1] max-w-full max-h-full object-contain"
+                className="relative z-[1] max-h-full max-w-full object-contain"
                 loading="eager"
                 onError={onImageError}
               />
             </button>
             <div className="flex-1">
-              <div className="flex items-center gap-2 text-sm font-bold text-orange-500 mb-2">
-                <span className="px-2 py-0.5 bg-orange-500/10 rounded-md uppercase">{product.brand}</span>
+              <div className="mb-2 flex items-center gap-2 text-sm font-bold text-orange-500">
+                <span className="rounded-md bg-orange-500/10 px-2 py-0.5 uppercase">{product.brand}</span>
                 <span className="text-gray-500">{product.category}</span>
               </div>
-              <h4 className="text-2xl font-bold text-white mb-2">{product.name}</h4>
+              <h4 className="mb-2 text-2xl font-bold text-white">{product.name}</h4>
               {product.url ? (
                 <a
                   href={product.url}
@@ -89,7 +89,7 @@ export function ProductDetailModal({
                   rel="noopener noreferrer"
                   className="inline-flex items-center text-sm text-gray-300 transition-colors hover:text-orange-400"
                 >
-                  공식 홈페이지 <ExternalLink className="w-3 h-3 ml-1" />
+                  공식 페이지 <ExternalLink className="ml-1 h-3 w-3" />
                 </a>
               ) : (
                 <span className="text-sm text-gray-600">URL 없음</span>
@@ -106,8 +106,8 @@ export function ProductDetailModal({
                     {product.sizeTable.headers.map((header, index) => (
                       <th
                         key={index}
-                        className={`bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018))] whitespace-nowrap px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 sm:text-sm ${index === 0 ? 'border-r border-white/[0.04]' : ''}`}
-                        style={{ color: isPrimaryColumnHeader(header) ? '#E5E7EB' : '#00FF00' }}
+                        className={`whitespace-nowrap bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018))] px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 sm:text-sm ${index === 0 ? "border-r border-white/[0.04]" : ""}`}
+                        style={{ color: isPrimaryColumnHeader(header) ? "#E5E7EB" : "#00FF00" }}
                       >
                         {String(header)}
                       </th>
@@ -126,10 +126,10 @@ export function ProductDetailModal({
                         {row.map((cell, cellIndex) => (
                           <td
                             key={cellIndex}
-                            className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-all duration-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? 'border-r border-white/[0.04] text-xs font-bold sm:text-sm' : ''} ${
+                            className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-all duration-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""} ${
                               isActiveRow
-                                ? 'bg-white text-black first:rounded-l-lg last:rounded-r-lg'
-                                : 'bg-transparent text-gray-200 group-hover:bg-white/[0.92] group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg'
+                                ? "bg-white text-black first:rounded-l-lg last:rounded-r-lg"
+                                : "bg-transparent text-gray-200 group-hover:bg-white/[0.92] group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg"
                             }`}
                           >
                             {String(cell)}
@@ -147,17 +147,18 @@ export function ProductDetailModal({
 
           {recommendations.length > 0 && (
             <div ref={recommendationsRef} className="mt-6">
-              <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">
-                유사한 핏의 상품
-              </h5>
+              <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">유사한 추천 상품</h5>
               <div className="flex flex-col gap-2">
                 {recommendations.map(({ product: recProduct, rowIndex }) => {
                   const matchedRow = recProduct.sizeTable!.rows[rowIndex];
-                  const sizeLabel = matchedRow[0] || '';
+                  const sizeLabel = matchedRow[0] || "";
                   const measurements = recProduct.sizeTable!.headers
                     .slice(1)
-                    .map((h, i) => ({ label: normalizeMeasurementLabel(h) || h, value: matchedRow[i + 1] || '' }))
-                    .filter(({ value }) => value !== '');
+                    .map((header, index) => ({
+                      label: normalizeMeasurementLabel(header) || header,
+                      value: matchedRow[index + 1] || "",
+                    }))
+                    .filter(({ value }) => value !== "");
                   return (
                     <button
                       key={recProduct.id}

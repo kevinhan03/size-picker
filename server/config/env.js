@@ -33,6 +33,7 @@ export const PRODUCT_METADATA_SEARCH_FETCH_TIMEOUT_MS = Number(process.env.PRODU
 export const PRODUCT_METADATA_BROWSER_TIMEOUT_MS = Number(process.env.PRODUCT_METADATA_BROWSER_TIMEOUT_MS || 12000);
 export const PRODUCT_METADATA_URL_FAST_MODE =
   String(process.env.PRODUCT_METADATA_URL_FAST_MODE || "true").toLowerCase() !== "false";
+export const BRAND_RULES_CACHE_TTL_MS = Number(process.env.BRAND_RULES_CACHE_TTL_MS || 15000);
 export const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((value) => value.trim())

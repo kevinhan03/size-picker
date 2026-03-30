@@ -12,6 +12,7 @@ import { supabase, assertSupabaseClient } from '../lib/supabase';
 import { getFileExtension } from '../utils/image';
 import { normalizeSizeTable } from '../utils/sizeTable';
 import { normalizeProduct } from '../utils/product';
+import { parseApiJson, postJson } from './shared';
 
 export const fetchAllProducts = async (): Promise<Product[]> => {
   assertSupabaseClient();
@@ -74,42 +75,6 @@ export const submitProduct = async (form: SubmitProductForm): Promise<void> => {
     console.error('[submitProduct] insert failed', payload?.error);
     throw new Error(payload?.error || 'Product submission failed');
   }
-};
-
-const parseApiJson = async <T,>(response: Response, endpoint: string): Promise<T> => {
-  const rawText = await response.text();
-  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-  if (!contentType.includes('application/json')) {
-    const preview = rawText.slice(0, 120).replace(/\s+/g, ' ').trim();
-    throw new Error(`${endpoint} returned non-JSON response (${response.status}). ${preview}`);
-  }
-
-  try {
-    return JSON.parse(rawText);
-  } catch {
-    const preview = rawText.slice(0, 120).replace(/\s+/g, ' ').trim();
-    throw new Error(`${endpoint} returned invalid JSON (${response.status}). ${preview}`);
-  }
-};
-
-interface ApiEnvelope<T> {
-  ok?: boolean;
-  error?: string;
-  data?: T;
-}
-
-const postJson = async <TRequest, TResponse>(
-  endpoint: string,
-  body: TRequest,
-  extraHeaders?: Record<string, string>
-): Promise<{ response: Response; payload: ApiEnvelope<TResponse> }> => {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...extraHeaders },
-    body: JSON.stringify(body),
-  });
-  const payload = await parseApiJson<ApiEnvelope<TResponse>>(response, endpoint);
-  return { response, payload };
 };
 
 const getAccessToken = async (): Promise<string> => {
@@ -175,53 +140,6 @@ export const removeBackgroundWithGemini = async (base64Image: string): Promise<s
   );
   if (!response.ok || !payload?.ok || !payload?.data?.imageBase64) return base64Image;
   return String(payload.data.imageBase64);
-};
-
-export const fetchBrandRules = async (): Promise<BrandRule[]> => {
-  const response = await fetch('/api/admin/brand-rules', {
-    method: 'GET',
-    credentials: 'include',
-  });
-  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: { rules?: BrandRule[] } }>(
-    response,
-    '/api/admin/brand-rules'
-  );
-  if (!response.ok || !payload?.ok || !Array.isArray(payload?.data?.rules)) {
-    throw new Error(payload?.error || 'Failed to fetch brand rules');
-  }
-  return payload.data.rules;
-};
-
-export const saveBrandRules = async (rules: BrandRule[]): Promise<BrandRule[]> => {
-  const response = await fetch('/api/admin/brand-rules', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ rules }),
-  });
-  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: { rules?: BrandRule[] } }>(
-    response,
-    '/api/admin/brand-rules'
-  );
-  if (!response.ok || !payload?.ok || !Array.isArray(payload?.data?.rules)) {
-    throw new Error(payload?.error || 'Failed to save brand rules');
-  }
-  return payload.data.rules;
-};
-
-export const backfillBrandRules = async (): Promise<BrandBackfillResult> => {
-  const response = await fetch('/api/admin/brand-rules/backfill', {
-    method: 'POST',
-    credentials: 'include',
-  });
-  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: BrandBackfillResult }>(
-    response,
-    '/api/admin/brand-rules/backfill'
-  );
-  if (!response.ok || !payload?.ok || !payload?.data) {
-    throw new Error(payload?.error || 'Failed to backfill brand rules');
-  }
-  return payload.data;
 };
 
 export const deleteMyAccount = async (): Promise<void> => {

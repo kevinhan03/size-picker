@@ -1,9 +1,9 @@
-import type { SyntheticEvent } from 'react';
-import { LayoutGrid, Search } from 'lucide-react';
-import { CategoryDropdown } from './CategoryDropdown';
-import { ProgressiveImage } from './ProgressiveImage';
-import type { Product } from '../types';
-import { CATEGORY_OPTIONS } from '../constants';
+import type { SyntheticEvent } from "react";
+import { LayoutGrid, Search } from "lucide-react";
+import { CategoryDropdown } from "./CategoryDropdown";
+import { ProgressiveImage } from "./ProgressiveImage";
+import type { Product } from "../types";
+import { CATEGORY_OPTIONS } from "../constants";
 
 interface GridViewProps {
   allProducts: Product[];
@@ -31,8 +31,8 @@ export function GridView({
   return (
     <div className="w-full max-w-7xl">
       <div className="mb-6 flex flex-col gap-4">
-        <h2 className="flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white">
-          <LayoutGrid className="w-7 h-7 text-orange-500" />
+        <h2 className="flex items-center gap-3 text-2xl font-bold text-white sm:text-3xl">
+          <LayoutGrid className="h-7 w-7 text-orange-500" />
           전체 상품 보기
         </h2>
         <div className="h-6 sm:h-8" />
@@ -52,19 +52,19 @@ export function GridView({
               <input
                 type="text"
                 value={gridSearchQuery}
-                onChange={(e) => setGridSearchQuery(e.target.value)}
+                onChange={(event) => setGridSearchQuery(event.target.value)}
                 placeholder="상품 검색"
                 aria-label="전체 상품 검색"
-                className="h-[1.7rem] w-full rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.88),rgba(28,28,28,0.72))] pl-8 pr-3 text-[0.7rem] font-medium text-white placeholder:text-gray-400 shadow-[0_16px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl focus:outline-none sm:h-8 sm:pl-10 sm:pr-4 sm:text-xs"
+                className="h-[1.7rem] w-full rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.88),rgba(28,28,28,0.72))] pl-8 pr-3 text-[0.7rem] font-medium text-white shadow-[0_16px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl placeholder:text-gray-400 focus:outline-none sm:h-8 sm:pl-10 sm:pr-4 sm:text-xs"
               />
             </label>
           </div>
         </div>
       </div>
       {allProducts.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">등록된 상품이 없습니다.</div>
+        <div className="py-20 text-center text-gray-500">등록된 상품이 없습니다.</div>
       ) : filteredGridProducts.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">검색 조건에 맞는 상품이 없습니다.</div>
+        <div className="py-20 text-center text-gray-500">검색 조건에 맞는 상품이 없습니다.</div>
       ) : (
         <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
           {filteredGridProducts.map((product) => (

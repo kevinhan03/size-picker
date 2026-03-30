@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { createProductStack } from "../../../../server/bootstrap/products.js";
-
-const { assertSupabaseConfig, supabase } = createProductStack();
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
+import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 
 export async function POST(request: Request) {
   const authorization = String(request.headers.get("authorization") || "").trim();
@@ -16,10 +15,7 @@ export async function POST(request: Request) {
 
   try {
     assertSupabaseConfig();
-    const db = supabase;
-    if (!db) {
-      throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing in server .env");
-    }
+    const db = supabase!;
 
     const {
       data: { user },
@@ -54,10 +50,10 @@ export async function POST(request: Request) {
       ok: true,
       data: { deleted: true, registered: false },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { ok: false, error: error?.message || "cleanup-unregistered error" },
-      { status: 500 }
+      { ok: false, error: getErrorMessage(error, "cleanup-unregistered error") },
+      { status: getErrorStatusCode(error) }
     );
   }
 }

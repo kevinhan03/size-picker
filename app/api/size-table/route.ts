@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createGeminiStack } from "../../../server/bootstrap/gemini.js";
-import { createProductStack } from "../../../server/bootstrap/products.js";
-
-const { alignAndValidateSizeTableByOptionLabels, extractSizeTableWithGemini } =
-  createGeminiStack();
-const { supabase } = createProductStack();
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
+import {
+  alignAndValidateSizeTableByOptionLabels,
+  extractSizeTableWithGemini,
+} from "../../../server/bootstrap/gemini.js";
+import { supabase } from "../../../server/lib/supabase.js";
 
 export const maxDuration = 60;
 
@@ -44,14 +44,13 @@ export async function POST(request: Request) {
       ok: true,
       data: validatedTable,
     });
-  } catch (error: any) {
-    const statusCode = Number(error?.statusCode) || 500;
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "size-table error",
+        error: getErrorMessage(error, "size-table error"),
       },
-      { status: statusCode }
+      { status: getErrorStatusCode(error) }
     );
   }
 }

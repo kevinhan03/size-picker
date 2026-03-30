@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
-import { createProductStack } from "../../../server/bootstrap/products.js";
-
-const {
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
+import { normalizeBrandName, refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
+import {
   fetchProductsRows,
   generateProductSlug,
   insertProductRow,
-  normalizeBrandName,
   normalizeProductRow,
-  refreshBrandRulesCache,
   toProductWriteErrorResponse,
-} =
-  createProductStack();
+} from "../../../server/utils/product.js";
 
 export async function GET() {
   try {
@@ -24,14 +21,13 @@ export async function GET() {
       ok: true,
       data: { products },
     });
-  } catch (error: any) {
-    const statusCode = Number(error?.statusCode) || 500;
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "products fetch error",
+        error: getErrorMessage(error, "products fetch error"),
       },
-      { status: statusCode }
+      { status: getErrorStatusCode(error) }
     );
   }
 }
@@ -80,7 +76,7 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     const { statusCode, message } = toProductWriteErrorResponse(error, "product insert error");
     return NextResponse.json(
       {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import {
   getAdminTokenFromCookieHeader,
   verifyAdminSessionToken,
@@ -8,7 +9,7 @@ import {
   normalizeBrandRule,
   refreshBrandRulesCache,
   writeBrandRules,
-} from "../../../../server/shared.js";
+} from "../../../../server/utils/brand-rules.js";
 
 const adminUnauthorized = () =>
   NextResponse.json(
@@ -60,13 +61,13 @@ export async function PUT(request: Request) {
         rules: savedRules,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "brand rules update error",
+        error: getErrorMessage(error, "brand rules update error"),
       },
-      { status: 500 }
+      { status: getErrorStatusCode(error) }
     );
   }
 }
