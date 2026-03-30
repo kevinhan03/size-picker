@@ -3674,6 +3674,7 @@ const normalizeProductRow = (row) => {
     url: String(row.url || "#"),
     image: image || imagePath,
     imagePath: imagePath || null,
+    slug: String(row.slug || "").trim() || null,
     sizeTable: parseSizeTable(row.size_table ?? row.sizeTable),
     createdAt: row.created_at || row.createdAt || null,
   };
@@ -3753,12 +3754,14 @@ const insertProductRow = async ({
   imagePath,
   sizeTable,
   createdAt,
+  slug,
 }) => {
   assertSupabaseConfig();
   const normalizedImagePath = String(imagePath || "").trim();
   const normalizedImage = String(image || "").trim();
   const effectiveImagePath = normalizedImagePath || normalizedImage || null;
   const effectiveImage = normalizedImage || normalizedImagePath || "";
+  const normalizedSlug = String(slug || "").trim() || null;
 
   const canonicalBrand = normalizeBrandName(brand, { url });
   const payloads = [
@@ -3770,6 +3773,7 @@ const insertProductRow = async ({
       image_path: effectiveImagePath,
       size_table: sizeTable,
       created_at: createdAt,
+      slug: normalizedSlug,
     },
     {
       brand: canonicalBrand,
@@ -3779,6 +3783,7 @@ const insertProductRow = async ({
       image_path: effectiveImagePath,
       sizeTable: JSON.stringify(sizeTable),
       createdAt,
+      slug: normalizedSlug,
     },
     // Legacy schema fallback (uses `image` column)
     {
@@ -4064,6 +4069,37 @@ const assertGeminiKey = () => {
   }
 };
 
+const generateProductSlug = async (brand, name) => {
+  const fallback = [brand, name]
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .slice(0, 80);
+
+  if (!GEMINI_API_KEY) return fallback;
+
+  try {
+    const response = await callGemini("gemini-2.0-flash", {
+      contents: [{
+        parts: [{
+          text: `Convert this fashion product's brand and name into a URL slug in English.\nBrand: ${brand}\nName: ${name}\nRules:\n- Lowercase letters, numbers, and hyphens only\n- Translate Korean words to natural English equivalents\n- Remove special characters and parentheses\n- Max 80 characters\n- Return ONLY the slug, no explanation\nExample: Brand "파브레가" Name "카일리 체크 셔츠 (다크 네이비)" → fabrega-kylie-check-shirt-dark-navy`,
+        }],
+      }],
+      generationConfig: { maxOutputTokens: 40, temperature: 0.1 },
+    });
+    if (!response.ok) return fallback;
+    const json = await response.json();
+    const text = String(json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+    const clean = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+    return clean || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 const callGemini = async (model, body) => {
   const response = await fetch(
     `${GEMINI_API_BASE}/models/${model}:generateContent`,
@@ -4092,6 +4128,7 @@ export {
   extractSizeTableWithGemini,
   fetchLinkedSizeMetadataDeep,
   fetchProductsRows,
+  generateProductSlug,
   getAdminTokenFromCookieHeader,
   getBrandRules,
   backfillProductBrands,

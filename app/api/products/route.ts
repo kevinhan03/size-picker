@@ -3,6 +3,7 @@ import { createProductStack } from "../../../server/bootstrap/products.js";
 
 const {
   fetchProductsRows,
+  generateProductSlug,
   insertProductRow,
   normalizeBrandName,
   normalizeProductRow,
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    const slug = await generateProductSlug(brand, name);
     const insertedRow = await insertProductRow({
       brand,
       name,
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
       imagePath,
       sizeTable,
       createdAt,
+      slug,
     });
     const product = normalizeProductRow(insertedRow);
 

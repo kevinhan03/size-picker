@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "backfill:brands": "node scripts/backfill-brand-names.mjs",
     "backfill:brands:dry": "node scripts/backfill-brand-names.mjs --dry-run",
-    "backfill:brands:report": "node scripts/backfill-brand-names.mjs --dry-run --report"
+    "backfill:brands:report": "node scripts/backfill-brand-names.mjs --dry-run --report",
+    "backfill:slugs": "node scripts/backfill-slugs.mjs",
+    "backfill:slugs:dry": "node scripts/backfill-slugs.mjs --dry-run"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

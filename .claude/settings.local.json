@@ -23,7 +23,8 @@
       "Bash(node:*)",
       "Bash(npx claude:*)",
       "mcp__supabase__apply_migration",
-      "Bash(ls C:devsizepicker/*.json)"
+      "Bash(ls C:devsizepicker/*.json)",
+      "Bash(grep -r from.*server/ /c/dev/sizepicker/app/)"
     ]
   }
 }

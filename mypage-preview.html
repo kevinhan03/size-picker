@@ -7,35 +7,80 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
     .card {
       background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
       border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 1rem;
+      border-radius: 1.25rem;
       backdrop-filter: blur(24px);
+      overflow: hidden;
     }
+
     .placeholder-box {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.07);
       border-radius: 10px;
     }
-    .layout {
-      max-width: 520px;
+
+    /* 벤토 그리드 */
+    .bento {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-areas:
+        "profile  closet"
+        "wishlist wishlist"
+        "recent   recent"
+        "sizes    myfit"
+        "account  account";
+      gap: 10px;
+      max-width: 560px;
       margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
     }
     @media (min-width: 768px) {
-      .layout {
-        max-width: 800px;
-      }
+      .bento { max-width: 860px; gap: 12px; }
+    }
+
+    .area-profile  { grid-area: profile; }
+    .area-closet   { grid-area: closet; }
+    .area-wishlist { grid-area: wishlist; }
+    .area-recent   { grid-area: recent; }
+    .area-sizes    { grid-area: sizes; }
+    .area-myfit    { grid-area: myfit; }
+    .area-account  { grid-area: account; }
+
+    /* 가로 스크롤 */
+    .scroll-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .scroll-row::-webkit-scrollbar { display: none; }
+
+    .scroll-item {
+      flex-shrink: 0;
+      scroll-snap-align: start;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* accent shimmer on cards */
+    .card-accent::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 40%);
+      pointer-events: none;
     }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
   <!-- Header -->
-  <header style="background:rgba(0,0,0,0.9);border-bottom:1px solid #1f2937;backdrop-filter:blur(12px);" class="fixed top-0 w-full z-50">
+  <header style="background:rgba(0,0,0,0.9);border-bottom:1px solid #1f2937;backdrop-filter:blur(12px);position:fixed;top:0;width:100%;z-index:50;">
     <div style="max-width:1152px;margin:0 auto;padding:0 1rem;height:4rem;display:flex;align-items:center;justify-content:space-between;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-weight:700;font-size:1.25rem;letter-spacing:-0.02em;color:#f97316;">DIGDA</span>
@@ -49,149 +94,135 @@
   </header>
 
   <!-- Main -->
-  <main style="padding-top:7rem;padding-bottom:4rem;padding-left:1rem;padding-right:1rem;">
-    <div class="layout">
+  <main style="padding-top:6rem;padding-bottom:4rem;padding-left:1rem;padding-right:1rem;">
+    <div class="bento">
 
-      <!-- Row 1: Profile + My Closet -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-
-        <!-- Profile card -->
-        <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:12px;">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;">
-            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,rgba(249,115,22,0.3),rgba(249,115,22,0.1));border:1px solid rgba(249,115,22,0.3);display:flex;align-items:center;justify-content:center;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(251,146,60,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-            </div>
-            <button style="padding:4px 6px;border-radius:8px;background:none;border:none;color:rgba(107,114,128,0.8);cursor:pointer;display:flex;flex-direction:column;gap:3px;align-items:center;">
-              <div style="width:3px;height:3px;border-radius:50%;background:currentColor;"></div>
-              <div style="width:3px;height:3px;border-radius:50%;background:currentColor;"></div>
-              <div style="width:3px;height:3px;border-radius:50%;background:currentColor;"></div>
-            </button>
-          </div>
-          <div>
-            <p style="color:#fff;font-weight:700;font-size:0.875rem;margin:0 0 2px;">kevin_Han</p>
-            <p style="color:#6b7280;font-size:0.7rem;margin:0;">내 계정</p>
-          </div>
-        </div>
-
-        <!-- My Closet card -->
-        <div class="card" style="padding:1rem;display:flex;flex-direction:column;gap:10px;">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(251,146,60,0.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/>
-            </svg>
-            <span style="color:#fff;font-weight:700;font-size:0.875rem;">My Closet</span>
-          </div>
-          <p style="color:#4b5563;font-size:0.7rem;margin:0;">저장한 상품을 모아볼 수 있어요</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
-            <div class="placeholder-box" style="aspect-ratio:1;"></div>
-            <div class="placeholder-box" style="aspect-ratio:1;"></div>
-            <div class="placeholder-box" style="aspect-ratio:1;"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Row 2: 위시리스트 (full width) -->
-      <div class="card" style="padding:2rem 1rem;display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="rgba(250,204,21,0.8)" stroke="rgba(250,204,21,0.8)" stroke-width="1.5">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-          <span style="color:#fff;font-weight:700;font-size:0.875rem;">위시리스트</span>
-        </div>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(75,85,99,0.8)" stroke-width="2">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </div>
-
-      <!-- Row 3: 최근 본 상품 + 내가 즐겨 입는 사이즈 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-
-        <!-- 최근 본 상품 (자리 바뀜) -->
-        <div class="card" style="padding:0.7rem;display:flex;flex-direction:column;gap:7px;">
-          <div>
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(156,163,175,0.8)" stroke-width="2" stroke-linecap="round">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-              <span style="color:#fff;font-weight:700;font-size:0.875rem;">최근 본 상품</span>
-            </div>
-            <p style="color:#4b5563;font-size:0.7rem;margin:0 0 0 20px;">지금 본 상품</p>
-          </div>
-          <div style="display:flex;gap:6px;">
-            <div class="placeholder-box" style="flex:1;aspect-ratio:1;border-radius:10px;"></div>
-            <div class="placeholder-box" style="flex:1;aspect-ratio:1;border-radius:10px;"></div>
-          </div>
-        </div>
-
-        <!-- 내가 즐겨 입는 사이즈 -->
-        <div class="card" style="padding:0.7rem;">
-          <div style="margin-bottom:7px;">
-            <span style="color:#fff;font-weight:700;font-size:0.8rem;line-height:1.3;">내가 즐겨 입는 사이즈</span>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:5px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <span style="color:#4b5563;font-size:0.7rem;">상의</span>
-              <div class="placeholder-box" style="width:44px;height:18px;border-radius:6px;"></div>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <span style="color:#4b5563;font-size:0.7rem;">하의</span>
-              <div class="placeholder-box" style="width:44px;height:18px;border-radius:6px;"></div>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <span style="color:#4b5563;font-size:0.7rem;">신발</span>
-              <div class="placeholder-box" style="width:44px;height:18px;border-radius:6px;"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Row 4: 내 명적 + 계정 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-
-        <!-- 내 명적 (자리 바뀜) -->
-        <div class="card" style="padding:0.5rem;">
-          <div style="margin-bottom:4px;">
-            <span style="color:#fff;font-weight:700;font-size:0.875rem;">내 명적</span>
-          </div>
-          <p style="color:#4b5563;font-size:0.7rem;margin:0 0 5px;">내가 최근 이김한 옷</p>
-          <div style="display:flex;gap:5px;">
-            <div class="placeholder-box" style="flex:1;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;">
-              <div style="width:10px;height:14px;border-radius:3px;background:rgba(255,255,255,0.08);"></div>
-            </div>
-            <div class="placeholder-box" style="flex:1;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;">
-              <div style="width:10px;height:14px;border-radius:3px;background:rgba(255,255,255,0.08);"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 계정 -->
-        <div class="card" style="padding:0.5rem 0.7rem;display:flex;flex-direction:column;justify-content:space-between;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(156,163,175,0.7)" stroke-width="2" stroke-linecap="round">
+      <!-- ① Profile — 1×1 작은 카드 -->
+      <div class="card area-profile" style="padding:1rem;display:flex;flex-direction:column;justify-content:space-between;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,rgba(249,115,22,0.35),rgba(249,115,22,0.1));border:1px solid rgba(249,115,22,0.35);display:flex;align-items:center;justify-content:center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(251,146,60,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
             </svg>
-            <span style="color:#fff;font-weight:700;font-size:0.875rem;">계정</span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:5px;">
-            <button style="
-              width:100%;padding:5px 0;border-radius:12px;font-size:0.75rem;font-weight:700;
-              border:1px solid rgba(239,68,68,0.4);
-              background:linear-gradient(180deg,rgba(239,68,68,0.15),rgba(239,68,68,0.05));
-              color:rgba(248,113,113,0.9);cursor:pointer;
-            ">
-              로그아웃
-            </button>
-            <button style="
-              width:100%;padding:4px 0;border-radius:10px;font-size:0.7rem;
-              border:1px solid rgba(255,255,255,0.06);background:none;
-              color:rgba(75,85,99,0.9);cursor:pointer;
-            ">
-              계정 삭제
-            </button>
+          <button style="padding:3px 5px;border-radius:6px;background:none;border:none;color:rgba(107,114,128,0.8);cursor:pointer;display:flex;flex-direction:column;gap:3px;align-items:center;">
+            <div style="width:3px;height:3px;border-radius:50%;background:currentColor;"></div>
+            <div style="width:3px;height:3px;border-radius:50%;background:currentColor;"></div>
+            <div style="width:3px;height:3px;border-radius:50%;background:currentColor;"></div>
+          </button>
+        </div>
+        <div>
+          <p style="color:#fff;font-weight:700;font-size:0.8rem;margin:0 0 1px;">kevin_Han</p>
+          <p style="color:#6b7280;font-size:0.65rem;margin:0;">내 계정</p>
+        </div>
+      </div>
+
+      <!-- ② 위시리스트 — 3×2 큰 카드 -->
+      <div class="card area-wishlist" style="padding:1.1rem;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(250,204,21,0.85)" stroke="rgba(250,204,21,0.85)" stroke-width="1.5">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <span style="color:#fff;font-weight:700;font-size:0.875rem;">위시리스트</span>
           </div>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(75,85,99,0.8)" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </div>
+        <!-- 가로 스크롤 상품들 -->
+        <div class="scroll-row" style="flex:1;align-items:stretch;">
+          <div class="scroll-item" style="width:90px;min-height:100%;aspect-ratio:unset;"></div>
+          <div class="scroll-item" style="width:90px;min-height:100%;aspect-ratio:unset;"></div>
+          <div class="scroll-item" style="width:90px;min-height:100%;aspect-ratio:unset;"></div>
+          <div class="scroll-item" style="width:90px;min-height:100%;aspect-ratio:unset;"></div>
+          <div class="scroll-item" style="width:90px;min-height:100%;aspect-ratio:unset;"></div>
+          <div class="scroll-item" style="width:90px;min-height:100%;aspect-ratio:unset;"></div>
+        </div>
+      </div>
+
+      <!-- ③ My Closet — 1×1 (profile 아래) -->
+      <div class="card area-closet" style="padding:0.85rem;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:5px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(251,146,60,0.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/>
+          </svg>
+          <span style="color:#fff;font-weight:700;font-size:0.78rem;">My Closet</span>
+        </div>
+        <div class="scroll-row">
+          <div class="scroll-item" style="width:44px;aspect-ratio:3/4;"></div>
+          <div class="scroll-item" style="width:44px;aspect-ratio:3/4;"></div>
+          <div class="scroll-item" style="width:44px;aspect-ratio:3/4;"></div>
+          <div class="scroll-item" style="width:44px;aspect-ratio:3/4;"></div>
+        </div>
+      </div>
+
+      <!-- ④ 최근 본 상품 — 2×1 -->
+      <div class="card area-recent" style="padding:0.9rem;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(156,163,175,0.8)" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span style="color:#fff;font-weight:700;font-size:0.875rem;">최근 본 상품</span>
+        </div>
+        <div class="scroll-row">
+          <div class="scroll-item" style="width:64px;aspect-ratio:3/4;"></div>
+          <div class="scroll-item" style="width:64px;aspect-ratio:3/4;"></div>
+          <div class="scroll-item" style="width:64px;aspect-ratio:3/4;"></div>
+          <div class="scroll-item" style="width:64px;aspect-ratio:3/4;"></div>
+          <div class="scroll-item" style="width:64px;aspect-ratio:3/4;"></div>
+        </div>
+      </div>
+
+      <!-- ⑤ 내가 즐겨 입는 사이즈 — 1×1 -->
+      <div class="card area-sizes" style="padding:0.9rem;">
+        <p style="color:#fff;font-weight:700;font-size:0.75rem;margin:0 0 8px;line-height:1.3;">내가 즐겨<br>입는 사이즈</p>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="color:#6b7280;font-size:0.65rem;">상의</span>
+            <div class="placeholder-box" style="width:36px;height:16px;border-radius:5px;"></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="color:#6b7280;font-size:0.65rem;">하의</span>
+            <div class="placeholder-box" style="width:36px;height:16px;border-radius:5px;"></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="color:#6b7280;font-size:0.65rem;">신발</span>
+            <div class="placeholder-box" style="width:36px;height:16px;border-radius:5px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑥ 내 명적 — 1×1 -->
+      <div class="card area-myfit" style="padding:0.9rem;">
+        <p style="color:#fff;font-weight:700;font-size:0.75rem;margin:0 0 6px;">내 명적</p>
+        <p style="color:#6b7280;font-size:0.62rem;margin:0 0 6px;">최근 이김한 옷</p>
+        <div style="display:flex;gap:5px;">
+          <div class="placeholder-box" style="flex:1;aspect-ratio:3/4;"></div>
+          <div class="placeholder-box" style="flex:1;aspect-ratio:3/4;"></div>
+        </div>
+      </div>
+
+      <!-- ⑦ 계정 — 4×1 얇은 바 -->
+      <div class="card area-account" style="padding:0.5rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(156,163,175,0.6)" stroke-width="2" stroke-linecap="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span style="color:#6b7280;font-size:0.72rem;font-weight:600;">계정</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+          <button style="
+            padding:4px 16px;border-radius:8px;font-size:0.7rem;font-weight:700;
+            border:1px solid rgba(239,68,68,0.4);
+            background:linear-gradient(180deg,rgba(239,68,68,0.15),rgba(239,68,68,0.05));
+            color:rgba(248,113,113,0.9);cursor:pointer;white-space:nowrap;
+          ">로그아웃</button>
+          <button style="
+            padding:4px 12px;border-radius:8px;font-size:0.65rem;
+            border:1px solid rgba(255,255,255,0.07);background:none;
+            color:rgba(75,85,99,0.9);cursor:pointer;white-space:nowrap;
+          ">계정 삭제</button>
         </div>
       </div>
 
