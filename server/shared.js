@@ -4069,35 +4069,50 @@ const assertGeminiKey = () => {
   }
 };
 
-const generateProductSlug = async (brand, name) => {
-  const fallback = [brand, name]
-    .join(" ")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-{2,}/g, "-")
-    .slice(0, 80);
+const slugifyText = (text) =>
+  text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 
-  if (!GEMINI_API_KEY) return fallback;
+const extractEnglishBrand = (brand) => {
+  // "쿠어(coor)" → "coor", "MUJI 무인양품" → "MUJI"
+  const parenMatch = brand.match(/\(([a-zA-Z0-9][a-zA-Z0-9\s&'./+-]*)\)/);
+  if (parenMatch) return parenMatch[1].trim();
+  // "L'OFFICIEL JUAN | 로피시엘 주앙" → "L'OFFICIEL JUAN"
+  const pipeMatch = brand.match(/^([^|]+)\|/);
+  if (pipeMatch) return pipeMatch[1].trim();
+  // "MUJI 무인양품" → "MUJI" (English prefix before Korean)
+  const prefixMatch = brand.match(/^([A-Za-z0-9][A-Za-z0-9\s&'.+®-]+?)\s+[가-힣]/);
+  if (prefixMatch) return prefixMatch[1].trim();
+  return brand;
+};
 
+const hasKorean = (text) => /[가-힣]/.test(text);
+
+const translateKoreanProductName = async (name) => {
+  if (!hasKorean(name)) return name;
+  if (!GEMINI_API_KEY) return name;
   try {
-    const response = await callGemini("gemini-2.0-flash", {
+    const response = await callGemini("gemini-2.5-flash", {
       contents: [{
         parts: [{
-          text: `Convert this fashion product's brand and name into a URL slug in English.\nBrand: ${brand}\nName: ${name}\nRules:\n- Lowercase letters, numbers, and hyphens only\n- Translate Korean words to natural English equivalents\n- Remove special characters and parentheses\n- Max 80 characters\n- Return ONLY the slug, no explanation\nExample: Brand "파브레가" Name "카일리 체크 셔츠 (다크 네이비)" → fabrega-kylie-check-shirt-dark-navy`,
+          text: `Translate this Korean fashion product name to English. Return ONLY the English translation, no Korean.\n"배기진" → baggy jeans\n"네오 피쉬테일 코트 카키" → neo fishtail coat khaki\n"울 브이넥 스웨터 멜란지그레이" → wool v-neck sweater melange grey\n"스웨이드 해링턴 자켓 브라운" → suede harrington jacket brown\n"워시드 엔지니어 데님 팬츠 워시드블루그레이" → washed engineer denim pants washed blue grey\n"오버 다이드 커버올 자켓 워시드차콜" → over dyed coverall jacket washed charcoal\n"후드블루종" → hooded blouson\n"해링턴재킷" → harrington jacket\n"에어 포스 1" → air force 1\n"${name}" →`,
         }],
       }],
-      generationConfig: { maxOutputTokens: 40, temperature: 0.1 },
+      generationConfig: { maxOutputTokens: 100, temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
     });
-    if (!response.ok) return fallback;
+    if (!response.ok) return name;
     const json = await response.json();
-    const text = String(json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
-    const clean = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-    return clean || fallback;
+    return String(json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim() || name;
   } catch {
-    return fallback;
+    return name;
   }
+};
+
+const generateProductSlug = async (brand, name) => {
+  const brandSlug = slugifyText(extractEnglishBrand(brand));
+  const translatedName = await translateKoreanProductName(name);
+  const nameSlug = slugifyText(translatedName);
+  const combined = [brandSlug, nameSlug].filter(Boolean).join("-").replace(/-{2,}/g, "-").slice(0, 80);
+  return combined || slugifyText(`${brand} ${name}`);
 };
 
 const callGemini = async (model, body) => {

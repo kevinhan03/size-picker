@@ -26,6 +26,7 @@ export interface ProductRow {
   size_table?: unknown;
   created_at?: string | null;
   image_path?: string | null;
+  slug?: string | null;
 }
 
 export interface SubmitProductForm {

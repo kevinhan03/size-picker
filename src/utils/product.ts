@@ -91,6 +91,7 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
     image: toPublicUrl(imagePath),
     thumbnailImage: toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 }),
     imagePath,
+    slug: String(row.slug ?? '').trim() || null,
     sizeTable: normalizeSizeTable(row.size_table),
     createdAt: row.created_at ? String(row.created_at) : undefined,
   };
