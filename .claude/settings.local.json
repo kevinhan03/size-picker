@@ -21,7 +21,8 @@
       "Bash(npx eslint:*)",
       "Bash(awk 'NR>=1791 && NR<=1900' src/App.tsx)",
       "Bash(node:*)",
-      "Bash(npx claude:*)"
+      "Bash(npx claude:*)",
+      "mcp__supabase__apply_migration"
     ]
   }
 }
