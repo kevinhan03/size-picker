@@ -178,8 +178,8 @@ export function ProductDetailModal({
                         <p className="truncate text-sm font-medium text-white">{recProduct.name}</p>
                         {measurements.length > 0 && (
                           <div className="mt-1.5 flex flex-wrap gap-1">
-                            {measurements.map(({ label, value }) => (
-                              <span key={label} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-gray-300">
+                            {measurements.map(({ label, value }, idx) => (
+                              <span key={idx} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-gray-300">
                                 {label} {value}
                               </span>
                             ))}
