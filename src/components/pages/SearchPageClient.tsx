@@ -70,7 +70,7 @@ export function SearchPageClient() {
         onClearQuery={search.clearQuery}
         onImageLoadError={handleImageLoadError}
         onKeyDown={search.handleKeyDown}
-        onQueryChange={search.setQuery}
+        onQueryChange={search.handleQueryChange}
         onSearch={() => handleSearchSubmit()}
         onSuggestionSelect={(product) => handleSearchSubmit(product)}
         onSuggestionVisibilityChange={search.setShowSuggestions}

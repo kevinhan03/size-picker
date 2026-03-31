@@ -80,6 +80,11 @@ export function useProductSearch({
     handleSearch(product);
   };
 
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    setShowSuggestions(Boolean(value));
+  };
+
   const clearQuery = () => {
     setQuery('');
     setShowSuggestions(false);
@@ -96,6 +101,7 @@ export function useProductSearch({
     clearQuery,
     error,
     handleKeyDown,
+    handleQueryChange,
     handleSearch,
     handleSuggestionSelect,
     isLoading,
