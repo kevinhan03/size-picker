@@ -63,18 +63,20 @@ export function ProductDetailModal({
             <button
               type="button"
               onClick={onZoomImage}
-              className="relative isolate flex h-[10.5rem] w-[10.5rem] cursor-zoom-in items-center justify-center overflow-visible rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:h-[16.848rem] md:w-[16.848rem]"
+              className="relative isolate h-[10.5rem] w-[10.5rem] cursor-zoom-in overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:h-[16.848rem] md:w-[16.848rem]"
             >
               <div className="pointer-events-none absolute inset-[-10%] rounded-[32px] bg-[radial-gradient(circle,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_36%,rgba(255,255,255,0.02)_52%,transparent_74%)] opacity-80 blur-xl" />
               <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015)_40%,transparent_100%)]" />
-              <ProgressiveImage
-                src={product.image}
-                thumbnailSrc={product.thumbnailImage}
-                alt={product.name}
-                className="relative z-[1] max-h-full max-w-full object-contain"
-                loading="eager"
-                onError={onImageError}
-              />
+              <div className="absolute inset-2 z-[1]">
+                <ProgressiveImage
+                  src={product.image}
+                  thumbnailSrc={product.thumbnailImage}
+                  alt={product.name}
+                  className="object-contain"
+                  loading="eager"
+                  onError={onImageError}
+                />
+              </div>
             </button>
             <div className="flex-1">
               <div className="mb-2 flex items-center gap-2 text-sm font-bold text-orange-500">

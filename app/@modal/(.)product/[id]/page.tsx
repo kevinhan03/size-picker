@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation";
-import { ProductDetailRouteModal } from "../../../../src/components/ProductDetailRouteModal";
-import { fetchProduct } from "../../../../server/utils/product-detail";
+import { ProductModalClient } from "../../../../src/components/ProductModalClient";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -8,8 +6,5 @@ interface Props {
 
 export default async function ProductModalPage({ params }: Props) {
   const { id } = await params;
-  const product = await fetchProduct(id);
-  if (!product) notFound();
-
-  return <ProductDetailRouteModal product={product} />;
+  return <ProductModalClient id={id} />;
 }

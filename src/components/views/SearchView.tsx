@@ -105,7 +105,7 @@ export function SearchView({
                     onClick={() => onSuggestionSelect(item)}
                     className="flex cursor-pointer items-center gap-4 border-b border-white/10 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.08]"
                   >
-                    <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-white/10">
+                    <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-white/10">
                       <ProgressiveImage
                         src={item.image}
                         thumbnailSrc={item.thumbnailImage}

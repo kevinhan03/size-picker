@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { SUPABASE_PRODUCTS_TABLE } from "../config/env.js";
 import { supabase } from "../lib/supabase.js";
-import { refreshBrandRulesCache } from "../utils/brand-rules.js";
 import { normalizeProductRow } from "../utils/product.js";
 
 export function parseNumericId(param: string): string {
@@ -12,7 +11,6 @@ export function parseNumericId(param: string): string {
 export async function fetchProduct(idParam: string) {
   if (!supabase) return null;
   const id = parseNumericId(idParam);
-  await refreshBrandRulesCache();
   const { data, error } = await supabase
     .from(SUPABASE_PRODUCTS_TABLE)
     .select("*")
