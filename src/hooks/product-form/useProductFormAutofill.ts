@@ -96,7 +96,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
       state.setIsAnalyzingTable(true);
       try {
         const tableData = await extractSizeTableFromImage(optimizedBase64, "image/png");
-        state.setFormData((prev) => ({ ...prev, extractedTable: tableData }));
+        state.setFormData((prev) => ({ ...prev, extractedTable: normalizeSizeTable(tableData) }));
       } catch (extractError: unknown) {
         const message = extractError instanceof Error ? extractError.message : "Size table extraction failed.";
         alert(`${message} (check /api/size-table server logs)`);

@@ -1,5 +1,6 @@
 const TOTAL_LENGTH_LABEL = "\uCD1D\uC7A5";
 const ITEM_LABEL = "\uD56D\uBAA9";
+const SIZE_COLUMN_LABEL = "\uC0AC\uC774\uC988";
 const MEASUREMENT_LABEL_HINT_PATTERN =
   /(?:\uCD1D\uC7A5|\uAE30\uC7A5|\uC5B4\uAE68|\uAC00\uC2B4|\uC18C\uB9E4|\uD5C8\uB9AC|\uC5C9\uB369|\uD5C8\uBC85|\uBC11\uC704|\uBC11\uB2E8|\uAE38\uC774|length|shoulder|chest|sleeve|waist|hip|thigh|rise|hem|inseam|pit|bust|body|width)/i;
 const MEASUREMENT_ALIAS_MAP = {
@@ -164,36 +165,6 @@ export const transposeTable = ({ headers, rows }) => {
   return { headers: transposed[0] || [], rows: transposed.slice(1) };
 };
 
-const tableOrientationScore = (table) => {
-  const columnHeaders = table.headers.slice(1);
-  const rowHeaders = table.rows.map((row) => row[0] || "");
-  const sizeInColumns = columnHeaders.filter((value) => isLikelySizeLabel(value)).length;
-  const measurementInRows = rowHeaders.filter((value) => isLikelyMeasurementLabelLoose(value)).length;
-  const sizeInRows = rowHeaders.filter((value) => isLikelySizeLabel(value)).length;
-  const measurementInColumns = columnHeaders.filter((value) => isLikelyMeasurementLabelLoose(value)).length;
-  const numericRowHeaders = rowHeaders.filter((value) =>
-    /^-?\d+(?:\.\d+)?(?:\s*(?:cm|mm|in|inch))?$/i.test(normalizeCellText(value))
-  ).length;
-  return (
-    sizeInColumns * 4 +
-    measurementInRows * 4 -
-    sizeInRows * 4 -
-    measurementInColumns * 3 -
-    numericRowHeaders * 2
-  );
-};
-
-const sortMeasurementRows = (rows) => {
-  const nextRows = [...rows];
-  const totalLengthIndex = nextRows.findIndex(
-    (row) => normalizeMeasurementLabel(row?.[0] || "") === TOTAL_LENGTH_LABEL
-  );
-  if (totalLengthIndex <= 0) return nextRows;
-  const [totalLengthRow] = nextRows.splice(totalLengthIndex, 1);
-  nextRows.unshift(totalLengthRow);
-  return nextRows;
-};
-
 const standardizeSizeTable = (value) => {
   if (!value || typeof value !== "object") return null;
   const parsed = value;
@@ -205,28 +176,24 @@ const standardizeSizeTable = (value) => {
     : [];
   if (headers.length === 0 && rows.length === 0) return null;
 
-  const asIs = { headers: [...headers], rows: rows.map((row) => [...row]) };
-  const transposed = transposeTable(asIs);
-  const selected =
-    tableOrientationScore(transposed) > tableOrientationScore(asIs) ? transposed : asIs;
-
-  const width = Math.max(selected.headers.length, ...selected.rows.map((row) => row.length), 0);
+  const width = Math.max(headers.length, ...rows.map((row) => row.length), 0);
   if (width === 0) return null;
-  const normalizedHeaders = [...selected.headers, ...new Array(width - selected.headers.length).fill("")].slice(0, width);
-  normalizedHeaders[0] = ITEM_LABEL;
+
+  const normalizedHeaders = [...headers, ...new Array(width - headers.length).fill("")].slice(0, width);
+  normalizedHeaders[0] = SIZE_COLUMN_LABEL;
   for (let idx = 1; idx < normalizedHeaders.length; idx += 1) {
-    normalizedHeaders[idx] = normalizeSizeLabel(normalizedHeaders[idx]);
+    normalizedHeaders[idx] = normalizeMeasurementLabel(normalizedHeaders[idx]);
   }
 
-  const normalizedRows = makeRectangularRows(selected.rows, width).map((row) => {
+  const normalizedRows = makeRectangularRows(rows, width).map((row) => {
     const nextRow = [...row];
-    nextRow[0] = normalizeMeasurementLabel(nextRow[0]);
+    nextRow[0] = normalizeSizeLabel(nextRow[0]);
     return nextRow;
   });
 
   return {
     headers: normalizedHeaders,
-    rows: sortMeasurementRows(normalizedRows),
+    rows: normalizedRows,
   };
 };
 
