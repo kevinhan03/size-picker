@@ -58,7 +58,7 @@ export function AdminProductsList({
       {allProducts.map((product) => (
         <div key={product.id} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl p-4">
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div className="w-20 h-20 bg-white rounded-xl p-2 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+            <div className="relative w-20 h-20 bg-white rounded-xl p-2 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
               <ProgressiveImage
                 src={product.image}
                 thumbnailSrc={product.thumbnailImage}
