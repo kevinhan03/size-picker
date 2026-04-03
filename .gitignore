@@ -23,6 +23,9 @@ localhost-key.pem
 # MCP configuration (contains API keys)
 .mcp.json
 
+# Playwright MCP artifacts
+.playwright-mcp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
