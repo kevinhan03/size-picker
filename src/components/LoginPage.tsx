@@ -36,7 +36,7 @@ export const LoginPage = ({ supabase, onSuccess, googleAuthError, onClearGoogleA
     localStorage.setItem('google_oauth_intent', tab);
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (authError) { localStorage.removeItem('google_oauth_intent'); setError(authError.message); }
   };
