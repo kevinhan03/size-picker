@@ -27,9 +27,9 @@ export function AppHeader() {
             onClick={() => router.push("/")}
           >
             <div className="w-10 h-10 flex items-center justify-center">
-              <img src="/favicon-simple.svg" alt="DIGDA logo" className="w-7 h-7 object-contain" />
+              <img src="/favicon-simple.svg" alt="DIGBOX logo" className="w-7 h-7 object-contain" />
             </div>
-            <span className="font-bold text-xl tracking-tight text-orange-500">DIGDA</span>
+            <span className="font-bold text-xl tracking-tight text-orange-500">DIGBOX</span>
           </div>
           {authUser && (
             <span

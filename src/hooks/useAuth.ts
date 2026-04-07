@@ -88,6 +88,8 @@ export function useAuth() {
 
     supabase.auth.getSession().then(({ data }) => {
       void checkAndSetUser(data.session?.user ?? null);
+    }).catch(() => {
+      setIsAuthLoading(false);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       void checkAndSetUser(session?.user ?? null);

@@ -33,28 +33,28 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const url = String(body?.url || "#").trim();
-  await refreshBrandRulesCache();
-  const brand = normalizeBrandName(String(body?.brand || "").trim(), { url });
-  const name = String(body?.name || "").trim();
-  const category = String(body?.category || "User Uploaded").trim();
-  const imagePath = String(body?.image_path ?? body?.imagePath ?? "").trim();
-  const image = String(body?.image || "").trim();
-  const sizeTable = body?.sizeTable ?? null;
-  const createdAt = new Date().toISOString();
-
-  if (!brand || !name) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "brand and name are required",
-      },
-      { status: 400 }
-    );
-  }
-
   try {
+    const body = await request.json();
+    const url = String(body?.url || "#").trim();
+    await refreshBrandRulesCache();
+    const brand = normalizeBrandName(String(body?.brand || "").trim(), { url });
+    const name = String(body?.name || "").trim();
+    const category = String(body?.category || "User Uploaded").trim();
+    const imagePath = String(body?.image_path ?? body?.imagePath ?? "").trim();
+    const image = String(body?.image || "").trim();
+    const sizeTable = body?.sizeTable ?? null;
+    const createdAt = new Date().toISOString();
+
+    if (!brand || !name) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "brand and name are required",
+        },
+        { status: 400 }
+      );
+    }
+
     const slug = await generateProductSlug(brand, name);
     const insertedRow = await insertProductRow({
       brand,

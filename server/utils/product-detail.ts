@@ -36,7 +36,7 @@ export function isPrimaryColumnHeader(value: string): boolean {
 export function buildProductMetadata(product: Awaited<ReturnType<typeof fetchProduct>>): Metadata {
   if (!product) {
     return {
-      title: "상품을 찾을 수 없습니다 | DIGDA",
+      title: "상품을 찾을 수 없습니다 | DIGBOX",
     };
   }
 
@@ -45,7 +45,7 @@ export function buildProductMetadata(product: Awaited<ReturnType<typeof fetchPro
   const canonicalPath = `/product/${product.slug ? `${product.id}-${product.slug}` : product.id}`;
 
   return {
-    title: `${product.brand} ${product.name} 사이즈표 | DIGDA`,
+    title: `${product.brand} ${product.name} 사이즈표 | DIGBOX`,
     description,
     alternates: {
       canonical: canonicalPath,

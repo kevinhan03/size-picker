@@ -90,6 +90,8 @@ export function useAdminSession({ isAdminPage, onAuthenticated }: UseAdminSessio
         method: "POST",
         credentials: "include",
       });
+    } catch {
+      // Ignore logout request errors; always reset client auth state
     } finally {
       setIsAdminAuthenticated(false);
       setAdminPassword("");

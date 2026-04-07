@@ -48,14 +48,13 @@ export function SearchView({
         }`}
         aria-hidden={shouldHideSearchHero}
       >
+        <div className="mb-3 text-[length:var(--hero-title-size)] font-extrabold leading-tight tracking-tight text-orange-500">
+          DIGBOX
+        </div>
         <h1 className="mb-[var(--hero-title-mb)] mt-[var(--hero-title-mt)] text-[length:var(--hero-title-size)] font-extrabold leading-tight tracking-tight">
-          <span className="block text-white">모든 룩의 사이즈표를</span>
-          <span className="block text-orange-500">한 번에 검색하세요</span>
+          <span className="block text-white">{"\ucde8\ud5a5\uc740 \ub354 \uae4a\uac8c,"}</span>
+          <span className="block text-white">{"\ubc1c\uacac\uc740 \ub354 \uc27d\uac8c"}</span>
         </h1>
-        <p className="mt-8 text-[length:var(--hero-subtitle-size)] text-white">
-          <span className="block">공식 페이지와 사용자들이 공유한 데이터를 바탕으로</span>
-          <span className="block">더 정확한 사이즈 정보를 제공합니다</span>
-        </p>
       </div>
 
       <div
@@ -70,7 +69,7 @@ export function SearchView({
           <input
             type="text"
             className="w-full rounded-2xl border-2 border-gray-800 bg-gray-900 py-[var(--search-input-py)] pl-14 pr-14 text-[length:var(--search-input-font-size)] text-white shadow-xl transition-all placeholder:text-gray-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-            placeholder="브랜드명 또는 상품명을 검색하세요"
+            placeholder={"\ube0c\ub79c\ub4dc\uba85 \ub610\ub294 \uc0c1\ud488\uba85\uc744 \uac80\uc0c9\ud574\ubcf4\uc138\uc694"}
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             onKeyDown={onKeyDown}
@@ -117,20 +116,22 @@ export function SearchView({
                     <div>
                       <div className="font-medium text-white">{item.name}</div>
                       <div className="text-sm text-gray-400">
-                        {item.brand} · {item.category}
+                        {item.brand} {"\u00b7"} {item.category}
                       </div>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="p-4 text-center text-sm text-gray-500">검색어와 일치하는 추천 상품이 없습니다.</div>
+              <div className="p-4 text-center text-sm text-gray-500">
+                {"\uac80\uc0c9\uc5b4\uc640 \uc77c\uce58\ud558\ub294 \ucd94\ucc9c \uc0c1\ud488\uc774 \uc5c6\uc2b5\ub2c8\ub2e4."}
+              </div>
             )}
           </div>
         )}
       </div>
 
-      {isLoading && <div className="mt-10 text-gray-300">검색 중...</div>}
+      {isLoading && <div className="mt-10 text-gray-300">{"\uac80\uc0c9 \uc911..."}</div>}
       {error && !isLoading && <div className="mt-6 text-red-300">{error}</div>}
     </>
   );

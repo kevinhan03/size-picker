@@ -11,18 +11,18 @@ const siteUrl =
 export const metadata: Metadata = {
   metadataBase: siteUrl ? new URL(siteUrl) : undefined,
   title: {
-    default: "DIGDA",
-    template: "%s | DIGDA",
+    default: "DIGBOX",
+    template: "%s | DIGBOX",
   },
   description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
   openGraph: {
-    title: "DIGDA",
+    title: "DIGBOX",
     description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "DIGDA",
+    title: "DIGBOX",
     description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
   },
   icons: {
