@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { Analytics } from "@vercel/analytics/next";
 import { ClientProviders } from "../src/components/ClientProviders";
 import { fetchInitialProducts } from "../server/utils/products-list";
 import "./globals.css";
@@ -51,6 +52,7 @@ export default async function RootLayout({
           {children}
           {modal}
         </ClientProviders>
+        <Analytics />
       </body>
     </html>
   );
