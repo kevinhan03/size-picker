@@ -98,12 +98,14 @@ export const fetchProductMetadataFromImage = async (
   base64Image: string,
   mimeType = 'image/png'
 ): Promise<ProductMetadataPayload> => {
+  const token = await getAccessToken();
   const { response, payload } = await postJson<
     { imageBase64: string; mimeType: string },
     ProductMetadataPayload
   >(
     '/api/product-metadata-from-image',
-    { imageBase64: base64Image, mimeType }
+    { imageBase64: base64Image, mimeType },
+    token ? { Authorization: `Bearer ${token}` } : undefined
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error || 'Failed to extract metadata from image');

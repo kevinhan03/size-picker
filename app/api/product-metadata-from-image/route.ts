@@ -14,6 +14,7 @@ import {
   refreshBrandRulesCache,
   resolveProductMetadataFromHints,
 } from "../../../server/bootstrap/metadata.js";
+import { supabase } from "../../../server/lib/supabase.js";
 
 const normalizeCellText = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
 const pickFirstNonEmpty = (values: unknown[]) => {
@@ -27,6 +28,16 @@ const pickFirstNonEmpty = (values: unknown[]) => {
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const authorization = String(request.headers.get("authorization") || "").trim();
+  const token = authorization.replace(/^Bearer\s+/i, "").trim();
+  if (!token || !supabase) {
+    return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
+  }
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !user) {
+    return NextResponse.json({ ok: false, error: "invalid auth token" }, { status: 401 });
+  }
+
   const body = await request.json();
   const imageBase64 = String(body?.imageBase64 || "").trim();
   const mimeType = String(body?.mimeType || "image/png").trim();

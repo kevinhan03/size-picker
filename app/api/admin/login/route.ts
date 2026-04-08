@@ -9,8 +9,13 @@ import {
 } from "../../../../server/auth/admin-session.js";
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const password = String(body?.password || "");
+  let password = "";
+  try {
+    const body = await request.json();
+    password = String(body?.password || "");
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid request body" }, { status: 400 });
+  }
 
   try {
     assertAdminConfig();

@@ -45,14 +45,8 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      const detail = await response.text();
       return NextResponse.json(
-        {
-          ok: false,
-          data: { imageBase64 },
-          error: "Gemini remove-bg request failed",
-          detail,
-        },
+        { ok: false, error: "Gemini remove-bg request failed" },
         { status: 502 }
       );
     }
@@ -64,11 +58,7 @@ export async function POST(request: Request) {
 
     if (!outputBase64) {
       return NextResponse.json(
-        {
-          ok: false,
-          data: { imageBase64 },
-          error: "Gemini remove-bg returned empty image",
-        },
+        { ok: false, error: "Gemini remove-bg returned empty image" },
         { status: 502 }
       );
     }
@@ -79,11 +69,7 @@ export async function POST(request: Request) {
     });
   } catch (error: unknown) {
     return NextResponse.json(
-      {
-        ok: false,
-        data: { imageBase64 },
-        error: getErrorMessage(error, "remove-bg error"),
-      },
+      { ok: false, error: getErrorMessage(error, "remove-bg error") },
       { status: getErrorStatusCode(error) }
     );
   }
