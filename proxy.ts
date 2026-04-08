@@ -13,7 +13,7 @@ const TRACKING_PARAMS = [
   "_gl",
 ];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
   const hasTracking = TRACKING_PARAMS.some((param) => searchParams.has(param));

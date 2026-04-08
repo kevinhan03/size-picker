@@ -3,6 +3,7 @@
 import { AuthProvider } from "../contexts/AuthContext";
 import { ProductFormProvider } from "../contexts/ProductFormContext";
 import { ProductsProvider } from "../contexts/ProductsContext";
+import { SearchProvider } from "../contexts/SearchContext";
 import type { Product } from "../types";
 import { AppShell } from "./AppShell";
 
@@ -16,9 +17,11 @@ export function ClientProviders({
   return (
     <AuthProvider>
       <ProductsProvider initialProducts={initialProducts}>
-        <ProductFormProvider>
-          <AppShell>{children}</AppShell>
-        </ProductFormProvider>
+        <SearchProvider>
+          <ProductFormProvider>
+            <AppShell>{children}</AppShell>
+          </ProductFormProvider>
+        </SearchProvider>
       </ProductsProvider>
     </AuthProvider>
   );

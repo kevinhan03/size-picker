@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe, LayoutGrid, LogIn, Plus } from "lucide-react";
+import { Globe, LogIn, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
@@ -51,13 +51,6 @@ export function AppHeader() {
             title="Size converter"
           >
             <Globe className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => router.push("/grid")}
-            className="p-1.5 text-gray-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] backdrop-blur-xl border border-white/20 hover:text-orange-400 hover:border-orange-500/60 transition rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
-            title="Product grid"
-          >
-            <LayoutGrid className="w-4 h-4" />
           </button>
           {!isAdmin && (
             <button

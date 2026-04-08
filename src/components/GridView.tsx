@@ -2,8 +2,6 @@
 
 import { type SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import { LayoutGrid, Search } from "lucide-react";
-import { CategoryDropdown } from "./CategoryDropdown";
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { Product } from "../types";
 import { CATEGORY_OPTIONS } from "../constants";
@@ -66,37 +64,6 @@ export function GridView({
 
   return (
     <div className="w-full max-w-7xl">
-      <div className="mb-6 flex flex-col gap-4">
-        <h2 className="flex items-center gap-3 text-2xl font-bold text-white sm:text-3xl">
-          <LayoutGrid className="h-7 w-7 text-orange-500" />
-          전체 상품 보기
-        </h2>
-        <div className="h-6 sm:h-8" />
-        <div className="fixed left-1/2 top-[5.6rem] z-30 flex w-[calc(100%-2rem)] max-w-7xl -translate-x-1/2 justify-end sm:top-[8.3rem]">
-          <div className="flex w-full max-w-[11.5rem] flex-col-reverse items-end justify-end gap-2 sm:ml-auto sm:w-fit sm:max-w-none sm:flex-row sm:items-center sm:gap-3">
-            <CategoryDropdown
-              options={CATEGORY_OPTIONS}
-              value={gridCategoryFilter}
-              counts={gridCategoryCounts}
-              onChange={setGridCategoryFilter}
-              totalLabel="Total"
-              ariaLabel="상품 카테고리 필터"
-              className="relative w-[5.6rem] shrink-0 sm:w-28"
-            />
-            <label className="relative block w-[7.2rem] sm:w-40">
-              <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-3 w-3 -translate-y-1/2 text-gray-400 sm:left-4 sm:h-4 sm:w-4" />
-              <input
-                type="text"
-                value={gridSearchQuery}
-                onChange={(event) => setGridSearchQuery(event.target.value)}
-                placeholder="상품 검색"
-                aria-label="전체 상품 검색"
-                className="h-[1.7rem] w-full rounded-[20px] border-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.88),rgba(28,28,28,0.72))] pl-8 pr-3 text-[0.7rem] font-medium text-white shadow-[0_16px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl placeholder:text-gray-400 focus:outline-none sm:h-8 sm:pl-10 sm:pr-4 sm:text-xs"
-              />
-            </label>
-          </div>
-        </div>
-      </div>
 
       {allProducts.length === 0 ? (
         <div className="py-20 text-center text-gray-500">등록된 상품이 없습니다.</div>

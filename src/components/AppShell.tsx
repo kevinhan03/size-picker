@@ -4,6 +4,7 @@ import { AddProductModal } from "./AddProductModal";
 import { AppHeader } from "./AppHeader";
 import { GoogleSignupCompleteModal } from "./GoogleSignupCompleteModal";
 import { NeedsUsernameModal } from "./NeedsUsernameModal";
+import { SearchResultOverlay } from "./SearchResultOverlay";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
 
@@ -15,6 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <>
       <AppHeader />
       {children}
+      <SearchResultOverlay />
       <AddProductModal form={productForm} />
       {auth.needsUsername && (
         <NeedsUsernameModal
