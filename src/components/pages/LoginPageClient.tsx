@@ -21,7 +21,7 @@ export function LoginPageClient() {
       {supabase ? (
         <LoginPage
           supabase={supabase}
-          onSuccess={() => router.push("/")}
+          onSuccess={() => {}}
           googleAuthError={auth.googleAuthError}
           onClearGoogleAuthError={() => auth.setGoogleAuthError(null)}
         />

@@ -11,10 +11,7 @@ const siteUrl =
 
 export const metadata: Metadata = {
   metadataBase: siteUrl ? new URL(siteUrl) : undefined,
-  title: {
-    default: "DIGBOX",
-    template: "%s | DIGBOX",
-  },
+  title: "DIGBOX",
   description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
   openGraph: {
     title: "DIGBOX",

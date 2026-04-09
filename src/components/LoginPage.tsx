@@ -94,7 +94,10 @@ export const LoginPage = ({ supabase, onSuccess, googleAuthError, onClearGoogleA
         const { error: authError } = await supabase.auth.signUp({
           email: trimmedEmail,
           password: trimmedPassword,
-          options: { data: { username: trimmedUsername } },
+          options: {
+            data: { username: trimmedUsername },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
         });
         if (authError) throw authError;
         setSignupEmail(trimmedEmail);

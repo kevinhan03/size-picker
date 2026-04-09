@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { assertGeminiKey, callGemini } from "../../../server/bootstrap/gemini.js";
-import { supabase } from "../../../server/lib/supabase.js";
+import { verifyBearerToken } from "../../../server/utils/verify-auth.js";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const authorization = String(request.headers.get("authorization") || "").trim();
   const token = authorization.replace(/^Bearer\s+/i, "").trim();
-  if (!token || !supabase) {
+  if (!token) {
     return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
   }
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) {
+  const user = await verifyBearerToken(token);
+  if (!user) {
     return NextResponse.json({ ok: false, error: "invalid auth token" }, { status: 401 });
   }
 

@@ -31,12 +31,12 @@ export function AppHeader() {
             </div>
             <span className="font-bold text-xl tracking-tight text-orange-500">DIGBOX</span>
           </div>
-          {authUser && (
+          {authUser && dbUsername && (
             <span
               className="text-gray-500 text-xs font-medium cursor-pointer hover:text-gray-300 transition"
               onClick={() => router.push("/mypage")}
             >
-              | {String(dbUsername ?? authUser.email?.split("@")[0] ?? "")}
+              | {dbUsername}
             </span>
           )}
         </div>

@@ -14,7 +14,7 @@ import {
   refreshBrandRulesCache,
   resolveProductMetadataFromHints,
 } from "../../../server/bootstrap/metadata.js";
-import { supabase } from "../../../server/lib/supabase.js";
+import { verifyBearerToken } from "../../../server/utils/verify-auth.js";
 
 const normalizeCellText = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
 const pickFirstNonEmpty = (values: unknown[]) => {
@@ -30,11 +30,11 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   const authorization = String(request.headers.get("authorization") || "").trim();
   const token = authorization.replace(/^Bearer\s+/i, "").trim();
-  if (!token || !supabase) {
+  if (!token) {
     return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
   }
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) {
+  const user = await verifyBearerToken(token);
+  if (!user) {
     return NextResponse.json({ ok: false, error: "invalid auth token" }, { status: 401 });
   }
 

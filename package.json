@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
+    "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.50.5",
     "@tanstack/react-virtual": "^3.13.23",
     "@vercel/analytics": "^1.6.1",
