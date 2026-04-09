@@ -6,6 +6,7 @@ import { ProductsProvider } from "../contexts/ProductsContext";
 import { SearchProvider } from "../contexts/SearchContext";
 import type { Product } from "../types";
 import { AppShell } from "./AppShell";
+import { PostHogProvider } from "./PostHogProvider";
 
 export function ClientProviders({
   children,
@@ -15,14 +16,16 @@ export function ClientProviders({
   initialProducts?: Product[];
 }) {
   return (
-    <AuthProvider>
-      <ProductsProvider initialProducts={initialProducts}>
-        <SearchProvider>
-          <ProductFormProvider>
-            <AppShell>{children}</AppShell>
-          </ProductFormProvider>
-        </SearchProvider>
-      </ProductsProvider>
-    </AuthProvider>
+    <PostHogProvider>
+      <AuthProvider>
+        <ProductsProvider initialProducts={initialProducts}>
+          <SearchProvider>
+            <ProductFormProvider>
+              <AppShell>{children}</AppShell>
+            </ProductFormProvider>
+          </SearchProvider>
+        </ProductsProvider>
+      </AuthProvider>
+    </PostHogProvider>
   );
 }
