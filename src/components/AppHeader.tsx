@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe, LogIn, Plus } from "lucide-react";
+import { LogIn, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
@@ -14,7 +14,6 @@ export function AppHeader() {
   const authUser = authContext.authUser;
   const dbUsername = authContext.dbUsername;
 
-  const isConverter = pathname === "/converter";
   const isLogin = pathname === "/login";
   const isAdmin = pathname === "/admin";
 
@@ -29,7 +28,10 @@ export function AppHeader() {
             <div className="w-10 h-10 flex items-center justify-center">
               <img src="/favicon-simple.svg" alt="DIGBOX logo" className="w-7 h-7 object-contain" />
             </div>
-            <span className="font-bold text-xl tracking-tight text-orange-500">DIGBOX</span>
+            <div className="flex flex-col leading-none">
+              <span className="font-bold text-xl tracking-tight text-orange-500">DIGBOX</span>
+              <span className="text-[10px] text-white/60 tracking-tight">취향은 더 깊게, 발견은 더 쉽게</span>
+            </div>
           </div>
           {authUser && dbUsername && (
             <span
@@ -41,17 +43,6 @@ export function AppHeader() {
           )}
         </div>
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push("/converter")}
-            className={`p-1.5 rounded-lg transition border backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
-              isConverter
-                ? "bg-orange-500 text-black border-orange-500"
-                : "bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] border-white/20 text-gray-200 hover:border-orange-500/60 hover:text-orange-400"
-            }`}
-            title="Size converter"
-          >
-            <Globe className="w-4 h-4" />
-          </button>
           {!isAdmin && (
             <button
               onClick={() => productForm.openModal()}

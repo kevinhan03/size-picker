@@ -93,16 +93,6 @@ export function SearchPageClient() {
         </div>
       )}
 
-      <div className="mb-8 w-full max-w-2xl text-center">
-        <div className="text-[length:var(--hero-title-size)] font-extrabold leading-tight tracking-tight text-orange-500">
-          DIGBOX
-        </div>
-        <h1 className="mb-0 mt-[var(--hero-title-mt)] text-[length:var(--hero-title-size)] font-extrabold leading-tight tracking-tight">
-          <span className="block text-white">취향은 더 깊게,</span>
-          <span className="block text-white">발견은 더 쉽게</span>
-        </h1>
-      </div>
-
       {/* Search bar below navbar */}
       <div className="relative mb-3 w-full max-w-2xl" ref={search.searchContainerRef}>
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">

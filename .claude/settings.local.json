@@ -26,7 +26,10 @@
       "Bash(ls C:devsizepicker/*.json)",
       "Bash(grep -r from.*server/ /c/dev/sizepicker/app/)",
       "Bash(npm install:*)",
-      "Bash(grep -r canonical /c/dev/sizepicker/app --include=*.tsx --include=*.ts)"
+      "Bash(grep -r canonical /c/dev/sizepicker/app --include=*.tsx --include=*.ts)",
+      "Bash(kill %1)",
+      "Bash(wait)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

@@ -41,23 +41,6 @@ export function SearchView({
   return (
     <>
       <div
-        className={`w-full max-w-2xl overflow-hidden text-center transition-all duration-500 ease-out ${
-          shouldHideSearchHero
-            ? "pointer-events-none mb-0 max-h-0 -translate-y-4 opacity-0"
-            : "mb-5 max-h-96 translate-y-0 opacity-100"
-        }`}
-        aria-hidden={shouldHideSearchHero}
-      >
-        <div className="mb-3 text-[length:var(--hero-title-size)] font-extrabold leading-tight tracking-tight text-orange-500">
-          DIGBOX
-        </div>
-        <h1 className="mb-[var(--hero-title-mb)] mt-[var(--hero-title-mt)] text-[length:var(--hero-title-size)] font-extrabold leading-tight tracking-tight">
-          <span className="block text-white">{"\ucde8\ud5a5\uc740 \ub354 \uae4a\uac8c,"}</span>
-          <span className="block text-white">{"\ubc1c\uacac\uc740 \ub354 \uc27d\uac8c"}</span>
-        </h1>
-      </div>
-
-      <div
         className={`relative w-full max-w-2xl transition-all duration-500 ${resultVisible || isLoading ? "mt-0" : "mt-4"}`}
         ref={searchContainerRef}
       >
