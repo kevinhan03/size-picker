@@ -18,7 +18,7 @@ export const fetchAllProducts = async (): Promise<Product[]> => {
   assertSupabaseClient();
   const { data, error } = await supabase!
     .from('products')
-    .select('id,brand,name,category,url,size_table,created_at,image_path,slug')
+    .select('id,brand,name,category,url,size_table,created_at,image_path,slug,is_instagram')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   const rows = Array.isArray(data) ? (data as ProductRow[]) : [];
@@ -48,7 +48,7 @@ export const uploadSubmissionImage = async (file: File): Promise<string> => {
   return data.path;
 };
 
-export const submitProduct = async (form: SubmitProductForm): Promise<void> => {
+export const submitProduct = async (form: SubmitProductForm, isInstagram = false): Promise<void> => {
   const category = String(form.category || '').trim();
   if (!category) {
     throw new Error('카테고리는 필수입니다.');
@@ -70,6 +70,7 @@ export const submitProduct = async (form: SubmitProductForm): Promise<void> => {
     url: form.url || null,
     image_path: imagePath,
     sizeTable: form.sizeTable ?? null,
+    isInstagram,
   });
   if (!response.ok || !payload?.ok) {
     console.error('[submitProduct] insert failed', payload?.error);

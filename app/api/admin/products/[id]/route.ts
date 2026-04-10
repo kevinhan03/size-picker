@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import {
   getAdminTokenFromCookieHeader,
@@ -55,6 +56,8 @@ export async function PATCH(
     payload.image_path = imagePath || null;
   }
   if ("sizeTable" in body) payload.size_table = parseSizeTable(body?.sizeTable ?? null);
+  if ("isInstagram" in body) payload.is_instagram = Boolean(body.isInstagram);
+  if ("instagramUrl" in body) payload.instagram_url = String(body.instagramUrl || "").trim() || null;
 
   const payloadKeys = Object.keys(payload);
   if (payloadKeys.length === 0) {
@@ -111,6 +114,7 @@ export async function PATCH(
       });
     }
 
+    revalidatePath("/", "layout");
     return NextResponse.json({
       ok: true,
       data: { product: data },
@@ -157,6 +161,7 @@ export async function DELETE(
       updatedProductId: productId,
     });
 
+    revalidatePath("/", "layout");
     return NextResponse.json({
       ok: true,
       data: { id: productId },

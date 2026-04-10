@@ -6,7 +6,7 @@ import { useProductsContext } from "../../contexts/ProductsContext";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
 
 export function AdminRoutePageClient() {
-  const { productsError, products, retryProductsLoad } = useProductsContext();
+  const { productsError, products, featuredProducts, retryProductsLoad } = useProductsContext();
   const admin = useAdminAuth({
     isAdminPage: true,
     onProductMutated: () => retryProductsLoad(),
@@ -28,6 +28,7 @@ export function AdminRoutePageClient() {
       productsError={productsError}
       adminActionError={admin.adminActionError}
       allProducts={products}
+      featuredProducts={featuredProducts}
       editingProductId={admin.editingProductId}
       adminEditForm={admin.adminEditForm}
       adminImagePreview={admin.adminImagePreview}
@@ -40,6 +41,7 @@ export function AdminRoutePageClient() {
       isBrandRulesSaving={admin.isBrandRulesSaving}
       isBrandBackfillRunning={admin.isBrandBackfillRunning}
       brandBackfillResult={admin.brandBackfillResult}
+      isInstagramLoading={admin.isInstagramLoading}
       onLogout={() => void admin.handleAdminLogout()}
       onLogin={() => void admin.handleAdminLogin()}
       onBrandRulesReload={() => void admin.loadBrandRules()}
@@ -57,6 +59,12 @@ export function AdminRoutePageClient() {
       onCancelEdit={admin.cancelEdit}
       onEditFormChange={admin.setAdminEditForm}
       onExtractedTableChange={admin.setAdminExtractedTable}
+      onInstagramPublish={(id) => void admin.handleInstagramPublish(id)}
+      onInstagramUnpublish={(id) => void admin.handleInstagramUnpublish(id)}
+      onInstagramLinkSave={(id, url) => void admin.handleInstagramLinkSave(id, url)}
+      instagramProfileUrl={admin.instagramProfileUrl}
+      onInstagramProfileUrlChange={admin.setInstagramProfileUrl}
+      onInstagramProfileUrlSave={() => void admin.handleInstagramProfileUrlSave()}
       onImageLoadError={handleImageLoadError}
     />
   );

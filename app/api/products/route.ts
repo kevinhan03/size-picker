@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
 import {
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
     const imagePath = String(body?.image_path ?? body?.imagePath ?? "").trim();
     const image = String(body?.image || "").trim();
     const sizeTable = body?.sizeTable ?? null;
+    const isInstagram = Boolean(body?.isInstagram);
     const createdAt = new Date().toISOString();
 
     if (!brand || !name) {
@@ -64,11 +66,13 @@ export async function POST(request: Request) {
       image,
       imagePath,
       sizeTable,
+      isInstagram,
       createdAt,
       slug,
     });
     const product = normalizeProductRow(insertedRow);
 
+    revalidatePath("/", "layout");
     return NextResponse.json(
       {
         ok: true,

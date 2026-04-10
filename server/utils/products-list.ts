@@ -16,5 +16,5 @@ async function _fetchInitialProducts(): Promise<Product[]> {
 export const fetchInitialProducts = unstable_cache(
   _fetchInitialProducts,
   ["initial-products"],
-  { revalidate: 300 }
+  { revalidate: 300, tags: ["products"] }
 );

@@ -71,6 +71,8 @@ export const normalizeProductRow = (row) => {
     slug: String(row.slug || "").trim() || null,
     sizeTable: parseSizeTable(row.size_table ?? row.sizeTable),
     createdAt: row.created_at || row.createdAt || null,
+    isInstagram: Boolean(row.is_instagram),
+    instagramUrl: row.instagram_url ? String(row.instagram_url) : null,
   };
 };
 
@@ -148,6 +150,7 @@ export const insertProductRow = async ({
   sizeTable,
   createdAt,
   slug,
+  isInstagram = false,
 }) => {
   assertSupabaseConfig();
   const normalizedImagePath = String(imagePath || "").trim();
@@ -167,6 +170,7 @@ export const insertProductRow = async ({
       size_table: sizeTable,
       created_at: createdAt,
       slug: normalizedSlug,
+      is_instagram: isInstagram,
     },
     {
       brand: canonicalBrand,
@@ -177,6 +181,7 @@ export const insertProductRow = async ({
       sizeTable: JSON.stringify(sizeTable),
       createdAt,
       slug: normalizedSlug,
+      is_instagram: isInstagram,
     },
     {
       brand: canonicalBrand,
@@ -186,6 +191,7 @@ export const insertProductRow = async ({
       image: effectiveImage,
       size_table: sizeTable,
       createdAt,
+      is_instagram: isInstagram,
     },
     {
       brand: canonicalBrand,
@@ -195,6 +201,7 @@ export const insertProductRow = async ({
       image: effectiveImage,
       sizeTable: JSON.stringify(sizeTable),
       created_at: createdAt,
+      is_instagram: isInstagram,
     },
   ];
 

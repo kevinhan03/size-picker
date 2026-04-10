@@ -1,15 +1,20 @@
 import { useState } from "react";
 import type { ChangeEvent, SyntheticEvent } from "react";
-import { Ruler } from "lucide-react";
+import { Camera, ChevronLeft, Package, Ruler, Tag } from "lucide-react";
 import { AdminLoginPanel } from "./admin/AdminLoginPanel";
 import { BrandRulesPanel } from "./admin/BrandRulesPanel";
 import { AdminProductsList } from "./admin/AdminProductsList";
+import { InstagramProductsPanel } from "./admin/InstagramProductsPanel";
 import type { AdminEditForm, BrandBackfillResult, BrandRule, Product, SizeTable } from "../types";
+
+
 
 type TableEditingCell =
   | { kind: "header"; colIdx: number }
   | { kind: "row"; rowIdx: number; colIdx: number }
   | null;
+
+type AdminSection = "brand-rules" | "products" | "instagram" | null;
 
 interface AdminPageProps {
   isAdminAuthenticated: boolean;
@@ -20,6 +25,7 @@ interface AdminPageProps {
   productsError: string | null;
   adminActionError: string | null;
   allProducts: Product[];
+  featuredProducts: Product[];
   editingProductId: string | null;
   adminEditForm: AdminEditForm;
   adminImagePreview: string;
@@ -32,6 +38,7 @@ interface AdminPageProps {
   isBrandRulesSaving: boolean;
   isBrandBackfillRunning: boolean;
   brandBackfillResult: BrandBackfillResult | null;
+  isInstagramLoading: boolean;
   onLogout: () => void;
   onLogin: () => void;
   onBrandRulesReload: () => void;
@@ -47,6 +54,12 @@ interface AdminPageProps {
   onCancelEdit: () => void;
   onEditFormChange: (updater: (prev: AdminEditForm) => AdminEditForm) => void;
   onExtractedTableChange: (table: SizeTable) => void;
+  onInstagramPublish: (id: string) => void;
+  onInstagramUnpublish: (id: string) => void;
+  onInstagramLinkSave: (id: string, url: string) => void;
+  instagramProfileUrl: string;
+  onInstagramProfileUrlChange: (url: string) => void;
+  onInstagramProfileUrlSave: () => void;
   onImageLoadError: (event: SyntheticEvent<HTMLImageElement>) => void;
 }
 
@@ -59,6 +72,7 @@ export const AdminPage = ({
   productsError,
   adminActionError,
   allProducts,
+  featuredProducts,
   editingProductId,
   adminEditForm,
   adminImagePreview,
@@ -71,6 +85,7 @@ export const AdminPage = ({
   isBrandRulesSaving,
   isBrandBackfillRunning,
   brandBackfillResult,
+  isInstagramLoading,
   onLogout,
   onLogin,
   onBrandRulesReload,
@@ -86,9 +101,16 @@ export const AdminPage = ({
   onCancelEdit,
   onEditFormChange,
   onExtractedTableChange,
+  onInstagramPublish,
+  onInstagramUnpublish,
+  onInstagramLinkSave,
+  instagramProfileUrl,
+  onInstagramProfileUrlChange,
+  onInstagramProfileUrlSave,
   onImageLoadError,
 }: AdminPageProps) => {
   const [tableEditingCell, setTableEditingCell] = useState<TableEditingCell>(null);
+  const [activeSection, setActiveSection] = useState<AdminSection>(null);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -122,49 +144,117 @@ export const AdminPage = ({
 
         {!isAdminCheckingSession && isAdminAuthenticated ? (
           <>
-            <BrandRulesPanel
-              brandRules={brandRules}
-              brandBackfillResult={brandBackfillResult}
-              isBrandRulesLoading={isBrandRulesLoading}
-              isBrandRulesSaving={isBrandRulesSaving}
-              isBrandBackfillRunning={isBrandBackfillRunning}
-              onReload={onBrandRulesReload}
-              onSave={onBrandRulesSave}
-              onBackfill={onBrandRulesBackfill}
-              onChange={onBrandRulesChange}
-            />
-
-            {productsError ? (
-              <div className="rounded-xl border border-orange-500 bg-orange-900/40 px-4 py-3 text-orange-200">
-                {productsError}
+            {/* 홈 — 메뉴 선택 */}
+            {activeSection === null && (
+              <div className="flex flex-col items-center justify-center gap-5 py-24">
+                <p className="mb-4 text-sm font-medium uppercase tracking-widest text-gray-500">관리 메뉴</p>
+                <button
+                  onClick={() => setActiveSection("brand-rules")}
+                  className="flex w-72 items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.06] px-8 py-7 text-left shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.1] hover:shadow-[0_12px_40px_rgba(0,0,0,0.36)] active:scale-[0.98]"
+                >
+                  <Tag className="h-7 w-7 flex-shrink-0 text-orange-400" />
+                  <span className="text-lg font-bold text-white">브랜드 대표명 설정</span>
+                </button>
+                <button
+                  onClick={() => setActiveSection("products")}
+                  className="flex w-72 items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.06] px-8 py-7 text-left shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.1] hover:shadow-[0_12px_40px_rgba(0,0,0,0.36)] active:scale-[0.98]"
+                >
+                  <Package className="h-7 w-7 flex-shrink-0 text-orange-400" />
+                  <span className="text-lg font-bold text-white">상품 수정</span>
+                </button>
+                <button
+                  onClick={() => setActiveSection("instagram")}
+                  className="flex w-72 items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.06] px-8 py-7 text-left shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.1] hover:shadow-[0_12px_40px_rgba(0,0,0,0.36)] active:scale-[0.98]"
+                >
+                  <Camera className="h-7 w-7 flex-shrink-0 text-orange-400" />
+                  <span className="text-lg font-bold text-white">인스타 상품 등록</span>
+                </button>
               </div>
-            ) : null}
-            {adminActionError ? (
-              <div className="rounded-xl border border-red-500 bg-red-900/40 px-4 py-3 text-red-200">
-                {adminActionError}
-              </div>
-            ) : null}
+            )}
 
-            <AdminProductsList
-              adminEditForm={adminEditForm}
-              adminExtractedTable={adminExtractedTable}
-              adminImagePreview={adminImagePreview}
-              adminSizeChartImage={adminSizeChartImage}
-              allProducts={allProducts}
-              editingProductId={editingProductId}
-              isAdminActionLoading={isAdminActionLoading}
-              isAdminAnalyzingTable={isAdminAnalyzingTable}
-              onCancelEdit={onCancelEdit}
-              onDeleteProduct={onDeleteProduct}
-              onEditFormChange={onEditFormChange}
-              onExtractedTableChange={onExtractedTableChange}
-              onFileUpload={onFileUpload}
-              onImageLoadError={onImageLoadError}
-              onStartEdit={onStartEdit}
-              onUpdateProduct={onUpdateProduct}
-              setTableEditingCell={setTableEditingCell}
-              tableEditingCell={tableEditingCell}
-            />
+            {/* 뒤로가기 */}
+            {activeSection !== null && (
+              <button
+                onClick={() => setActiveSection(null)}
+                className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-400 transition hover:bg-gray-800 hover:text-white"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                뒤로
+              </button>
+            )}
+
+            {/* 브랜드 대표명 설정 */}
+            {activeSection === "brand-rules" && (
+              <BrandRulesPanel
+                brandRules={brandRules}
+                brandBackfillResult={brandBackfillResult}
+                isBrandRulesLoading={isBrandRulesLoading}
+                isBrandRulesSaving={isBrandRulesSaving}
+                isBrandBackfillRunning={isBrandBackfillRunning}
+                onReload={onBrandRulesReload}
+                onSave={onBrandRulesSave}
+                onBackfill={onBrandRulesBackfill}
+                onChange={onBrandRulesChange}
+              />
+            )}
+
+            {/* 상품 수정 */}
+            {activeSection === "products" && (
+              <>
+                {productsError ? (
+                  <div className="rounded-xl border border-orange-500 bg-orange-900/40 px-4 py-3 text-orange-200">
+                    {productsError}
+                  </div>
+                ) : null}
+                {adminActionError ? (
+                  <div className="rounded-xl border border-red-500 bg-red-900/40 px-4 py-3 text-red-200">
+                    {adminActionError}
+                  </div>
+                ) : null}
+                <AdminProductsList
+                  adminEditForm={adminEditForm}
+                  adminExtractedTable={adminExtractedTable}
+                  adminImagePreview={adminImagePreview}
+                  adminSizeChartImage={adminSizeChartImage}
+                  allProducts={allProducts}
+                  editingProductId={editingProductId}
+                  isAdminActionLoading={isAdminActionLoading}
+                  isAdminAnalyzingTable={isAdminAnalyzingTable}
+                  onCancelEdit={onCancelEdit}
+                  onDeleteProduct={onDeleteProduct}
+                  onEditFormChange={onEditFormChange}
+                  onExtractedTableChange={onExtractedTableChange}
+                  onFileUpload={onFileUpload}
+                  onImageLoadError={onImageLoadError}
+                  onStartEdit={onStartEdit}
+                  onUpdateProduct={onUpdateProduct}
+                  setTableEditingCell={setTableEditingCell}
+                  tableEditingCell={tableEditingCell}
+                />
+              </>
+            )}
+
+            {/* 인스타 상품 등록 */}
+            {activeSection === "instagram" && (
+              <>
+                {adminActionError ? (
+                  <div className="rounded-xl border border-red-500 bg-red-900/40 px-4 py-3 text-red-200">
+                    {adminActionError}
+                  </div>
+                ) : null}
+                <InstagramProductsPanel
+                  featuredProducts={featuredProducts}
+                  allProducts={allProducts}
+                  isInstagramLoading={isInstagramLoading}
+                  onPublish={onInstagramPublish}
+                  onUnpublish={onInstagramUnpublish}
+                  onLinkSave={onInstagramLinkSave}
+                  instagramProfileUrl={instagramProfileUrl}
+                  onInstagramProfileUrlChange={onInstagramProfileUrlChange}
+                  onInstagramProfileUrlSave={onInstagramProfileUrlSave}
+                />
+              </>
+            )}
           </>
         ) : null}
       </main>

@@ -15,6 +15,8 @@ export interface Product {
   slug?: string | null;
   sizeTable: SizeTable | null;
   createdAt?: string;
+  isInstagram?: boolean;
+  instagramUrl?: string | null;
 }
 
 export interface ProductRow {
@@ -27,6 +29,8 @@ export interface ProductRow {
   created_at?: string | null;
   image_path?: string | null;
   slug?: string | null;
+  is_instagram?: boolean | null;
+  instagram_url?: string | null;
 }
 
 export interface SubmitProductForm {
