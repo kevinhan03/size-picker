@@ -24,6 +24,8 @@ export function useProductFormState() {
   const [isAiPreviewLoading, setIsAiPreviewLoading] = useState(false);
   const [didFallbackAiPreviewImage, setDidFallbackAiPreviewImage] = useState(false);
 
+  const [isInstagramMode, setIsInstagramMode] = useState(false);
+
   const [tableEditingCell, setTableEditingCell] = useState<
     | { kind: "header"; colIdx: number }
     | { kind: "row"; rowIdx: number; colIdx: number }
@@ -69,6 +71,7 @@ export function useProductFormState() {
     setShowDuplicateProductModal(false);
     setAddProductMode("menu");
     setTableEditingCell(null);
+    setIsInstagramMode(false);
   };
 
   const openModal = () => {
@@ -145,5 +148,7 @@ export function useProductFormState() {
     handleAiPreviewLoad,
     handleAiPreviewError,
     handleThumbnailLoadError,
+    isInstagramMode,
+    setIsInstagramMode,
   };
 }

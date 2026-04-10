@@ -12,6 +12,7 @@ interface ProductFormSubmitState {
   isProcessingImage: boolean;
   isAnalyzingTable: boolean;
   isSaving: boolean;
+  isInstagramMode: boolean;
   setIsSaving: (value: boolean) => void;
   setShowDuplicateProductModal: (value: boolean) => void;
   closeModal: () => void;
@@ -53,7 +54,8 @@ export function useProductFormSubmit({ state, onSubmitSuccess }: UseProductFormS
     state.setIsSaving(true);
     try {
       await submitProduct(
-        buildSubmitProductPayload(state.formData, state.productPhotoFile, state.autofilledProductImageUrl)
+        buildSubmitProductPayload(state.formData, state.productPhotoFile, state.autofilledProductImageUrl),
+        state.isInstagramMode
       );
       state.closeModal();
       onSubmitSuccess();

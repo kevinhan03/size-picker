@@ -103,6 +103,7 @@ export function GridView({
                         thumbnailSrc={product.thumbnailImage}
                         alt={product.name}
                         className="rounded-[10px] object-contain"
+                        loading={vRow.index === 0 ? "eager" : "lazy"}
                         onError={onImageError}
                       />
                     </div>

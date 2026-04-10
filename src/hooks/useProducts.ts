@@ -2,9 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAllProducts } from "../api";
 import type { Product } from "../types";
 
+const splitProducts = (all: Product[]) => ({
+  normal: all.filter((p) => !p.isInstagram),
+  featured: all.filter((p) => p.isInstagram),
+});
+
 export function useProducts(initialProducts: Product[] = []) {
+  const initial = splitProducts(initialProducts);
   const [productsError, setProductsError] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>(initial.normal);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>(initial.featured);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const didInitRef = useRef(initialProducts.length > 0);
 
@@ -23,7 +30,9 @@ export function useProducts(initialProducts: Product[] = []) {
       try {
         const loaded = await fetchAllProducts();
         if (!isActive) return;
-        setProducts(loaded);
+        const split = splitProducts(loaded);
+        setProducts(split.normal);
+        setFeaturedProducts(split.featured);
         setProductsError(null);
       } catch (loadError: unknown) {
         if (!isActive) return;
@@ -42,6 +51,7 @@ export function useProducts(initialProducts: Product[] = []) {
 
   return {
     products,
+    featuredProducts,
     productsError,
     setProductsError,
     retryProductsLoad,
