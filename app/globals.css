@@ -126,6 +126,7 @@ textarea {
 }
 
 .ui-add-product-modal .overflow-y-auto::-webkit-scrollbar,
-.ui-product-detail-modal::-webkit-scrollbar {
+.ui-product-detail-modal::-webkit-scrollbar,
+.ui-brand-dropdown::-webkit-scrollbar {
   display: none;
 }

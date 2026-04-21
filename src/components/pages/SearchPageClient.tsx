@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
+import { ChevronDown } from "lucide-react";
 import { Instagram, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
 import { GridView } from "../GridView";
 import { ProductDetailModal } from "../ProductDetailModal";
@@ -23,8 +24,11 @@ export function SearchPageClient() {
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const [instagramProfileUrl, setInstagramProfileUrl] = useState("");
+  const [brandFilter, setBrandFilter] = useState("");
+  const [showBrandDrop, setShowBrandDrop] = useState(false);
   const gridModalRef = useRef<HTMLDivElement>(null);
   const gridRecommendationsRef = useRef<HTMLDivElement>(null);
+  const brandRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/site-settings")
@@ -44,6 +48,26 @@ export function SearchPageClient() {
       : selectedProduct.thumbnailImage;
     return { ...selectedProduct, image, thumbnailImage };
   }, [selectedProduct]);
+
+  const brands = useMemo(
+    () => [...new Set(products.map((p) => p.brand))].sort(),
+    [products]
+  );
+
+  const brandFilteredProducts = useMemo(
+    () => (brandFilter ? grid.filteredGridProducts.filter((p) => p.brand === brandFilter) : grid.filteredGridProducts),
+    [brandFilter, grid.filteredGridProducts]
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (brandRef.current && !brandRef.current.contains(e.target as Node)) {
+        setShowBrandDrop(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const gridRecommendations = useMemo<SizeRecommendation[]>(() => {
     if (activeRowIndex === null || !selectedProduct) return [];
@@ -220,30 +244,106 @@ export function SearchPageClient() {
         )}
       </div>
 
-      {/* Category filter pills */}
-      <div className="mb-12 grid w-full max-w-2xl grid-cols-6 gap-2">
-        {(["", ...CATEGORY_OPTIONS.filter((c) => c !== "기타 상품(빈티지)")] as const).map((cat) => {
-          const label = cat === "" ? "전체" : cat;
-          const isActive = grid.gridCategoryFilter === cat;
-          return (
+      {/* Category filter pills + Brand button */}
+      <div className="mb-12 w-full max-w-2xl">
+        <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr) auto" }}>
+          {(["", ...CATEGORY_OPTIONS.filter((c) => c !== "기타 상품(빈티지)")] as const).map((cat) => {
+            const label = cat === "" ? "전체" : cat;
+            const isActive = grid.gridCategoryFilter === cat && !brandFilter;
+            return (
+              <button
+                key={label}
+                onClick={() => { grid.setGridCategoryFilter(cat); setBrandFilter(""); }}
+                className={`w-full rounded-full py-1.5 text-sm font-semibold transition-all ${
+                  isActive
+                    ? "bg-orange-500 text-black shadow-[0_0_12px_rgba(249,115,22,0.5)]"
+                    : "border border-white/20 bg-white/5 text-gray-300 hover:border-orange-500/60 hover:text-orange-400"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+
+          {/* Brand dropdown button */}
+          <div ref={brandRef} className="relative">
             <button
-              key={label}
-              onClick={() => grid.setGridCategoryFilter(cat)}
-              className={`w-full rounded-full py-1.5 text-sm font-semibold transition-all ${
-                isActive
+              onClick={() => setShowBrandDrop((v) => !v)}
+              className={`flex items-center gap-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all ${
+                brandFilter
                   ? "bg-orange-500 text-black shadow-[0_0_12px_rgba(249,115,22,0.5)]"
+                  : showBrandDrop
+                  ? "border border-orange-500/60 bg-white/5 text-orange-400"
                   : "border border-white/20 bg-white/5 text-gray-300 hover:border-orange-500/60 hover:text-orange-400"
               }`}
             >
-              {label}
+              {brandFilter
+                ? brandFilter.split(" ")[0] + (brandFilter.split(" ").length > 1 ? "…" : "")
+                : "브랜드"}
+              <ChevronDown
+                className="h-3 w-3 transition-transform"
+                style={{ transform: showBrandDrop ? "rotate(180deg)" : "rotate(0deg)" }}
+              />
             </button>
-          );
-        })}
+
+            {showBrandDrop && (
+              <div className="absolute left-0 top-[calc(100%+8px)] z-30 min-w-[200px] overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(20,20,28,0.98),rgba(10,10,18,0.98))] shadow-[0_20px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
+                <button
+                  onClick={() => { setBrandFilter(""); setShowBrandDrop(false); }}
+                  className={`block w-full border-b border-white/[0.06] px-4 py-2.5 text-left text-xs font-bold tracking-wider transition-colors hover:bg-white/5 ${
+                    !brandFilter ? "text-orange-500" : "text-gray-500"
+                  }`}
+                >
+                  전체 브랜드
+                </button>
+                <div className="ui-brand-dropdown max-h-60 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+                  {brands.map((brand) => {
+                    const isActive = brandFilter === brand;
+                    return (
+                      <button
+                        key={brand}
+                        onClick={() => { setBrandFilter(brand); grid.setGridCategoryFilter(""); setShowBrandDrop(false); }}
+                        className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
+                          isActive
+                            ? "bg-orange-500/10 font-semibold text-orange-400 hover:bg-orange-500/15"
+                            : "font-normal text-gray-200 hover:bg-white/5"
+                        }`}
+                      >
+                        <span>{brand}</span>
+                        {isActive && (
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2.5">
+                            <polyline points="20,6 9,17 4,12" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Active brand badge */}
+        {brandFilter && (
+          <div className="mt-2.5 flex items-center gap-2">
+            <span className="text-xs text-gray-500">브랜드 필터:</span>
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-orange-500/30 bg-orange-500/12 px-2.5 py-1 text-xs font-semibold text-orange-400">
+              {brandFilter}
+              <button
+                onClick={() => setBrandFilter("")}
+                className="flex items-center p-0 leading-none text-orange-400"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          </div>
+        )}
       </div>
 
       <GridView
         allProducts={products}
-        filteredGridProducts={grid.filteredGridProducts}
+        filteredGridProducts={brandFilteredProducts}
         gridCategoryCounts={grid.gridCategoryCounts}
         gridCategoryFilter={grid.gridCategoryFilter}
         setGridCategoryFilter={grid.setGridCategoryFilter}

@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 interface MyPageViewProps {
   username: string;
@@ -217,7 +218,19 @@ export function MyPageView({
           <StackedCards />
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <span style={{ color: "#9ca3af", fontSize: "0.62rem" }}>전체 보기 →</span>
+          <Link
+            href="/closet"
+            style={{
+              color: "#9ca3af",
+              fontSize: "0.62rem",
+              textDecoration: "none",
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#fb923c"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#9ca3af"; }}
+          >
+            전체 보기 →
+          </Link>
         </div>
       </div>
 
