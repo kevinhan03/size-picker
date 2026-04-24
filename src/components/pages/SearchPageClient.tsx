@@ -166,6 +166,7 @@ export function SearchPageClient() {
                         src={imgSrc}
                         alt={product.name}
                         className="object-cover transition duration-300 group-hover:scale-105"
+                        loading="eager"
                         onError={handleImageLoadError}
                       />
                     )}
