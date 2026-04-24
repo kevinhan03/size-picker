@@ -2,15 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "../../contexts/AuthContext";
-import { useProductsContext } from "../../contexts/ProductsContext";
+import { useClosetContext } from "../../contexts/ClosetContext";
+import { ProgressiveImage } from "../ProgressiveImage";
 import { getProductPageUrl } from "../../utils/product";
 import type { Product } from "../../types";
 
 const CATEGORIES = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
 type SortBy = "recent" | "brand" | "category";
 type ViewMode = "grid" | "list";
+const SORT_OPTIONS: { id: SortBy; label: string }[] = [
+  { id: "recent", label: "Recent" },
+  { id: "brand", label: "Brand" },
+  { id: "category", label: "Category" },
+];
 
 const cardStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.055)",
@@ -26,176 +33,96 @@ const cardStyle: React.CSSProperties = {
 function GridCard({
   product,
   selected,
+  isEditing,
   onSelect,
   onDelete,
   href,
 }: {
   product: Product;
   selected: boolean;
+  isEditing: boolean;
   onSelect: () => void;
   onDelete: () => void;
   href: string;
 }) {
-  const [hover, setHover] = useState(false);
   const [imgOk, setImgOk] = useState(true);
+  const imageSrc = product.image || product.thumbnailImage || "";
+  const showInlineDelete = false;
 
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        ...cardStyle,
-        position: "relative",
-        cursor: "pointer",
-        transition: "all 0.2s",
-        transform: hover ? "translateY(-3px)" : "none",
-        borderColor: selected
-          ? "rgba(249,115,22,0.6)"
-          : hover
-          ? "rgba(255,255,255,0.15)"
-          : "rgba(255,255,255,0.09)",
-      }}
-    >
-      {/* Checkbox */}
-      <div
-        onClick={(e) => { e.stopPropagation(); onSelect(); }}
-        style={{
-          position: "absolute",
-          top: 10,
-          left: 10,
-          zIndex: 10,
-          width: 22,
-          height: 22,
-          borderRadius: 6,
-          border: `2px solid ${selected ? "#F97316" : "rgba(255,255,255,0.3)"}`,
-          background: selected ? "#F97316" : "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "all 0.15s",
-          backdropFilter: "blur(4px)",
-          cursor: "pointer",
-        }}
+    <div className="ui-product-card group relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]">
+      <Link
+        href={href}
+        className={`relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[28px] text-inherit no-underline ${
+          isEditing && selected ? "ring-2 ring-orange-500/70" : ""
+        }`}
       >
-        {selected && (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3">
-            <polyline points="20,6 9,17 4,12" />
-          </svg>
-        )}
-      </div>
-      {/* Delete button */}
-      {hover && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          style={{
-            position: "absolute",
-            top: 10,
-            right: 10,
-            zIndex: 10,
-            width: 26,
-            height: 26,
-            borderRadius: 6,
-            background: "rgba(239,68,68,0.8)",
-            border: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
-        </button>
-      )}
-      {/* Image */}
-      <Link href={href} style={{ textDecoration: "none" }}>
-        <div
-          style={{
-            aspectRatio: "3/4",
-            background: "linear-gradient(180deg,rgba(17,24,39,0.8),rgba(0,0,0,0.5))",
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          {imgOk ? (
-            <img
-              src={product.thumbnailImage || product.image}
-              alt={product.name}
-              onError={() => setImgOk(false)}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transition: "transform 0.3s",
-                transform: hover ? "scale(1.04)" : "scale(1)",
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#374151",
-                fontSize: 11,
-              }}
-            >
-              {product.brand}
-            </div>
-          )}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "linear-gradient(to top,rgba(0,0,0,0.5),transparent 50%)",
-            }}
-          />
-          <div style={{ position: "absolute", bottom: 8, left: 10, right: 10 }}>
-            <span
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                color: "rgba(251,146,60,0.9)",
-                display: "block",
-                marginBottom: 2,
-              }}
-            >
-              {product.brand}
-            </span>
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_32%,transparent_68%,rgba(255,255,255,0.1))]" />
+        <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(17,24,39,0.72),rgba(0,0,0,0.46))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:m-3 sm:h-48 sm:rounded-[22px]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.12),transparent_28%)]" />
+          <div className="absolute inset-3 z-[1] sm:inset-4">
+            {imgOk && imageSrc ? (
+              <ProgressiveImage
+                src={imageSrc}
+                thumbnailSrc={product.thumbnailImage}
+                alt={product.name}
+                className="rounded-[10px] object-contain"
+                onError={() => setImgOk(false)}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase text-gray-700">
+                {product.brand}
+              </div>
+            )}
           </div>
         </div>
-        <div style={{ padding: "10px 12px" }}>
-          <p
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: "#e5e7eb",
-              lineHeight: 1.3,
-              marginBottom: 4,
-            }}
-          >
-            {product.name}
-          </p>
-          <span
-            style={{
-              fontSize: 10,
-              color: "#6b7280",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 4,
-              padding: "2px 6px",
-            }}
-          >
-            {product.category}
-          </span>
+        <div className="flex flex-1 flex-col justify-center bg-black/10 px-4 pb-4 pt-3 text-center sm:px-5 sm:pb-5 sm:pt-4">
+          <div className="mb-2 w-full pl-[5%] text-left text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
+          <h3 className="mb-1 w-full pl-[5%] text-left text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
+          <div className="pt-2 text-sm text-gray-300">{product.category}</div>
         </div>
       </Link>
+
+      {isEditing && (
+        <button
+          type="button"
+          aria-label="상품 선택"
+          onClick={onSelect}
+          className={`absolute inset-0 z-10 rounded-[28px] transition ${
+            selected ? "bg-orange-500/8" : "bg-transparent"
+          }`}
+        />
+      )}
+
+      {isEditing && (
+        <div
+          className={`absolute left-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur transition ${
+            selected ? "border-orange-500 bg-orange-500" : "border-white/30 bg-black/50 hover:border-orange-500/70"
+          }`}
+        >
+          {selected && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3">
+              <polyline points="20,6 9,17 4,12" />
+            </svg>
+          )}
+        </div>
+      )}
+
+      {showInlineDelete && (
+      <button
+        type="button"
+        aria-label="옷장에서 삭제"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-md bg-red-500/80 text-white opacity-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] backdrop-blur transition hover:bg-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </button>
+      )}
     </div>
   );
 }
@@ -203,18 +130,21 @@ function GridCard({
 function ListRow({
   product,
   selected,
+  isEditing,
   onSelect,
   onDelete,
   href,
 }: {
   product: Product;
   selected: boolean;
+  isEditing: boolean;
   onSelect: () => void;
   onDelete: () => void;
   href: string;
 }) {
   const [hover, setHover] = useState(false);
   const [imgOk, setImgOk] = useState(true);
+  const showInlineDelete = false;
 
   return (
     <div
@@ -228,7 +158,7 @@ function ListRow({
         padding: "12px 16px",
         transition: "all 0.15s",
         transform: hover ? "translateX(4px)" : "none",
-        borderColor: selected
+        borderColor: isEditing && selected
           ? "rgba(249,115,22,0.6)"
           : hover
           ? "rgba(255,255,255,0.15)"
@@ -236,6 +166,7 @@ function ListRow({
       }}
     >
       {/* Checkbox */}
+      {isEditing && (
       <div
         onClick={onSelect}
         style={{
@@ -258,6 +189,7 @@ function ListRow({
           </svg>
         )}
       </div>
+      )}
       {/* Thumb */}
       <Link href={href} style={{ textDecoration: "none", flexShrink: 0 }}>
         <div
@@ -322,6 +254,7 @@ function ListRow({
         {product.category}
       </span>
       {/* Delete */}
+      {showInlineDelete && (
       <button
         onClick={onDelete}
         style={{
@@ -345,6 +278,7 @@ function ListRow({
           <path d="M9,6V4h6v2" />
         </svg>
       </button>
+      )}
     </div>
   );
 }
@@ -425,7 +359,7 @@ function DeleteConfirmDialog({
               padding: "11px",
               borderRadius: 12,
               background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              border: "none",
               color: "#9ca3af",
               fontSize: 13,
               fontWeight: 600,
@@ -459,12 +393,12 @@ function DeleteConfirmDialog({
 export function ClosetPageClient() {
   const router = useRouter();
   const auth = useAuthContext();
-  const { products } = useProductsContext();
+  const { closetProducts, removeFromCloset } = useClosetContext();
 
   const [catFilter, setCatFilter] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
@@ -475,10 +409,7 @@ export function ClosetPageClient() {
     }
   }, [auth.authUser, auth.isAuthLoading, router]);
 
-  const closetItems = useMemo(
-    () => products.filter((p) => !removedIds.has(p.id)),
-    [products, removedIds]
-  );
+  const closetItems = useMemo(() => closetProducts, [closetProducts]);
 
   const filtered = useMemo(() => {
     let list = closetItems.filter((p) => !catFilter || p.category === catFilter);
@@ -509,14 +440,15 @@ export function ClosetPageClient() {
   };
 
   const removeOne = (id: string) => {
-    setRemovedIds((prev) => new Set([...prev, id]));
+    void removeFromCloset(id);
     setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
     setConfirmDeleteId(null);
   };
 
   const removeSelected = () => {
-    setRemovedIds((prev) => new Set([...prev, ...selectedIds]));
+    selectedIds.forEach((id) => void removeFromCloset(id));
     setSelectedIds(new Set());
+    setIsEditing(false);
     setConfirmBatchDelete(false);
   };
 
@@ -532,30 +464,8 @@ export function ClosetPageClient() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 860 }}>
-        {/* Back + Title */}
+        {/* Title */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <Link
-            href="/mypage"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.09)",
-              borderRadius: 10,
-              padding: "7px 14px",
-              color: "#9ca3af",
-              fontSize: 13,
-              fontWeight: 500,
-              textDecoration: "none",
-              transition: "all 0.15s",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5m7-7-7 7 7 7" />
-            </svg>
-            마이페이지
-          </Link>
           <div>
             <h1
               style={{
@@ -576,13 +486,35 @@ export function ClosetPageClient() {
 
         {/* Stats row */}
         <div
+          className="closet-stats-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(5,1fr)",
             gap: 10,
             marginBottom: 24,
           }}
         >
+          <div
+            onClick={() => setCatFilter("")}
+            style={{
+              ...cardStyle,
+              padding: "12px 14px",
+              cursor: "pointer",
+              transition: "all 0.15s",
+              borderColor: catFilter === "" ? "rgba(249,115,22,0.5)" : "rgba(255,255,255,0.09)",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 20,
+                fontWeight: 900,
+                color: catFilter === "" ? "#F97316" : "#fff",
+                marginBottom: 2,
+              }}
+            >
+              {closetItems.length}
+            </p>
+            <p style={{ fontSize: 11, color: "#6b7280", fontWeight: 500 }}>Total</p>
+          </div>
           {CATEGORIES.map((cat) => (
             <div
               key={cat}
@@ -615,6 +547,7 @@ export function ClosetPageClient() {
 
         {/* Toolbar */}
         <div
+          className="closet-toolbar"
           style={{
             display: "flex",
             alignItems: "center",
@@ -624,78 +557,70 @@ export function ClosetPageClient() {
             flexWrap: "wrap",
           }}
         >
-          {/* Category pills */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {[{ label: "전체", val: "" }, ...CATEGORIES.map((c) => ({ label: c, val: c }))].map(
-              ({ label, val }) => {
-                const active = catFilter === val;
-                return (
-                  <button
-                    key={label}
-                    onClick={() => setCatFilter(val)}
-                    style={{
-                      padding: "5px 14px",
-                      borderRadius: 16,
-                      border: "1px solid",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                      background: active ? "#F97316" : "rgba(255,255,255,0.05)",
-                      color: active ? "#000" : "#d1d5db",
-                      borderColor: active ? "#F97316" : "rgba(255,255,255,0.15)",
-                      boxShadow: active ? "0 0 10px rgba(249,115,22,0.4)" : undefined,
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              }
-            )}
+          <div
+            className="closet-sort-control"
+            style={{
+              display: "flex",
+              height: 34,
+              background: "rgba(255,255,255,0.05)",
+              borderRadius: 11,
+              border: "1px solid rgba(255,255,255,0.1)",
+              overflow: "hidden",
+            }}
+          >
+            {SORT_OPTIONS.map((option) => {
+              const active = sortBy === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setSortBy(option.id)}
+                  style={{
+                    padding: "0 11px",
+                    border: "none",
+                    borderRight: option.id === "category" ? "none" : "1px solid rgba(255,255,255,0.08)",
+                    background: active ? "rgba(249,115,22,0.18)" : "transparent",
+                    color: active ? "#F97316" : "#8b949e",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
           {/* Right controls */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {selectedIds.size > 0 && (
-              <button
-                onClick={() => setConfirmBatchDelete(true)}
+          <div className="closet-toolbar-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {isEditing && (
+              <div
+                className="closet-selected-count"
                 style={{
-                  padding: "6px 14px",
-                  borderRadius: 10,
-                  background: "rgba(239,68,68,0.12)",
-                  border: "1px solid rgba(239,68,68,0.3)",
-                  color: "#f87171",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
+                  height: 34,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "0 12px",
+                  borderRadius: 11,
+                  background: "rgba(255,255,255,0.05)",
+                  color: selectedIds.size > 0 ? "#F97316" : "#8b949e",
+                  fontSize: 11,
+                  fontWeight: 800,
                 }}
               >
-                {selectedIds.size}개 삭제
-              </button>
+                {selectedIds.size} selected
+              </div>
             )}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 10,
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                color: "#d1d5db",
-                fontSize: 12,
-                outline: "none",
-                cursor: "pointer",
-              }}
-            >
-              <option value="recent">최근 추가순</option>
-              <option value="brand">브랜드순</option>
-              <option value="category">카테고리순</option>
-            </select>
             {/* View toggle */}
+            {!isEditing && (
             <div
+              className="closet-view-control"
               style={{
                 display: "flex",
+                height: 34,
                 background: "rgba(255,255,255,0.05)",
-                borderRadius: 10,
+                borderRadius: 11,
                 border: "1px solid rgba(255,255,255,0.1)",
                 overflow: "hidden",
               }}
@@ -732,19 +657,81 @@ export function ClosetPageClient() {
                   key={v.id}
                   onClick={() => setViewMode(v.id)}
                   style={{
-                    padding: "7px 10px",
+                    width: 36,
                     border: "none",
                     cursor: "pointer",
                     background:
-                      viewMode === v.id ? "rgba(249,115,22,0.2)" : "transparent",
+                      viewMode === v.id ? "rgba(249,115,22,0.18)" : "transparent",
                     color: viewMode === v.id ? "#F97316" : "#6b7280",
                     transition: "all 0.15s",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
                   {v.icon}
                 </button>
               ))}
             </div>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (isEditing && selectedIds.size > 0) {
+                  setConfirmBatchDelete(true);
+                  return;
+                }
+                setIsEditing((prev) => {
+                  if (prev) setSelectedIds(new Set());
+                  return !prev;
+                });
+              }}
+              style={{
+                height: 34,
+                width: 36,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                borderRadius: 11,
+                background: isEditing ? "rgba(249,115,22,0.18)" : "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                color: isEditing ? "#F97316" : "#6b7280",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                boxShadow: "none",
+              }}
+              aria-label={isEditing ? "삭제 선택 완료" : "삭제할 상품 선택"}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+            {isEditing && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIds(new Set());
+                  setIsEditing(false);
+                }}
+                style={{
+                  height: 34,
+                  width: 36,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  borderRadius: 11,
+                  background: "rgba(255,255,255,0.05)",
+                  border: "none",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  boxShadow: "none",
+                }}
+                aria-label="삭제 선택 취소"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -796,9 +783,9 @@ export function ClosetPageClient() {
         {/* Grid view */}
         {viewMode === "grid" && filtered.length > 0 && (
           <div
+            className="closet-product-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))",
               gap: 14,
             }}
           >
@@ -807,6 +794,7 @@ export function ClosetPageClient() {
                 key={p.id}
                 product={p}
                 selected={selectedIds.has(p.id)}
+                isEditing={isEditing}
                 onSelect={() => toggleSelect(p.id)}
                 onDelete={() => setConfirmDeleteId(p.id)}
                 href={getProductPageUrl(p)}
@@ -823,6 +811,7 @@ export function ClosetPageClient() {
                 key={p.id}
                 product={p}
                 selected={selectedIds.has(p.id)}
+                isEditing={isEditing}
                 onSelect={() => toggleSelect(p.id)}
                 onDelete={() => setConfirmDeleteId(p.id)}
                 href={getProductPageUrl(p)}

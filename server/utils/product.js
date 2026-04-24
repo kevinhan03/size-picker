@@ -72,7 +72,6 @@ export const normalizeProductRow = (row) => {
     sizeTable: parseSizeTable(row.size_table ?? row.sizeTable),
     createdAt: row.created_at || row.createdAt || null,
     isInstagram: Boolean(row.is_instagram),
-    instagramUrl: row.instagram_url ? String(row.instagram_url) : null,
   };
 };
 

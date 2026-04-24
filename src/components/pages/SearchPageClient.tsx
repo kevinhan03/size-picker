@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
-import { ChevronDown } from "lucide-react";
 import { Instagram, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
 import { GridView } from "../GridView";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ProgressiveImage } from "../ProgressiveImage";
+import { useClosetContext } from "../../contexts/ClosetContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useSearchContext } from "../../contexts/SearchContext";
 import { useGridState } from "../../hooks/useGridState";
@@ -16,19 +16,42 @@ import { smoothScrollTo } from "../../utils/scroll";
 import type { Product, SizeRecommendation } from "../../types";
 import { CATEGORY_OPTIONS } from "../../constants";
 
+function HighlightMatch({ text, query }: { text: string; query: string }) {
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <span>{text}</span>;
+  return (
+    <>
+      {idx > 0 && <span className="text-white">{text.slice(0, idx)}</span>}
+      <span className="text-gray-400">{text.slice(idx, idx + query.length)}</span>
+      {idx + query.length < text.length && (
+        <span className="font-bold text-white">{text.slice(idx + query.length)}</span>
+      )}
+    </>
+  );
+}
+
 export function SearchPageClient() {
   const { products, featuredProducts, productsError, retryProductsLoad } = useProductsContext();
-  const search = useSearchContext();
+  const { toggleCloset, isInCloset } = useClosetContext();
+  const {
+    clearQuery,
+    handleKeyDown,
+    handleQueryChange,
+    handleSearchSubmit,
+    query,
+    searchContainerRef,
+    setShowSuggestions,
+    showSuggestions,
+    suggestions,
+  } = useSearchContext();
   const grid = useGridState(products);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const [instagramProfileUrl, setInstagramProfileUrl] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
-  const [showBrandDrop, setShowBrandDrop] = useState(false);
   const gridModalRef = useRef<HTMLDivElement>(null);
   const gridRecommendationsRef = useRef<HTMLDivElement>(null);
-  const brandRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/site-settings")
@@ -49,25 +72,16 @@ export function SearchPageClient() {
     return { ...selectedProduct, image, thumbnailImage };
   }, [selectedProduct]);
 
-  const brands = useMemo(
-    () => [...new Set(products.map((p) => p.brand))].sort(),
-    [products]
-  );
-
   const brandFilteredProducts = useMemo(
     () => (brandFilter ? grid.filteredGridProducts.filter((p) => p.brand === brandFilter) : grid.filteredGridProducts),
     [brandFilter, grid.filteredGridProducts]
   );
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (brandRef.current && !brandRef.current.contains(e.target as Node)) {
-        setShowBrandDrop(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const brandSuggestions = useMemo(() => {
+    if (!query) return [];
+    const q = query.toLowerCase();
+    return [...new Set(products.filter((p) => p.brand.toLowerCase().includes(q)).map((p) => p.brand))].sort();
+  }, [query, products]);
 
   const gridRecommendations = useMemo<SizeRecommendation[]>(() => {
     if (activeRowIndex === null || !selectedProduct) return [];
@@ -133,7 +147,7 @@ export function SearchPageClient() {
           {/* 헤더 */}
           <div className="mb-3 flex items-end justify-between sm:mb-4">
             <div>
-              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-orange-500">Editor's Pick</p>
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-orange-500">Editor&apos;s Pick</p>
               <h2 className="text-lg font-black leading-tight text-white sm:text-xl">지금 주목할 상품</h2>
             </div>
             {instagramProfileUrl && (
@@ -184,58 +198,81 @@ export function SearchPageClient() {
       )}
 
       {/* Search bar below navbar */}
-      <div className="relative mb-3 w-full max-w-2xl" ref={search.searchContainerRef}>
+      <div className="relative mb-4 w-full max-w-2xl" ref={searchContainerRef}>
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-          <Search className={`h-5 w-5 transition-colors ${search.showSuggestions ? "text-orange-500" : "text-gray-500"}`} />
+          <Search className={`h-5 w-5 transition-colors ${showSuggestions ? "text-orange-500" : "text-gray-500"}`} />
         </div>
         <input
           type="text"
           className="w-full rounded-full border border-gray-700 bg-gray-900 py-3 pl-12 pr-10 text-sm text-white transition-all placeholder:text-gray-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
           placeholder="브랜드명 또는 상품명을 검색해보세요"
-          value={search.query}
-          onChange={(e) => search.handleQueryChange(e.target.value)}
-          onKeyDown={search.handleKeyDown}
+          value={query}
+          onChange={(e) => handleQueryChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           onFocus={() => {
-            if (search.query) search.setShowSuggestions(true);
+            if (query) setShowSuggestions(true);
           }}
         />
-        {search.query && (
+        {query && (
           <button
-            onClick={search.clearQuery}
+            onClick={clearQuery}
             className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>
         )}
 
-        {search.showSuggestions && (
+        {showSuggestions && (
           <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-hidden overflow-y-auto rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.06))] shadow-[0_20px_48px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
-            {search.suggestions.length > 0 ? (
-              <ul>
-                {search.suggestions.map((item) => (
-                  <li
-                    key={item.id}
-                    onClick={() => search.handleSearchSubmit(item)}
-                    className="flex cursor-pointer items-center gap-4 border-b border-white/10 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.08]"
-                  >
-                    <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-white/10">
-                      <ProgressiveImage
-                        src={item.image}
-                        thumbnailSrc={item.thumbnailImage}
-                        alt={item.name}
-                        className="h-full w-full object-cover"
-                        onError={handleImageLoadError}
-                      />
-                    </div>
-                    <div>
-                      <div className="font-medium text-white">{item.name}</div>
-                      <div className="text-sm text-gray-400">
-                        {item.brand} · {item.category}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+            {brandSuggestions.length > 0 || suggestions.length > 0 ? (
+              <>
+                {brandSuggestions.length > 0 && (
+                  <>
+                    <div className="px-5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">브랜드</div>
+                    <ul>
+                      {brandSuggestions.map((brand) => (
+                        <li
+                          key={brand}
+                          onClick={() => { setBrandFilter(brand); grid.setGridCategoryFilter(""); setShowSuggestions(false); clearQuery(); }}
+                          className="flex cursor-pointer items-center gap-3 border-b border-white/10 px-5 py-3 transition-colors last:border-0 hover:bg-white/[0.08]"
+                        >
+                          <Search className="h-4 w-4 flex-shrink-0 text-gray-500" />
+                          <span className="text-sm"><HighlightMatch text={brand} query={query} /></span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                {suggestions.length > 0 && (
+                  <>
+                    {brandSuggestions.length > 0 && <div className="border-t border-white/10" />}
+                    <div className="px-5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">상품</div>
+                    <ul>
+                      {suggestions.map((item) => (
+                        <li
+                          key={item.id}
+                          onClick={() => handleSearchSubmit(item)}
+                          className="flex cursor-pointer items-center gap-4 border-b border-white/10 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.08]"
+                        >
+                          <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-white/10">
+                            <ProgressiveImage
+                              src={item.image}
+                              thumbnailSrc={item.thumbnailImage}
+                              alt={item.name}
+                              className="h-full w-full object-cover"
+                              onError={handleImageLoadError}
+                            />
+                          </div>
+                          <div>
+                            <div className="font-medium"><HighlightMatch text={item.name} query={query} /></div>
+                            <div className="text-sm text-gray-400">{item.brand} · {item.category}</div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </>
             ) : (
               <div className="p-4 text-center text-sm text-gray-500">
                 검색어와 일치하는 추천 상품이 없습니다.
@@ -245,9 +282,9 @@ export function SearchPageClient() {
         )}
       </div>
 
-      {/* Category filter pills + Brand button */}
-      <div className="mb-12 w-full max-w-2xl">
-        <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr) auto" }}>
+      {/* Category filter pills */}
+      <div className="mb-8 w-full max-w-2xl">
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
           {(["", ...CATEGORY_OPTIONS.filter((c) => c !== "기타 상품(빈티지)")] as const).map((cat) => {
             const label = cat === "" ? "전체" : cat;
             const isActive = grid.gridCategoryFilter === cat && !brandFilter;
@@ -255,7 +292,7 @@ export function SearchPageClient() {
               <button
                 key={label}
                 onClick={() => { grid.setGridCategoryFilter(cat); setBrandFilter(""); }}
-                className={`w-full rounded-full py-1.5 text-sm font-semibold transition-all ${
+                className={`w-full rounded-full py-2 text-sm font-semibold transition-all ${
                   isActive
                     ? "bg-orange-500 text-black shadow-[0_0_12px_rgba(249,115,22,0.5)]"
                     : "border border-white/20 bg-white/5 text-gray-300 hover:border-orange-500/60 hover:text-orange-400"
@@ -266,63 +303,6 @@ export function SearchPageClient() {
             );
           })}
 
-          {/* Brand dropdown button */}
-          <div ref={brandRef} className="relative">
-            <button
-              onClick={() => setShowBrandDrop((v) => !v)}
-              className={`flex items-center gap-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all ${
-                brandFilter
-                  ? "bg-orange-500 text-black shadow-[0_0_12px_rgba(249,115,22,0.5)]"
-                  : showBrandDrop
-                  ? "border border-orange-500/60 bg-white/5 text-orange-400"
-                  : "border border-white/20 bg-white/5 text-gray-300 hover:border-orange-500/60 hover:text-orange-400"
-              }`}
-            >
-              {brandFilter
-                ? brandFilter.split(" ")[0] + (brandFilter.split(" ").length > 1 ? "…" : "")
-                : "브랜드"}
-              <ChevronDown
-                className="h-3 w-3 transition-transform"
-                style={{ transform: showBrandDrop ? "rotate(180deg)" : "rotate(0deg)" }}
-              />
-            </button>
-
-            {showBrandDrop && (
-              <div className="absolute left-0 top-[calc(100%+8px)] z-30 min-w-[200px] overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(20,20,28,0.98),rgba(10,10,18,0.98))] shadow-[0_20px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
-                <button
-                  onClick={() => { setBrandFilter(""); setShowBrandDrop(false); }}
-                  className={`block w-full border-b border-white/[0.06] px-4 py-2.5 text-left text-xs font-bold tracking-wider transition-colors hover:bg-white/5 ${
-                    !brandFilter ? "text-orange-500" : "text-gray-500"
-                  }`}
-                >
-                  전체 브랜드
-                </button>
-                <div className="ui-brand-dropdown max-h-60 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-                  {brands.map((brand) => {
-                    const isActive = brandFilter === brand;
-                    return (
-                      <button
-                        key={brand}
-                        onClick={() => { setBrandFilter(brand); grid.setGridCategoryFilter(""); setShowBrandDrop(false); }}
-                        className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
-                          isActive
-                            ? "bg-orange-500/10 font-semibold text-orange-400 hover:bg-orange-500/15"
-                            : "font-normal text-gray-200 hover:bg-white/5"
-                        }`}
-                      >
-                        <span>{brand}</span>
-                        {isActive && (
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2.5">
-                            <polyline points="20,6 9,17 4,12" />
-                          </svg>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Active brand badge */}
@@ -367,6 +347,8 @@ export function SearchPageClient() {
           modalRef={gridModalRef}
           recommendationsRef={gridRecommendationsRef}
           smoothScrollTo={smoothScrollTo}
+          onToggleCloset={() => toggleCloset(normalizedProduct.id)}
+          isInCloset={isInCloset(normalizedProduct.id)}
         />
       )}
 

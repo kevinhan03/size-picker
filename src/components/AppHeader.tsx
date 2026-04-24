@@ -1,6 +1,7 @@
 "use client";
 
-import { LogIn, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LogIn, Plus, UserRound } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
@@ -10,6 +11,13 @@ export function AppHeader() {
   const router = useRouter();
   const authContext = useAuthContext();
   const productForm = useProductFormContext();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const authUser = authContext.authUser;
   const dbUsername = authContext.dbUsername;
@@ -18,51 +26,55 @@ export function AppHeader() {
   const isAdmin = pathname === "/admin";
 
   return (
-    <header className="fixed top-0 w-full bg-black/90 backdrop-blur-md border-b border-gray-800 z-50">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
+      <div
+        className={`pointer-events-auto transition-all duration-300 ease-out flex items-center justify-between ${
+          scrolled
+            ? "mt-3 px-4 h-12 w-[calc(100%-2rem)] max-w-2xl rounded-2xl bg-[#111114] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+            : "mt-0 px-4 h-16 w-full max-w-6xl rounded-none bg-transparent border-b border-transparent"
+        }`}
+      >
         <div className="flex items-center gap-2">
           <div
             className="flex items-center gap-2 cursor-pointer"
             onClick={() => router.push("/")}
           >
-            <div className="w-10 h-10 flex items-center justify-center">
-              <img src="/favicon-simple.svg" alt="DIGBOX logo" className="w-7 h-7 object-contain" />
+            <div className={`flex items-center justify-center transition-all duration-300 ${scrolled ? "w-7 h-7" : "w-10 h-10"}`}>
+              <img src="/favicon-simple.svg" alt="DIGBOX logo" className="w-full h-full object-contain" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="font-bold text-xl tracking-tight text-orange-500">DIGBOX</span>
-              <span className="text-[10px] text-white/60 tracking-tight">취향은 더 깊게, 발견은 더 쉽게</span>
+              <span className={`font-bold tracking-tight text-orange-500 transition-all duration-300 ${scrolled ? "text-base" : "text-xl"}`}>DIGBOX</span>
+              {!scrolled && <span className="text-[10px] text-white/60 tracking-tight">취향은 더 깊게, 발견은 더 쉽게</span>}
             </div>
           </div>
-          {authUser && dbUsername && (
-            <span
-              className="text-gray-500 text-xs font-medium cursor-pointer hover:text-gray-300 transition"
-              onClick={() => router.push("/mypage")}
-            >
-              | {dbUsername}
-            </span>
-          )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {!isAdmin && (
             <button
               onClick={() => productForm.openModal()}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] text-[#00FF00] hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] shadow-[0_4px_16px_rgba(0,255,0,0.15)]"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Add product</span>
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
+          {authUser && !isAdmin && (
+            <button
+              onClick={() => router.push("/mypage")}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] text-gray-200 hover:border-orange-500/60 hover:text-orange-400 shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
+            >
+              <UserRound className="w-4 h-4" />
             </button>
           )}
           {!authUser && !isAdmin && (
             <button
               onClick={() => router.push("/login")}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
                 isLogin
                   ? "bg-orange-500 text-black border-orange-500"
                   : "border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] text-gray-200 hover:border-orange-500/60 hover:text-orange-400"
               }`}
             >
               <LogIn className="w-4 h-4" />
-              <span className="hidden sm:inline">Login</span>
             </button>
           )}
         </div>

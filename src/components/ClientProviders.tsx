@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthProvider } from "../contexts/AuthContext";
+import { ClosetProvider } from "../contexts/ClosetContext";
 import { ProductFormProvider } from "../contexts/ProductFormContext";
 import { ProductsProvider } from "../contexts/ProductsContext";
 import { SearchProvider } from "../contexts/SearchContext";
@@ -19,11 +20,13 @@ export function ClientProviders({
     <PostHogProvider>
       <AuthProvider>
         <ProductsProvider initialProducts={initialProducts}>
-          <SearchProvider>
-            <ProductFormProvider>
-              <AppShell>{children}</AppShell>
-            </ProductFormProvider>
-          </SearchProvider>
+          <ClosetProvider>
+            <SearchProvider>
+              <ProductFormProvider>
+                <AppShell>{children}</AppShell>
+              </ProductFormProvider>
+            </SearchProvider>
+          </ClosetProvider>
         </ProductsProvider>
       </AuthProvider>
     </PostHogProvider>

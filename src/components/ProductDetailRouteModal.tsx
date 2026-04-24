@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ProductDetailModal } from "./ProductDetailModal";
+import { useClosetContext } from "../contexts/ClosetContext";
 import { useProductsContext } from "../contexts/ProductsContext";
 import type { Product, SizeRecommendation } from "../types";
 import { getProductPageUrl, toPublicUrl } from "../utils/product";
@@ -13,6 +14,7 @@ import { smoothScrollTo } from "../utils/scroll";
 export function ProductDetailRouteModal({ product }: { product: Product }) {
   const router = useRouter();
   const { products } = useProductsContext();
+  const { toggleCloset, isInCloset } = useClosetContext();
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -57,6 +59,8 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
         modalRef={modalRef}
         recommendationsRef={recommendationsRef}
         smoothScrollTo={smoothScrollTo}
+        onToggleCloset={() => toggleCloset(normalizedProduct.id)}
+        isInCloset={isInCloset(normalizedProduct.id)}
       />
 
       {isDetailImageZoomed && (

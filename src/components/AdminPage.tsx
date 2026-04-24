@@ -56,7 +56,6 @@ interface AdminPageProps {
   onExtractedTableChange: (table: SizeTable) => void;
   onInstagramPublish: (id: string) => void;
   onInstagramUnpublish: (id: string) => void;
-  onInstagramLinkSave: (id: string, url: string) => void;
   instagramProfileUrl: string;
   onInstagramProfileUrlChange: (url: string) => void;
   onInstagramProfileUrlSave: () => void;
@@ -103,7 +102,6 @@ export const AdminPage = ({
   onExtractedTableChange,
   onInstagramPublish,
   onInstagramUnpublish,
-  onInstagramLinkSave,
   instagramProfileUrl,
   onInstagramProfileUrlChange,
   onInstagramProfileUrlSave,
@@ -248,7 +246,6 @@ export const AdminPage = ({
                   isInstagramLoading={isInstagramLoading}
                   onPublish={onInstagramPublish}
                   onUnpublish={onInstagramUnpublish}
-                  onLinkSave={onInstagramLinkSave}
                   instagramProfileUrl={instagramProfileUrl}
                   onInstagramProfileUrlChange={onInstagramProfileUrlChange}
                   onInstagramProfileUrlSave={onInstagramProfileUrlSave}

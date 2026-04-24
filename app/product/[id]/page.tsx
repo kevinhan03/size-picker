@@ -43,6 +43,7 @@ export default async function ProductPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        suppressHydrationWarning
       />
       <div className="min-h-screen bg-black px-4 py-8 font-sans text-white">
         <div className="mx-auto max-w-3xl">

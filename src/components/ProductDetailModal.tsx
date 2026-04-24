@@ -3,7 +3,50 @@ import { ExternalLink, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { Product, SizeRecommendation } from "../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { isPrimaryColumnHeader, normalizeMeasurementLabel } from "../utils/sizeTable";
+
+function HangerIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 7.25c0-1.45 1.05-2.5 2.45-2.5 1.25 0 2.3.92 2.3 2.15 0 1.1-.6 1.75-1.85 2.45L12 11"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 11 4.9 16.25c-.9.67-.42 2.1.7 2.1h12.8c1.12 0 1.6-1.43.7-2.1L12 11Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ClosetIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M6 4.75h12c.69 0 1.25.56 1.25 1.25v13.25H4.75V6c0-.69.56-1.25 1.25-1.25Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 4.75v14.5M8.75 12h.01M15.25 12h.01M7 19.25v1M17 19.25v1"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 interface ProductDetailModalProps {
   product: Product;
@@ -17,6 +60,8 @@ interface ProductDetailModalProps {
   modalRef: RefObject<HTMLDivElement | null>;
   recommendationsRef: RefObject<HTMLDivElement | null>;
   smoothScrollTo: (container: HTMLElement, targetY: number, duration?: number) => void;
+  onToggleCloset?: () => void;
+  isInCloset?: boolean;
 }
 
 export function ProductDetailModal({
@@ -31,7 +76,11 @@ export function ProductDetailModal({
   modalRef,
   recommendationsRef,
   smoothScrollTo,
+  onToggleCloset,
+  isInCloset,
 }: ProductDetailModalProps) {
+  useBodyScrollLock(modalRef);
+
   const handleRowClick = (rowIndex: number) => {
     onRowClick(rowIndex);
     setTimeout(() => {
@@ -48,17 +97,42 @@ export function ProductDetailModal({
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div
         ref={modalRef}
-        className="ui-product-detail-modal relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-2xl md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
+        className="ui-product-detail-modal relative max-h-[90vh] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-3xl bg-[#1c1c1f]/80 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.38)] md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
       >
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.2),transparent_32%,transparent_68%,rgba(255,255,255,0.08))]" />
-        <div className="sticky top-0 z-10 flex items-center justify-between bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.02)_38%,rgba(255,255,255,0.03)_100%)] px-6 py-4 text-white">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 text-white bg-[#1c1c1f]/80 backdrop-blur-2xl">
           <h3 className="text-lg font-bold text-white sm:text-xl">상품 상세</h3>
-          <button onClick={onClose} className="rounded-full p-2 text-gray-300 transition hover:bg-white/[0.08] hover:text-white">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              aria-label="위시리스트에 추가"
+              className="flex items-center gap-1.5 rounded-lg border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] px-3 py-1.5 text-xs font-bold text-[#00FF00] shadow-[0_4px_16px_rgba(0,255,0,0.15)] backdrop-blur-xl transition hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))]"
+            >
+              <HangerIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="내 옷장에 추가"
+              onClick={onToggleCloset}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold backdrop-blur-xl transition ${
+                isInCloset
+                  ? "border-orange-500/80 bg-[linear-gradient(180deg,rgba(249,115,22,0.45),rgba(249,115,22,0.28))] text-orange-300 shadow-[0_4px_16px_rgba(249,115,22,0.35)]"
+                  : "border-orange-500/40 bg-[linear-gradient(180deg,rgba(249,115,22,0.22),rgba(249,115,22,0.09))] text-orange-400 shadow-[0_4px_16px_rgba(249,115,22,0.15)] hover:border-orange-500/70 hover:bg-[linear-gradient(180deg,rgba(249,115,22,0.32),rgba(249,115,22,0.15))] hover:text-orange-300"
+              }`}
+            >
+              <ClosetIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="상품 상세 닫기"
+              onClick={onClose}
+              className="flex items-center gap-2 rounded-lg border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] px-3 py-1.5 text-xs font-bold text-gray-200 shadow-[0_4px_16px_rgba(0,0,0,0.2)] backdrop-blur-xl transition hover:border-orange-500/60 hover:text-orange-400"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="relative z-[1] bg-[linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.02)_38%,rgba(255,255,255,0.03)_100%)] p-6 md:p-8">
+        <div className="relative z-[1] p-6 md:p-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-center">
             <button
               type="button"

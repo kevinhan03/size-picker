@@ -57,7 +57,6 @@ export async function PATCH(
   }
   if ("sizeTable" in body) payload.size_table = parseSizeTable(body?.sizeTable ?? null);
   if ("isInstagram" in body) payload.is_instagram = Boolean(body.isInstagram);
-  if ("instagramUrl" in body) payload.instagram_url = String(body.instagramUrl || "").trim() || null;
 
   const payloadKeys = Object.keys(payload);
   if (payloadKeys.length === 0) {

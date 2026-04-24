@@ -109,7 +109,6 @@ export function useInstagramProducts({
         throw new Error(payload?.error || "인스타 상품 등록에 실패했습니다.");
       }
 
-      // 폼 초기화
       setInstagramForm({ brand: "", name: "", category: CATEGORY_OPTIONS[0] ?? "", url: "" });
       setInstagramImagePath(null);
       setInstagramImagePreview("");
@@ -172,29 +171,6 @@ export function useInstagramProducts({
     }
   };
 
-  const handleInstagramLinkSave = async (id: string, instagramUrl: string) => {
-    setIsInstagramLoading(true);
-    try {
-      const response = await fetch(`/api/admin/products/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ instagramUrl: instagramUrl.trim() || null }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || "링크 저장에 실패했습니다.");
-      }
-      setAdminActionError(null);
-      onProductMutated();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "링크 저장에 실패했습니다.";
-      setAdminActionError(message);
-    } finally {
-      setIsInstagramLoading(false);
-    }
-  };
-
   const handleInstagramUnpublish = async (id: string) => {
     if (!window.confirm("이 상품을 인스타 게시에서 내리겠습니까? 전체 상품 목록으로 이동합니다.")) return;
 
@@ -244,7 +220,6 @@ export function useInstagramProducts({
     setInstagramProfileUrl,
     handleInstagramProfileUrlSave,
     handleInstagramPublish,
-    handleInstagramLinkSave,
     handleInstagramUnpublish,
     resetInstagramState,
   };

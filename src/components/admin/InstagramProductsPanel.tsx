@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Instagram, Link, Search, Star, Users } from "lucide-react";
+import { Instagram, Search, Star, Users } from "lucide-react";
 import type { Product } from "../../types";
 import { toPublicUrl } from "../../utils/product";
 import { useProductFormContext } from "../../contexts/ProductFormContext";
@@ -12,7 +12,6 @@ interface InstagramProductsPanelProps {
   isInstagramLoading: boolean;
   onPublish: (id: string) => void;
   onUnpublish: (id: string) => void;
-  onLinkSave: (id: string, url: string) => void;
   instagramProfileUrl: string;
   onInstagramProfileUrlChange: (url: string) => void;
   onInstagramProfileUrlSave: () => void;
@@ -24,7 +23,6 @@ export function InstagramProductsPanel({
   isInstagramLoading,
   onPublish,
   onUnpublish,
-  onLinkSave,
   instagramProfileUrl,
   onInstagramProfileUrlChange,
   onInstagramProfileUrlSave,
@@ -32,7 +30,6 @@ export function InstagramProductsPanel({
   const productForm = useProductFormContext();
   const [mode, setMode] = useState<"new" | "existing" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [linkInputs, setLinkInputs] = useState<Record<string, string>>({});
 
   const nonFeaturedProducts = allProducts.filter((p) => !p.isInstagram);
   const filteredProducts = nonFeaturedProducts.filter((p) => {
@@ -62,7 +59,7 @@ export function InstagramProductsPanel({
     <div className="space-y-6">
       {/* 인스타그램 프로필 링크 */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-        <h3 className="mb-4 text-base font-bold text-white">인스타그램 프로필 링크</h3>
+        <h3 className="mb-4 text-base font-bold text-white">인스타그램 게시물 링크</h3>
         <div className="flex items-center gap-2">
           <Instagram className="h-5 w-5 flex-shrink-0 text-pink-400" />
           <input
@@ -117,7 +114,6 @@ export function InstagramProductsPanel({
             </span>
           </h3>
 
-          {/* 검색 */}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <input
@@ -129,7 +125,6 @@ export function InstagramProductsPanel({
             />
           </div>
 
-          {/* 상품 목록 */}
           {filteredProducts.length === 0 ? (
             <p className="text-sm text-gray-500">
               {searchQuery ? "검색 결과가 없습니다." : "게시 가능한 상품이 없습니다."}
@@ -191,57 +186,35 @@ export function InstagramProductsPanel({
               const thumbSrc = product.imagePath
                 ? toPublicUrl(product.imagePath, { width: 160, height: 160, quality: 65 })
                 : product.image;
-              const currentLink = linkInputs[product.id] ?? (product.instagramUrl || "");
               return (
                 <li
                   key={product.id}
-                  className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 space-y-3"
+                  className="flex items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
-                      {thumbSrc && (
-                        <img
-                          src={thumbSrc}
-                          alt={product.name}
-                          className="h-full w-full object-contain"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
-                        />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase text-orange-400">{product.brand}</p>
-                      <p className="truncate text-sm font-medium text-white">{product.name}</p>
-                      <p className="text-xs text-gray-500">{product.category}</p>
-                    </div>
-                    <button
-                      onClick={() => onUnpublish(product.id)}
-                      disabled={isInstagramLoading}
-                      className="flex-shrink-0 rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
-                    >
-                      내림
-                    </button>
+                  <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
+                    {thumbSrc && (
+                      <img
+                        src={thumbSrc}
+                        alt={product.name}
+                        className="h-full w-full object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link className="h-4 w-4 flex-shrink-0 text-gray-500" />
-                    <input
-                      type="url"
-                      value={currentLink}
-                      onChange={(e) =>
-                        setLinkInputs((prev) => ({ ...prev, [product.id]: e.target.value }))
-                      }
-                      placeholder="인스타그램 게시글 링크 (선택)"
-                      className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-white placeholder:text-gray-500 focus:border-orange-500 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => onLinkSave(product.id, currentLink)}
-                      disabled={isInstagramLoading}
-                      className="flex-shrink-0 rounded-lg bg-gray-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-gray-600 disabled:opacity-50"
-                    >
-                      저장
-                    </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase text-orange-400">{product.brand}</p>
+                    <p className="truncate text-sm font-medium text-white">{product.name}</p>
+                    <p className="text-xs text-gray-500">{product.category}</p>
                   </div>
+                  <button
+                    onClick={() => onUnpublish(product.id)}
+                    disabled={isInstagramLoading}
+                    className="flex-shrink-0 rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 transition hover:border-red-500 hover:text-red-400 disabled:opacity-50"
+                  >
+                    내림
+                  </button>
                 </li>
               );
             })}

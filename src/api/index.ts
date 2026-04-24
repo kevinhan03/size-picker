@@ -145,6 +145,41 @@ export const removeBackgroundWithGemini = async (base64Image: string): Promise<s
   return String(payload.data.imageBase64);
 };
 
+export const fetchClosetItems = async (): Promise<Product[]> => {
+  const token = await getAccessToken();
+  if (!token) return [];
+  const response = await fetch('/api/closet', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { products?: unknown[] }; error?: string }>(response, '/api/closet');
+  if (!response.ok || !payload?.ok) return [];
+  const rows = Array.isArray(payload?.data?.products) ? payload.data!.products : [];
+  return rows.filter((p): p is Product => p !== null && typeof p === 'object');
+};
+
+export const addToCloset = async (productId: string): Promise<void> => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('로그인이 필요합니다.');
+  const response = await fetch('/api/closet', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId }),
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/closet');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '옷장 추가 실패');
+};
+
+export const removeFromCloset = async (productId: string): Promise<void> => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('로그인이 필요합니다.');
+  const response = await fetch(`/api/closet/${encodeURIComponent(productId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/closet/[productId]');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '옷장 제거 실패');
+};
+
 export const deleteMyAccount = async (): Promise<void> => {
   assertSupabaseClient();
   const {

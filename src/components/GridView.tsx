@@ -86,7 +86,7 @@ export function GridView({
                 width: "100%",
                 transform: `translateY(${vRow.start - scrollMargin}px)`,
               }}
-              className="grid grid-cols-2 gap-6 pb-6 lg:grid-cols-4"
+              className="grid grid-cols-2 gap-3 pb-3 lg:grid-cols-4 lg:gap-5 lg:pb-5"
             >
               {rows[vRow.index].map((product) => (
                 <div

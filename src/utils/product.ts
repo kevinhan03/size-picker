@@ -95,7 +95,6 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
     sizeTable: normalizeSizeTable(row.size_table),
     createdAt: row.created_at ? String(row.created_at) : undefined,
     isInstagram: Boolean(row.is_instagram),
-    instagramUrl: row.instagram_url ? String(row.instagram_url) : null,
   };
 };
 
