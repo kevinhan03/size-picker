@@ -108,10 +108,10 @@ export function GridView({
                       />
                     </div>
                   </div>
-                  <div className="flex flex-1 flex-col justify-center bg-black/10 px-4 pb-4 pt-3 text-center sm:px-5 sm:pb-5 sm:pt-4">
-                    <div className="mb-2 w-full pl-[5%] text-left text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
-                    <h3 className="mb-1 w-full pl-[5%] text-left text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
-                    <div className="pt-2 text-sm text-gray-300">{product.category}</div>
+                  <div className="flex flex-1 flex-col bg-black/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
+                    <div className="mb-1 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+                    <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
+                    <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
                   </div>
                 </div>
               ))}

@@ -31,5 +31,8 @@
       "Bash(wait)",
       "Bash(xargs grep:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }
