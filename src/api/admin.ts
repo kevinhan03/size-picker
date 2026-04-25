@@ -1,5 +1,20 @@
-import type { BrandBackfillResult, BrandRule } from "../types";
+import type { BrandBackfillResult, BrandInfo, BrandRule } from "../types";
 import { parseApiJson } from "./shared";
+
+export const fetchBrands = async (): Promise<BrandInfo[]> => {
+  const response = await fetch("/api/admin/brands", {
+    method: "GET",
+    credentials: "include",
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: { brands?: BrandInfo[] } }>(
+    response,
+    "/api/admin/brands"
+  );
+  if (!response.ok || !payload?.ok || !Array.isArray(payload?.data?.brands)) {
+    throw new Error(payload?.error || "Failed to fetch brands");
+  }
+  return payload.data.brands;
+};
 
 export const fetchBrandRules = async (): Promise<BrandRule[]> => {
   const response = await fetch("/api/admin/brand-rules", {

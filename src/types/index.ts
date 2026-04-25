@@ -90,6 +90,11 @@ export interface BrandRule {
   canonicalBrand: string;
 }
 
+export interface BrandInfo {
+  brand: string;
+  count: number;
+}
+
 export interface BrandBackfillChange {
   id: string;
   name: string;

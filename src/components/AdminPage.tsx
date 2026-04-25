@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { ChangeEvent, SyntheticEvent } from "react";
 import { Camera, ChevronLeft, Package, Ruler, Tag } from "lucide-react";
 import { AdminLoginPanel } from "./admin/AdminLoginPanel";
 import { BrandRulesPanel } from "./admin/BrandRulesPanel";
+import { BrandUnifyPanel } from "./admin/BrandUnifyPanel";
 import { AdminProductsList } from "./admin/AdminProductsList";
 import { InstagramProductsPanel } from "./admin/InstagramProductsPanel";
 import type { AdminEditForm, BrandBackfillResult, BrandRule, Product, SizeTable } from "../types";
@@ -37,6 +38,7 @@ interface AdminPageProps {
   isBrandRulesLoading: boolean;
   isBrandRulesSaving: boolean;
   isBrandBackfillRunning: boolean;
+  hasUnsavedBrandRules: boolean;
   brandBackfillResult: BrandBackfillResult | null;
   isInstagramLoading: boolean;
   onLogout: () => void;
@@ -83,6 +85,7 @@ export const AdminPage = ({
   isBrandRulesLoading,
   isBrandRulesSaving,
   isBrandBackfillRunning,
+  hasUnsavedBrandRules,
   brandBackfillResult,
   isInstagramLoading,
   onLogout,
@@ -109,6 +112,8 @@ export const AdminPage = ({
 }: AdminPageProps) => {
   const [tableEditingCell, setTableEditingCell] = useState<TableEditingCell>(null);
   const [activeSection, setActiveSection] = useState<AdminSection>(null);
+  const [dbBrands, setDbBrands] = useState<string[]>([]);
+  const handleBrandsLoaded = useCallback((brands: string[]) => setDbBrands(brands), []);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -183,17 +188,38 @@ export const AdminPage = ({
 
             {/* 브랜드 대표명 설정 */}
             {activeSection === "brand-rules" && (
-              <BrandRulesPanel
-                brandRules={brandRules}
-                brandBackfillResult={brandBackfillResult}
-                isBrandRulesLoading={isBrandRulesLoading}
-                isBrandRulesSaving={isBrandRulesSaving}
-                isBrandBackfillRunning={isBrandBackfillRunning}
-                onReload={onBrandRulesReload}
-                onSave={onBrandRulesSave}
-                onBackfill={onBrandRulesBackfill}
-                onChange={onBrandRulesChange}
-              />
+              <>
+                <BrandUnifyPanel
+                  existingRules={brandRules}
+                  onBrandsLoaded={handleBrandsLoaded}
+                  onAddRules={(newRules) =>
+                    onBrandRulesChange((prev) => {
+                      const dedupedNew = newRules.filter(
+                        (nr) =>
+                          !prev.some(
+                            (r) =>
+                              r.matchType === nr.matchType &&
+                              r.matchValue.toLowerCase() === nr.matchValue.toLowerCase()
+                          )
+                      );
+                      return [...prev, ...dedupedNew];
+                    })
+                  }
+                />
+                <BrandRulesPanel
+                  brandRules={brandRules}
+                  brandBackfillResult={brandBackfillResult}
+                  isBrandRulesLoading={isBrandRulesLoading}
+                  isBrandRulesSaving={isBrandRulesSaving}
+                  isBrandBackfillRunning={isBrandBackfillRunning}
+                  hasUnsavedChanges={hasUnsavedBrandRules}
+                  dbBrands={dbBrands}
+                  onReload={onBrandRulesReload}
+                  onSave={onBrandRulesSave}
+                  onBackfill={onBrandRulesBackfill}
+                  onChange={onBrandRulesChange}
+                />
+              </>
             )}
 
             {/* 상품 수정 */}

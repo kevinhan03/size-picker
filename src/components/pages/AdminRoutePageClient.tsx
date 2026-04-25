@@ -40,6 +40,7 @@ export function AdminRoutePageClient() {
       isBrandRulesLoading={admin.isBrandRulesLoading}
       isBrandRulesSaving={admin.isBrandRulesSaving}
       isBrandBackfillRunning={admin.isBrandBackfillRunning}
+      hasUnsavedBrandRules={admin.hasUnsavedBrandRules}
       brandBackfillResult={admin.brandBackfillResult}
       isInstagramLoading={admin.isInstagramLoading}
       onLogout={() => void admin.handleAdminLogout()}

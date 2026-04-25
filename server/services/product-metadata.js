@@ -117,12 +117,13 @@ export function createProductMetadataService({
     const jsonImageData = extractImageCandidatesFromJsonData({ jsonData: combinedJsonData, pageUrl });
 
     const storeBrandFromTitle = normalizeBrandName(String(title || "").split("|").slice(1).join("|"));
-    const brand = response.pickFirstNonEmpty([
+    const rawBrand = response.pickFirstNonEmpty([
       musinsaData?.brand,
       schemaProduct?.brand,
       extractBrandFromDescription(description),
       storeBrandFromTitle,
     ]);
+    const brand = normalizeBrandName(rawBrand, { url: pageUrl });
 
     const schemaName = normalizeCellText(schemaProduct?.name || "");
     const fallbackTitle = response.pickFirstNonEmpty([ogTitle, title]);
