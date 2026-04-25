@@ -347,7 +347,7 @@ export function SearchPageClient() {
           modalRef={gridModalRef}
           recommendationsRef={gridRecommendationsRef}
           smoothScrollTo={smoothScrollTo}
-          onToggleCloset={() => toggleCloset(normalizedProduct.id)}
+          onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
           isInCloset={isInCloset(normalizedProduct.id)}
         />
       )}

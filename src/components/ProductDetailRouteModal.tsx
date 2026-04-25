@@ -59,7 +59,7 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
         modalRef={modalRef}
         recommendationsRef={recommendationsRef}
         smoothScrollTo={smoothScrollTo}
-        onToggleCloset={() => toggleCloset(normalizedProduct.id)}
+        onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
         isInCloset={isInCloset(normalizedProduct.id)}
       />
 

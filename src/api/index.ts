@@ -1,6 +1,7 @@
 import type {
   BrandBackfillResult,
   BrandRule,
+  ClosetSizeSelection,
   Product,
   ProductMetadataPayload,
   ProductRow,
@@ -157,13 +158,18 @@ export const fetchClosetItems = async (): Promise<Product[]> => {
   return rows.filter((p): p is Product => p !== null && typeof p === 'object');
 };
 
-export const addToCloset = async (productId: string): Promise<void> => {
+export const addToCloset = async (productId: string, sizeSelection?: ClosetSizeSelection | null): Promise<void> => {
   const token = await getAccessToken();
   if (!token) throw new Error('로그인이 필요합니다.');
   const response = await fetch('/api/closet', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ productId }),
+    body: JSON.stringify({
+      productId,
+      selectedSizeLabel: sizeSelection?.label ?? null,
+      selectedSizeRowIndex: sizeSelection?.rowIndex ?? null,
+      selectedSizeSnapshot: sizeSelection?.snapshot ?? null,
+    }),
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/closet');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || '옷장 추가 실패');

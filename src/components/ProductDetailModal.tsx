@@ -1,7 +1,8 @@
+import { useEffect, useMemo, useState } from "react";
 import type { RefObject, SyntheticEvent } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
-import type { Product, SizeRecommendation } from "../types";
+import type { ClosetSizeSelection, Product, SizeRecommendation } from "../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { isPrimaryColumnHeader, normalizeMeasurementLabel } from "../utils/sizeTable";
@@ -60,8 +61,159 @@ interface ProductDetailModalProps {
   modalRef: RefObject<HTMLDivElement | null>;
   recommendationsRef: RefObject<HTMLDivElement | null>;
   smoothScrollTo: (container: HTMLElement, targetY: number, duration?: number) => void;
-  onToggleCloset?: () => void;
+  onToggleCloset?: (selection?: ClosetSizeSelection | null) => void;
   isInCloset?: boolean;
+}
+
+function buildClosetSizeSelection(
+  product: Product,
+  rowIndex: number | null,
+  manualSize: string
+): ClosetSizeSelection | null {
+  const sizeTable = product.sizeTable;
+  const manualLabel = manualSize.trim();
+  if (rowIndex === null || !sizeTable?.rows?.[rowIndex]) {
+    return manualLabel ? { label: manualLabel, rowIndex: null, snapshot: null } : null;
+  }
+  const row = sizeTable.rows[rowIndex].map((cell) => String(cell ?? "").trim());
+  const headers = sizeTable.headers.map((header) => String(header ?? "").trim());
+  const label = String(row[0] || manualLabel || "").trim();
+  return {
+    label: label || null,
+    rowIndex,
+    snapshot: label ? { headers, row } : null,
+  };
+}
+
+function SizeSelectionSheet({
+  product,
+  initialRowIndex,
+  onClose,
+  onConfirm,
+}: {
+  product: Product;
+  initialRowIndex: number | null;
+  onClose: () => void;
+  onConfirm: (selection: ClosetSizeSelection | null) => void;
+}) {
+  const rows = product.sizeTable?.rows ?? [];
+  const headers = product.sizeTable?.headers ?? [];
+  const safeInitialIndex = initialRowIndex !== null && rows[initialRowIndex] ? initialRowIndex : null;
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(safeInitialIndex);
+  const [manualSize, setManualSize] = useState("");
+
+  useEffect(() => {
+    setSelectedRowIndex(safeInitialIndex);
+    setManualSize("");
+  }, [safeInitialIndex, product.id]);
+
+  const selectedRow = selectedRowIndex !== null ? rows[selectedRowIndex] : null;
+  const measurements = useMemo(() => {
+    if (!selectedRow) return [];
+    return headers
+      .slice(1)
+      .map((header, index) => ({
+        label: normalizeMeasurementLabel(header) || String(header ?? "").trim(),
+        value: String(selectedRow[index + 1] ?? "").trim(),
+      }))
+      .filter(({ label, value }) => label && value);
+  }, [headers, selectedRow]);
+
+  const canConfirm = selectedRowIndex !== null || manualSize.trim().length > 0;
+
+  return (
+    <div className="fixed inset-0 z-[85] flex items-end justify-center sm:items-center">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg rounded-t-3xl border border-white/10 bg-[#111114] p-5 text-white shadow-[0_-24px_60px_rgba(0,0,0,0.55)] sm:rounded-3xl sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-orange-400">{product.brand}</p>
+            <h3 className="mt-1 truncate text-lg font-black">내 옷장에 추가</h3>
+            <p className="mt-1 text-sm text-gray-400">보유한 사이즈를 선택하세요.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="사이즈 선택 닫기"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-gray-400 transition hover:bg-white/[0.1] hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {rows.length > 0 ? (
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+            {rows.map((row, index) => {
+              const label = String(row[0] ?? "").trim() || `Size ${index + 1}`;
+              const active = selectedRowIndex === index;
+              return (
+                <button
+                  key={`${label}-${index}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRowIndex(index);
+                    setManualSize("");
+                  }}
+                  className={`h-11 rounded-xl border text-sm font-black transition ${
+                    active
+                      ? "border-orange-500 bg-orange-500 text-black shadow-[0_0_18px_rgba(249,115,22,0.35)]"
+                      : "border-white/10 bg-white/[0.06] text-gray-200 hover:border-orange-500/50 hover:text-orange-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-gray-400">
+            이 상품은 사이즈표가 없어 직접 입력으로 저장할 수 있습니다.
+          </div>
+        )}
+
+        <div className="mt-4">
+          <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">직접 입력</label>
+          <input
+            value={manualSize}
+            onChange={(event) => {
+              setManualSize(event.target.value);
+              setSelectedRowIndex(null);
+            }}
+            placeholder="예: M, 2, 260"
+            className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-gray-600 focus:border-orange-500/70"
+          />
+        </div>
+
+        {measurements.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+            {measurements.map(({ label, value }) => (
+              <span key={`${label}-${value}`} className="rounded-lg bg-white/[0.08] px-2 py-1 text-xs font-semibold text-gray-300">
+                {label} {value}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-5 grid grid-cols-[1fr_auto] gap-2">
+          <button
+            type="button"
+            onClick={() => onConfirm(null)}
+            className="h-12 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-sm font-bold text-gray-300 transition hover:bg-white/[0.09] hover:text-white"
+          >
+            사이즈 없이 추가
+          </button>
+          <button
+            type="button"
+            disabled={!canConfirm}
+            onClick={() => onConfirm(buildClosetSizeSelection(product, selectedRowIndex, manualSize))}
+            className="h-12 rounded-xl bg-orange-500 px-5 text-sm font-black text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500"
+          >
+            추가
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function ProductDetailModal({
@@ -80,6 +232,7 @@ export function ProductDetailModal({
   isInCloset,
 }: ProductDetailModalProps) {
   useBodyScrollLock(modalRef);
+  const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
 
   const handleRowClick = (rowIndex: number) => {
     onRowClick(rowIndex);
@@ -87,40 +240,68 @@ export function ProductDetailModal({
       const modal = modalRef.current;
       const target = recommendationsRef.current;
       if (!modal || !target) return;
-      const targetY = target.offsetTop - modal.offsetTop - 16;
+      const modalRect = modal.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const targetY = modal.scrollTop + (targetRect.top - modalRect.top) - 16;
       smoothScrollTo(modal, targetY);
     }, 50);
   };
 
+  const handleClosetClick = () => {
+    if (!onToggleCloset) return;
+    if (isInCloset) {
+      onToggleCloset(null);
+      return;
+    }
+    setIsSizeSheetOpen(true);
+  };
+
+  const handleConfirmClosetSize = (selection: ClosetSizeSelection | null) => {
+    setIsSizeSheetOpen(false);
+    onToggleCloset?.(selection);
+  };
+
   return (
+    <>
     <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div
-        ref={modalRef}
-        className="ui-product-detail-modal relative max-h-[90vh] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-3xl bg-[#1c1c1f]/80 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.38)] md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
+        className="ui-product-detail-modal relative flex flex-col max-h-[90vh] w-full max-w-4xl rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 text-white bg-[#1c1c1f]/80 backdrop-blur-2xl">
+        <div className="flex-shrink-0 z-10 flex items-center justify-between px-6 py-4 text-white bg-[#1c1c1f] border-b border-white/10 rounded-t-3xl">
           <h3 className="text-lg font-bold text-white sm:text-xl">상품 상세</h3>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              aria-label="위시리스트에 추가"
-              className="flex items-center gap-1.5 rounded-lg border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] px-3 py-1.5 text-xs font-bold text-[#00FF00] shadow-[0_4px_16px_rgba(0,255,0,0.15)] backdrop-blur-xl transition hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))]"
-            >
-              <HangerIcon className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="내 옷장에 추가"
-              onClick={onToggleCloset}
-              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold backdrop-blur-xl transition ${
-                isInCloset
-                  ? "border-orange-500/80 bg-[linear-gradient(180deg,rgba(249,115,22,0.45),rgba(249,115,22,0.28))] text-orange-300 shadow-[0_4px_16px_rgba(249,115,22,0.35)]"
-                  : "border-orange-500/40 bg-[linear-gradient(180deg,rgba(249,115,22,0.22),rgba(249,115,22,0.09))] text-orange-400 shadow-[0_4px_16px_rgba(249,115,22,0.15)] hover:border-orange-500/70 hover:bg-[linear-gradient(180deg,rgba(249,115,22,0.32),rgba(249,115,22,0.15))] hover:text-orange-300"
-              }`}
-            >
-              <ClosetIcon className="h-4 w-4" />
-            </button>
+            <div className="group relative">
+              <button
+                type="button"
+                aria-label="위시리스트에 추가"
+                className="flex items-center gap-1.5 rounded-lg border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] px-3 py-1.5 text-xs font-bold text-[#00FF00] shadow-[0_4px_16px_rgba(0,255,0,0.15)] backdrop-blur-xl transition hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))]"
+              >
+                <HangerIcon className="h-4 w-4" />
+              </button>
+              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
+                위시리스트
+              </div>
+            </div>
+            <div className="group relative">
+              <button
+                type="button"
+                aria-label="내 옷장에 추가"
+                onClick={handleClosetClick}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold backdrop-blur-xl transition ${
+                  isInCloset
+                    ? "border-orange-500/80 bg-[linear-gradient(180deg,rgba(249,115,22,0.45),rgba(249,115,22,0.28))] text-orange-300 shadow-[0_4px_16px_rgba(249,115,22,0.35)]"
+                    : "border-orange-500/40 bg-[linear-gradient(180deg,rgba(249,115,22,0.22),rgba(249,115,22,0.09))] text-orange-400 shadow-[0_4px_16px_rgba(249,115,22,0.15)] hover:border-orange-500/70 hover:bg-[linear-gradient(180deg,rgba(249,115,22,0.32),rgba(249,115,22,0.15))] hover:text-orange-300"
+                }`}
+              >
+                <ClosetIcon className="h-4 w-4" />
+              </button>
+              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
+                옷장
+              </div>
+            </div>
             <button
               type="button"
               aria-label="상품 상세 닫기"
@@ -132,6 +313,10 @@ export function ProductDetailModal({
           </div>
         </div>
 
+        <div
+          ref={modalRef}
+          className="flex-1 overflow-y-auto overscroll-contain"
+        >
         <div className="relative z-[1] p-6 md:p-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-center">
             <button
@@ -270,7 +455,17 @@ export function ProductDetailModal({
             </div>
           )}
         </div>
+        </div>
       </div>
     </div>
+    {isSizeSheetOpen && (
+      <SizeSelectionSheet
+        product={product}
+        initialRowIndex={activeRowIndex}
+        onClose={() => setIsSizeSheetOpen(false)}
+        onConfirm={handleConfirmClosetSize}
+      />
+    )}
+    </>
   );
 }

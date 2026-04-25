@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchClosetItems, addToCloset as apiAdd, removeFromCloset as apiRemove } from "../api";
-import type { Product } from "../types";
+import type { ClosetSizeSelection, Product } from "../types";
 
-export type ClosetToast = { message: string; type: "success" | "info" } | null;
+export type ClosetToast = { message: string; type: "success" | "info" | "error" } | null;
 
 export function useCloset(isLoggedIn: boolean) {
   const [closetProducts, setClosetProducts] = useState<Product[]>([]);
@@ -15,7 +15,7 @@ export function useCloset(isLoggedIn: boolean) {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(t);
     if (t) {
-      toastTimerRef.current = setTimeout(() => setToast(null), 2000);
+      toastTimerRef.current = setTimeout(() => setToast(null), 2300);
     }
   }, []);
 
@@ -43,14 +43,14 @@ export function useCloset(isLoggedIn: boolean) {
   }, [isLoggedIn]);
 
   useEffect(() => {
-    void load();
+    setTimeout(() => void load(), 0);
   }, [load]);
 
-  const addToCloset = useCallback(async (productId: string) => {
+  const addToCloset = useCallback(async (productId: string, sizeSelection?: ClosetSizeSelection | null) => {
     if (closetIds.has(productId)) return;
-    await apiAdd(productId);
+    await apiAdd(productId, sizeSelection);
     setClosetIds((prev) => new Set([...prev, productId]));
-    await load();
+    void load();
   }, [closetIds, load]);
 
   const removeFromCloset = useCallback(async (productId: string) => {
@@ -65,7 +65,7 @@ export function useCloset(isLoggedIn: boolean) {
 
   const isInCloset = useCallback((productId: string) => closetIds.has(productId), [closetIds]);
 
-  const toggleCloset = useCallback(async (productId: string) => {
+  const toggleCloset = useCallback(async (productId: string, sizeSelection?: ClosetSizeSelection | null) => {
     if (!isLoggedIn) {
       showToast({ message: "login_required", type: "info" });
       return;
@@ -75,10 +75,11 @@ export function useCloset(isLoggedIn: boolean) {
       return;
     }
     try {
-      await addToCloset(productId);
+      await addToCloset(productId, sizeSelection);
       showToast({ message: "added", type: "success" });
-    } catch {
-      // silent
+    } catch (error) {
+      console.error("[closet] add failed", error);
+      showToast({ message: "add_failed", type: "error" });
     }
   }, [isLoggedIn, closetIds, addToCloset, showToast]);
 

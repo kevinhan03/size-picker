@@ -19,6 +19,10 @@ const SORT_OPTIONS: { id: SortBy; label: string }[] = [
   { id: "category", label: "Category" },
 ];
 
+function getClosetSizeLabel(product: Product): string {
+  return String(product.closetSelectedSizeLabel || "").trim();
+}
+
 const cardStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.055)",
   backdropFilter: "blur(22px)",
@@ -79,6 +83,11 @@ function GridCard({
         <div className="flex flex-1 flex-col justify-center bg-black/10 px-4 pb-4 pt-3 text-center sm:px-5 sm:pb-5 sm:pt-4">
           <div className="mb-2 w-full pl-[5%] text-left text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
           <h3 className="mb-1 w-full pl-[5%] text-left text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
+          {getClosetSizeLabel(product) && (
+            <div className="mt-1 w-fit rounded-lg border border-orange-500/25 bg-orange-500/10 px-2 py-1 text-xs font-black text-orange-300">
+              Size {getClosetSizeLabel(product)}
+            </div>
+          )}
           <div className="pt-2 text-sm text-gray-300">{product.category}</div>
         </div>
       </Link>
@@ -253,6 +262,22 @@ function ListRow({
       >
         {product.category}
       </span>
+      {getClosetSizeLabel(product) && (
+        <span
+          style={{
+            fontSize: 10,
+            color: "#fb923c",
+            background: "rgba(249,115,22,0.1)",
+            border: "1px solid rgba(249,115,22,0.22)",
+            borderRadius: 4,
+            padding: "3px 8px",
+            flexShrink: 0,
+            fontWeight: 800,
+          }}
+        >
+          Size {getClosetSizeLabel(product)}
+        </span>
+      )}
       {/* Delete */}
       {showInlineDelete && (
       <button

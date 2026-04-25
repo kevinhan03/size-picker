@@ -16,6 +16,20 @@ export interface Product {
   sizeTable: SizeTable | null;
   createdAt?: string;
   isInstagram?: boolean;
+  closetSelectedSizeLabel?: string | null;
+  closetSelectedSizeRowIndex?: number | null;
+  closetSelectedSizeSnapshot?: ClosetSizeSnapshot | null;
+}
+
+export interface ClosetSizeSnapshot {
+  headers: string[];
+  row: string[];
+}
+
+export interface ClosetSizeSelection {
+  label: string | null;
+  rowIndex: number | null;
+  snapshot: ClosetSizeSnapshot | null;
 }
 
 export interface ProductRow {
