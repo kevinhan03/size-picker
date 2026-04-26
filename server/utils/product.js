@@ -72,6 +72,7 @@ export const normalizeProductRow = (row) => {
     sizeTable: parseSizeTable(row.size_table ?? row.sizeTable),
     createdAt: row.created_at || row.createdAt || null,
     isInstagram: Boolean(row.is_instagram),
+    instagramOrder: typeof row.instagram_order === "number" ? row.instagram_order : null,
   };
 };
 
@@ -150,6 +151,7 @@ export const insertProductRow = async ({
   createdAt,
   slug,
   isInstagram = false,
+  instagramOrder = null,
 }) => {
   assertSupabaseConfig();
   const normalizedImagePath = String(imagePath || "").trim();
@@ -157,6 +159,21 @@ export const insertProductRow = async ({
   const effectiveImagePath = normalizedImagePath || normalizedImage || null;
   const effectiveImage = normalizedImage || normalizedImagePath || "";
   const normalizedSlug = String(slug || "").trim() || null;
+  let effectiveInstagramOrder =
+    typeof instagramOrder === "number" && Number.isFinite(instagramOrder) ? instagramOrder : null;
+
+  if (isInstagram && effectiveInstagramOrder === null) {
+    const { data: lastFeaturedProduct } = await supabase
+      .from(SUPABASE_PRODUCTS_TABLE)
+      .select("instagram_order")
+      .eq("is_instagram", true)
+      .not("instagram_order", "is", null)
+      .order("instagram_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const lastOrder = Number(lastFeaturedProduct?.instagram_order || 0);
+    effectiveInstagramOrder = Number.isFinite(lastOrder) ? lastOrder + 1 : 1;
+  }
 
   const canonicalBrand = normalizeBrandName(brand, { url });
   const payloads = [
@@ -170,6 +187,7 @@ export const insertProductRow = async ({
       created_at: createdAt,
       slug: normalizedSlug,
       is_instagram: isInstagram,
+      instagram_order: isInstagram ? effectiveInstagramOrder : null,
     },
     {
       brand: canonicalBrand,
@@ -181,6 +199,7 @@ export const insertProductRow = async ({
       createdAt,
       slug: normalizedSlug,
       is_instagram: isInstagram,
+      instagram_order: isInstagram ? effectiveInstagramOrder : null,
     },
     {
       brand: canonicalBrand,
@@ -191,6 +210,7 @@ export const insertProductRow = async ({
       size_table: sizeTable,
       createdAt,
       is_instagram: isInstagram,
+      instagram_order: isInstagram ? effectiveInstagramOrder : null,
     },
     {
       brand: canonicalBrand,
@@ -201,6 +221,7 @@ export const insertProductRow = async ({
       sizeTable: JSON.stringify(sizeTable),
       created_at: createdAt,
       is_instagram: isInstagram,
+      instagram_order: isInstagram ? effectiveInstagramOrder : null,
     },
   ];
 

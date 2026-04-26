@@ -58,6 +58,7 @@ interface AdminPageProps {
   onExtractedTableChange: (table: SizeTable) => void;
   onInstagramPublish: (id: string) => void;
   onInstagramUnpublish: (id: string) => void;
+  onInstagramMove: (id: string, direction: "up" | "down") => void;
   instagramProfileUrl: string;
   onInstagramProfileUrlChange: (url: string) => void;
   onInstagramProfileUrlSave: () => void;
@@ -105,6 +106,7 @@ export const AdminPage = ({
   onExtractedTableChange,
   onInstagramPublish,
   onInstagramUnpublish,
+  onInstagramMove,
   instagramProfileUrl,
   onInstagramProfileUrlChange,
   onInstagramProfileUrlSave,
@@ -272,6 +274,7 @@ export const AdminPage = ({
                   isInstagramLoading={isInstagramLoading}
                   onPublish={onInstagramPublish}
                   onUnpublish={onInstagramUnpublish}
+                  onMove={onInstagramMove}
                   instagramProfileUrl={instagramProfileUrl}
                   onInstagramProfileUrlChange={onInstagramProfileUrlChange}
                   onInstagramProfileUrlSave={onInstagramProfileUrlSave}

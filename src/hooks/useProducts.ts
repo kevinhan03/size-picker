@@ -2,9 +2,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAllProducts } from "../api";
 import type { Product } from "../types";
 
+const getProductTime = (product: Product) => {
+  const time = product.createdAt ? Date.parse(product.createdAt) : 0;
+  return Number.isFinite(time) ? time : 0;
+};
+
+const sortFeaturedProducts = (items: Product[]) =>
+  [...items].sort((a, b) => {
+    const aOrder = typeof a.instagramOrder === "number" ? a.instagramOrder : Number.POSITIVE_INFINITY;
+    const bOrder = typeof b.instagramOrder === "number" ? b.instagramOrder : Number.POSITIVE_INFINITY;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return getProductTime(b) - getProductTime(a);
+  });
+
 const splitProducts = (all: Product[]) => ({
   normal: all.filter((p) => !p.isInstagram),
-  featured: all.filter((p) => p.isInstagram),
+  featured: sortFeaturedProducts(all.filter((p) => p.isInstagram)),
 });
 
 export function useProducts(initialProducts: Product[] = []) {

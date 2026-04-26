@@ -90,7 +90,7 @@ function GridCard({
       {isEditing && (
         <button
           type="button"
-          aria-label="?곹뭹 ?좏깮"
+          aria-label="상품 선택"
           onClick={onSelect}
           className={`absolute inset-0 z-10 rounded-[28px] transition ${
             selected ? "bg-orange-500/8" : "bg-transparent"
@@ -115,7 +115,7 @@ function GridCard({
       {showInlineDelete && (
       <button
         type="button"
-        aria-label="?룹옣?먯꽌 ??젣"
+        aria-label="옷장에서 삭제"
         onClick={(e) => {
           e.stopPropagation();
           onDelete();
@@ -348,12 +348,12 @@ function DeleteConfirmDialog({
           </svg>
         </div>
         <h3 style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
-          ?룹옣?먯꽌 ??젣?좉퉴??
+          옷장에서 삭제할까요?
         </h3>
         <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
-          ???꾩씠?쒖쓣 ???룹옣?먯꽌 ??젣?⑸땲??
+          이 아이템을 내 옷장에서 삭제합니다.
           <br />
-          ?섏쨷???ㅼ떆 異붽??????덉뒿?덈떎.
+          나중에 다시 추가할 수 있습니다.
         </p>
         <div style={{ display: "flex", gap: 10 }}>
           <button
@@ -370,7 +370,7 @@ function DeleteConfirmDialog({
               cursor: "pointer",
             }}
           >
-            痍⑥냼
+            취소
           </button>
           <button
             onClick={onConfirm}
@@ -386,7 +386,7 @@ function DeleteConfirmDialog({
               cursor: "pointer",
             }}
           >
-            ??젣
+            삭제
           </button>
         </div>
       </div>
@@ -485,65 +485,34 @@ export function ClosetPageClient() {
           </div>
         </div>
 
-        {/* Stats row */}
-        <div
-          className="closet-stats-grid"
-          style={{
-            display: "grid",
-            gap: 10,
-            marginBottom: 24,
-          }}
-        >
-          <div
-            onClick={() => setCatFilter("")}
-            style={{
-              ...cardStyle,
-              padding: "12px 14px",
-              cursor: "pointer",
-              transition: "all 0.15s",
-              borderColor: catFilter === "" ? "rgba(249,115,22,0.5)" : "rgba(255,255,255,0.09)",
-            }}
-          >
-            <p
-              style={{
-                fontSize: 20,
-                fontWeight: 900,
-                color: catFilter === "" ? "#F97316" : "#fff",
-                marginBottom: 2,
-              }}
-            >
-              {closetItems.length}
-            </p>
-            <p style={{ fontSize: 11, color: "#6b7280", fontWeight: 500 }}>Total</p>
-          </div>
-          {CATEGORIES.map((cat) => (
-            <div
-              key={cat}
-              onClick={() => setCatFilter(catFilter === cat ? "" : cat)}
-              style={{
-                ...cardStyle,
-                padding: "12px 14px",
-                cursor: "pointer",
-                transition: "all 0.15s",
-                borderColor:
-                  catFilter === cat
-                    ? "rgba(249,115,22,0.5)"
-                    : "rgba(255,255,255,0.09)",
-              }}
-            >
-              <p
-                style={{
-                  fontSize: 20,
-                  fontWeight: 900,
-                  color: catFilter === cat ? "#F97316" : "#fff",
-                  marginBottom: 2,
-                }}
-              >
-                {catCounts[cat] || 0}
-              </p>
-              <p style={{ fontSize: 11, color: "#6b7280", fontWeight: 500 }}>{cat}</p>
-            </div>
-          ))}
+        {/* Category filter */}
+        <div className="mb-6 grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {([["", "All", closetItems.length]] as [string, string, number][])
+            .concat(CATEGORIES.map((cat) => [cat, cat, catCounts[cat] || 0]))
+            .map(([value, label, count]) => {
+              const isActive = catFilter === value;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setCatFilter(catFilter === value ? "" : value === "" ? "" : value)}
+                  className={`flex h-9 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-black transition-all sm:h-10 sm:text-xs ${
+                    isActive
+                      ? "border-orange-500/55 bg-orange-500/12 text-orange-400 shadow-[0_8px_20px_rgba(249,115,22,0.12)]"
+                      : "border-white/10 bg-white/[0.045] text-gray-400 hover:border-white/18 hover:bg-white/[0.07] hover:text-gray-100"
+                  }`}
+                >
+                  <span>{label}</span>
+                  <span
+                    className={`rounded-md px-1.5 py-0.5 text-[10px] leading-none ${
+                      isActive ? "bg-orange-500/18 text-orange-300" : "bg-white/[0.06] text-gray-600"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
         </div>
 
         {/* Toolbar */}
@@ -707,7 +676,7 @@ export function ClosetPageClient() {
                 transition: "all 0.15s",
                 boxShadow: "none",
               }}
-              aria-label={isEditing ? "??젣 ?좏깮 ?꾨즺" : "??젣???곹뭹 ?좏깮"}
+              aria-label={isEditing ? "삭제 선택 완료" : "삭제할 상품 선택"}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -733,7 +702,7 @@ export function ClosetPageClient() {
                   transition: "all 0.15s",
                   boxShadow: "none",
                 }}
-                aria-label="??젣 ?좏깮 痍⑥냼"
+                aria-label="삭제 선택 취소"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -763,9 +732,9 @@ export function ClosetPageClient() {
               <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z" />
             </svg>
             <p style={{ color: "#6b7280", fontSize: 14 }}>
-              ?룹옣??鍮꾩뼱?덉뼱??
+              옷장이 비어있어요.
               <br />
-              ?덉뿉???곹뭹??異붽??대낫?몄슂.
+              아래에서 상품을 추가해보세요.
             </p>
             <Link
               href="/"
@@ -781,7 +750,7 @@ export function ClosetPageClient() {
                 textDecoration: "none",
               }}
             >
-              ?곹뭹 ?먯깋?섍린
+              상품 둘러보기
             </Link>
           </div>
         )}

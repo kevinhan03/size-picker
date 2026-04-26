@@ -56,7 +56,14 @@ export async function PATCH(
     payload.image_path = imagePath || null;
   }
   if ("sizeTable" in body) payload.size_table = parseSizeTable(body?.sizeTable ?? null);
-  if ("isInstagram" in body) payload.is_instagram = Boolean(body.isInstagram);
+  if ("isInstagram" in body) {
+    payload.is_instagram = Boolean(body.isInstagram);
+    if (!payload.is_instagram) payload.instagram_order = null;
+  }
+  if ("instagramOrder" in body) {
+    const order = Number(body?.instagramOrder);
+    payload.instagram_order = Number.isFinite(order) ? order : null;
+  }
 
   const payloadKeys = Object.keys(payload);
   if (payloadKeys.length === 0) {
@@ -78,6 +85,19 @@ export async function PATCH(
     const hasImagePathInPayload = Object.prototype.hasOwnProperty.call(payload, "image_path");
     let previousImagePath: string | null = null;
 
+    if (payload.is_instagram === true && !Object.prototype.hasOwnProperty.call(payload, "instagram_order")) {
+      const { data: lastFeaturedProduct } = await db
+        .from(SUPABASE_PRODUCTS_TABLE)
+        .select("instagram_order")
+        .eq("is_instagram", true)
+        .not("instagram_order", "is", null)
+        .order("instagram_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const lastOrder = Number(lastFeaturedProduct?.instagram_order || 0);
+      payload.instagram_order = Number.isFinite(lastOrder) ? lastOrder + 1 : 1;
+    }
+
     if (hasImagePathInPayload) {
       const { data: existingProduct, error: existingProductError } = await db
         .from(SUPABASE_PRODUCTS_TABLE)
@@ -97,7 +117,7 @@ export async function PATCH(
       .from(SUPABASE_PRODUCTS_TABLE)
       .update(payload)
       .eq("id", productId)
-      .select("id,brand,name,category,url,size_table,created_at,image_path")
+      .select("id,brand,name,category,url,size_table,created_at,image_path,is_instagram,instagram_order")
       .maybeSingle();
 
     if (error) throw error;

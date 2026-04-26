@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
-import { Instagram, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Instagram, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
 import { GridView } from "../GridView";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ProgressiveImage } from "../ProgressiveImage";
@@ -50,6 +50,8 @@ export function SearchPageClient() {
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const [instagramProfileUrl, setInstagramProfileUrl] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
+  const [featuredScrollState, setFeaturedScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
+  const featuredScrollRef = useRef<HTMLDivElement>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
   const gridRecommendationsRef = useRef<HTMLDivElement>(null);
 
@@ -93,6 +95,16 @@ export function SearchPageClient() {
     return computeSizeRecommendations(selectedProduct, activeRowIndex, products);
   }, [activeRowIndex, selectedProduct, products]);
 
+  const updateFeaturedScrollState = () => {
+    const container = featuredScrollRef.current;
+    if (!container) return;
+    const maxScrollLeft = container.scrollWidth - container.clientWidth;
+    setFeaturedScrollState({
+      canScrollLeft: container.scrollLeft > 2,
+      canScrollRight: container.scrollLeft < maxScrollLeft - 2,
+    });
+  };
+
   useEffect(() => {
     const handlePopState = () => {
       setSelectedProduct(null);
@@ -102,6 +114,12 @@ export function SearchPageClient() {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
+
+  useEffect(() => {
+    updateFeaturedScrollState();
+    window.addEventListener("resize", updateFeaturedScrollState);
+    return () => window.removeEventListener("resize", updateFeaturedScrollState);
+  }, [featuredProducts.length]);
 
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
@@ -129,6 +147,16 @@ export function SearchPageClient() {
     event.currentTarget.style.display = "none";
   };
 
+  const handleFeaturedScroll = (direction: "left" | "right") => {
+    const container = featuredScrollRef.current;
+    if (!container) return;
+    const firstCard = container.querySelector<HTMLButtonElement>("[data-featured-card='true']");
+    const gap = window.matchMedia("(min-width: 640px)").matches ? 20 : 10;
+    const cardWidth = firstCard?.offsetWidth ?? 172;
+    const amount = (cardWidth + gap) * (direction === "left" ? -1 : 1);
+    container.scrollBy({ left: amount, behavior: "smooth" });
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white">
       {productsError && (
@@ -146,12 +174,12 @@ export function SearchPageClient() {
         </div>
       )}
 
-      {/* Editor's Pick banner */}
+      {/* Editor's Pick shelf */}
       {featuredProducts.length > 0 && (
-        <div className="mb-8 w-full max-w-2xl">
+        <section className="mb-8 w-full max-w-2xl sm:max-w-[556px]">
           {/* 헤더 */}
           <div className="mb-3 flex items-end justify-between sm:mb-4">
-            <div>
+            <div className="min-w-0">
               <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-orange-500">Editor&apos;s Pick</p>
               <h2 className="text-lg font-black leading-tight text-white sm:text-xl">지금 주목할 상품</h2>
             </div>
@@ -167,39 +195,80 @@ export function SearchPageClient() {
               </a>
             )}
           </div>
-          {/* 카드 3열 고정 */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            {featuredProducts.slice(0, 3).map((product) => {
-              const imgSrc = product.imagePath
-                ? toPublicUrl(product.imagePath, { width: 480, height: 480, quality: 75 })
-                : product.image;
-              return (
-                <button
-                  key={product.id}
-                  onClick={() => handleProductClick(product)}
-                  className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.06] text-left shadow-[0_4px_24px_rgba(0,0,0,0.4)] backdrop-blur transition hover:-translate-y-1 hover:border-orange-500/30 hover:shadow-[0_8px_32px_rgba(249,115,22,0.15)] active:scale-95 sm:rounded-2xl"
-                >
-                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-black/30">
-                    {imgSrc && (
-                      <ProgressiveImage
-                        src={imgSrc}
-                        alt={product.name}
-                        className="object-cover transition duration-300 group-hover:scale-105"
-                        loading="eager"
-                        onError={handleImageLoadError}
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                  </div>
-                  <div className="px-2 py-2 sm:px-3 sm:py-3">
-                    <p className="truncate text-[9px] font-black uppercase tracking-wide text-orange-400 sm:text-[10px]">{product.brand}</p>
-                    <p className="truncate text-[11px] font-semibold leading-snug text-white sm:text-sm">{product.name}</p>
-                  </div>
-                </button>
-              );
-            })}
+          {/* Scrollable featured product shelf */}
+          <div className="relative">
+            {featuredProducts.length > 3 && (
+              <>
+                {featuredScrollState.canScrollLeft && (
+                  <button
+                    type="button"
+                    onClick={() => handleFeaturedScroll("left")}
+                    aria-label="Previous featured products"
+                    className="absolute top-[34%] z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-[0_2px_8px_rgba(0,0,0,0.32)] ring-1 ring-black/10 transition hover:bg-white sm:-left-2 sm:flex"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </button>
+                )}
+                {featuredScrollState.canScrollRight && (
+                  <button
+                    type="button"
+                    onClick={() => handleFeaturedScroll("right")}
+                    aria-label="Next featured products"
+                    className="absolute top-[34%] z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-[0_2px_8px_rgba(0,0,0,0.32)] ring-1 ring-black/10 transition hover:bg-white sm:-right-2 sm:flex"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </button>
+                )}
+              </>
+            )}
+          <div
+            ref={featuredScrollRef}
+            onScroll={updateFeaturedScrollState}
+            className="overflow-x-auto py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            <div className="flex snap-x snap-mandatory items-stretch gap-2.5 sm:gap-5">
+              {featuredProducts.map((product, index) => {
+                const imgSrc = product.imagePath
+                  ? toPublicUrl(product.imagePath, { width: 480, height: 480, quality: 75 })
+                  : product.image;
+                return (
+                  <button
+                    key={product.id}
+                    data-featured-card="true"
+                    onClick={() => handleProductClick(product)}
+                    className="group flex w-[calc((100%-0.625rem)/2)] flex-none snap-start flex-col text-left shadow-none transition-colors duration-200 sm:w-[172px]"
+                  >
+                    <div className="relative aspect-[4/5] w-full flex-none overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] transition-colors duration-200 group-hover:border-white/[0.18] group-hover:bg-white/[0.05]">
+                      {imgSrc && (
+                        <ProgressiveImage
+                          src={imgSrc}
+                          alt={product.name}
+                          className="object-cover transition duration-200 group-hover:brightness-105"
+                          loading={index < 4 ? "eager" : "lazy"}
+                          onError={handleImageLoadError}
+                        />
+                      )}
+                    </div>
+                    <div className="flex h-[82px] flex-col px-1.5 pt-2 text-left">
+                      <div className="min-h-0">
+                        <p className="mb-0.5 truncate text-[10px] font-black uppercase tracking-wide text-orange-400 transition-colors duration-200 group-hover:text-orange-300 sm:text-[11px]">{product.brand}</p>
+                        <p title={product.name} className="line-clamp-2 break-words text-[12px] font-bold leading-[1.2] text-white [overflow-wrap:anywhere] sm:text-[13px]">
+                          {product.name}
+                        </p>
+                      </div>
+                      {product.category && (
+                        <p className="mx-auto mt-auto max-w-full truncate px-1 pb-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                          {product.category}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+          </div>
+        </section>
       )}
 
       {/* Search bar below navbar */}

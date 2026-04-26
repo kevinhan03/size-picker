@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Instagram, Search, Star, Users } from "lucide-react";
+import { ChevronDown, ChevronUp, Instagram, Search, Star, Users } from "lucide-react";
 import type { Product } from "../../types";
 import { toPublicUrl } from "../../utils/product";
 import { useProductFormContext } from "../../contexts/ProductFormContext";
@@ -12,6 +12,7 @@ interface InstagramProductsPanelProps {
   isInstagramLoading: boolean;
   onPublish: (id: string) => void;
   onUnpublish: (id: string) => void;
+  onMove: (id: string, direction: "up" | "down") => void;
   instagramProfileUrl: string;
   onInstagramProfileUrlChange: (url: string) => void;
   onInstagramProfileUrlSave: () => void;
@@ -23,6 +24,7 @@ export function InstagramProductsPanel({
   isInstagramLoading,
   onPublish,
   onUnpublish,
+  onMove,
   instagramProfileUrl,
   onInstagramProfileUrlChange,
   onInstagramProfileUrlSave,
@@ -182,7 +184,7 @@ export function InstagramProductsPanel({
           <p className="text-sm text-gray-500">게시된 인스타 상품이 없습니다.</p>
         ) : (
           <ul className="space-y-3">
-            {featuredProducts.map((product) => {
+            {featuredProducts.map((product, index) => {
               const thumbSrc = product.imagePath
                 ? toPublicUrl(product.imagePath, { width: 160, height: 160, quality: 65 })
                 : product.image;
@@ -191,6 +193,9 @@ export function InstagramProductsPanel({
                   key={product.id}
                   className="flex items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3"
                 >
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-orange-500/30 bg-orange-500/10 text-xs font-black text-orange-300">
+                    {index + 1}
+                  </div>
                   <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
                     {thumbSrc && (
                       <img
@@ -207,6 +212,26 @@ export function InstagramProductsPanel({
                     <p className="text-xs font-bold uppercase text-orange-400">{product.brand}</p>
                     <p className="truncate text-sm font-medium text-white">{product.name}</p>
                     <p className="text-xs text-gray-500">{product.category}</p>
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onMove(product.id, "up")}
+                      disabled={isInstagramLoading || index === 0}
+                      aria-label="Move product up"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-700 text-gray-300 transition hover:border-orange-500 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onMove(product.id, "down")}
+                      disabled={isInstagramLoading || index === featuredProducts.length - 1}
+                      aria-label="Move product down"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-700 text-gray-300 transition hover:border-orange-500 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
                   </div>
                   <button
                     onClick={() => onUnpublish(product.id)}

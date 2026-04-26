@@ -16,6 +16,7 @@ export interface Product {
   sizeTable: SizeTable | null;
   createdAt?: string;
   isInstagram?: boolean;
+  instagramOrder?: number | null;
   closetSelectedSizeLabel?: string | null;
   closetSelectedSizeRowIndex?: number | null;
   closetSelectedSizeSnapshot?: ClosetSizeSnapshot | null;
@@ -43,6 +44,7 @@ export interface ProductRow {
   image_path?: string | null;
   slug?: string | null;
   is_instagram?: boolean | null;
+  instagram_order?: number | null;
 }
 
 export interface SubmitProductForm {

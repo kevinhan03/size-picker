@@ -148,20 +148,12 @@ textarea {
   display: none;
 }
 
-.closet-stats-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
 .closet-product-grid {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
 @media (max-width: 639px) {
-  .closet-stats-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .closet-toolbar {
+.closet-toolbar {
     align-items: flex-start !important;
   }
 

@@ -62,6 +62,7 @@ export function AdminRoutePageClient() {
       onExtractedTableChange={admin.setAdminExtractedTable}
       onInstagramPublish={(id) => void admin.handleInstagramPublish(id)}
       onInstagramUnpublish={(id) => void admin.handleInstagramUnpublish(id)}
+      onInstagramMove={(id, direction) => void admin.handleInstagramMove(featuredProducts, id, direction)}
       instagramProfileUrl={admin.instagramProfileUrl}
       onInstagramProfileUrlChange={admin.setInstagramProfileUrl}
       onInstagramProfileUrlSave={() => void admin.handleInstagramProfileUrlSave()}

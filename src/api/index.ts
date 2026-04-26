@@ -19,7 +19,7 @@ export const fetchAllProducts = async (): Promise<Product[]> => {
   assertSupabaseClient();
   const { data, error } = await supabase!
     .from('products')
-    .select('id,brand,name,category,url,size_table,created_at,image_path,slug,is_instagram')
+    .select('id,brand,name,category,url,size_table,created_at,image_path,slug,is_instagram,instagram_order')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   const rows = Array.isArray(data) ? (data as ProductRow[]) : [];

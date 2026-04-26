@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
-import type { AdminEditForm, SizeTable } from "../../types";
+import type { AdminEditForm, Product, SizeTable } from "../../types";
 import { extractSizeTableFromImage, uploadSubmissionImage } from "../../api";
 import { readFileAsDataUrl, resizeImage } from "../../utils/image";
 import { CATEGORY_OPTIONS } from "../../constants";
@@ -196,6 +196,53 @@ export function useInstagramProducts({
     }
   };
 
+  const handleInstagramMove = async (
+    featuredProducts: Product[],
+    id: string,
+    direction: "up" | "down"
+  ) => {
+    const currentIndex = featuredProducts.findIndex((product) => product.id === id);
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= featuredProducts.length) return;
+
+    const current = featuredProducts[currentIndex];
+    const target = featuredProducts[targetIndex];
+    const currentOrder =
+      typeof current.instagramOrder === "number" ? current.instagramOrder : currentIndex + 1;
+    const targetOrder =
+      typeof target.instagramOrder === "number" ? target.instagramOrder : targetIndex + 1;
+
+    setIsInstagramLoading(true);
+    try {
+      const updates = [
+        { id: current.id, instagramOrder: targetOrder },
+        { id: target.id, instagramOrder: currentOrder },
+      ];
+      const responses = await Promise.all(
+        updates.map((update) =>
+          fetch(`/api/admin/products/${update.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ instagramOrder: update.instagramOrder }),
+          })
+        )
+      );
+      const payloads = await Promise.all(responses.map((response) => response.json()));
+      const failedIndex = responses.findIndex((response, index) => !response.ok || !payloads[index]?.ok);
+      if (failedIndex >= 0) {
+        throw new Error(payloads[failedIndex]?.error || "Failed to update product order.");
+      }
+      setAdminActionError(null);
+      onProductMutated();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update product order.";
+      setAdminActionError(message);
+    } finally {
+      setIsInstagramLoading(false);
+    }
+  };
+
   const resetInstagramState = () => {
     setInstagramForm({ brand: "", name: "", category: CATEGORY_OPTIONS[0] ?? "", url: "" });
     setInstagramImagePath(null);
@@ -221,6 +268,7 @@ export function useInstagramProducts({
     handleInstagramProfileUrlSave,
     handleInstagramPublish,
     handleInstagramUnpublish,
+    handleInstagramMove,
     resetInstagramState,
   };
 }
