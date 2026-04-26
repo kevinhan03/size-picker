@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ProductDetailModal } from "./ProductDetailModal";
 import { useClosetContext } from "../contexts/ClosetContext";
 import { useProductsContext } from "../contexts/ProductsContext";
@@ -13,12 +13,14 @@ import { smoothScrollTo } from "../utils/scroll";
 
 export function ProductDetailRouteModal({ product }: { product: Product }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { products } = useProductsContext();
-  const { toggleCloset, isInCloset } = useClosetContext();
+  const { closetProducts, toggleCloset, isInCloset } = useClosetContext();
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const recommendationsRef = useRef<HTMLDivElement>(null);
+  const hideCollectionActions = searchParams.get("source") === "closet";
 
   const recommendations = useMemo<SizeRecommendation[]>(() => {
     if (activeRowIndex === null) return [];
@@ -36,6 +38,11 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
     };
   }, [product]);
 
+  const closetProduct = useMemo(
+    () => closetProducts.find((item) => item.id === normalizedProduct.id) || null,
+    [closetProducts, normalizedProduct.id]
+  );
+
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.onerror = null;
     event.currentTarget.style.display = "none";
@@ -45,6 +52,7 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
     <>
       <ProductDetailModal
         product={normalizedProduct}
+        closetProduct={closetProduct}
         activeRowIndex={activeRowIndex}
         onClose={() => router.back()}
         onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
@@ -61,6 +69,7 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
         smoothScrollTo={smoothScrollTo}
         onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
         isInCloset={isInCloset(normalizedProduct.id)}
+        hideCollectionActions={hideCollectionActions}
       />
 
       {isDetailImageZoomed && (

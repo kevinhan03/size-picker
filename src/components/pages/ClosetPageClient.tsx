@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -19,8 +19,8 @@ const SORT_OPTIONS: { id: SortBy; label: string }[] = [
   { id: "category", label: "Category" },
 ];
 
-function getClosetSizeLabel(product: Product): string {
-  return String(product.closetSelectedSizeLabel || "").trim();
+function getClosetProductPageUrl(product: Product): string {
+  return `${getProductPageUrl(product)}?source=closet`;
 }
 
 const cardStyle: React.CSSProperties = {
@@ -80,22 +80,17 @@ function GridCard({
             )}
           </div>
         </div>
-        <div className="flex flex-1 flex-col justify-center bg-black/10 px-4 pb-4 pt-3 text-center sm:px-5 sm:pb-5 sm:pt-4">
-          <div className="mb-2 w-full pl-[5%] text-left text-xs font-bold uppercase tracking-wide text-orange-500">{product.brand}</div>
-          <h3 className="mb-1 w-full pl-[5%] text-left text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
-          {getClosetSizeLabel(product) && (
-            <div className="mt-1 w-fit rounded-lg border border-orange-500/25 bg-orange-500/10 px-2 py-1 text-xs font-black text-orange-300">
-              Size {getClosetSizeLabel(product)}
-            </div>
-          )}
-          <div className="pt-2 text-sm text-gray-300">{product.category}</div>
+        <div className="flex flex-1 flex-col bg-black/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
+          <div className="mb-1 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+          <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
+          <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
         </div>
       </Link>
 
       {isEditing && (
         <button
           type="button"
-          aria-label="상품 선택"
+          aria-label="?곹뭹 ?좏깮"
           onClick={onSelect}
           className={`absolute inset-0 z-10 rounded-[28px] transition ${
             selected ? "bg-orange-500/8" : "bg-transparent"
@@ -120,7 +115,7 @@ function GridCard({
       {showInlineDelete && (
       <button
         type="button"
-        aria-label="옷장에서 삭제"
+        aria-label="?룹옣?먯꽌 ??젣"
         onClick={(e) => {
           e.stopPropagation();
           onDelete();
@@ -262,22 +257,6 @@ function ListRow({
       >
         {product.category}
       </span>
-      {getClosetSizeLabel(product) && (
-        <span
-          style={{
-            fontSize: 10,
-            color: "#fb923c",
-            background: "rgba(249,115,22,0.1)",
-            border: "1px solid rgba(249,115,22,0.22)",
-            borderRadius: 4,
-            padding: "3px 8px",
-            flexShrink: 0,
-            fontWeight: 800,
-          }}
-        >
-          Size {getClosetSizeLabel(product)}
-        </span>
-      )}
       {/* Delete */}
       {showInlineDelete && (
       <button
@@ -369,12 +348,12 @@ function DeleteConfirmDialog({
           </svg>
         </div>
         <h3 style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
-          옷장에서 삭제할까요?
+          ?룹옣?먯꽌 ??젣?좉퉴??
         </h3>
         <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
-          이 아이템을 내 옷장에서 삭제합니다.
+          ???꾩씠?쒖쓣 ???룹옣?먯꽌 ??젣?⑸땲??
           <br />
-          나중에 다시 추가할 수 있습니다.
+          ?섏쨷???ㅼ떆 異붽??????덉뒿?덈떎.
         </p>
         <div style={{ display: "flex", gap: 10 }}>
           <button
@@ -391,7 +370,7 @@ function DeleteConfirmDialog({
               cursor: "pointer",
             }}
           >
-            취소
+            痍⑥냼
           </button>
           <button
             onClick={onConfirm}
@@ -407,7 +386,7 @@ function DeleteConfirmDialog({
               cursor: "pointer",
             }}
           >
-            삭제
+            ??젣
           </button>
         </div>
       </div>
@@ -503,9 +482,6 @@ export function ClosetPageClient() {
             >
               My Closet
             </h1>
-            <p style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>
-              {closetItems.length}개의 아이템
-            </p>
           </div>
         </div>
 
@@ -683,6 +659,8 @@ export function ClosetPageClient() {
                   onClick={() => setViewMode(v.id)}
                   style={{
                     width: 36,
+                    height: "100%",
+                    padding: 0,
                     border: "none",
                     cursor: "pointer",
                     background:
@@ -692,9 +670,12 @@ export function ClosetPageClient() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    lineHeight: 0,
                   }}
                 >
-                  {v.icon}
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 0 }}>
+                    {v.icon}
+                  </span>
                 </button>
               ))}
             </div>
@@ -726,7 +707,7 @@ export function ClosetPageClient() {
                 transition: "all 0.15s",
                 boxShadow: "none",
               }}
-              aria-label={isEditing ? "삭제 선택 완료" : "삭제할 상품 선택"}
+              aria-label={isEditing ? "??젣 ?좏깮 ?꾨즺" : "??젣???곹뭹 ?좏깮"}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -752,7 +733,7 @@ export function ClosetPageClient() {
                   transition: "all 0.15s",
                   boxShadow: "none",
                 }}
-                aria-label="삭제 선택 취소"
+                aria-label="??젣 ?좏깮 痍⑥냼"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -782,9 +763,9 @@ export function ClosetPageClient() {
               <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z" />
             </svg>
             <p style={{ color: "#6b7280", fontSize: 14 }}>
-              옷장이 비어있어요.
+              ?룹옣??鍮꾩뼱?덉뼱??
               <br />
-              홈에서 상품을 추가해보세요.
+              ?덉뿉???곹뭹??異붽??대낫?몄슂.
             </p>
             <Link
               href="/"
@@ -800,7 +781,7 @@ export function ClosetPageClient() {
                 textDecoration: "none",
               }}
             >
-              상품 탐색하기
+              ?곹뭹 ?먯깋?섍린
             </Link>
           </div>
         )}
@@ -822,7 +803,7 @@ export function ClosetPageClient() {
                 isEditing={isEditing}
                 onSelect={() => toggleSelect(p.id)}
                 onDelete={() => setConfirmDeleteId(p.id)}
-                href={getProductPageUrl(p)}
+                href={getClosetProductPageUrl(p)}
               />
             ))}
           </div>
@@ -839,7 +820,7 @@ export function ClosetPageClient() {
                 isEditing={isEditing}
                 onSelect={() => toggleSelect(p.id)}
                 onDelete={() => setConfirmDeleteId(p.id)}
-                href={getProductPageUrl(p)}
+                href={getClosetProductPageUrl(p)}
               />
             ))}
           </div>
@@ -864,3 +845,4 @@ export function ClosetPageClient() {
     </main>
   );
 }
+

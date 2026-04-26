@@ -51,6 +51,7 @@ function ClosetIcon({ className = "" }: { className?: string }) {
 
 interface ProductDetailModalProps {
   product: Product;
+  closetProduct?: Product | null;
   activeRowIndex: number | null;
   onClose: () => void;
   onRowClick: (rowIndex: number) => void;
@@ -63,6 +64,27 @@ interface ProductDetailModalProps {
   smoothScrollTo: (container: HTMLElement, targetY: number, duration?: number) => void;
   onToggleCloset?: (selection?: ClosetSizeSelection | null) => void;
   isInCloset?: boolean;
+  hideCollectionActions?: boolean;
+}
+
+function getClosetSizeLabel(product?: Product | null): string {
+  return String(product?.closetSelectedSizeLabel || "").trim();
+}
+
+function getClosetSizeRowIndex(product?: Product | null): number | null {
+  return Number.isInteger(product?.closetSelectedSizeRowIndex) ? product!.closetSelectedSizeRowIndex! : null;
+}
+
+function SavedSizeSummary({ product }: { product?: Product | null }) {
+  const label = getClosetSizeLabel(product);
+  if (!label) return null;
+
+  return (
+    <span className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-black text-gray-300">
+      <span className="uppercase text-gray-500">My size</span>
+      <span className="text-sm leading-none text-orange-400">{label}</span>
+    </span>
+  );
 }
 
 function buildClosetSizeSelection(
@@ -218,6 +240,7 @@ function SizeSelectionSheet({
 
 export function ProductDetailModal({
   product,
+  closetProduct,
   activeRowIndex,
   onClose,
   onRowClick,
@@ -230,9 +253,13 @@ export function ProductDetailModal({
   smoothScrollTo,
   onToggleCloset,
   isInCloset,
+  hideCollectionActions,
 }: ProductDetailModalProps) {
   useBodyScrollLock(modalRef);
   const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
+  const savedClosetProduct = closetProduct || null;
+  const savedSizeLabel = getClosetSizeLabel(savedClosetProduct);
+  const savedSizeRowIndex = getClosetSizeRowIndex(savedClosetProduct);
 
   const handleRowClick = (rowIndex: number) => {
     onRowClick(rowIndex);
@@ -271,6 +298,7 @@ export function ProductDetailModal({
         <div className="flex-shrink-0 z-10 flex items-center justify-between px-6 py-4 text-white bg-[#1c1c1f] border-b border-white/10 rounded-t-3xl">
           <h3 className="text-lg font-bold text-white sm:text-xl">상품 상세</h3>
           <div className="flex items-center gap-3">
+            {!hideCollectionActions && (
             <div className="group relative">
               <button
                 type="button"
@@ -284,6 +312,8 @@ export function ProductDetailModal({
                 위시리스트
               </div>
             </div>
+            )}
+            {!hideCollectionActions && (
             <div className="group relative">
               <button
                 type="button"
@@ -302,6 +332,7 @@ export function ProductDetailModal({
                 옷장
               </div>
             </div>
+            )}
             <button
               type="button"
               aria-label="상품 상세 닫기"
@@ -355,6 +386,11 @@ export function ProductDetailModal({
               ) : (
                 <span className="text-sm text-gray-600">URL 없음</span>
               )}
+              {savedClosetProduct ? (
+                <div className="mt-3">
+                  <SavedSizeSummary product={savedClosetProduct} />
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -378,24 +414,29 @@ export function ProductDetailModal({
                 <tbody>
                   {product.sizeTable.rows.map((row, rowIndex) => {
                     const isActiveRow = activeRowIndex === rowIndex;
+                    const isSavedRow = savedSizeRowIndex === rowIndex;
                     return (
                       <tr
                         key={rowIndex}
                         onClick={() => handleRowClick(rowIndex)}
                         className="group cursor-pointer transition-transform duration-200 active:scale-95"
                       >
-                        {row.map((cell, cellIndex) => (
-                          <td
-                            key={cellIndex}
-                            className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-all duration-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""} ${
-                              isActiveRow
-                                ? "bg-white text-black first:rounded-l-lg last:rounded-r-lg"
-                                : "bg-transparent text-gray-200 group-hover:bg-white/[0.92] group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg"
-                            }`}
-                          >
-                            {String(cell)}
-                          </td>
-                        ))}
+                        {row.map((cell, cellIndex) => {
+                          return (
+                            <td
+                              key={cellIndex}
+                              className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-all duration-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""} ${
+                                isActiveRow
+                                  ? "bg-white text-black first:rounded-l-lg last:rounded-r-lg"
+                                  : isSavedRow
+                                  ? "bg-[#F97316]/40 text-orange-50 first:rounded-l-lg last:rounded-r-lg group-hover:bg-[#F97316]/50"
+                                  : "bg-transparent text-gray-200 group-hover:bg-white/[0.92] group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg"
+                              }`}
+                            >
+                              {String(cell)}
+                            </td>
+                          );
+                        })}
                       </tr>
                     );
                   })}

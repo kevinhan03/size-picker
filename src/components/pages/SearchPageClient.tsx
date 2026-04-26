@@ -77,6 +77,11 @@ export function SearchPageClient() {
     [brandFilter, grid.filteredGridProducts]
   );
 
+  const categoryFilters = useMemo(
+    () => ["", ...CATEGORY_OPTIONS.filter((c) => c !== "기타 상품(빈티지)")],
+    []
+  );
+
   const brandSuggestions = useMemo(() => {
     if (!query) return [];
     const q = query.toLowerCase();
@@ -204,7 +209,7 @@ export function SearchPageClient() {
         </div>
         <input
           type="text"
-          className="w-full rounded-full border border-gray-700 bg-gray-900 py-3 pl-12 pr-10 text-sm text-white transition-all placeholder:text-gray-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+          className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.06] pl-12 pr-10 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_32px_rgba(0,0,0,0.24)] outline-none transition placeholder:text-gray-600 focus:border-orange-500/60 focus:bg-white/[0.08] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_3px_rgba(249,115,22,0.12)] sm:h-[52px]"
           placeholder="브랜드명 또는 상품명을 검색해보세요"
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
@@ -216,14 +221,14 @@ export function SearchPageClient() {
         {query && (
           <button
             onClick={clearQuery}
-            className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-white"
+            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center border-none bg-transparent p-0 text-gray-400 shadow-none outline-none transition hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>
         )}
 
         {showSuggestions && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-hidden overflow-y-auto rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.06))] shadow-[0_20px_48px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
+          <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-hidden overflow-y-auto rounded-2xl border border-white/10 bg-[#111114]/95 shadow-[0_20px_48px_rgba(0,0,0,0.42)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {brandSuggestions.length > 0 || suggestions.length > 0 ? (
               <>
                 {brandSuggestions.length > 0 && (
@@ -234,7 +239,7 @@ export function SearchPageClient() {
                         <li
                           key={brand}
                           onClick={() => { setBrandFilter(brand); grid.setGridCategoryFilter(""); setShowSuggestions(false); clearQuery(); }}
-                          className="flex cursor-pointer items-center gap-3 border-b border-white/10 px-5 py-3 transition-colors last:border-0 hover:bg-white/[0.08]"
+                          className="flex cursor-pointer items-center gap-3 border-b border-white/10 px-5 py-3 transition-colors last:border-0 hover:bg-white/[0.06]"
                         >
                           <Search className="h-4 w-4 flex-shrink-0 text-gray-500" />
                           <span className="text-sm"><HighlightMatch text={brand} query={query} /></span>
@@ -252,7 +257,7 @@ export function SearchPageClient() {
                         <li
                           key={item.id}
                           onClick={() => handleSearchSubmit(item)}
-                          className="flex cursor-pointer items-center gap-4 border-b border-white/10 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.08]"
+                          className="flex cursor-pointer items-center gap-4 border-b border-white/10 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.06]"
                         >
                           <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-white/10">
                             <ProgressiveImage
@@ -282,42 +287,49 @@ export function SearchPageClient() {
         )}
       </div>
 
-      {/* Category filter pills */}
+      {/* Category filter */}
       <div className="mb-8 w-full max-w-2xl">
-        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
-          {(["", ...CATEGORY_OPTIONS.filter((c) => c !== "기타 상품(빈티지)")] as const).map((cat) => {
-            const label = cat === "" ? "전체" : cat;
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {categoryFilters.map((cat) => {
+            const label = cat === "" ? "All" : cat;
             const isActive = grid.gridCategoryFilter === cat && !brandFilter;
+            const count = cat === "" ? products.length : grid.gridCategoryCounts[cat] || 0;
             return (
               <button
                 key={label}
                 onClick={() => { grid.setGridCategoryFilter(cat); setBrandFilter(""); }}
-                className={`w-full rounded-full py-2 text-sm font-semibold transition-all ${
+                className={`flex h-9 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-black transition-all sm:h-10 sm:text-xs ${
                   isActive
-                    ? "bg-orange-500 text-black shadow-[0_0_12px_rgba(249,115,22,0.5)]"
-                    : "border border-white/20 bg-white/5 text-gray-300 hover:border-orange-500/60 hover:text-orange-400"
+                    ? "border-orange-500/55 bg-orange-500/12 text-orange-400 shadow-[0_8px_20px_rgba(249,115,22,0.12)]"
+                    : "border-white/10 bg-white/[0.045] text-gray-400 hover:border-white/18 hover:bg-white/[0.07] hover:text-gray-100"
                 }`}
               >
-                {label}
+                <span>{label}</span>
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] leading-none ${
+                    isActive ? "bg-orange-500/18 text-orange-300" : "bg-white/[0.06] text-gray-600"
+                  }`}
+                >
+                  {count}
+                </span>
               </button>
             );
           })}
-
         </div>
 
-        {/* Active brand badge */}
+        {/* Active brand filter */}
         {brandFilter && (
-          <div className="mt-2.5 flex items-center gap-2">
-            <span className="text-xs text-gray-500">브랜드 필터:</span>
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-orange-500/30 bg-orange-500/12 px-2.5 py-1 text-xs font-semibold text-orange-400">
-              {brandFilter}
-              <button
-                onClick={() => setBrandFilter("")}
-                className="flex items-center p-0 leading-none text-orange-400"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
+          <div className="mt-2.5 flex items-center justify-between gap-3 text-xs font-bold">
+            <p className="min-w-0 truncate text-gray-500">
+              Brand filter <span className="text-gray-700">·</span>{" "}
+              <span className="text-orange-400">{brandFilter}</span>
+            </p>
+            <button
+              onClick={() => setBrandFilter("")}
+              className="shrink-0 border-none bg-transparent p-0 text-xs font-black text-gray-500 shadow-none transition hover:text-white"
+            >
+              Clear
+            </button>
           </div>
         )}
       </div>

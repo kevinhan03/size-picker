@@ -12,11 +12,44 @@ export function AppHeader() {
   const authContext = useAuthContext();
   const productForm = useProductFormContext();
   const [scrolled, setScrolled] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [hiddenOnMobile, setHiddenOnMobile] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    let lastY = window.scrollY;
+    const media = window.matchMedia("(max-width: 639px)");
+    const updateIsMobile = () => {
+      const nextIsMobile = media.matches;
+      setIsMobile(nextIsMobile);
+      if (!nextIsMobile) setHiddenOnMobile(false);
+    };
+    const onScroll = () => {
+      const nextY = window.scrollY;
+      setScrolled(nextY > 8);
+
+      if (!media.matches) {
+        setHiddenOnMobile(false);
+        lastY = nextY;
+        return;
+      }
+
+      if (nextY <= 8) {
+        setHiddenOnMobile(false);
+      } else if (nextY > lastY) {
+        setHiddenOnMobile(true);
+      } else if (nextY < lastY) {
+        setHiddenOnMobile(false);
+      }
+
+      lastY = nextY;
+    };
+    updateIsMobile();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    media.addEventListener("change", updateIsMobile);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      media.removeEventListener("change", updateIsMobile);
+    };
   }, []);
 
   const authUser = authContext.authUser;
@@ -24,27 +57,33 @@ export function AppHeader() {
 
   const isLogin = pathname === "/login";
   const isAdmin = pathname === "/admin";
+  const compactHeader = scrolled && !isMobile;
+  const headerFrameClass = isMobile
+    ? "mt-0 px-4 h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-none rounded-none bg-black border-0 shadow-none pt-[env(safe-area-inset-top)]"
+    : compactHeader
+    ? "mt-3 px-4 h-12 w-[calc(100%-2rem)] max-w-2xl rounded-2xl bg-[#111114] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+    : "mt-0 px-4 h-16 w-full max-w-6xl rounded-none bg-transparent border-b border-transparent";
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-300 ease-out ${
+        hiddenOnMobile ? "-translate-y-full" : "translate-y-0"
+      }`}
+    >
       <div
-        className={`pointer-events-auto transition-all duration-300 ease-out flex items-center justify-between ${
-          scrolled
-            ? "mt-3 px-4 h-12 w-[calc(100%-2rem)] max-w-2xl rounded-2xl bg-[#111114] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-            : "mt-0 px-4 h-16 w-full max-w-6xl rounded-none bg-transparent border-b border-transparent"
-        }`}
+        className={`pointer-events-auto transition-all duration-300 ease-out flex items-center justify-between ${headerFrameClass}`}
       >
         <div className="flex items-center gap-2">
           <div
             className="flex items-center gap-2 cursor-pointer"
             onClick={() => router.push("/")}
           >
-            <div className={`flex items-center justify-center transition-all duration-300 ${scrolled ? "w-7 h-7" : "w-10 h-10"}`}>
+            <div className={`flex items-center justify-center transition-all duration-300 ${compactHeader ? "w-7 h-7" : "w-10 h-10"}`}>
               <img src="/favicon-simple.svg" alt="DIGBOX logo" className="w-full h-full object-contain" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className={`font-bold tracking-tight text-orange-500 transition-all duration-300 ${scrolled ? "text-base" : "text-xl"}`}>DIGBOX</span>
-              {!scrolled && <span className="text-[10px] text-white/60 tracking-tight">취향은 더 깊게, 발견은 더 쉽게</span>}
+              <span className={`font-bold tracking-tight text-orange-500 transition-all duration-300 ${compactHeader ? "text-base" : "text-xl"}`}>DIGBOX</span>
+              {!compactHeader && <span className="text-[10px] text-white/60 tracking-tight">취향은 더 깊게, 발견은 더 쉽게</span>}
             </div>
           </div>
         </div>

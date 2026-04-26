@@ -38,7 +38,7 @@
   :root {
     --app-page-min-h: 100vh;
     --app-main-min-h: 100vh;
-    --app-main-pt: 5.5rem;
+    --app-main-pt: calc(5.5rem + env(safe-area-inset-top, 0px));
     --app-main-pb: calc(3.5rem + var(--app-safe-bottom));
     --app-main-px: 1.5rem; /* 24px — 좌우 여백 */
     --header-logo-size: 1.05rem;
@@ -136,12 +136,14 @@ textarea {
 }
 
 .ui-add-product-modal .overflow-y-auto,
-.ui-product-detail-modal {
+.ui-product-detail-modal,
+.ui-product-detail-modal .overflow-y-auto {
   scrollbar-width: none;
 }
 
 .ui-add-product-modal .overflow-y-auto::-webkit-scrollbar,
 .ui-product-detail-modal::-webkit-scrollbar,
+.ui-product-detail-modal .overflow-y-auto::-webkit-scrollbar,
 .ui-brand-dropdown::-webkit-scrollbar {
   display: none;
 }
