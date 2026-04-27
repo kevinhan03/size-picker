@@ -1,7 +1,8 @@
-import { Camera, Upload } from 'lucide-react';
+import { useState } from 'react';
+import { Camera, ChevronDown, Upload } from 'lucide-react';
 import { ITEM_LABEL } from '../../constants';
 import type { useProductForm } from '../../hooks/useProductForm';
-import { normalizeCellText } from '../../utils/sizeTable';
+import { displayTableCell, normalizeCellText } from '../../utils/sizeTable';
 
 type ProductForm = ReturnType<typeof useProductForm>;
 
@@ -30,6 +31,8 @@ function commitTableCell(form: ProductForm, value: string) {
 }
 
 export function SizeTableSection({ form }: SizeTableSectionProps) {
+  const [isExtraOpen, setIsExtraOpen] = useState(false);
+
   return (
     <div className="space-y-2">
       <label className="text-sm text-gray-400">{'\uC0AC\uC774\uC988\uD45C \uC774\uBBF8\uC9C0'}</label>
@@ -68,6 +71,7 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
         <div className="rounded-xl border border-white/10 overflow-hidden">
           <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.04] border-b border-white/10">
             <span className="text-[10px] text-gray-400">{'\uCD94\uCD9C\uB41C \uC0AC\uC774\uC988\uD45C - \uC140\uC744 \uD074\uB9AD\uD558\uBA74 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4'}</span>
+            <span className="text-[10px] font-semibold text-gray-500">{'단위: cm'}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">
@@ -119,7 +123,7 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
                             onClick={(e) => e.stopPropagation()}
                             className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
                           />
-                        ) : cell}
+                        ) : displayTableCell(cell)}
                       </td>
                     ))}
                   </tr>
@@ -127,6 +131,50 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
               </tbody>
             </table>
           </div>
+        </div>
+      ) : null}
+      {form.formData.extractedTable?.extra?.headers?.length && !form.isAnalyzingTable ? (
+        <div className="rounded-xl border border-white/10 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setIsExtraOpen((value) => !value)}
+            className="flex w-full items-center justify-between px-3 py-2 bg-white/[0.04] text-[10px] font-semibold uppercase tracking-wide text-gray-400 hover:bg-white/[0.07] hover:text-gray-200 transition"
+          >
+            <span>{'추가 실측 정보'}</span>
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExtraOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {isExtraOpen ? (
+            <div className="overflow-x-auto border-t border-white/10">
+              <table className="w-full text-xs text-left">
+                <thead className="border-b border-white/10">
+                  <tr>
+                    {form.formData.extractedTable.extra.headers.map((header, colIdx) => (
+                      <th
+                        key={colIdx}
+                        className={`px-2 py-1.5 font-semibold whitespace-nowrap ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${colIdx === 0 ? 'border-r border-white/10' : ''}`}
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {form.formData.extractedTable.extra.rows.map((row, rowIdx) => (
+                    <tr key={rowIdx} className="border-b border-white/[0.06]">
+                      {row.map((cell, colIdx) => (
+                        <td
+                          key={colIdx}
+                          className={`px-2 py-1.5 whitespace-nowrap ${colIdx === 0 ? 'text-gray-300 border-r border-white/10' : 'text-gray-400'}`}
+                        >
+                          {displayTableCell(cell)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {form.addProductMode === 'capture' ? (

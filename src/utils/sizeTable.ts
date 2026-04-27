@@ -10,6 +10,11 @@ import {
 
 export const normalizeCellText = (value: unknown): string => String(value ?? '').replace(/\s+/g, ' ').trim();
 
+export const normalizeMeasurementValueForDisplay = (value: unknown): string =>
+  normalizeCellText(value).replace(/(-?\d+(?:\.\d+)?)\s*(?:cm\b|㎝|센치|센티미터)/gi, '$1');
+
+export const displayTableCell = (value: unknown): string => normalizeMeasurementValueForDisplay(value) || '-';
+
 export const normalizeAliasKey = (value: unknown): string =>
   normalizeCellText(value)
     .toLowerCase()
@@ -23,14 +28,16 @@ export const isTotalLengthAliasKey = (aliasKey: string): boolean =>
 
 export const inferMeasurementLabelFromAliasKey = (aliasKey: string): string => {
   if (!aliasKey) return '';
+  if (aliasKey.includes('outseam') || aliasKey.includes('바지총장') || aliasKey.includes('총길이')) return TOTAL_LENGTH_LABEL;
   if (aliasKey.includes('shoulder') || aliasKey.includes('어깨')) return '어깨';
   if (aliasKey.includes('chest') || aliasKey.includes('bust') || aliasKey.includes('bodywidth') || aliasKey.includes('pit') || aliasKey.includes('가슴') || aliasKey.includes('품')) return '가슴';
   if (aliasKey.includes('sleeve') || aliasKey.includes('arm') || aliasKey.includes('소매') || aliasKey.includes('화장')) return '소매';
   if (aliasKey.includes('waist') || aliasKey.includes('허리')) return '허리';
   if (aliasKey.includes('hip') || aliasKey.includes('엉덩이') || aliasKey.includes('힙')) return '엉덩이';
   if (aliasKey.includes('thigh') || aliasKey.includes('허벅지')) return '허벅지';
-  if (aliasKey.includes('rise') || aliasKey.includes('밑위')) return '밑위';
-  if (aliasKey.includes('hem') || aliasKey.includes('밑단')) return '밑단';
+  if (aliasKey.includes('뒷밑위')) return '뒷밑위';
+  if (aliasKey.includes('rise') || aliasKey.includes('밑위') || aliasKey.includes('앞밑위')) return '밑위';
+  if (aliasKey.includes('hem') || aliasKey.includes('cuff') || aliasKey.includes('밑단')) return '밑단';
   if (aliasKey.includes('inseam') || aliasKey.includes('인심')) return '인심';
   return '';
 };
@@ -39,11 +46,92 @@ export const normalizeMeasurementLabel = (value: unknown): string => {
   const raw = normalizeCellText(value);
   if (!raw) return '';
   const aliasKey = normalizeAliasKey(raw);
-  if (MEASUREMENT_ALIAS_MAP[aliasKey]) return MEASUREMENT_ALIAS_MAP[aliasKey];
+  const mapped = MEASUREMENT_ALIAS_MAP[aliasKey];
+  if (mapped) return mapped === '힙' ? '엉덩이' : mapped;
   const inferred = inferMeasurementLabelFromAliasKey(aliasKey);
   if (inferred) return inferred;
   if (isTotalLengthAliasKey(aliasKey)) return TOTAL_LENGTH_LABEL;
   return raw;
+};
+
+const BOTTOM_STANDARD_HEADERS = ['사이즈', TOTAL_LENGTH_LABEL, '허리단면', '엉덩이단면', '허벅지단면', '밑위', '밑단단면'];
+
+const normalizeDisplayCategory = (category: unknown): string => normalizeCellText(category).toLowerCase();
+
+const isBottomCategory = (category: unknown): boolean => normalizeDisplayCategory(category) === 'bottom';
+
+export const isBottomDisplaySizeTable = (table: SizeTable | null): boolean => {
+  const normalized = normalizeSizeTable(table);
+  if (!normalized?.headers?.length) return false;
+  return (
+    normalized.headers.length === BOTTOM_STANDARD_HEADERS.length &&
+    BOTTOM_STANDARD_HEADERS.every((header, index) => normalized.headers[index] === header)
+  );
+};
+
+export const normalizeBottomSizeTableForDisplay = (table: SizeTable | null): SizeTable | null => {
+  const normalized = normalizeSizeTable(table);
+  if (!normalized?.rows?.length) return normalized;
+
+  const sourceHeaders = normalized.headers.map((header, index) => {
+    if (index === 0) return '사이즈';
+    const normalizedHeader = normalizeCellText(header);
+    if (normalizedHeader === '허리' || normalizedHeader === '허리단면') return '허리단면';
+    if (normalizedHeader === '힙' || normalizedHeader === '엉덩이' || normalizedHeader === '엉덩이단면') return '엉덩이단면';
+    if (normalizedHeader === '허벅지' || normalizedHeader === '허벅지단면') return '허벅지단면';
+    if (normalizedHeader === '밑단' || normalizedHeader === '밑단단면') return '밑단단면';
+    return normalizedHeader;
+  });
+  const firstIndexByLabel = new Map<string, number>();
+  sourceHeaders.forEach((header, index) => {
+    if (index === 0 || !header || firstIndexByLabel.has(header)) return;
+    if (!BOTTOM_STANDARD_HEADERS.includes(header)) return;
+    firstIndexByLabel.set(header, index);
+  });
+  const extraIndexes = sourceHeaders
+    .map((header, index) => ({ header, index }))
+    .filter(({ header, index }) => index > 0 && header && !BOTTOM_STANDARD_HEADERS.includes(header));
+
+  const displayTable: SizeTable = {
+    headers: [...BOTTOM_STANDARD_HEADERS],
+    rows: normalized.rows.map((row) => [
+      normalizeMeasurementValueForDisplay(row[0]),
+      ...BOTTOM_STANDARD_HEADERS.slice(1).map((header) => {
+        const sourceIndex = firstIndexByLabel.get(header);
+        return sourceIndex === undefined ? '' : normalizeMeasurementValueForDisplay(row[sourceIndex]);
+      }),
+    ]),
+  };
+
+  if (extraIndexes.length > 0) {
+    displayTable.extra = {
+      headers: ['사이즈', ...extraIndexes.map(({ header }) => header)],
+      rows: normalized.rows.map((row) => [
+        normalizeMeasurementValueForDisplay(row[0]),
+        ...extraIndexes.map(({ index }) => normalizeMeasurementValueForDisplay(row[index])),
+      ]),
+    };
+  }
+
+  return displayTable;
+};
+
+export const normalizeSizeTableForCategory = (
+  category: string,
+  table: SizeTable | null
+): SizeTable | null => {
+  if (!isBottomCategory(category)) return normalizeSizeTable(table);
+  return normalizeBottomSizeTableForDisplay(table);
+};
+
+export const getDisplaySizeTable = (product: Product): SizeTable | null => {
+  if (isBottomCategory(product.category)) {
+    if (isBottomDisplaySizeTable(product.normalizedSizeTable ?? null)) {
+      return normalizeSizeTable(product.normalizedSizeTable ?? null);
+    }
+    return normalizeSizeTableForCategory(product.category, product.sizeTable || product.normalizedSizeTable || null);
+  }
+  return normalizeSizeTable(product.normalizedSizeTable ?? null) || normalizeSizeTableForCategory(product.category, product.sizeTable);
 };
 
 export const normalizeSizeLabel = (value: unknown): string => normalizeCellText(value).toUpperCase();
@@ -172,6 +260,11 @@ export const normalizeSizeTable = (value: unknown): SizeTable | null => {
   const rows = Array.isArray(record.rows)
     ? record.rows.map((row) => (Array.isArray(row) ? row.map((cell) => normalizeCellText(cell)) : []))
     : [];
+  const extraRecord = record.extra && typeof record.extra === 'object' ? record.extra as Record<string, unknown> : null;
+  const extraHeaders = Array.isArray(extraRecord?.headers) ? extraRecord.headers.map((v) => normalizeCellText(v)) : [];
+  const extraRows = Array.isArray(extraRecord?.rows)
+    ? extraRecord.rows.map((row) => (Array.isArray(row) ? row.map((cell) => normalizeCellText(cell)) : []))
+    : [];
   if (headers.length === 0 && rows.length === 0) return null;
 
   const asIs: SizeTable = { headers: [...headers], rows: rows.map((row) => [...row]) };
@@ -193,10 +286,18 @@ export const normalizeSizeTable = (value: unknown): SizeTable | null => {
     return nextRow;
   });
 
-  return prioritizeTotalLengthColumn({
+  const result = prioritizeTotalLengthColumn({
     headers: normalizedHeaders,
     rows: normalizedRows,
   });
+  if (extraHeaders.length > 0 && extraRows.length > 0) {
+    const extraWidth = Math.max(extraHeaders.length, ...extraRows.map((row) => row.length), 0);
+    result.extra = {
+      headers: [...extraHeaders, ...new Array(Math.max(extraWidth - extraHeaders.length, 0)).fill('')].slice(0, extraWidth),
+      rows: makeRectangularRows(extraRows, extraWidth),
+    };
+  }
+  return result;
 };
 
 const parseFirstNumber = (value: string): number | null => {
@@ -236,25 +337,27 @@ export const computeSizeRecommendations = (
   candidates: Product[],
   maxResults = 3
 ): SizeRecommendation[] => {
-  if (!source.sizeTable) return [];
-  const sourceRow = source.sizeTable.rows[selectedRowIndex];
+  const sourceSizeTable = getDisplaySizeTable(source);
+  if (!sourceSizeTable) return [];
+  const sourceRow = sourceSizeTable.rows[selectedRowIndex];
   if (!sourceRow) return [];
-  const sourceMeasurements = extractMeasurements(source.sizeTable.headers, sourceRow);
+  const sourceMeasurements = extractMeasurements(sourceSizeTable.headers, sourceRow);
   if (sourceMeasurements.size === 0) return [];
 
   const results: SizeRecommendation[] = [];
   for (const product of candidates) {
     if (product.id === source.id) continue;
     if (product.category !== source.category) continue;
-    if (!product.sizeTable?.rows?.length) continue;
+    const candidateSizeTable = getDisplaySizeTable(product);
+    if (!candidateSizeTable?.rows?.length) continue;
     const hasOverlap = [...sourceMeasurements.keys()].some((k) =>
-      product.sizeTable!.headers.slice(1).map(normalizeMeasurementLabel).includes(k)
+      candidateSizeTable.headers.slice(1).map(normalizeMeasurementLabel).includes(k)
     );
     if (!hasOverlap) continue;
     let bestRowIndex = 0;
     let bestScore = Infinity;
-    for (let i = 0; i < product.sizeTable.rows.length; i++) {
-      const m = extractMeasurements(product.sizeTable.headers, product.sizeTable.rows[i]);
+    for (let i = 0; i < candidateSizeTable.rows.length; i++) {
+      const m = extractMeasurements(candidateSizeTable.headers, candidateSizeTable.rows[i]);
       const score = scoreMeasurementSimilarity(sourceMeasurements, m);
       if (score < bestScore) {
         bestScore = score;

@@ -5,6 +5,7 @@ export const fetchBrands = async (): Promise<BrandInfo[]> => {
   const response = await fetch("/api/admin/brands", {
     method: "GET",
     credentials: "include",
+    cache: "no-store",
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: { brands?: BrandInfo[] } }>(
     response,

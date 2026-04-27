@@ -7,6 +7,8 @@ import {
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { SUPABASE_PRODUCTS_TABLE } from "../../../../server/config/env.js";
 
+export const dynamic = "force-dynamic";
+
 const adminUnauthorized = () =>
   NextResponse.json(
     { ok: false, error: "admin authentication required" },

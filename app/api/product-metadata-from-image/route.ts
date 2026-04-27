@@ -153,10 +153,7 @@ export async function POST(request: Request) {
           ? { sourceUrl: imagePath, mimeType: "", base64: "" }
           : null;
     const productImageCandidates = prioritizedImageResult.productImageCandidates;
-    const resolvedBrand = normalizeBrandName(
-      metadataResult.data.brand || fallbackUrlMetadata?.brand || "",
-      { url: effectiveProductUrl || "" }
-    );
+    const resolvedBrand = normalizeBrandName(metadataResult.data.brand || fallbackUrlMetadata?.brand || "");
 
     return NextResponse.json({
       ok: true,

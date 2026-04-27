@@ -6,7 +6,6 @@ import { normalizeCellText } from "./size-table.js";
 
 const BRAND_RULES_FILE_PATH = resolve(process.cwd(), "server", "config", "brand-rules.csv");
 const BRAND_RULES_STORAGE_PATH = "_config/brand-rules.json";
-const VALID_BRAND_RULE_TYPES = new Set(["domain", "url", "brand", "brand_contains"]);
 
 let brandRulesCache = null;
 let brandRulesCacheUpdatedAt = 0;
@@ -98,18 +97,6 @@ const normalizeBrandRuleText = (value) =>
     .toLowerCase()
     .replace(/\s+/g, " ");
 
-const normalizeHostName = (value) => {
-  const raw = normalizeCellText(value).toLowerCase();
-  if (!raw) return "";
-
-  try {
-    const parsed = raw.includes("://") ? new URL(raw) : new URL(`https://${raw}`);
-    return parsed.hostname.replace(/^www\./, "");
-  } catch {
-    return raw.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-  }
-};
-
 const normalizeBrandNameBase = (value) =>
   normalizeCellText(value)
     .replace(/\s*공식\s*온라인\s*스토어$/i, "")
@@ -124,7 +111,7 @@ export const normalizeBrandRule = (rule) => {
   const matchType = String(rule.matchType || "").trim().toLowerCase();
   const matchValue = String(rule.matchValue || "").trim();
   const canonicalBrand = String(rule.canonicalBrand || "").trim();
-  if (!VALID_BRAND_RULE_TYPES.has(matchType) || !matchValue || !canonicalBrand) {
+  if (matchType !== "brand" || !matchValue || !canonicalBrand) {
     return null;
   }
 
@@ -239,53 +226,19 @@ export const writeBrandRules = async (rules) => {
   return setBrandRulesCache(normalizedRules);
 };
 
-const applyBrandRule = ({ brand = "", url = "" }) => {
+const applyBrandRule = (brand = "") => {
   const normalizedBrand = normalizeBrandNameBase(brand);
   const normalizedBrandKey = normalizeBrandRuleText(normalizedBrand);
-  const normalizedUrl = normalizeCellText(url).toLowerCase();
-  const normalizedHost = normalizeHostName(url);
 
   for (const rule of getBrandRules()) {
-    const ruleType = String(rule.matchType || "").toLowerCase();
     const canonicalBrand = normalizeBrandNameBase(rule.canonicalBrand || "");
     if (!canonicalBrand) continue;
-
-    if (ruleType === "domain") {
-      const ruleHost = normalizeHostName(rule.matchValue);
-      if (ruleHost && (normalizedHost === ruleHost || normalizedHost.endsWith(`.${ruleHost}`))) {
-        return canonicalBrand;
-      }
-      continue;
-    }
-
-    if (ruleType === "url") {
-      const ruleUrl = normalizeCellText(rule.matchValue).toLowerCase();
-      if (ruleUrl && normalizedUrl.includes(ruleUrl)) {
-        return canonicalBrand;
-      }
-      continue;
-    }
-
-    if (ruleType === "brand") {
-      if (normalizedBrandKey && normalizedBrandKey === normalizeBrandRuleText(rule.matchValue)) {
-        return canonicalBrand;
-      }
-      continue;
-    }
-
-    if (ruleType === "brand_contains") {
-      const ruleBrandPart = normalizeBrandRuleText(rule.matchValue);
-      if (ruleBrandPart && normalizedBrandKey.includes(ruleBrandPart)) {
-        return canonicalBrand;
-      }
+    if (normalizedBrandKey && normalizedBrandKey === normalizeBrandRuleText(rule.matchValue)) {
+      return canonicalBrand;
     }
   }
 
   return normalizedBrand;
 };
 
-export const normalizeBrandName = (value, context = {}) =>
-  applyBrandRule({
-    brand: value,
-    url: context?.url || "",
-  });
+export const normalizeBrandName = (value) => applyBrandRule(value);

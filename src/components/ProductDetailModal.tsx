@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import type { RefObject, SyntheticEvent } from "react";
-import { ExternalLink, X } from "lucide-react";
+import { ChevronDown, ExternalLink, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { ClosetSizeSelection, Product, SizeRecommendation } from "../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
-import { isPrimaryColumnHeader, normalizeMeasurementLabel } from "../utils/sizeTable";
+import {
+  displayTableCell,
+  getDisplaySizeTable,
+  isPrimaryColumnHeader,
+  normalizeMeasurementLabel,
+  normalizeMeasurementValueForDisplay,
+} from "../utils/sizeTable";
 
 function HangerIcon({ className = "" }: { className?: string }) {
   return (
@@ -92,7 +98,7 @@ function buildClosetSizeSelection(
   rowIndex: number | null,
   manualSize: string
 ): ClosetSizeSelection | null {
-  const sizeTable = product.sizeTable;
+  const sizeTable = getDisplaySizeTable(product);
   const manualLabel = manualSize.trim();
   if (rowIndex === null || !sizeTable?.rows?.[rowIndex]) {
     return manualLabel ? { label: manualLabel, rowIndex: null, snapshot: null } : null;
@@ -118,8 +124,9 @@ function SizeSelectionSheet({
   onClose: () => void;
   onConfirm: (selection: ClosetSizeSelection | null) => void;
 }) {
-  const rows = product.sizeTable?.rows ?? [];
-  const headers = product.sizeTable?.headers ?? [];
+  const sizeTable = getDisplaySizeTable(product);
+  const rows = sizeTable?.rows ?? [];
+  const headers = sizeTable?.headers ?? [];
   const safeInitialIndex = initialRowIndex !== null && rows[initialRowIndex] ? initialRowIndex : null;
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(safeInitialIndex);
   const [manualSize, setManualSize] = useState("");
@@ -136,7 +143,7 @@ function SizeSelectionSheet({
       .slice(1)
       .map((header, index) => ({
         label: normalizeMeasurementLabel(header) || String(header ?? "").trim(),
-        value: String(selectedRow[index + 1] ?? "").trim(),
+        value: normalizeMeasurementValueForDisplay(selectedRow[index + 1]),
       }))
       .filter(({ label, value }) => label && value);
   }, [headers, selectedRow]);
@@ -257,9 +264,19 @@ export function ProductDetailModal({
 }: ProductDetailModalProps) {
   useBodyScrollLock(modalRef);
   const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
+  const [isExtraMeasurementsOpen, setIsExtraMeasurementsOpen] = useState(false);
   const savedClosetProduct = closetProduct || null;
   const savedSizeLabel = getClosetSizeLabel(savedClosetProduct);
   const savedSizeRowIndex = getClosetSizeRowIndex(savedClosetProduct);
+  const displaySizeTable = useMemo(() => getDisplaySizeTable(product), [product]);
+  const displayProduct = useMemo(
+    () => ({ ...product, sizeTable: displaySizeTable }),
+    [displaySizeTable, product]
+  );
+
+  useEffect(() => {
+    setIsExtraMeasurementsOpen(false);
+  }, [product.id]);
 
   const handleRowClick = (rowIndex: number) => {
     onRowClick(rowIndex);
@@ -394,13 +411,16 @@ export function ProductDetailModal({
             </div>
           </div>
 
-          <div className="relative mt-8 overflow-x-auto rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+          {displaySizeTable?.headers?.length ? (
+            <div className="mt-8 flex justify-start text-[11px] font-semibold text-gray-500">{"단위: cm"}</div>
+          ) : null}
+          <div className={`${displaySizeTable?.headers?.length ? "mt-1" : "mt-8"} relative overflow-x-auto rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]`}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018)_55%,transparent)]" />
-            {product.sizeTable?.headers?.length ? (
+            {displaySizeTable?.headers?.length ? (
               <table className="relative z-[1] min-w-full w-max text-center text-[11px] sm:text-sm">
                 <thead className="text-[11px] sm:text-sm">
                   <tr>
-                    {product.sizeTable.headers.map((header, index) => (
+                    {displaySizeTable.headers.map((header, index) => (
                       <th
                         key={index}
                         className={`whitespace-nowrap bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018))] px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 sm:text-sm ${index === 0 ? "border-r border-white/[0.04]" : ""}`}
@@ -412,7 +432,7 @@ export function ProductDetailModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {product.sizeTable.rows.map((row, rowIndex) => {
+                  {displaySizeTable.rows.map((row, rowIndex) => {
                     const isActiveRow = activeRowIndex === rowIndex;
                     const isSavedRow = savedSizeRowIndex === rowIndex;
                     return (
@@ -433,7 +453,7 @@ export function ProductDetailModal({
                                   : "bg-transparent text-gray-200 group-hover:bg-white/[0.92] group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg"
                               }`}
                             >
-                              {String(cell)}
+                              {displayTableCell(cell)}
                             </td>
                           );
                         })}
@@ -447,18 +467,67 @@ export function ProductDetailModal({
             )}
           </div>
 
+          {displaySizeTable?.extra?.headers?.length ? (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+              <button
+                type="button"
+                onClick={() => setIsExtraMeasurementsOpen((value) => !value)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/[0.05] hover:text-white"
+              >
+                <span>추가 실측 정보</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-400 transition-transform ${isExtraMeasurementsOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {isExtraMeasurementsOpen ? (
+                <div className="overflow-x-auto border-t border-white/[0.06]">
+                  <table className="min-w-full w-max text-center text-[11px] sm:text-sm">
+                    <thead>
+                      <tr>
+                        {displaySizeTable.extra.headers.map((header, index) => (
+                          <th
+                            key={index}
+                            className={`whitespace-nowrap bg-white/[0.04] px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 ${index === 0 ? "border-r border-white/[0.04]" : ""}`}
+                            style={{ color: isPrimaryColumnHeader(header) ? "#E5E7EB" : "#00FF00" }}
+                          >
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displaySizeTable.extra.rows.map((row, rowIndex) => (
+                        <tr key={rowIndex} className="border-t border-white/[0.04]">
+                          {row.map((cell, cellIndex) => (
+                            <td
+                              key={cellIndex}
+                              className={`whitespace-nowrap px-2 py-2.5 text-[11px] text-gray-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""}`}
+                            >
+                              {displayTableCell(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {recommendations.length > 0 && (
             <div ref={recommendationsRef} className="mt-6">
               <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">유사한 추천 상품</h5>
               <div className="flex flex-col gap-2">
                 {recommendations.map(({ product: recProduct, rowIndex }) => {
-                  const matchedRow = recProduct.sizeTable!.rows[rowIndex];
+                  const recSizeTable = getDisplaySizeTable(recProduct)!;
+                  const matchedRow = recSizeTable.rows[rowIndex];
                   const sizeLabel = matchedRow[0] || "";
-                  const measurements = recProduct.sizeTable!.headers
+                  const measurements = recSizeTable.headers
                     .slice(1)
                     .map((header, index) => ({
                       label: normalizeMeasurementLabel(header) || header,
-                      value: matchedRow[index + 1] || "",
+                      value: normalizeMeasurementValueForDisplay(matchedRow[index + 1]),
                     }))
                     .filter(({ value }) => value !== "");
                   return (
@@ -501,7 +570,7 @@ export function ProductDetailModal({
     </div>
     {isSizeSheetOpen && (
       <SizeSelectionSheet
-        product={product}
+        product={displayProduct}
         initialRowIndex={activeRowIndex}
         onClose={() => setIsSizeSheetOpen(false)}
         onConfirm={handleConfirmClosetSize}

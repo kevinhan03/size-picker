@@ -36,6 +36,7 @@ export function BrandRulesPanel({
   const [editingGroups, setEditingGroups] = useState<Set<string>>(new Set());
   const [canonicalInputs, setCanonicalInputs] = useState<Record<string, string>>({});
   const [newMatchInputs, setNewMatchInputs] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
 
   const groups = useMemo<RuleGroup[]>(() => {
     const map = new Map<string, string[]>();
@@ -49,11 +50,21 @@ export function BrandRulesPanel({
       .sort((a, b) => a.canonicalBrand.localeCompare(b.canonicalBrand));
   }, [brandRules]);
 
+  const filteredGroups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return groups;
+    return groups.filter(
+      (g) =>
+        g.canonicalBrand.toLowerCase().includes(q) ||
+        g.matchValues.some((mv) => mv.toLowerCase().includes(q))
+    );
+  }, [groups, search]);
+
   const allMappedBrands = useMemo(() => {
     const set = new Set<string>();
     for (const r of brandRules) {
-      set.add(r.matchValue.toLowerCase());
-      set.add(r.canonicalBrand.toLowerCase());
+      set.add(r.matchValue.replace(/\s+/g, ' ').trim());
+      set.add(r.canonicalBrand.replace(/\s+/g, ' ').trim());
     }
     return set;
   }, [brandRules]);
@@ -132,13 +143,24 @@ export function BrandRulesPanel({
         </div>
       </div>
 
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="대표명 또는 매칭값 검색..."
+        className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm"
+      />
+
       <div className="space-y-2">
         {groups.length === 0 ? (
           <div className="rounded-xl border border-gray-800 px-4 py-8 text-center text-sm text-gray-500">
             등록된 규칙이 없습니다.
           </div>
+        ) : filteredGroups.length === 0 ? (
+          <div className="rounded-xl border border-gray-800 px-4 py-8 text-center text-sm text-gray-500">
+            검색 결과 없음
+          </div>
         ) : (
-          groups.map((group, groupIdx) => {
+          filteredGroups.map((group, groupIdx) => {
             const isEditing = editingGroups.has(group.canonicalBrand);
             return (
               <div
@@ -217,7 +239,7 @@ export function BrandRulesPanel({
                       />
                       <datalist id={`db-brands-${groupIdx}`}>
                         {dbBrands
-                          .filter((b) => !allMappedBrands.has(b.toLowerCase()))
+                          .filter((b) => !allMappedBrands.has(b.replace(/\s+/g, ' ').trim()))
                           .map((b) => <option key={b} value={b} />)}
                       </datalist>
                       <button

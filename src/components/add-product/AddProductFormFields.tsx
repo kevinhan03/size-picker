@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { CATEGORY_OPTIONS } from '../../constants';
 import type { useProductForm } from '../../hooks/useProductForm';
+import { normalizeSizeTableForCategory } from '../../utils/sizeTable';
 import { ProductImageSection } from './ProductImageSection';
 import { SizeTableSection } from './SizeTableSection';
 
@@ -23,7 +24,15 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
       <select
         className={`w-full px-4 py-3 bg-white/[0.07] border border-white/10 rounded-xl backdrop-blur-sm focus:outline-none focus:border-orange-500 transition [&>option]:bg-gray-900 [&>option]:text-white ${form.formData.category ? 'text-white' : 'text-gray-400'}`}
         value={form.formData.category}
-        onChange={(e) => form.setFormData({ ...form.formData, category: e.target.value })}
+        onChange={(e) => {
+          const category = e.target.value;
+          const sourceTable = form.formData.rawExtractedTable || form.formData.extractedTable;
+          form.setFormData({
+            ...form.formData,
+            category,
+            extractedTable: normalizeSizeTableForCategory(category, sourceTable),
+          });
+        }}
       >
         <option value="">{'\uCE74\uD14C\uACE0\uB9AC'}</option>
         {CATEGORY_OPTIONS.map((category) => (

@@ -8,7 +8,7 @@ import {
 } from "../config/env.js";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { normalizeBrandName } from "./brand-rules.js";
-import { parseSizeTable } from "./size-table.js";
+import { normalizeSizeTableForCategory, parseSizeTable } from "./size-table.js";
 
 export const DUPLICATE_PRODUCT_ERROR_MESSAGE = "이미 등록된 상품입니다";
 
@@ -51,9 +51,7 @@ export const normalizeProductRow = (row) => {
   if (!row || typeof row !== "object") return null;
 
   const id = String(row.id || "").trim();
-  const brand = normalizeBrandName(String(row.brand || "").trim(), {
-    url: String(row.url || "").trim(),
-  });
+  const brand = String(row.brand || "").trim();
   const name = String(row.name || "").trim();
   const imagePath = String(row.image_path ?? row.imagePath ?? "").trim();
   const image = String(row.image || "").trim();
@@ -70,6 +68,15 @@ export const normalizeProductRow = (row) => {
     imagePath: imagePath || null,
     slug: String(row.slug || "").trim() || null,
     sizeTable: parseSizeTable(row.size_table ?? row.sizeTable),
+    normalizedSizeTable: (() => {
+      const raw = row.normalized_size_table ?? row.normalizedSizeTable;
+      if (!raw) return null;
+      try {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (!parsed || !Array.isArray(parsed.headers) || !Array.isArray(parsed.rows)) return null;
+        return parsed;
+      } catch { return null; }
+    })(),
     createdAt: row.created_at || row.createdAt || null,
     isInstagram: Boolean(row.is_instagram),
     instagramOrder: typeof row.instagram_order === "number" ? row.instagram_order : null,
@@ -140,19 +147,21 @@ export const removeOldProductImageIfUnused = async ({ oldPath, updatedProductId 
   }
 };
 
-export const insertProductRow = async ({
-  brand,
-  name,
-  category,
-  url,
-  image,
-  imagePath,
-  sizeTable,
-  createdAt,
-  slug,
-  isInstagram = false,
-  instagramOrder = null,
-}) => {
+export const insertProductRow = async (input) => {
+  const {
+    brand,
+    name,
+    category,
+    url,
+    image,
+    imagePath,
+    sizeTable = null,
+    normalizedSizeTable = null,
+    createdAt,
+    slug,
+    isInstagram = false,
+    instagramOrder = null,
+  } = input || {};
   assertSupabaseConfig();
   const normalizedImagePath = String(imagePath || "").trim();
   const normalizedImage = String(image || "").trim();
@@ -175,7 +184,10 @@ export const insertProductRow = async ({
     effectiveInstagramOrder = Number.isFinite(lastOrder) ? lastOrder + 1 : 1;
   }
 
-  const canonicalBrand = normalizeBrandName(brand, { url });
+  const canonicalBrand = normalizeBrandName(brand);
+  const effectiveSizeTable = parseSizeTable(sizeTable);
+  const effectiveNormalizedSizeTable =
+    parseSizeTable(normalizedSizeTable) || normalizeSizeTableForCategory(category, effectiveSizeTable);
   const payloads = [
     {
       brand: canonicalBrand,
@@ -183,7 +195,8 @@ export const insertProductRow = async ({
       category,
       url,
       image_path: effectiveImagePath,
-      size_table: sizeTable,
+      size_table: effectiveSizeTable,
+      normalized_size_table: effectiveNormalizedSizeTable,
       created_at: createdAt,
       slug: normalizedSlug,
       is_instagram: isInstagram,
@@ -195,7 +208,20 @@ export const insertProductRow = async ({
       category,
       url,
       image_path: effectiveImagePath,
-      sizeTable: JSON.stringify(sizeTable),
+      size_table: effectiveSizeTable,
+      created_at: createdAt,
+      slug: normalizedSlug,
+      is_instagram: isInstagram,
+      instagram_order: isInstagram ? effectiveInstagramOrder : null,
+    },
+    {
+      brand: canonicalBrand,
+      name,
+      category,
+      url,
+      image_path: effectiveImagePath,
+      sizeTable: JSON.stringify(effectiveSizeTable),
+      normalizedSizeTable: JSON.stringify(effectiveNormalizedSizeTable),
       createdAt,
       slug: normalizedSlug,
       is_instagram: isInstagram,
@@ -207,7 +233,8 @@ export const insertProductRow = async ({
       category,
       url,
       image: effectiveImage,
-      size_table: sizeTable,
+      size_table: effectiveSizeTable,
+      normalized_size_table: effectiveNormalizedSizeTable,
       createdAt,
       is_instagram: isInstagram,
       instagram_order: isInstagram ? effectiveInstagramOrder : null,
@@ -218,7 +245,8 @@ export const insertProductRow = async ({
       category,
       url,
       image: effectiveImage,
-      sizeTable: JSON.stringify(sizeTable),
+      sizeTable: JSON.stringify(effectiveSizeTable),
+      normalizedSizeTable: JSON.stringify(effectiveNormalizedSizeTable),
       created_at: createdAt,
       is_instagram: isInstagram,
       instagram_order: isInstagram ? effectiveInstagramOrder : null,
@@ -256,7 +284,7 @@ export const backfillProductBrands = async () => {
     const currentBrand = String(product?.brand || "").trim();
     const name = String(product?.name || "").trim();
     const url = String(product?.url || "").trim();
-    const canonicalBrand = normalizeBrandName(currentBrand, { url });
+    const canonicalBrand = normalizeBrandName(currentBrand);
 
     if (!id || !currentBrand || !canonicalBrand || canonicalBrand === currentBrand) {
       skippedCount += 1;

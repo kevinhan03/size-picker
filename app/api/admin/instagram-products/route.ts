@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
   try {
     await refreshBrandRulesCache();
-    const normalizedBrand = normalizeBrandName(brand, { url: url ?? "" });
+    const normalizedBrand = normalizeBrandName(brand);
     const slug = await generateProductSlug(normalizedBrand, name);
     const createdAt = new Date().toISOString();
     const row = await insertProductRow({

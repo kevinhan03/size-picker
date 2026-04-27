@@ -12,7 +12,7 @@ import {
   isOptionalMetadataCategory,
   normalizeComparableProductUrl,
 } from "../../utils/product";
-import { normalizeSizeTable } from "../../utils/sizeTable";
+import { normalizeSizeTable, normalizeSizeTableForCategory } from "../../utils/sizeTable";
 import {
   extractSizeTableFromImage,
   fetchProductMetadataFromImage,
@@ -91,12 +91,22 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
       const dataUrl = await readFileAsDataUrl(file);
       const optimizedDataUrl = await resizeImage(dataUrl, 1600);
       const optimizedBase64 = optimizedDataUrl.split(",")[1] || "";
-      state.setFormData((prev) => ({ ...prev, sizeChartImage: optimizedDataUrl, extractedTable: null }));
+      state.setFormData((prev) => ({
+        ...prev,
+        sizeChartImage: optimizedDataUrl,
+        extractedTable: null,
+        rawExtractedTable: null,
+      }));
       state.setTableEditingCell(null);
       state.setIsAnalyzingTable(true);
       try {
         const tableData = await extractSizeTableFromImage(optimizedBase64, "image/png");
-        state.setFormData((prev) => ({ ...prev, extractedTable: normalizeSizeTable(tableData) }));
+        const rawTable = normalizeSizeTable(tableData);
+        state.setFormData((prev) => ({
+          ...prev,
+          rawExtractedTable: rawTable,
+          extractedTable: normalizeSizeTableForCategory(prev.category, rawTable),
+        }));
       } catch (extractError: unknown) {
         const message = extractError instanceof Error ? extractError.message : "Size table extraction failed.";
         alert(`${message} (check /api/size-table server logs)`);

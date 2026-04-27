@@ -22,8 +22,8 @@ export function BrandUnifyPanel({ existingRules, onAddRules, onBrandsLoaded }: B
   const mappedBrands = useMemo(() => {
     const set = new Set<string>();
     for (const rule of existingRules) {
-      set.add(rule.matchValue.toLowerCase());
-      set.add(rule.canonicalBrand.toLowerCase());
+      set.add(rule.matchValue.replace(/\s+/g, ' ').trim());
+      set.add(rule.canonicalBrand.replace(/\s+/g, ' ').trim());
     }
     return set;
   }, [existingRules]);
@@ -53,13 +53,13 @@ export function BrandUnifyPanel({ existingRules, onAddRules, onBrandsLoaded }: B
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return brands.filter((b) => {
-      if (mappedBrands.has(b.brand.toLowerCase())) return false;
+      if (mappedBrands.has(b.brand.replace(/\s+/g, ' ').trim())) return false;
       if (q && !b.brand.toLowerCase().includes(q)) return false;
       return true;
     });
   }, [brands, search, mappedBrands]);
 
-  const hiddenCount = brands.filter((b) => mappedBrands.has(b.brand.toLowerCase())).length;
+  const hiddenCount = brands.filter((b) => mappedBrands.has(b.brand.replace(/\s+/g, ' ').trim())).length;
 
   const toggleSelect = (brand: string) => {
     setSelected((prev) => {

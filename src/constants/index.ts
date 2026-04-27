@@ -137,4 +137,5 @@ export const EMPTY_FORM_DATA: AddProductFormData = {
   productImage: null,
   sizeChartImage: null,
   extractedTable: null,
+  rawExtractedTable: null,
 };

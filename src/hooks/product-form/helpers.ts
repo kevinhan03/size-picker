@@ -11,6 +11,7 @@ import {
   normalizeCategoryOption,
   uniqHttpUrls,
 } from '../../utils/product';
+import { normalizeSizeTableForCategory } from '../../utils/sizeTable';
 
 export const getAutofillCandidateUrls = (extracted: ProductMetadataPayload): string[] =>
   uniqHttpUrls([
@@ -46,7 +47,12 @@ export const applyCaptureAutofill = (
   category: normalizeCategoryOption(extracted.category || '') || prev.category,
   url: extracted.url || prev.url,
   productImage: selectedCandidateUrl || croppedProductImage || prev.productImage,
-  extractedTable: normalizedTable || prev.extractedTable,
+  rawExtractedTable: normalizedTable || prev.rawExtractedTable,
+  extractedTable:
+    normalizeSizeTableForCategory(
+      normalizeCategoryOption(extracted.category || '') || prev.category,
+      normalizedTable
+    ) || prev.extractedTable,
   sizeChartImage: optimizedDataUrl,
 });
 
@@ -103,7 +109,8 @@ export const buildSubmitProductPayload = (
   name: formData.name,
   category: formData.category || null,
   url: formData.url || null,
-  sizeTable: formData.extractedTable,
+  sizeTable: formData.rawExtractedTable || formData.extractedTable,
+  normalizedSizeTable: formData.extractedTable,
   productPhoto: productPhotoFile,
   productImageUrl: autofilledProductImageUrl,
 });

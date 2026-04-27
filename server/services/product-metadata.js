@@ -123,7 +123,7 @@ export function createProductMetadataService({
       extractBrandFromDescription(description),
       storeBrandFromTitle,
     ]);
-    const brand = normalizeBrandName(rawBrand, { url: pageUrl });
+    const brand = normalizeBrandName(rawBrand);
 
     const schemaName = normalizeCellText(schemaProduct?.name || "");
     const fallbackTitle = response.pickFirstNonEmpty([ogTitle, title]);

@@ -7,8 +7,17 @@ import {
   isPrimaryColumnHeader,
   resolveImageUrl,
 } from "../../../server/utils/product-detail";
+import {
+  getDisplaySizeTable,
+  normalizeMeasurementValueForDisplay,
+} from "../../../server/utils/size-table.js";
+import type { SizeTable } from "../../../src/types";
 
 export const revalidate = 3600;
+
+function displayTableCell(value: unknown): string {
+  return normalizeMeasurementValueForDisplay(value) || "-";
+}
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -25,8 +34,11 @@ export default async function ProductPage({ params }: Props) {
   if (!product) notFound();
 
   const imageUrl = resolveImageUrl(product.imagePath || product.image || "");
-  const headers = product.sizeTable?.headers ?? [];
-  const rows = product.sizeTable?.rows ?? [];
+  const displaySizeTable = getDisplaySizeTable(product) as SizeTable | null;
+  const headers = displaySizeTable?.headers ?? [];
+  const rows = displaySizeTable?.rows ?? [];
+  const extraHeaders = displaySizeTable?.extra?.headers ?? [];
+  const extraRows = displaySizeTable?.extra?.rows ?? [];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -85,6 +97,7 @@ export default async function ProductPage({ params }: Props) {
             <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-gray-400">사이즈표</h2>
             {headers.length > 0 ? (
               <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.04]">
+                <div className="px-4 pt-2 text-right text-xs font-semibold text-gray-500">{"단위: cm"}</div>
                 <table className="min-w-full text-center text-sm">
                   <thead>
                     <tr>
@@ -107,7 +120,7 @@ export default async function ProductPage({ params }: Props) {
                             key={cellIndex}
                             className={`whitespace-nowrap px-4 py-3 text-gray-200 ${cellIndex === 0 ? "border-r border-white/[0.06] text-xs font-bold" : ""}`}
                           >
-                            {cell}
+                            {displayTableCell(cell)}
                           </td>
                         ))}
                       </tr>
@@ -118,6 +131,44 @@ export default async function ProductPage({ params }: Props) {
             ) : (
               <p className="text-sm text-gray-500">사이즈표 데이터가 없습니다.</p>
             )}
+            {extraHeaders.length > 0 ? (
+              <details className="mt-3 overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
+                <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-widest text-gray-300 transition hover:bg-white/[0.05] hover:text-white">
+                  추가 실측 정보
+                </summary>
+                <div className="overflow-x-auto border-t border-white/[0.06]">
+                  <table className="min-w-full text-center text-sm">
+                    <thead>
+                      <tr>
+                        {extraHeaders.map((header, index) => (
+                          <th
+                            key={index}
+                            className={`whitespace-nowrap bg-white/[0.04] px-4 py-3 text-xs font-bold uppercase ${index === 0 ? "border-r border-white/[0.06]" : ""}`}
+                            style={{ color: isPrimaryColumnHeader(header) ? "#E5E7EB" : "#00FF00" }}
+                          >
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {extraRows.map((row: string[], rowIndex: number) => (
+                        <tr key={rowIndex} className="border-t border-white/[0.04]">
+                          {row.map((cell: string, cellIndex: number) => (
+                            <td
+                              key={cellIndex}
+                              className={`whitespace-nowrap px-4 py-3 text-gray-200 ${cellIndex === 0 ? "border-r border-white/[0.06] text-xs font-bold" : ""}`}
+                            >
+                              {displayTableCell(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            ) : null}
           </section>
         </div>
       </div>

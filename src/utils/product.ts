@@ -1,4 +1,4 @@
-import type { Product, ProductRow } from '../types';
+import type { Product, ProductRow, SizeTable } from '../types';
 import { STORAGE_BUCKET, CATEGORY_OPTIONS, CATEGORY_OPTION_BY_LOWER } from '../constants';
 import { supabase, assertSupabaseClient } from '../lib/supabase';
 import { normalizeSizeTable } from './sizeTable';
@@ -93,6 +93,15 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
     imagePath,
     slug: String(row.slug ?? '').trim() || null,
     sizeTable: normalizeSizeTable(row.size_table),
+    normalizedSizeTable: (() => {
+      const raw = row.normalized_size_table;
+      if (!raw) return null;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!parsed || !Array.isArray(parsed.headers) || !Array.isArray(parsed.rows)) return null;
+        return parsed as SizeTable;
+      } catch { return null; }
+    })(),
     createdAt: row.created_at ? String(row.created_at) : undefined,
     isInstagram: Boolean(row.is_instagram),
     instagramOrder: typeof row.instagram_order === 'number' ? row.instagram_order : null,

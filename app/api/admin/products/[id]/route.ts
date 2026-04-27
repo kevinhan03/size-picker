@@ -9,7 +9,7 @@ import { SUPABASE_PRODUCTS_TABLE } from "../../../../../server/config/env.js";
 import { assertSupabaseConfig, supabase } from "../../../../../server/lib/supabase.js";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../../../server/utils/brand-rules.js";
 import { removeOldProductImageIfUnused, toProductWriteErrorResponse } from "../../../../../server/utils/product.js";
-import { parseSizeTable } from "../../../../../server/utils/size-table.js";
+import { normalizeSizeTableForCategory, parseSizeTable } from "../../../../../server/utils/size-table.js";
 
 const adminUnauthorized = () =>
   NextResponse.json(
@@ -35,12 +35,9 @@ export async function PATCH(
 
   const body = await request.json();
   const payload: Record<string, unknown> = {};
-  const requestedUrl = "url" in body ? String(body?.url || "").trim() : "";
   await refreshBrandRulesCache();
   if ("brand" in body) {
-    payload.brand = normalizeBrandName(String(body?.brand || "").trim(), {
-      url: requestedUrl,
-    });
+    payload.brand = normalizeBrandName(String(body?.brand || "").trim());
   }
   if ("name" in body) payload.name = String(body?.name || "").trim();
   if ("category" in body) {
@@ -55,7 +52,13 @@ export async function PATCH(
     const imagePath = String(body?.imagePath || "").trim();
     payload.image_path = imagePath || null;
   }
-  if ("sizeTable" in body) payload.size_table = parseSizeTable(body?.sizeTable ?? null);
+  const nextCategory = "category" in body ? String(body?.category || "").trim() : "";
+  if ("sizeTable" in body) {
+    const sizeTable = parseSizeTable(body?.sizeTable ?? null);
+    payload.size_table = sizeTable;
+    const categoryForNormalization = nextCategory || String(body?.currentCategory || "").trim();
+    payload.normalized_size_table = normalizeSizeTableForCategory(categoryForNormalization, sizeTable);
+  }
   if ("isInstagram" in body) {
     payload.is_instagram = Boolean(body.isInstagram);
     if (!payload.is_instagram) payload.instagram_order = null;
@@ -117,7 +120,7 @@ export async function PATCH(
       .from(SUPABASE_PRODUCTS_TABLE)
       .update(payload)
       .eq("id", productId)
-      .select("id,brand,name,category,url,size_table,created_at,image_path,is_instagram,instagram_order")
+      .select("id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,is_instagram,instagram_order")
       .maybeSingle();
 
     if (error) throw error;

@@ -1,6 +1,10 @@
 export interface SizeTable {
   headers: string[];
   rows: string[][];
+  extra?: {
+    headers: string[];
+    rows: string[][];
+  } | null;
 }
 
 export interface Product {
@@ -14,6 +18,7 @@ export interface Product {
   imagePath?: string | null;
   slug?: string | null;
   sizeTable: SizeTable | null;
+  normalizedSizeTable?: SizeTable | null;
   createdAt?: string;
   isInstagram?: boolean;
   instagramOrder?: number | null;
@@ -40,6 +45,7 @@ export interface ProductRow {
   category?: string | null;
   url?: string | null;
   size_table?: unknown;
+  normalized_size_table?: unknown;
   created_at?: string | null;
   image_path?: string | null;
   slug?: string | null;
@@ -53,6 +59,7 @@ export interface SubmitProductForm {
   category?: string | null;
   url?: string | null;
   sizeTable?: SizeTable | null;
+  normalizedSizeTable?: SizeTable | null;
   productPhoto?: File | null;
   productImageUrl?: string | null;
 }
@@ -65,6 +72,7 @@ export interface AddProductFormData {
   productImage: string | null;
   sizeChartImage: string | null;
   extractedTable: SizeTable | null;
+  rawExtractedTable: SizeTable | null;
 }
 
 export interface ProductMetadataImagePayload {
@@ -101,7 +109,7 @@ export interface AdminEditForm {
 }
 
 export interface BrandRule {
-  matchType: 'domain' | 'url' | 'brand' | 'brand_contains';
+  matchType: 'brand';
   matchValue: string;
   canonicalBrand: string;
 }

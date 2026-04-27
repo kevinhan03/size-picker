@@ -56,6 +56,9 @@ const TOTAL_LENGTH_ALIAS_KEYS = [
 
 export const normalizeCellText = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 
+export const normalizeMeasurementValueForDisplay = (value) =>
+  normalizeCellText(value).replace(/(-?\d+(?:\.\d+)?)\s*(?:cm\b|㎝|센치|센티미터)/gi, "$1");
+
 const normalizeAliasKey = (value) =>
   normalizeCellText(value)
     .toLowerCase()
@@ -69,6 +72,7 @@ const isTotalLengthAliasKey = (aliasKey) =>
 
 const inferMeasurementLabelFromAliasKey = (aliasKey) => {
   if (!aliasKey) return "";
+  if (aliasKey.includes("outseam") || aliasKey.includes("\uBC14\uC9C0\uCD1D\uC7A5") || aliasKey.includes("\uCD1D\uAE38\uC774")) return TOTAL_LENGTH_LABEL;
   if (aliasKey.includes("shoulder") || aliasKey.includes("\uC5B4\uAE68")) return "\uC5B4\uAE68";
   if (aliasKey.includes("chest") || aliasKey.includes("bust") || aliasKey.includes("bodywidth") || aliasKey.includes("pit") || aliasKey.includes("\uAC00\uC2B4") || aliasKey.includes("\uD488")) {
     return "\uAC00\uC2B4";
@@ -77,8 +81,9 @@ const inferMeasurementLabelFromAliasKey = (aliasKey) => {
   if (aliasKey.includes("waist") || aliasKey.includes("\uD5C8\uB9AC")) return "\uD5C8\uB9AC";
   if (aliasKey.includes("hip") || aliasKey.includes("\uC5C9\uB369\uC774") || aliasKey.includes("\uD799")) return "\uC5C9\uB369\uC774";
   if (aliasKey.includes("thigh") || aliasKey.includes("\uD5C8\uBC85\uC9C0")) return "\uD5C8\uBC85\uC9C0";
-  if (aliasKey.includes("rise") || aliasKey.includes("\uBC11\uC704")) return "\uBC11\uC704";
-  if (aliasKey.includes("hem") || aliasKey.includes("\uBC11\uB2E8")) return "\uBC11\uB2E8";
+  if (aliasKey.includes("\uB4B7\uBC11\uC704")) return "\uB4B7\uBC11\uC704";
+  if (aliasKey.includes("rise") || aliasKey.includes("\uBC11\uC704") || aliasKey.includes("\uC55E\uBC11\uC704")) return "\uBC11\uC704";
+  if (aliasKey.includes("hem") || aliasKey.includes("cuff") || aliasKey.includes("\uBC11\uB2E8")) return "\uBC11\uB2E8";
   if (aliasKey.includes("inseam") || aliasKey.includes("\uC778\uC2EC")) return "\uC778\uC2EC";
   return "";
 };
@@ -88,11 +93,98 @@ export const normalizeMeasurementLabel = (value) => {
   if (!raw) return "";
   const sanitizedRaw = raw.replace(/^(?:cm|mm|in(?:ch)?)\s+/i, "");
   const aliasKey = normalizeAliasKey(sanitizedRaw);
-  if (MEASUREMENT_ALIAS_MAP[aliasKey]) return MEASUREMENT_ALIAS_MAP[aliasKey];
+  const mapped = MEASUREMENT_ALIAS_MAP[aliasKey];
+  if (mapped) return mapped === "\uD799" ? "\uC5C9\uB369\uC774" : mapped;
   const inferred = inferMeasurementLabelFromAliasKey(aliasKey);
   if (inferred) return inferred;
   if (isTotalLengthAliasKey(aliasKey)) return TOTAL_LENGTH_LABEL;
   return sanitizedRaw;
+};
+
+const BOTTOM_STANDARD_HEADERS = [
+  SIZE_COLUMN_LABEL,
+  TOTAL_LENGTH_LABEL,
+  "\uD5C8\uB9AC\uB2E8\uBA74",
+  "\uC5C9\uB369\uC774\uB2E8\uBA74",
+  "\uD5C8\uBC85\uC9C0\uB2E8\uBA74",
+  "\uBC11\uC704",
+  "\uBC11\uB2E8\uB2E8\uBA74",
+];
+
+const normalizeDisplayCategory = (category) => normalizeCellText(category).toLowerCase();
+
+const isBottomCategory = (category) => normalizeDisplayCategory(category) === "bottom";
+
+export const isBottomDisplaySizeTable = (table) => {
+  const normalized = parseSizeTable(table);
+  if (!normalized?.headers?.length) return false;
+  return (
+    normalized.headers.length === BOTTOM_STANDARD_HEADERS.length &&
+    BOTTOM_STANDARD_HEADERS.every((header, index) => normalized.headers[index] === header)
+  );
+};
+
+export const normalizeBottomSizeTableForDisplay = (table) => {
+  const normalized = parseSizeTable(table);
+  if (!normalized?.rows?.length) return normalized;
+
+  const sourceHeaders = normalized.headers.map((header, index) => {
+    if (index === 0) return SIZE_COLUMN_LABEL;
+    const normalizedHeader = normalizeCellText(header);
+    if (normalizedHeader === "\uD5C8\uB9AC" || normalizedHeader === "\uD5C8\uB9AC\uB2E8\uBA74") return "\uD5C8\uB9AC\uB2E8\uBA74";
+    if (normalizedHeader === "\uD799" || normalizedHeader === "\uC5C9\uB369\uC774" || normalizedHeader === "\uC5C9\uB369\uC774\uB2E8\uBA74") return "\uC5C9\uB369\uC774\uB2E8\uBA74";
+    if (normalizedHeader === "\uD5C8\uBC85\uC9C0" || normalizedHeader === "\uD5C8\uBC85\uC9C0\uB2E8\uBA74") return "\uD5C8\uBC85\uC9C0\uB2E8\uBA74";
+    if (normalizedHeader === "\uBC11\uB2E8" || normalizedHeader === "\uBC11\uB2E8\uB2E8\uBA74") return "\uBC11\uB2E8\uB2E8\uBA74";
+    return normalizedHeader;
+  });
+  const firstIndexByLabel = new Map();
+  sourceHeaders.forEach((header, index) => {
+    if (index === 0 || !header || firstIndexByLabel.has(header)) return;
+    if (!BOTTOM_STANDARD_HEADERS.includes(header)) return;
+    firstIndexByLabel.set(header, index);
+  });
+  const extraIndexes = sourceHeaders
+    .map((header, index) => ({ header, index }))
+    .filter(({ header, index }) => index > 0 && header && !BOTTOM_STANDARD_HEADERS.includes(header));
+
+  const displayTable = {
+    headers: [...BOTTOM_STANDARD_HEADERS],
+    rows: normalized.rows.map((row) => [
+      normalizeMeasurementValueForDisplay(row?.[0]),
+      ...BOTTOM_STANDARD_HEADERS.slice(1).map((header) => {
+        const sourceIndex = firstIndexByLabel.get(header);
+        return sourceIndex === undefined ? "" : normalizeMeasurementValueForDisplay(row?.[sourceIndex]);
+      }),
+    ]),
+  };
+
+  if (extraIndexes.length > 0) {
+    displayTable.extra = {
+      headers: [SIZE_COLUMN_LABEL, ...extraIndexes.map(({ header }) => header)],
+      rows: normalized.rows.map((row) => [
+        normalizeMeasurementValueForDisplay(row?.[0]),
+        ...extraIndexes.map(({ index }) => normalizeMeasurementValueForDisplay(row?.[index])),
+      ]),
+    };
+  }
+
+  return displayTable;
+};
+
+export const normalizeSizeTableForCategory = (category, table) => {
+  if (!isBottomCategory(category)) return parseSizeTable(table);
+  return normalizeBottomSizeTableForDisplay(table);
+};
+
+export const getDisplaySizeTable = (product) => {
+  if (!product || typeof product !== "object") return null;
+  if (isBottomCategory(product.category)) {
+    if (isBottomDisplaySizeTable(product.normalizedSizeTable ?? null)) {
+      return parseSizeTable(product.normalizedSizeTable ?? null);
+    }
+    return normalizeSizeTableForCategory(product.category, product.sizeTable || product.normalizedSizeTable || null);
+  }
+  return parseSizeTable(product.normalizedSizeTable ?? null) || normalizeSizeTableForCategory(product.category, product.sizeTable);
 };
 
 export const normalizeSizeLabel = (value) => normalizeCellText(value).toUpperCase();
@@ -174,6 +266,11 @@ const standardizeSizeTable = (value) => {
   const rows = Array.isArray(parsed.rows)
     ? parsed.rows.map((row) => (Array.isArray(row) ? row.map((cell) => normalizeCellText(cell)) : []))
     : [];
+  const extra = parsed.extra && typeof parsed.extra === "object" ? parsed.extra : null;
+  const extraHeaders = Array.isArray(extra?.headers) ? extra.headers.map((header) => normalizeCellText(header)) : [];
+  const extraRows = Array.isArray(extra?.rows)
+    ? extra.rows.map((row) => (Array.isArray(row) ? row.map((cell) => normalizeCellText(cell)) : []))
+    : [];
   if (headers.length === 0 && rows.length === 0) return null;
 
   const width = Math.max(headers.length, ...rows.map((row) => row.length), 0);
@@ -191,10 +288,18 @@ const standardizeSizeTable = (value) => {
     return nextRow;
   });
 
-  return {
+  const result = {
     headers: normalizedHeaders,
     rows: normalizedRows,
   };
+  if (extraHeaders.length > 0 && extraRows.length > 0) {
+    const extraWidth = Math.max(extraHeaders.length, ...extraRows.map((row) => row.length), 0);
+    result.extra = {
+      headers: [...extraHeaders, ...new Array(Math.max(extraWidth - extraHeaders.length, 0)).fill("")].slice(0, extraWidth),
+      rows: makeRectangularRows(extraRows, extraWidth),
+    };
+  }
+  return result;
 };
 
 export const parseSizeTable = (value) => {
@@ -212,6 +317,7 @@ export const parseSizeTable = (value) => {
   if (!parsed || typeof parsed !== "object") return null;
   return standardizeSizeTable(parsed);
 };
+
 
 export {
   ITEM_LABEL,
