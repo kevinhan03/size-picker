@@ -1,475 +1,337 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import Link from "next/link";
+import { Check, ChevronRight, Copy, LogOut, Plus, Ruler, Shirt, Star, Trash2, UserRound } from "lucide-react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, EffectCoverflow, Pagination } from "swiper/modules";
+import type { Product } from "../../types";
 
 interface MyPageViewProps {
   username: string;
   digboxHref: string;
+  closetCount: number;
+  digboxCount: number;
+  closetPreviewProducts: Product[];
+  digboxPreviewProducts: Product[];
+  sizeLabels: string[];
   onLogout: () => void;
   onDeleteAccount: () => void;
   isDeletingAccount: boolean;
   deleteAccountError: string | null;
 }
 
-const cardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.055)",
-  backdropFilter: "blur(22px)",
-  WebkitBackdropFilter: "blur(22px)",
-  border: "1px solid rgba(255,255,255,0.09)",
-  borderRadius: "1.25rem",
-  overflow: "hidden",
-  boxShadow:
-    "0 1px 0 rgba(255,255,255,0.08) inset, 0 12px 40px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35)",
-};
+const cardClass =
+  "rounded-2xl border border-white/10 bg-white/[0.055] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_18px_46px_rgba(0,0,0,0.42)] backdrop-blur-2xl";
 
-const insetBoxStyle: React.CSSProperties = {
-  background: "rgba(0,0,0,0.28)",
-  borderRadius: "10px",
-  border: "1px solid rgba(255,255,255,0.04)",
-  boxShadow:
-    "inset -4px -4px 9px rgba(255,255,255,0.07), inset 4px 4px 11px rgba(0,0,0,0.65)",
-};
+function ProductCardCarousel({ products, icon }: { products: Product[]; icon: React.ReactNode }) {
+  const preview = products.slice(0, 6);
+  const swiperRef = React.useRef<{ isEnd: boolean; slideNext: () => void; slideTo: (index: number) => void } | null>(null);
 
-const neuBtnStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  borderRadius: "10px",
-  cursor: "pointer",
-  boxShadow:
-    "-4px -4px 10px rgba(255,255,255,0.08), 4px 4px 10px rgba(0,0,0,0.55)",
-  transition: "box-shadow 0.15s ease",
-};
+  const slideToNext = () => {
+    const swiper = swiperRef.current;
+    if (!swiper || preview.length <= 1) return;
+    if (swiper.isEnd) {
+      swiper.slideTo(0);
+      return;
+    }
+    swiper.slideNext();
+  };
 
-function StackedCards() {
+  if (preview.length === 0) {
+    return (
+      <div className="flex h-full min-h-[156px] items-center justify-center rounded-2xl border border-white/[0.06] bg-black/20 text-gray-600">
+        {icon}
+      </div>
+    );
+  }
+
   return (
-    <div style={{ position: "relative", width: "58.5%", aspectRatio: "1 / 1" }}>
-      <div
-        style={{
-          ...insetBoxStyle,
-          position: "absolute",
-          left: 0,
-          right: 0,
-          top: 0,
-          height: "94%",
-          borderRadius: "13px",
-          zIndex: 1,
-          background: "rgba(180,180,180,0.18)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
-          border: "1px solid rgba(255,255,255,0.18)",
+    <div className="mypage-card-carousel min-h-[190px] w-full min-w-0 max-w-full overflow-hidden px-2 pt-3">
+      <style>{`
+        .mypage-card-carousel .swiper {
+          width: 100%;
+          max-width: 100%;
+          padding: 6px 0;
+          overflow: hidden;
+        }
+        .mypage-card-carousel .swiper-slide {
+          width: min(27vw, 132px);
+          height: min(33.75vw, 165px);
+          background: transparent;
+          border: 0;
+          box-shadow: none;
+          outline: none;
+        }
+        @media (min-width: 640px) {
+          .mypage-card-carousel .swiper-slide {
+            width: min(220px, calc(100% - 32px));
+            height: 275px;
+          }
+        }
+        .mypage-card-carousel .mypage-carousel-card {
+          transform: scale(0.9);
+          opacity: 1;
+          transition: transform 220ms ease, opacity 220ms ease;
+        }
+        .mypage-card-carousel .swiper-slide-active .mypage-carousel-card {
+          transform: scale(1);
+          opacity: 1;
+        }
+        .mypage-card-carousel .swiper-slide button {
+          appearance: none;
+          background: transparent;
+          border: 0;
+          box-shadow: none;
+          outline: none;
+        }
+        @media (min-width: 640px) {
+          .mypage-card-carousel .mypage-carousel-card {
+            transform: scale(0.82);
+            opacity: 1;
+          }
+        }
+        .mypage-card-carousel .swiper-pagination {
+          display: none;
+        }
+        .mypage-card-carousel .swiper-3d .swiper-slide-shadow-left,
+        .mypage-card-carousel .swiper-3d .swiper-slide-shadow-right {
+          background-image: none;
+          background: none;
+        }
+      `}</style>
+      <Swiper
+        spaceBetween={10}
+        autoplay={false}
+        effect="coverflow"
+        grabCursor
+        centeredSlides
+        loop={false}
+        slidesPerView="auto"
+        coverflowEffect={{
+          rotate: 0,
+          stretch: 0,
+          depth: 120,
+          modifier: 2.25,
         }}
-      />
-      <div
-        style={{
-          ...insetBoxStyle,
-          position: "absolute",
-          left: 0,
-          right: "3%",
-          top: "6%",
-          height: "94%",
-          borderRadius: "13px",
-          zIndex: 2,
-          background: "rgba(90,90,90,0.35)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
-          border: "1px solid rgba(255,255,255,0.1)",
+        pagination={{ clickable: true }}
+        modules={[EffectCoverflow, Autoplay, Pagination]}
+        onSwiper={(swiper) => {
+          swiperRef.current = swiper;
         }}
-      />
-      <div
-        style={{
-          ...insetBoxStyle,
-          position: "absolute",
-          left: 0,
-          right: "6%",
-          top: "12%",
-          bottom: 0,
-          borderRadius: "13px",
-          zIndex: 3,
-          background: "rgba(20,20,20,0.72)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
-          border: "1px solid rgba(255,255,255,0.07)",
-        }}
-      />
+      >
+        {preview.map((product) => (
+          <SwiperSlide key={product.id}>
+            <button
+              type="button"
+              onClick={slideToNext}
+              className="mypage-carousel-card flex h-full w-full appearance-none flex-col border-0 bg-transparent p-0 text-left shadow-none outline-none"
+              aria-label="다음 상품 보기"
+            >
+              <div className="relative h-full w-full overflow-hidden rounded-2xl bg-white">
+                <img
+                  src={product.thumbnailImage || product.image}
+                  alt={product.name}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+            </button>
+          </SwiperSlide>
+        ))}
+      </Swiper>
     </div>
+  );
+}
+
+function CollectionCard({
+  title,
+  count,
+  href,
+  products,
+  icon,
+  tone,
+}: {
+  title: string;
+  count: number;
+  href: string;
+  products: Product[];
+  icon: React.ReactNode;
+  tone: "yellow" | "orange";
+}) {
+  const color = tone === "yellow" ? "text-yellow-300" : "text-orange-400";
+  const bg = tone === "yellow" ? "bg-yellow-400/12" : "bg-orange-500/12";
+
+  return (
+    <section className={`${cardClass} flex min-h-[284px] min-w-0 flex-col p-4 sm:min-h-[292px] sm:p-5`}>
+      <div className="mb-3 sm:mb-4">
+        <Link href={href} className="group flex min-w-0 items-start justify-between gap-2 no-underline">
+        <div className="min-w-0">
+          <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2">
+            <span className={`flex h-7 w-7 items-center justify-center rounded-lg sm:h-8 sm:w-8 sm:rounded-xl ${bg} ${color}`}>
+              {icon}
+            </span>
+            <h2 className="min-w-0 truncate text-sm font-black text-white transition group-hover:text-orange-300 sm:text-lg">{title}</h2>
+          </div>
+          <p className="text-xs font-semibold text-gray-500 sm:text-sm">
+            {count > 0 ? `${count} items saved` : "No items yet"}
+          </p>
+        </div>
+        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-gray-500 transition group-hover:text-orange-300 sm:h-5 sm:w-5" />
+        </Link>
+      </div>
+      <div className="min-h-0 min-w-0 flex-1">
+        <ProductCardCarousel products={products} icon={icon} />
+      </div>
+      {count === 0 && (
+        <Link
+          href={title === "DIGBOX" ? "/" : "/"}
+          className="mt-3 inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-black transition hover:bg-orange-400 sm:mt-4 sm:h-10 sm:gap-2 sm:px-4 sm:text-sm"
+        >
+          <Plus className="h-4 w-4" />
+          상품 둘러보기
+        </Link>
+      )}
+    </section>
   );
 }
 
 export function MyPageView({
   username,
   digboxHref,
+  closetCount,
+  digboxCount,
+  closetPreviewProducts,
+  digboxPreviewProducts,
+  sizeLabels,
   onLogout,
   onDeleteAccount,
   isDeletingAccount,
   deleteAccountError,
 }: MyPageViewProps) {
+  const [copied, setCopied] = useState(false);
+
+  const copyPublicLink = async () => {
+    const url = `${window.location.origin}${digboxHref}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const el = document.createElement("input");
+      el.value = url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
   return (
-    <div
-      className="grid grid-cols-2 [grid-auto-rows:10px] md:[grid-auto-rows:12px] gap-[15px] md:gap-[18px] max-w-[560px] md:max-w-[860px] mx-auto w-full"
-    >
-      {/* ① 프로필 — col1, span 7 */}
-      <div
-        style={{
-          ...cardStyle,
-          gridColumn: "1",
-          gridRow: "1 / span 7",
-          padding: "1.1rem",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-          {/* 아바타 */}
-          <div
-            style={{
-              width: "38px",
-              height: "38px",
-              borderRadius: "50%",
-              background: "rgba(249,115,22,0.08)",
-              border: "1px solid rgba(249,115,22,0.18)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow:
-                "-3px -3px 8px rgba(249,115,22,0.15), 3px 3px 8px rgba(0,0,0,0.7), 0 0 16px rgba(249,115,22,0.1)",
-            }}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="rgba(251,146,60,0.85)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-          </div>
-          {/* 3-dot 메뉴 */}
-          <button
-            style={{
-              ...neuBtnStyle,
-              padding: "5px 6px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "3px",
-              alignItems: "center",
-            }}
-          >
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                style={{
-                  width: "3px",
-                  height: "3px",
-                  borderRadius: "50%",
-                  background: "rgba(107,114,128,0.7)",
-                }}
-              />
-            ))}
-          </button>
-        </div>
-        <div>
-          <p style={{ color: "#e5e7eb", fontWeight: 700, fontSize: "0.8rem", margin: "0 0 2px" }}>
-            {username}
-          </p>
-          <p style={{ color: "#9ca3af", fontSize: "0.65rem", margin: 0 }}>내 계정</p>
-        </div>
-      </div>
-
-      {/* ② My Closet — col1, span 11 */}
-      <div
-        style={{
-          ...cardStyle,
-          gridColumn: "1",
-          gridRow: "8 / span 11",
-          padding: "1.1rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="rgba(251,146,60,0.8)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z" />
-          </svg>
-          <span style={{ color: "#e5e7eb", fontWeight: 700, fontSize: "0.78rem" }}>My Closet</span>
-        </div>
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "4px",
-          }}
-        >
-          <StackedCards />
-        </div>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Link
-            href="/closet"
-            style={{
-              color: "#9ca3af",
-              fontSize: "0.62rem",
-              textDecoration: "none",
-              transition: "color 0.15s",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#fb923c"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#9ca3af"; }}
-          >
-            전체 보기 →
-          </Link>
-        </div>
-      </div>
-
-      {/* ③ 내가 즐겨 입는 사이즈 — col1, span 13 */}
-      <div
-        style={{
-          ...cardStyle,
-          gridColumn: "1",
-          gridRow: "19 / span 13",
-          padding: "1.1rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "14px",
-        }}
-      >
-        <p style={{ color: "#e5e7eb", fontWeight: 700, fontSize: "0.78rem", margin: 0 }}>
-          내가 즐겨
-          <br />
-          입는 사이즈
-        </p>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-            flex: 1,
-            justifyContent: "center",
-          }}
-        >
-          {["상의", "하의", "신발", "아우터", "악세서리"].map((label) => (
-            <div
-              key={label}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
-            >
-              <span style={{ color: "#9ca3af", fontSize: "0.68rem" }}>{label}</span>
-              <div style={{ ...insetBoxStyle, width: "48px", height: "22px", borderRadius: "7px" }} />
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:gap-4">
+      <section className={`${cardClass} p-4 sm:p-6`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-400 shadow-[0_0_24px_rgba(249,115,22,0.12)] sm:h-14 sm:w-14">
+              <UserRound className="h-6 w-6 sm:h-7 sm:w-7" />
             </div>
-          ))}
-        </div>
-        <button
-          style={{
-            ...neuBtnStyle,
-            width: "100%",
-            padding: "8px 0",
-            fontSize: "0.68rem",
-            fontWeight: 600,
-            color: "#9ca3af",
-          }}
-        >
-          수정
-        </button>
-      </div>
-
-      {/* ④ 위시리스트 — col2, span 12 */}
-      <div
-        style={{
-          ...cardStyle,
-          gridColumn: "2",
-          gridRow: "1 / span 12",
-          padding: "1.1rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="rgba(250,204,21,0.8)"
-              stroke="rgba(250,204,21,0.8)"
-              strokeWidth="1.5"
-            >
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-            <span style={{ color: "#e5e7eb", fontWeight: 700, fontSize: "0.875rem" }}>DIGBOX</span>
+            <div className="min-w-0">
+              <p className="truncate text-xl font-black tracking-tight text-white sm:text-2xl">{username}</p>
+              <p className="mt-1 text-sm font-semibold text-gray-500">DIGBOX account</p>
+            </div>
           </div>
-          <Link
-            href={digboxHref}
-            aria-label="DIGBOX 보기"
-            style={{ color: "#374151", lineHeight: 0, transition: "color 0.15s" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#fb923c"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#374151"; }}
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+          <div className="flex flex-col gap-2 sm:w-[340px]">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">DIGBOX</p>
+                <p className="mt-1 text-xl font-black text-yellow-300">{digboxCount}</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Closet</p>
+                <p className="mt-1 text-xl font-black text-orange-400">{closetCount}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void copyPublicLink()}
+              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] text-sm font-bold text-gray-300 transition hover:border-yellow-400/40 hover:text-yellow-300"
             >
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </Link>
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? "링크 복사됨" : "공개 DIGBOX 링크 복사"}
+            </button>
+          </div>
         </div>
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "4px",
-          }}
-        >
-          <StackedCards />
-        </div>
+      </section>
+
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <CollectionCard
+          title="DIGBOX"
+          count={digboxCount}
+          href={digboxHref}
+          products={digboxPreviewProducts}
+          icon={<Star className="h-4 w-4" />}
+          tone="yellow"
+        />
+        <CollectionCard
+          title="Closet"
+          count={closetCount}
+          href="/closet"
+          products={closetPreviewProducts}
+          icon={<Shirt className="h-4 w-4" />}
+          tone="orange"
+        />
       </div>
 
-      {/* ⑤ 최근 본 상품 — col2, span 10 */}
-      <div
-        style={{
-          ...cardStyle,
-          gridColumn: "2",
-          gridRow: "13 / span 10",
-          padding: "1.1rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#4b5563"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          <span style={{ color: "#e5e7eb", fontWeight: 700, fontSize: "0.78rem" }}>최근 본 상품</span>
-        </div>
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "4px",
-          }}
-        >
-          <StackedCards />
-        </div>
-      </div>
+      <div className="grid min-w-0 gap-3 sm:gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className={`${cardClass} p-5`}>
+          <div className="mb-4 flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.06] text-gray-300">
+              <Ruler className="h-4 w-4" />
+            </span>
+            <h2 className="text-lg font-black text-white">My Sizes</h2>
+          </div>
+          {sizeLabels.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {sizeLabels.slice(0, 8).map((label) => (
+                <span key={label} className="rounded-xl border border-orange-500/25 bg-orange-500/10 px-3 py-2 text-sm font-black text-orange-300">
+                  {label}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-4 text-sm font-semibold text-gray-500">
+              옷장에 사이즈를 선택해 상품을 담으면 내 사이즈 요약이 자동으로 쌓입니다.
+              <Link href="/closet" className="mt-3 inline-flex text-sm font-black text-orange-400 transition hover:text-orange-300">
+                옷장으로 이동
+              </Link>
+            </div>
+          )}
+        </section>
 
-      {/* ⑥ 내 명적 — col2, span 9 */}
-      <div
-        style={{
-          ...cardStyle,
-          gridColumn: "2",
-          gridRow: "23 / span 9",
-          padding: "1.1rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <p style={{ color: "#e5e7eb", fontWeight: 700, fontSize: "0.78rem", margin: 0 }}>내 명적</p>
-          <span style={{ color: "#9ca3af", fontSize: "0.6rem" }}>최근 이김한 옷</span>
-        </div>
-        <div style={{ display: "flex", gap: "8px", flex: 1 }}>
-          <div style={{ ...insetBoxStyle, flex: 1, borderRadius: "12px" }} />
-          <div style={{ ...insetBoxStyle, flex: 1, borderRadius: "12px" }} />
-        </div>
-      </div>
-
-      {/* ⑦ 계정 — 풀 너비, span 3 */}
-      <div
-        style={{
-          ...cardStyle,
-          gridColumn: "1 / span 2",
-          gridRow: "32 / span 3",
-          padding: "0 1.1rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "10px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#374151"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-          <span style={{ color: "#9ca3af", fontSize: "0.72rem", fontWeight: 600 }}>계정</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto" }}>
-          <button
-            onClick={onLogout}
-            style={{
-              ...neuBtnStyle,
-              padding: "5px 18px",
-              fontSize: "0.7rem",
-              fontWeight: 700,
-              whiteSpace: "nowrap",
-              color: "rgba(248,113,113,0.9)",
-            }}
-          >
-            로그아웃
-          </button>
-          <button
-            onClick={onDeleteAccount}
-            disabled={isDeletingAccount}
-            style={{
-              ...neuBtnStyle,
-              padding: "5px 13px",
-              fontSize: "0.65rem",
-              whiteSpace: "nowrap",
-              color: "rgba(156,163,175,0.9)",
-              cursor: isDeletingAccount ? "not-allowed" : "pointer",
-            }}
-          >
-            {isDeletingAccount ? "삭제 중..." : "계정 삭제"}
-          </button>
-        </div>
-        {deleteAccountError && (
-          <p style={{ fontSize: "0.7rem", color: "rgba(248,113,113,0.9)", margin: 0 }}>
-            {deleteAccountError}
-          </p>
-        )}
+        <section className={`${cardClass} p-5`}>
+          <h2 className="mb-4 text-lg font-black text-white">Account</h2>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={onLogout}
+              className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.045] px-4 text-sm font-bold text-gray-300 transition hover:border-orange-500/40 hover:text-orange-400"
+            >
+              <span>Logout</span>
+              <LogOut className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onDeleteAccount}
+              disabled={isDeletingAccount}
+              className="flex h-11 items-center justify-between rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 text-sm font-bold text-red-300 transition hover:border-red-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span>{isDeletingAccount ? "Deleting..." : "Delete account"}</span>
+              <Trash2 className="h-4 w-4" />
+            </button>
+            {deleteAccountError && (
+              <p className="text-sm font-semibold text-red-300">{deleteAccountError}</p>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

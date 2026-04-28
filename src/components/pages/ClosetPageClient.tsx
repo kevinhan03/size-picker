@@ -202,6 +202,7 @@ function ListRow({
       onMouseLeave={() => setHover(false)}
       style={{
         ...cardStyle,
+        position: "relative",
         display: "flex",
         alignItems: "center",
         gap: 14,
@@ -231,6 +232,9 @@ function ListRow({
           justifyContent: "center",
           cursor: "pointer",
           transition: "all 0.15s",
+          position: "relative",
+          zIndex: 20,
+          pointerEvents: "none",
         }}
       >
         {selected && (
@@ -324,6 +328,21 @@ function ListRow({
           <path d="M9,6V4h6v2" />
         </svg>
       </button>
+      )}
+      {isEditing && (
+        <button
+          type="button"
+          aria-label="상품 선택"
+          onClick={onSelect}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 10,
+            border: "none",
+            background: selected ? "rgba(249,115,22,0.08)" : "transparent",
+            cursor: "pointer",
+          }}
+        />
       )}
     </div>
   );

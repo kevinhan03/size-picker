@@ -178,7 +178,7 @@ export function SearchPageClient() {
 
       {/* Editor's Pick shelf */}
       {featuredProducts.length > 0 && (
-        <section className="mb-8 w-full max-w-2xl sm:max-w-[556px]">
+        <section className="mb-8 w-full max-w-2xl sm:max-w-[980px] lg:max-w-[1120px]">
           {/* 헤더 */}
           <div className="mb-3 flex items-end justify-between sm:mb-4">
             <div className="min-w-0">
@@ -206,7 +206,7 @@ export function SearchPageClient() {
                     type="button"
                     onClick={() => handleFeaturedScroll("left")}
                     aria-label="Previous featured products"
-                    className="absolute top-[34%] z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-[0_2px_8px_rgba(0,0,0,0.32)] ring-1 ring-black/10 transition hover:bg-white sm:-left-2 sm:flex"
+                    className="absolute top-[calc((100%-104px)/2)] z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-[0_2px_8px_rgba(0,0,0,0.32)] ring-1 ring-black/10 transition hover:bg-white sm:-left-2 sm:flex"
                   >
                     <ChevronLeft className="h-3 w-3" />
                   </button>
@@ -216,7 +216,7 @@ export function SearchPageClient() {
                     type="button"
                     onClick={() => handleFeaturedScroll("right")}
                     aria-label="Next featured products"
-                    className="absolute top-[34%] z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-[0_2px_8px_rgba(0,0,0,0.32)] ring-1 ring-black/10 transition hover:bg-white sm:-right-2 sm:flex"
+                    className="absolute top-[calc((100%-104px)/2)] z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-[0_2px_8px_rgba(0,0,0,0.32)] ring-1 ring-black/10 transition hover:bg-white sm:-right-2 sm:flex"
                   >
                     <ChevronRight className="h-3 w-3" />
                   </button>
@@ -228,7 +228,7 @@ export function SearchPageClient() {
             onScroll={updateFeaturedScrollState}
             className="overflow-x-auto py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            <div className="flex snap-x snap-mandatory items-stretch gap-2.5 sm:gap-5">
+            <div className="flex snap-x snap-mandatory items-stretch gap-2.5 sm:gap-5 lg:gap-6">
               {featuredProducts.map((product, index) => {
                 const imgSrc = product.imagePath
                   ? toPublicUrl(product.imagePath, { width: 480, height: 480, quality: 75 })
@@ -238,7 +238,7 @@ export function SearchPageClient() {
                     key={product.id}
                     data-featured-card="true"
                     onClick={() => handleProductClick(product)}
-                    className="group flex w-[calc((100%-0.625rem)/2)] flex-none snap-start flex-col text-left shadow-none transition-colors duration-200 sm:w-[172px]"
+                    className="group flex w-[calc((100%-0.625rem)/2)] flex-none snap-start flex-col text-left shadow-none transition-colors duration-200 sm:w-[calc((100%-2.5rem)/3)] lg:w-[calc((100%-3rem)/3)]"
                   >
                     <div className="relative aspect-[4/5] w-full flex-none overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] transition-colors duration-200 group-hover:border-white/[0.18] group-hover:bg-white/[0.05]">
                       {imgSrc && (
@@ -251,15 +251,15 @@ export function SearchPageClient() {
                         />
                       )}
                     </div>
-                    <div className="flex h-[82px] flex-col px-1.5 pt-2 text-left">
+                    <div className="flex h-[82px] flex-col px-1.5 pt-2 text-left sm:h-[104px] sm:px-2.5 sm:pt-3">
                       <div className="min-h-0">
                         <p className="mb-0.5 truncate text-[10px] font-black uppercase tracking-wide text-orange-400 transition-colors duration-200 group-hover:text-orange-300 sm:text-[11px]">{product.brand}</p>
-                        <p title={product.name} className="line-clamp-2 break-words text-[12px] font-bold leading-[1.2] text-white [overflow-wrap:anywhere] sm:text-[13px]">
+                        <p title={product.name} className="line-clamp-2 break-words text-[12px] font-bold leading-[1.2] text-white [overflow-wrap:anywhere] sm:text-[15px] lg:text-[16px]">
                           {product.name}
                         </p>
                       </div>
                       {product.category && (
-                        <p className="mx-auto mt-auto max-w-full truncate px-1 pb-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                        <p className="mx-auto mt-auto max-w-full truncate px-1 pb-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-gray-500 sm:text-[11px]">
                           {product.category}
                         </p>
                       )}

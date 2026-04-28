@@ -128,6 +128,7 @@ function ListRow({
       onMouseLeave={() => setHover(false)}
       style={{
         ...cardStyle,
+        position: "relative",
         display: "flex",
         alignItems: "center",
         gap: 14,
@@ -156,6 +157,9 @@ function ListRow({
             justifyContent: "center",
             cursor: "pointer",
             transition: "all 0.15s",
+            position: "relative",
+            zIndex: 20,
+            pointerEvents: "none",
           }}
         >
           {selected && (
@@ -188,6 +192,21 @@ function ListRow({
       <span style={{ fontSize: 10, color: "#6b7280", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "3px 8px", flexShrink: 0 }}>
         {product.category}
       </span>
+      {isEditing && (
+        <button
+          type="button"
+          aria-label="상품 선택"
+          onClick={onSelect}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 10,
+            border: "none",
+            background: selected ? "rgba(249,115,22,0.08)" : "transparent",
+            cursor: "pointer",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -337,25 +356,26 @@ export function DigboxPageClient({
             <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>
               {username}&apos;s DIGBOX
             </h1>
-            {/* 점 3개 메뉴 버튼 */}
-            <div style={{ position: "relative" }}>
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                style={{
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                  gap: 3, width: 32, height: 32, borderRadius: 9,
-                  background: menuOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  cursor: "pointer", transition: "all 0.15s",
-                }}
-                aria-label="메뉴"
-              >
-                {[0, 1, 2].map((i) => (
-                  <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(156,163,175,0.8)" }} />
-                ))}
-              </button>
-            </div>
+            {isOwner && (
+              <div style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    gap: 3, width: 32, height: 32, borderRadius: 9,
+                    background: menuOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    cursor: "pointer", transition: "all 0.15s",
+                  }}
+                  aria-label="메뉴"
+                >
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(156,163,175,0.8)" }} />
+                  ))}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* bio 표시 */}
@@ -426,7 +446,7 @@ export function DigboxPageClient({
         )}
 
         {/* 바텀시트 메뉴 */}
-        {menuOpen && (
+        {isOwner && menuOpen && (
           <>
             <div
               onClick={() => setMenuOpen(false)}
