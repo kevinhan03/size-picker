@@ -70,6 +70,9 @@ interface ProductDetailModalProps {
   smoothScrollTo: (container: HTMLElement, targetY: number, duration?: number) => void;
   onToggleCloset?: (selection?: ClosetSizeSelection | null) => void;
   isInCloset?: boolean;
+  onToggleDigbox?: () => void;
+  isInDigbox?: boolean;
+  hideDigboxButton?: boolean;
   hideCollectionActions?: boolean;
 }
 
@@ -260,6 +263,9 @@ export function ProductDetailModal({
   smoothScrollTo,
   onToggleCloset,
   isInCloset,
+  onToggleDigbox,
+  isInDigbox,
+  hideDigboxButton,
   hideCollectionActions,
 }: ProductDetailModalProps) {
   useBodyScrollLock(modalRef);
@@ -315,22 +321,29 @@ export function ProductDetailModal({
         <div className="flex-shrink-0 z-10 flex items-center justify-between px-6 py-4 text-white bg-[#1c1c1f] border-b border-white/10 rounded-t-3xl">
           <h3 className="text-lg font-bold text-white sm:text-xl">상품 상세</h3>
           <div className="flex items-center gap-3">
-            {!hideCollectionActions && (
+            {!hideCollectionActions && !hideDigboxButton && (
             <div className="group relative">
               <button
                 type="button"
-                aria-label="위시리스트에 추가"
-                className="flex items-center gap-1.5 rounded-lg border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] px-3 py-1.5 text-xs font-bold text-[#00FF00] shadow-[0_4px_16px_rgba(0,255,0,0.15)] backdrop-blur-xl transition hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))]"
+                aria-label="DIGBOX에 추가"
+                onClick={onToggleDigbox}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold backdrop-blur-xl transition ${
+                  isInDigbox
+                    ? "border-yellow-400/80 bg-[linear-gradient(180deg,rgba(250,204,21,0.45),rgba(250,204,21,0.28))] text-yellow-300 shadow-[0_4px_16px_rgba(250,204,21,0.35)]"
+                    : "border-yellow-400/40 bg-[linear-gradient(180deg,rgba(250,204,21,0.22),rgba(250,204,21,0.09))] text-yellow-400 shadow-[0_4px_16px_rgba(250,204,21,0.15)] hover:border-yellow-400/70 hover:bg-[linear-gradient(180deg,rgba(250,204,21,0.32),rgba(250,204,21,0.15))] hover:text-yellow-300"
+                }`}
               >
-                <HangerIcon className="h-4 w-4" />
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill={isInDigbox ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
               </button>
               <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                위시리스트
+                DIGBOX
               </div>
             </div>
             )}
-            {!hideCollectionActions && (
+            {!hideCollectionActions && !(hideDigboxButton && isInCloset) && (
             <div className="group relative">
               <button
                 type="button"
@@ -406,6 +419,13 @@ export function ProductDetailModal({
               {savedClosetProduct ? (
                 <div className="mt-3">
                   <SavedSizeSummary product={savedClosetProduct} />
+                </div>
+              ) : hideDigboxButton && isInCloset ? (
+                <div className="mt-3">
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-300">
+                    <ClosetIcon className="h-3.5 w-3.5" />
+                    이미 옷장에 있어요
+                  </span>
                 </div>
               ) : null}
             </div>

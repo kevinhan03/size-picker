@@ -7,6 +7,7 @@ import { GridView } from "../GridView";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { useClosetContext } from "../../contexts/ClosetContext";
+import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useSearchContext } from "../../contexts/SearchContext";
 import { useGridState } from "../../hooks/useGridState";
@@ -33,6 +34,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
 export function SearchPageClient() {
   const { products, featuredProducts, productsError, retryProductsLoad } = useProductsContext();
   const { toggleCloset, isInCloset } = useClosetContext();
+  const { toggleDigbox, isInDigbox } = useDigboxContext();
   const {
     clearQuery,
     handleKeyDown,
@@ -430,6 +432,8 @@ export function SearchPageClient() {
           smoothScrollTo={smoothScrollTo}
           onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
           isInCloset={isInCloset(normalizedProduct.id)}
+          onToggleDigbox={() => toggleDigbox(normalizedProduct.id)}
+          isInDigbox={isInDigbox(normalizedProduct.id)}
         />
       )}
 

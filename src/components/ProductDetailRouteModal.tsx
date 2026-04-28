@@ -5,6 +5,7 @@ import type { SyntheticEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProductDetailModal } from "./ProductDetailModal";
 import { useClosetContext } from "../contexts/ClosetContext";
+import { useDigboxContext } from "../contexts/DigboxContext";
 import { useProductsContext } from "../contexts/ProductsContext";
 import type { Product, SizeRecommendation } from "../types";
 import { getProductPageUrl, toPublicUrl } from "../utils/product";
@@ -16,11 +17,14 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
   const searchParams = useSearchParams();
   const { products } = useProductsContext();
   const { closetProducts, toggleCloset, isInCloset } = useClosetContext();
+  const { toggleDigbox, isInDigbox } = useDigboxContext();
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const recommendationsRef = useRef<HTMLDivElement>(null);
-  const hideCollectionActions = searchParams.get("source") === "closet";
+  const source = searchParams.get("source");
+  const hideCollectionActions = source === "closet";
+  const hideDigboxButton = source === "digbox";
 
   const recommendations = useMemo<SizeRecommendation[]>(() => {
     if (activeRowIndex === null) return [];
@@ -38,10 +42,10 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
     };
   }, [product]);
 
-  const closetProduct = useMemo(
-    () => closetProducts.find((item) => item.id === normalizedProduct.id) || null,
-    [closetProducts, normalizedProduct.id]
-  );
+  const closetProduct = useMemo(() => {
+    if (source === "digbox") return null;
+    return closetProducts.find((item) => item.id === normalizedProduct.id) || null;
+  }, [source, closetProducts, normalizedProduct.id]);
 
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.onerror = null;
@@ -69,6 +73,9 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
         smoothScrollTo={smoothScrollTo}
         onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
         isInCloset={isInCloset(normalizedProduct.id)}
+        onToggleDigbox={() => toggleDigbox(normalizedProduct.id)}
+        isInDigbox={isInDigbox(normalizedProduct.id)}
+        hideDigboxButton={hideDigboxButton}
         hideCollectionActions={hideCollectionActions}
       />
 

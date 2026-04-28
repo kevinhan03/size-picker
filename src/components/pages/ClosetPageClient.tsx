@@ -81,9 +81,55 @@ function GridCard({
           </div>
         </div>
         <div className="flex flex-1 flex-col bg-black/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
-          <div className="mb-1 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+          <div className="mb-1 flex items-center gap-2">
+            <span className="truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</span>
+            {product.closetSelectedSizeLabel && (
+              <span className="flex-shrink-0 rounded-md border border-orange-500/40 bg-orange-500/12 px-1.5 py-0.5 text-[10px] font-black text-orange-400">
+                {product.closetSelectedSizeLabel}
+              </span>
+            )}
+          </div>
           <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
-          <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
+          {product.closetSelectedSizeSnapshot?.headers?.length ? (
+            <div className="mt-auto">
+              <div
+                style={{
+                  overflowX: "auto",
+                  scrollbarWidth: "none",
+                  borderTop: "1px solid rgba(255,255,255,0.07)",
+                  paddingTop: 8,
+                  marginTop: 4,
+                }}
+              >
+                <div style={{ display: "flex", gap: 6, minWidth: "max-content" }}>
+                  {product.closetSelectedSizeSnapshot.headers.slice(1).map((header, i) => {
+                    const value = product.closetSelectedSizeSnapshot!.row[i + 1];
+                    if (!value) return null;
+                    return (
+                      <div
+                        key={header}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          background: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 8,
+                          padding: "4px 7px",
+                          minWidth: 40,
+                        }}
+                      >
+                        <span style={{ fontSize: 9, color: "#6b7280", fontWeight: 600, letterSpacing: "0.03em", whiteSpace: "nowrap" }}>{header}</span>
+                        <span style={{ fontSize: 12, color: "#e5e7eb", fontWeight: 700, marginTop: 2, whiteSpace: "nowrap" }}>{value}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
+          )}
         </div>
       </Link>
 
@@ -218,45 +264,41 @@ function ListRow({
       </Link>
       {/* Info */}
       <Link href={href} style={{ flex: 1, cursor: "pointer", minWidth: 0, textDecoration: "none" }}>
-        <p
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: "#F97316",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            marginBottom: 2,
-          }}
-        >
-          {product.brand}
-        </p>
-        <p
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#e5e7eb",
-            lineHeight: 1.3,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+          <p style={{ fontSize: 10, fontWeight: 700, color: "#F97316", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
+            {product.brand}
+          </p>
+          {product.closetSelectedSizeLabel && (
+            <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "#fb923c", background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.3)", borderRadius: 5, padding: "1px 5px" }}>
+              {product.closetSelectedSizeLabel}
+            </span>
+          )}
+        </div>
+        <p style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>
           {product.name}
         </p>
+        {product.closetSelectedSizeSnapshot?.headers?.length ? (
+          <div style={{ overflowX: "auto", scrollbarWidth: "none", marginTop: 6 }}>
+            <div style={{ display: "flex", gap: 4, minWidth: "max-content" }}>
+              {product.closetSelectedSizeSnapshot.headers.slice(1).map((header, i) => {
+                const value = product.closetSelectedSizeSnapshot!.row[i + 1];
+                if (!value) return null;
+                return (
+                  <div key={header} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "3px 6px", minWidth: 36 }}>
+                    <span style={{ fontSize: 8, color: "#6b7280", fontWeight: 600, whiteSpace: "nowrap" }}>{header}</span>
+                    <span style={{ fontSize: 11, color: "#e5e7eb", fontWeight: 700, marginTop: 1, whiteSpace: "nowrap" }}>{value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </Link>
-      <span
-        style={{
-          fontSize: 10,
-          color: "#6b7280",
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 4,
-          padding: "3px 8px",
-          flexShrink: 0,
-        }}
-      >
-        {product.category}
-      </span>
+      {!product.closetSelectedSizeSnapshot?.headers?.length && (
+        <span style={{ fontSize: 10, color: "#6b7280", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "3px 8px", flexShrink: 0 }}>
+          {product.category}
+        </span>
+      )}
       {/* Delete */}
       {showInlineDelete && (
       <button
@@ -467,7 +509,8 @@ export function ClosetPageClient() {
         alignItems: "center",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 860 }}>
+      <div style={{ width: "100%", maxWidth: 1280 }}>
+        <div style={{ maxWidth: 860, margin: "0 auto" }}>
         {/* Title */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
           <div>
@@ -710,6 +753,8 @@ export function ClosetPageClient() {
           </div>
         </div>
 
+        </div>{/* end 860 wrapper */}
+
         {/* Empty state */}
         {filtered.length === 0 && (
           <div
@@ -759,10 +804,7 @@ export function ClosetPageClient() {
         {viewMode === "grid" && filtered.length > 0 && (
           <div
             className="closet-product-grid"
-            style={{
-              display: "grid",
-              gap: 14,
-            }}
+            style={{ display: "grid" }}
           >
             {filtered.map((p) => (
               <GridCard

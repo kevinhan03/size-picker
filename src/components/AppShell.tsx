@@ -11,6 +11,7 @@ import { NeedsUsernameModal } from "./NeedsUsernameModal";
 import { SearchResultOverlay } from "./SearchResultOverlay";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useClosetContext } from "../contexts/ClosetContext";
+import { useDigboxContext } from "../contexts/DigboxContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
 
 function ClosetIcon({ className = "" }: { className?: string }) {
@@ -128,6 +129,109 @@ function ClosetToast() {
   );
 }
 
+function DigboxToast() {
+  const { toast, clearToast } = useDigboxContext();
+  const auth = useAuthContext();
+  const [visibleToast, setVisibleToast] = useState(toast);
+  const [isVisible, setIsVisible] = useState(false);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasVisibleToastRef = useRef(false);
+
+  useEffect(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (showTimerRef.current) clearTimeout(showTimerRef.current);
+
+    if (toast) {
+      const replayDelay = hasVisibleToastRef.current ? 40 : 0;
+      setIsVisible(false);
+      showTimerRef.current = setTimeout(() => {
+        hasVisibleToastRef.current = true;
+        setVisibleToast(toast);
+        requestAnimationFrame(() => setIsVisible(true));
+      }, replayDelay);
+
+      return () => {
+        if (showTimerRef.current) clearTimeout(showTimerRef.current);
+      };
+    }
+
+    setIsVisible(false);
+    hideTimerRef.current = setTimeout(() => {
+      hasVisibleToastRef.current = false;
+      setVisibleToast(null);
+    }, 220);
+
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (showTimerRef.current) clearTimeout(showTimerRef.current);
+    };
+  }, [toast]);
+
+  if (!visibleToast) return null;
+
+  const isLoginRequired = visibleToast.message === "login_required";
+  const isAdded = visibleToast.message === "added";
+  const username = auth.dbUsername ?? "";
+  const digboxHref = username ? `/u/${encodeURIComponent(username)}` : "/mypage";
+
+  return (
+    <div className="pointer-events-none fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2">
+      <div
+        className={`pointer-events-auto flex items-center gap-3 rounded-2xl border border-yellow-400/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-all duration-200 ease-out ${
+          isVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+        }`}
+      >
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/15 text-yellow-400">
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill={isAdded ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-white">
+            {isLoginRequired ? "로그인이 필요해요" : isAdded ? "DIGBOX에 담았어요" : "이미 DIGBOX에 있어요"}
+          </p>
+          <p className="truncate text-xs text-gray-400">
+            {isLoginRequired
+              ? "DIGBOX 기능은 로그인 후 사용할 수 있어요"
+              : isAdded
+              ? "내 DIGBOX에서 확인할 수 있어요"
+              : "이미 디깅한 상품이에요"}
+          </p>
+        </div>
+
+        {isLoginRequired ? (
+          <Link
+            href="/login"
+            onClick={clearToast}
+            className="flex-shrink-0 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-yellow-300"
+          >
+            로그인
+          </Link>
+        ) : isAdded ? (
+          <Link
+            href={digboxHref}
+            onClick={clearToast}
+            className="flex-shrink-0 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-yellow-300"
+          >
+            보기
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={clearToast}
+            aria-label="알림 닫기"
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-white/10 hover:text-white"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const auth = useAuthContext();
   const productForm = useProductFormContext();
@@ -141,6 +245,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SearchResultOverlay />
       <AddProductModal form={productForm} />
       {!isAdminPage && <ClosetToast />}
+      {!isAdminPage && <DigboxToast />}
       {auth.needsUsername && (
         <NeedsUsernameModal
           pendingUsername={auth.pendingUsername}

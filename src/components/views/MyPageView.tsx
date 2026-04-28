@@ -3,6 +3,7 @@ import Link from "next/link";
 
 interface MyPageViewProps {
   username: string;
+  digboxHref: string;
   onLogout: () => void;
   onDeleteAccount: () => void;
   isDeletingAccount: boolean;
@@ -95,6 +96,7 @@ function StackedCards() {
 
 export function MyPageView({
   username,
+  digboxHref,
   onLogout,
   onDeleteAccount,
   isDeletingAccount,
@@ -308,18 +310,26 @@ export function MyPageView({
             >
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
-            <span style={{ color: "#e5e7eb", fontWeight: 700, fontSize: "0.875rem" }}>위시리스트</span>
+            <span style={{ color: "#e5e7eb", fontWeight: 700, fontSize: "0.875rem" }}>DIGBOX</span>
           </div>
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#374151"
-            strokeWidth="2"
+          <Link
+            href={digboxHref}
+            aria-label="DIGBOX 보기"
+            style={{ color: "#374151", lineHeight: 0, transition: "color 0.15s" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#fb923c"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#374151"; }}
           >
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </Link>
         </div>
         <div
           style={{

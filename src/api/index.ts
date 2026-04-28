@@ -187,6 +187,41 @@ export const removeFromCloset = async (productId: string): Promise<void> => {
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || '옷장 제거 실패');
 };
 
+export const fetchDigboxItems = async (): Promise<Product[]> => {
+  const token = await getAccessToken();
+  if (!token) return [];
+  const response = await fetch('/api/digbox', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { products?: unknown[] }; error?: string }>(response, '/api/digbox');
+  if (!response.ok || !payload?.ok) return [];
+  const rows = Array.isArray(payload?.data?.products) ? payload.data!.products : [];
+  return rows.filter((p): p is Product => p !== null && typeof p === 'object');
+};
+
+export const addToDigbox = async (productId: string): Promise<void> => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('로그인이 필요합니다.');
+  const response = await fetch('/api/digbox', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId }),
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'DIGBOX 추가 실패');
+};
+
+export const removeFromDigbox = async (productId: string): Promise<void> => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('로그인이 필요합니다.');
+  const response = await fetch(`/api/digbox/${encodeURIComponent(productId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox/[productId]');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'DIGBOX 제거 실패');
+};
+
 export const deleteMyAccount = async (): Promise<void> => {
   assertSupabaseClient();
   const {
