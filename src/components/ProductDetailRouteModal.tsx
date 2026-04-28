@@ -24,7 +24,6 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
   const recommendationsRef = useRef<HTMLDivElement>(null);
   const source = searchParams.get("source");
   const hideCollectionActions = source === "closet";
-  const hideDigboxButton = source === "digbox";
 
   const recommendations = useMemo<SizeRecommendation[]>(() => {
     if (activeRowIndex === null) return [];
@@ -41,6 +40,8 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
       thumbnailImage,
     };
   }, [product]);
+
+  const hideDigboxButton = source === "digbox" && isInDigbox(normalizedProduct.id);
 
   const closetProduct = useMemo(() => {
     if (source === "digbox") return null;
