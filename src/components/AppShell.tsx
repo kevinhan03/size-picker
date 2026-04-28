@@ -171,21 +171,20 @@ function DigboxToast() {
     };
   }, [toast]);
 
-  if (!visibleToast) return null;
-
-  const isLoginRequired = visibleToast.message === "login_required";
-  const isAdded = visibleToast.message === "added";
-
   const handleViewDigbox = useCallback(() => {
     clearToast();
     const username = usernameRef.current;
     if (username) {
       router.push(`/u/${encodeURIComponent(username)}`);
-      router.refresh();
     } else {
       router.push("/mypage");
     }
   }, [clearToast, router]);
+
+  if (!visibleToast) return null;
+
+  const isLoginRequired = visibleToast.message === "login_required";
+  const isAdded = visibleToast.message === "added";
 
   return (
     <div className="pointer-events-none fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2">

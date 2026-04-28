@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import { GridView } from "../GridView";
 import { ProductDetailModal } from "../ProductDetailModal";
+import { useClosetContext } from "../../contexts/ClosetContext";
+import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useGridState } from "../../hooks/useGridState";
 import { getProductPageUrl, toPublicUrl } from "../../utils/product";
@@ -13,6 +15,8 @@ import type { Product, SizeRecommendation } from "../../types";
 
 export function GridPageClient() {
   const { products } = useProductsContext();
+  const { closetProducts, toggleCloset, isInCloset } = useClosetContext();
+  const { toggleDigbox, isInDigbox } = useDigboxContext();
   const grid = useGridState(products);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
@@ -88,6 +92,7 @@ export function GridPageClient() {
       {normalizedProduct && (
         <ProductDetailModal
           product={normalizedProduct}
+          closetProduct={closetProducts.find((item) => item.id === normalizedProduct.id) || null}
           activeRowIndex={activeRowIndex}
           onClose={handleClose}
           onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
@@ -98,6 +103,10 @@ export function GridPageClient() {
           modalRef={modalRef}
           recommendationsRef={recommendationsRef}
           smoothScrollTo={smoothScrollTo}
+          onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
+          isInCloset={isInCloset(normalizedProduct.id)}
+          onToggleDigbox={() => toggleDigbox(normalizedProduct.id)}
+          isInDigbox={isInDigbox(normalizedProduct.id)}
         />
       )}
 
