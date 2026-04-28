@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { AddProductModal } from "./AddProductModal";
 import { AppHeader } from "./AppHeader";
@@ -132,6 +132,9 @@ function ClosetToast() {
 function DigboxToast() {
   const { toast, clearToast } = useDigboxContext();
   const auth = useAuthContext();
+  const router = useRouter();
+  const usernameRef = useRef(auth.dbUsername);
+  usernameRef.current = auth.dbUsername;
   const [visibleToast, setVisibleToast] = useState(toast);
   const [isVisible, setIsVisible] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,8 +175,17 @@ function DigboxToast() {
 
   const isLoginRequired = visibleToast.message === "login_required";
   const isAdded = visibleToast.message === "added";
-  const username = auth.dbUsername ?? "";
-  const digboxHref = username ? `/u/${encodeURIComponent(username)}` : "/mypage";
+
+  const handleViewDigbox = useCallback(() => {
+    clearToast();
+    const username = usernameRef.current;
+    if (username) {
+      router.push(`/u/${encodeURIComponent(username)}`);
+      router.refresh();
+    } else {
+      router.push("/mypage");
+    }
+  }, [clearToast, router]);
 
   return (
     <div className="pointer-events-none fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2">
@@ -210,13 +222,13 @@ function DigboxToast() {
             로그인
           </Link>
         ) : isAdded ? (
-          <Link
-            href={digboxHref}
-            onClick={clearToast}
+          <button
+            type="button"
+            onClick={handleViewDigbox}
             className="flex-shrink-0 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-yellow-300"
           >
             보기
-          </Link>
+          </button>
         ) : (
           <button
             type="button"

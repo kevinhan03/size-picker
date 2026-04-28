@@ -235,6 +235,7 @@ export function DigboxPageClient({
   const digbox = useDigboxContext();
 
   const isOwner = Boolean(auth.dbUsername && auth.dbUsername === username);
+  const isLoading = auth.isAuthLoading || (isOwner && digbox.isLoading);
   const products = isOwner && !digbox.isLoading ? digbox.digboxProducts : initialProducts;
 
   const [catFilter, setCatFilter] = useState("");
@@ -644,7 +645,7 @@ export function DigboxPageClient({
         </div>{/* end 860 wrapper */}
 
         {/* Empty state */}
-        {filtered.length === 0 ? (
+        {isLoading ? null : filtered.length === 0 ? (
           <div style={{ ...cardStyle, padding: "60px 24px", textAlign: "center", marginTop: 20 }}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.5" style={{ margin: "0 auto 16px" }}>
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />

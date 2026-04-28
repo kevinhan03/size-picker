@@ -33,6 +33,8 @@
     ]
   },
   "enabledMcpjsonServers": [
-    "supabase"
-  ]
+    "supabase",
+    "size_picker_supabase"
+  ],
+  "enableAllProjectMcpServers": true
 }
