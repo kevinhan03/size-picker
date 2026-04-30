@@ -19,6 +19,7 @@ interface GridViewProps {
   setGridSearchQuery: (value: string) => void;
   onProductClick: (product: Product) => void;
   onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
+  isInteractionDisabled?: boolean;
 }
 
 export function GridView({
@@ -31,6 +32,7 @@ export function GridView({
   setGridSearchQuery,
   onProductClick,
   onImageError,
+  isInteractionDisabled = false,
 }: GridViewProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [colCount, setColCount] = useState(2);
@@ -63,7 +65,7 @@ export function GridView({
   });
 
   return (
-    <div className="w-full max-w-7xl">
+    <div className={`w-full max-w-7xl ${isInteractionDisabled ? "pointer-events-none" : ""}`}>
 
       {allProducts.length === 0 ? (
         <div className="py-20 text-center text-gray-500">등록된 상품이 없습니다.</div>
@@ -92,7 +94,11 @@ export function GridView({
                 <div
                   key={product.id}
                   onClick={() => onProductClick(product)}
-                  className="ui-product-card group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
+                  className={`ui-product-card relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition ${
+                    isInteractionDisabled
+                      ? "cursor-default"
+                      : "group cursor-pointer hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
+                  }`}
                 >
                   <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_32%,transparent_68%,rgba(255,255,255,0.1))]" />
                   <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(17,24,39,0.72),rgba(0,0,0,0.46))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:m-3 sm:h-48 sm:rounded-[22px]">
@@ -109,7 +115,14 @@ export function GridView({
                     </div>
                   </div>
                   <div className="flex flex-1 flex-col bg-black/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
-                    <div className="mb-1 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+                    <div className="mb-1 flex min-w-0 items-center gap-2">
+                      <div className="truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+                      {product.isInstagram && (
+                        <span className="flex-shrink-0 rounded-md border border-orange-500/35 bg-orange-500/[0.12] px-1.5 py-0.5 text-[9px] font-black leading-none text-orange-300">
+                          PICK
+                        </span>
+                      )}
+                    </div>
                     <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
                     <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
                   </div>

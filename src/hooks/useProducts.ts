@@ -16,7 +16,7 @@ const sortFeaturedProducts = (items: Product[]) =>
   });
 
 const splitProducts = (all: Product[]) => ({
-  normal: all.filter((p) => !p.isInstagram),
+  normal: all,
   featured: sortFeaturedProducts(all.filter((p) => p.isInstagram)),
 });
 

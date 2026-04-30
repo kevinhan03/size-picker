@@ -43,8 +43,8 @@ export function MyPageClient() {
         digboxHref={`/u/${encodeURIComponent(username)}`}
         closetCount={closetProducts.length}
         digboxCount={digboxProducts.length}
-        closetPreviewProducts={closetProducts.slice(0, 6)}
-        digboxPreviewProducts={digboxProducts.slice(0, 6)}
+        closetPreviewProducts={closetProducts.slice(0, 5)}
+        digboxPreviewProducts={digboxProducts.slice(0, 5)}
         sizeLabels={sizeLabels}
         onLogout={() => {
           void supabase?.auth.signOut();

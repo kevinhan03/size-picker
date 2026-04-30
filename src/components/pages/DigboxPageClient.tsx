@@ -1,24 +1,23 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
 import Link from "next/link";
-import { Trash2, X } from "lucide-react";
+import { Search, Trash2, X } from "lucide-react";
 import { useAuthContext } from "../../contexts/AuthContext";
+import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useProductsContext } from "../../contexts/ProductsContext";
 import { supabase } from "../../lib/supabase";
 import { ProgressiveImage } from "../ProgressiveImage";
-import { getProductPageUrl } from "../../utils/product";
-import type { Product } from "../../types";
+import { ProductDetailModal } from "../ProductDetailModal";
+import { getProductPageUrl, toPublicUrl } from "../../utils/product";
+import { computeSizeRecommendations } from "../../utils/sizeTable";
+import { smoothScrollTo } from "../../utils/scroll";
+import type { Product, SizeRecommendation } from "../../types";
 
 const CATEGORIES = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
-type SortBy = "recent" | "brand" | "category";
 type ViewMode = "grid" | "list";
-
-const SORT_OPTIONS: { id: SortBy; label: string }[] = [
-  { id: "recent", label: "Recent" },
-  { id: "brand", label: "Brand" },
-  { id: "category", label: "Category" },
-];
 
 const cardStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.055)",
@@ -39,22 +38,31 @@ function GridCard({
   selected,
   isEditing,
   onSelect,
+  onOpen,
 }: {
   product: Product;
   selected: boolean;
   isEditing: boolean;
   onSelect: () => void;
+  onOpen: () => void;
 }) {
   const [imgOk, setImgOk] = useState(true);
   const imageSrc = product.image || product.thumbnailImage || "";
 
   return (
-    <div className="ui-product-card group relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]">
+    <div
+      className={`ui-product-card relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition ${
+        isEditing ? "" : "group hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
+      }`}
+    >
       <Link
         href={getDigboxProductPageUrl(product)}
-        className={`relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[28px] text-inherit no-underline ${
-          isEditing && selected ? "ring-2 ring-orange-500/70" : ""
-        }`}
+        onClick={(event) => {
+          if (isEditing) return;
+          event.preventDefault();
+          onOpen();
+        }}
+        className="relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[28px] text-inherit no-underline"
       >
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_32%,transparent_68%,rgba(255,255,255,0.1))]" />
         <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(17,24,39,0.72),rgba(0,0,0,0.46))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:m-3 sm:h-48 sm:rounded-[22px]">
@@ -87,14 +95,17 @@ function GridCard({
           type="button"
           aria-label="상품 선택"
           onClick={onSelect}
-          className={`absolute inset-0 z-10 rounded-[28px] transition ${selected ? "bg-orange-500/8" : "bg-transparent"}`}
+          className="absolute inset-0 z-10 rounded-[28px] bg-transparent"
         />
       )}
 
       {isEditing && (
-        <div
-          className={`absolute left-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur transition ${
-            selected ? "border-orange-500 bg-orange-500" : "border-white/30 bg-black/50 hover:border-orange-500/70"
+        <button
+          type="button"
+          aria-label="?곹뭹 ?좏깮"
+          onClick={onSelect}
+          className={`absolute left-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-md border-2 p-0 shadow-none backdrop-blur transition ${
+            selected ? "border-orange-500 bg-orange-500" : "border-white/30 bg-black/50 hover:border-orange-500/70 hover:bg-orange-500/10"
           }`}
         >
           {selected && (
@@ -102,7 +113,7 @@ function GridCard({
               <polyline points="20,6 9,17 4,12" />
             </svg>
           )}
-        </div>
+        </button>
       )}
     </div>
   );
@@ -113,11 +124,13 @@ function ListRow({
   selected,
   isEditing,
   onSelect,
+  onOpen,
 }: {
   product: Product;
   selected: boolean;
   isEditing: boolean;
   onSelect: () => void;
+  onOpen: () => void;
 }) {
   const [hover, setHover] = useState(false);
   const [imgOk, setImgOk] = useState(true);
@@ -134,16 +147,16 @@ function ListRow({
         gap: 14,
         padding: "12px 16px",
         transition: "all 0.15s",
-        transform: hover ? "translateX(4px)" : "none",
-        borderColor: isEditing && selected
-          ? "rgba(249,115,22,0.6)"
-          : hover
+        transform: hover && !isEditing ? "translateX(4px)" : "none",
+        borderColor: hover && !isEditing
           ? "rgba(255,255,255,0.15)"
           : "rgba(255,255,255,0.09)",
       }}
     >
       {isEditing && (
-        <div
+        <button
+          type="button"
+          aria-label="?곹뭹 ?좏깮"
           onClick={onSelect}
           style={{
             flexShrink: 0,
@@ -152,6 +165,8 @@ function ListRow({
             borderRadius: 6,
             border: `2px solid ${selected ? "#F97316" : "rgba(255,255,255,0.2)"}`,
             background: selected ? "#F97316" : "transparent",
+            boxShadow: "none",
+            padding: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -159,7 +174,6 @@ function ListRow({
             transition: "all 0.15s",
             position: "relative",
             zIndex: 20,
-            pointerEvents: "none",
           }}
         >
           {selected && (
@@ -167,9 +181,17 @@ function ListRow({
               <polyline points="20,6 9,17 4,12" />
             </svg>
           )}
-        </div>
+        </button>
       )}
-      <Link href={getDigboxProductPageUrl(product)} style={{ textDecoration: "none", flexShrink: 0 }}>
+      <Link
+        href={getDigboxProductPageUrl(product)}
+        onClick={(event) => {
+          if (isEditing) return;
+          event.preventDefault();
+          onOpen();
+        }}
+        style={{ textDecoration: "none", flexShrink: 0 }}
+      >
         <div style={{ width: 52, height: 52, borderRadius: 10, background: "rgba(17,24,39,0.8)", overflow: "hidden", cursor: "pointer" }}>
           {imgOk && (
             <img
@@ -181,7 +203,15 @@ function ListRow({
           )}
         </div>
       </Link>
-      <Link href={getDigboxProductPageUrl(product)} style={{ flex: 1, cursor: "pointer", minWidth: 0, textDecoration: "none" }}>
+      <Link
+        href={getDigboxProductPageUrl(product)}
+        onClick={(event) => {
+          if (isEditing) return;
+          event.preventDefault();
+          onOpen();
+        }}
+        style={{ flex: 1, cursor: "pointer", minWidth: 0, textDecoration: "none" }}
+      >
         <p style={{ fontSize: 10, fontWeight: 700, color: "#F97316", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
           {product.brand}
         </p>
@@ -202,7 +232,7 @@ function ListRow({
             inset: 0,
             zIndex: 10,
             border: "none",
-            background: selected ? "rgba(249,115,22,0.08)" : "transparent",
+            background: "transparent",
             cursor: "pointer",
           }}
         />
@@ -252,17 +282,24 @@ export function DigboxPageClient({
 }) {
   const auth = useAuthContext();
   const digbox = useDigboxContext();
+  const { toggleCloset, isInCloset } = useClosetContext();
+  const { products: allProducts } = useProductsContext();
 
   const isOwner = Boolean(auth.dbUsername && auth.dbUsername === username);
   const isLoading = auth.isAuthLoading || (isOwner && digbox.isLoading);
   const products = isOwner && !digbox.isLoading ? digbox.digboxProducts : initialProducts;
 
   const [catFilter, setCatFilter] = useState("");
-  const [sortBy, setSortBy] = useState<SortBy>("recent");
+  const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
+  const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const recommendationsRef = useRef<HTMLDivElement>(null);
 
   const [bio, setBio] = useState(initialBio);
   const [isBioEditing, setIsBioEditing] = useState(false);
@@ -317,11 +354,45 @@ export function DigboxPageClient({
   }, [products]);
 
   const filtered = useMemo(() => {
-    let list = products.filter((p) => !catFilter || p.category === catFilter);
-    if (sortBy === "brand") list = [...list].sort((a, b) => a.brand.localeCompare(b.brand));
-    if (sortBy === "category") list = [...list].sort((a, b) => a.category.localeCompare(b.category));
-    return list;
-  }, [catFilter, products, sortBy]);
+    const keyword = searchQuery.trim().toLowerCase();
+    return products.filter((p) => {
+      if (catFilter && p.category !== catFilter) return false;
+      if (!keyword) return true;
+      return `${p.brand} ${p.name}`.toLowerCase().includes(keyword);
+    });
+  }, [catFilter, products, searchQuery]);
+
+  const normalizedProduct = useMemo<Product | null>(() => {
+    if (!selectedProduct) return null;
+    const imagePath = String(selectedProduct.imagePath || "").trim();
+    const image = imagePath ? toPublicUrl(imagePath) : selectedProduct.image;
+    const thumbnailImage = imagePath
+      ? toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 })
+      : selectedProduct.thumbnailImage;
+    return { ...selectedProduct, image, thumbnailImage };
+  }, [selectedProduct]);
+
+  const recommendations = useMemo<SizeRecommendation[]>(() => {
+    if (activeRowIndex === null || !selectedProduct) return [];
+    return computeSizeRecommendations(selectedProduct, activeRowIndex, allProducts);
+  }, [activeRowIndex, selectedProduct, allProducts]);
+
+  const handleProductOpen = (product: Product) => {
+    setSelectedProduct(product);
+    setActiveRowIndex(null);
+    setIsDetailImageZoomed(false);
+  };
+
+  const handleModalClose = () => {
+    setSelectedProduct(null);
+    setActiveRowIndex(null);
+    setIsDetailImageZoomed(false);
+  };
+
+  const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.onerror = null;
+    event.currentTarget.style.display = "none";
+  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -516,7 +587,7 @@ export function DigboxPageClient({
         )}
 
         {/* Category filter */}
-        <div className="mb-6 grid grid-cols-3 gap-2 sm:grid-cols-6">
+        <div className="mb-6 flex gap-2 overflow-x-auto overflow-y-visible py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 sm:overflow-visible sm:py-0">
           {([["", "All", products.length]] as [string, string, number][])
             .concat(CATEGORIES.map((cat) => [cat, cat, catCounts[cat] || 0]))
             .map(([value, label, count]) => {
@@ -526,7 +597,7 @@ export function DigboxPageClient({
                   key={label}
                   type="button"
                   onClick={() => setCatFilter(catFilter === value ? "" : value === "" ? "" : value)}
-                  className={`flex h-9 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-black transition-all sm:h-10 sm:text-xs ${
+                  className={`flex h-9 min-w-max flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-[11px] font-black transition-all sm:h-10 sm:min-w-0 sm:flex-auto sm:px-2 sm:text-xs ${
                     isActive
                       ? "border-orange-500/55 bg-orange-500/12 text-orange-400 shadow-[0_8px_20px_rgba(249,115,22,0.12)]"
                       : "border-white/10 bg-white/[0.045] text-gray-400 hover:border-white/18 hover:bg-white/[0.07] hover:text-gray-100"
@@ -546,34 +617,25 @@ export function DigboxPageClient({
           className="closet-toolbar"
           style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 10, flexWrap: "wrap" }}
         >
-          {/* Sort */}
-          <div
-            className="closet-sort-control"
-            style={{ display: "flex", height: 34, background: "rgba(255,255,255,0.05)", borderRadius: 11, border: "1px solid rgba(255,255,255,0.1)", overflow: "hidden" }}
-          >
-            {SORT_OPTIONS.map((option) => {
-              const active = sortBy === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setSortBy(option.id)}
-                  style={{
-                    padding: "0 11px",
-                    border: "none",
-                    borderRight: option.id === "category" ? "none" : "1px solid rgba(255,255,255,0.08)",
-                    background: active ? "rgba(249,115,22,0.18)" : "transparent",
-                    color: active ? "#F97316" : "#8b949e",
-                    fontSize: 11,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
+          <div className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 transition focus-within:border-orange-500/45 focus-within:bg-white/[0.055] sm:h-[34px]">
+            <Search className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search items"
+              className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-white outline-none placeholder:text-gray-600"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06] p-0 text-gray-500 shadow-none transition hover:bg-orange-500/[0.14] hover:text-orange-300"
+                aria-label="Clear DIGBOX search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Right controls */}
@@ -691,6 +753,7 @@ export function DigboxPageClient({
                 selected={selectedIds.has(p.id)}
                 isEditing={isEditing}
                 onSelect={() => toggleSelect(p.id)}
+                onOpen={() => handleProductOpen(p)}
               />
             ))}
           </div>
@@ -703,6 +766,7 @@ export function DigboxPageClient({
                 selected={selectedIds.has(p.id)}
                 isEditing={isEditing}
                 onSelect={() => toggleSelect(p.id)}
+                onOpen={() => handleProductOpen(p)}
               />
             ))}
           </div>
@@ -714,6 +778,44 @@ export function DigboxPageClient({
           onConfirm={removeSelected}
           onCancel={() => setConfirmBatchDelete(false)}
         />
+      )}
+
+      {normalizedProduct && (
+        <ProductDetailModal
+          product={normalizedProduct}
+          activeRowIndex={activeRowIndex}
+          onClose={handleModalClose}
+          onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
+          recommendations={recommendations}
+          onRecommendationClick={handleProductOpen}
+          onZoomImage={() => setIsDetailImageZoomed(true)}
+          onImageError={handleImageLoadError}
+          modalRef={modalRef}
+          recommendationsRef={recommendationsRef}
+          smoothScrollTo={smoothScrollTo}
+          onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
+          isInCloset={isInCloset(normalizedProduct.id)}
+          onToggleDigbox={() => digbox.toggleDigbox(normalizedProduct.id)}
+          isInDigbox={digbox.isInDigbox(normalizedProduct.id)}
+          hideDigboxButton={digbox.isInDigbox(normalizedProduct.id)}
+        />
+      )}
+
+      {isDetailImageZoomed && normalizedProduct && (
+        <div
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          onClick={() => setIsDetailImageZoomed(false)}
+          onTouchStart={() => setIsDetailImageZoomed(false)}
+        >
+          <div className="flex h-[63vh] w-full max-w-6xl items-center justify-center">
+            <img
+              src={normalizedProduct.image}
+              alt={normalizedProduct.name}
+              className="max-h-full max-w-full cursor-pointer object-contain"
+              style={{ borderRadius: "20px" }}
+            />
+          </div>
+        </div>
       )}
     </main>
   );

@@ -52,6 +52,7 @@ export function SearchPageClient() {
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const [instagramProfileUrl, setInstagramProfileUrl] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
+  const [showAllBrands, setShowAllBrands] = useState(false);
   const [featuredScrollState, setFeaturedScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
   const featuredScrollRef = useRef<HTMLDivElement>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
@@ -92,6 +93,24 @@ export function SearchPageClient() {
     return [...new Set(products.filter((p) => p.brand.toLowerCase().includes(q)).map((p) => p.brand))].sort();
   }, [query, products]);
 
+  const brandOptions = useMemo(() => {
+    const counts = products.reduce<Record<string, number>>((acc, product) => {
+      const brand = product.brand.trim();
+      if (brand) acc[brand] = (acc[brand] ?? 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(counts)
+      .map(([brand, count]) => ({ brand, count }))
+      .sort((a, b) => b.count - a.count || a.brand.localeCompare(b.brand));
+  }, [products]);
+
+  const brandCountByName = useMemo(
+    () => new Map(brandOptions.map((option) => [option.brand, option.count])),
+    [brandOptions]
+  );
+
+  const popularBrandOptions = useMemo(() => brandOptions.slice(0, 10), [brandOptions]);
+
   const gridRecommendations = useMemo<SizeRecommendation[]>(() => {
     if (activeRowIndex === null || !selectedProduct) return [];
     return computeSizeRecommendations(selectedProduct, activeRowIndex, products);
@@ -122,6 +141,14 @@ export function SearchPageClient() {
     window.addEventListener("resize", updateFeaturedScrollState);
     return () => window.removeEventListener("resize", updateFeaturedScrollState);
   }, [featuredProducts.length]);
+
+  const handleBrandSelect = (brand: string) => {
+    setBrandFilter(brand);
+    grid.setGridCategoryFilter("");
+    setShowAllBrands(false);
+    setShowSuggestions(false);
+    clearQuery();
+  };
 
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
@@ -283,15 +310,21 @@ export function SearchPageClient() {
           className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.06] pl-12 pr-10 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_32px_rgba(0,0,0,0.24)] outline-none transition placeholder:text-gray-600 focus:border-orange-500/60 focus:bg-white/[0.08] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_3px_rgba(249,115,22,0.12)] sm:h-[52px]"
           placeholder="브랜드명 또는 상품명을 검색해보세요"
           value={query}
-          onChange={(e) => handleQueryChange(e.target.value)}
+          onChange={(e) => {
+            setShowAllBrands(false);
+            handleQueryChange(e.target.value);
+          }}
           onKeyDown={handleKeyDown}
           onFocus={() => {
-            if (query) setShowSuggestions(true);
+            setShowSuggestions(true);
           }}
         />
         {query && (
           <button
-            onClick={clearQuery}
+            onClick={() => {
+              setShowAllBrands(false);
+              clearQuery();
+            }}
             className="absolute inset-y-0 right-0 flex w-11 items-center justify-center border-none bg-transparent p-0 text-gray-400 shadow-none outline-none transition hover:text-white"
           >
             <X className="h-4 w-4" />
@@ -299,8 +332,42 @@ export function SearchPageClient() {
         )}
 
         {showSuggestions && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-hidden overflow-y-auto rounded-2xl border border-white/10 bg-[#111114]/95 shadow-[0_20px_48px_rgba(0,0,0,0.42)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {brandSuggestions.length > 0 || suggestions.length > 0 ? (
+          <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-[420px] overflow-hidden overflow-y-auto rounded-2xl border border-white/10 bg-[#111114] shadow-[0_20px_48px_rgba(0,0,0,0.42)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {!query ? (
+              brandOptions.length > 0 ? (
+                <div className="p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">인기 브랜드</div>
+                    {brandOptions.length > popularBrandOptions.length && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllBrands((value) => !value)}
+                        className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-bold text-gray-300 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                      >
+                        {showAllBrands ? "접기" : "전체 브랜드 보기"}
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(showAllBrands ? brandOptions : popularBrandOptions).map(({ brand, count }) => (
+                      <button
+                        key={brand}
+                        type="button"
+                        onClick={() => handleBrandSelect(brand)}
+                        className="flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 text-left text-[11px] font-bold text-gray-300 transition hover:border-orange-500/40 hover:bg-orange-500/[0.1] hover:text-orange-300 sm:text-xs"
+                      >
+                        <span className="truncate">{brand}</span>
+                        <span className="text-[10px] text-gray-500">{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 text-center text-sm text-gray-500">
+                  등록된 브랜드가 없습니다.
+                </div>
+              )
+            ) : brandSuggestions.length > 0 || suggestions.length > 0 ? (
               <>
                 {brandSuggestions.length > 0 && (
                   <>
@@ -309,11 +376,14 @@ export function SearchPageClient() {
                       {brandSuggestions.map((brand) => (
                         <li
                           key={brand}
-                          onClick={() => { setBrandFilter(brand); grid.setGridCategoryFilter(""); setShowSuggestions(false); clearQuery(); }}
-                          className="flex cursor-pointer items-center gap-3 border-b border-white/10 px-5 py-3 transition-colors last:border-0 hover:bg-white/[0.06]"
+                          onClick={() => handleBrandSelect(brand)}
+                          className="flex cursor-pointer items-center justify-between gap-3 border-b border-white/10 px-5 py-3 transition-colors last:border-0 hover:bg-white/[0.06]"
                         >
-                          <Search className="h-4 w-4 flex-shrink-0 text-gray-500" />
-                          <span className="text-sm"><HighlightMatch text={brand} query={query} /></span>
+                          <span className="flex min-w-0 items-center gap-3">
+                            <Search className="h-4 w-4 flex-shrink-0 text-gray-500" />
+                            <span className="truncate text-sm"><HighlightMatch text={brand} query={query} /></span>
+                          </span>
+                          <span className="text-xs font-bold text-gray-500">{brandCountByName.get(brand) ?? 0}</span>
                         </li>
                       ))}
                     </ul>
@@ -358,48 +428,42 @@ export function SearchPageClient() {
         )}
       </div>
 
-      {/* Category filter */}
+      {/* Category chips */}
       <div className="mb-8 w-full max-w-2xl">
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {categoryFilters.map((cat) => {
-            const label = cat === "" ? "All" : cat;
-            const isActive = grid.gridCategoryFilter === cat && !brandFilter;
-            const count = cat === "" ? products.length : grid.gridCategoryCounts[cat] || 0;
-            return (
-              <button
-                key={label}
-                onClick={() => { grid.setGridCategoryFilter(cat); setBrandFilter(""); }}
-                className={`flex h-9 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-black transition-all sm:h-10 sm:text-xs ${
-                  isActive
-                    ? "border-orange-500/55 bg-orange-500/12 text-orange-400 shadow-[0_8px_20px_rgba(249,115,22,0.12)]"
-                    : "border-white/10 bg-white/[0.045] text-gray-400 hover:border-white/18 hover:bg-white/[0.07] hover:text-gray-100"
-                }`}
-              >
-                <span>{label}</span>
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-[10px] leading-none ${
-                    isActive ? "bg-orange-500/18 text-orange-300" : "bg-white/[0.06] text-gray-600"
+        <div className="py-0.5">
+          <div className="grid grid-cols-6 gap-2">
+            {categoryFilters.map((cat) => {
+              const label = cat === "" ? "All" : cat;
+              const isActive = grid.gridCategoryFilter === cat && !brandFilter;
+              return (
+                <button
+                  key={label}
+                  onClick={() => { grid.setGridCategoryFilter(cat); setBrandFilter(""); }}
+                  className={`flex h-9 items-center justify-center rounded-xl border px-3.5 text-[11px] font-black transition-all sm:h-10 sm:text-xs ${
+                    isActive
+                      ? "border-orange-500/55 bg-orange-500/[0.12] text-orange-400"
+                      : "border-white/10 bg-white/[0.045] text-gray-400 hover:text-gray-100"
                   }`}
                 >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-
-        {/* Active brand filter */}
         {brandFilter && (
-          <div className="mt-2.5 flex items-center justify-between gap-3 text-xs font-bold">
-            <p className="min-w-0 truncate text-gray-500">
-              Brand filter <span className="text-gray-700">·</span>{" "}
-              <span className="text-orange-400">{brandFilter}</span>
-            </p>
+          <div className="mt-3 flex">
             <button
+              type="button"
               onClick={() => setBrandFilter("")}
-              className="shrink-0 border-none bg-transparent p-0 text-xs font-black text-gray-500 shadow-none transition hover:text-white"
+              className="flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-white/15"
             >
-              Clear
+              <span className="flex-shrink-0 text-[10px] font-black uppercase tracking-wide text-gray-500">Brand</span>
+              <span className="text-gray-600">·</span>
+              <span className="truncate text-orange-300">{brandFilter}</span>
+              <span className="ml-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-gray-500 transition hover:bg-orange-500/[0.14] hover:text-orange-300">
+                <X className="h-3 w-3" />
+              </span>
             </button>
           </div>
         )}
@@ -413,6 +477,7 @@ export function SearchPageClient() {
         setGridCategoryFilter={grid.setGridCategoryFilter}
         gridSearchQuery={grid.gridSearchQuery}
         setGridSearchQuery={grid.setGridSearchQuery}
+        isInteractionDisabled={showSuggestions}
         onProductClick={handleProductClick}
         onImageError={handleImageLoadError}
       />

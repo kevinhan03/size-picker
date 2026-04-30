@@ -166,11 +166,10 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
       state.setFormData((prev) => applyUrlAutofill(prev, extracted, selectedCandidateUrl));
 
       if (!extracted.brand && !extracted.name && !selectedCandidateUrl) {
-        state.setAutoFillError("자동 입력 데이터를 찾지 못했습니다. 다른 상품 URL을 시도해 주세요.");
+        state.setAutoFillError("자동 입력 데이터를 찾지 못했습니다. 브랜드, 상품명, 카테고리, 이미지를 직접 입력해주세요.");
       }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "URL 분석 중 오류가 발생했습니다.";
-      state.setAutoFillError(message);
+    } catch {
+      state.setAutoFillError("URL에서 정보를 자동으로 불러오지 못했습니다. 브랜드, 상품명, 카테고리, 이미지를 직접 입력해주세요.");
     } finally {
       state.setIsAutofillingFromUrl(false);
     }

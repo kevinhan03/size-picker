@@ -3,8 +3,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Check, ChevronRight, Copy, LogOut, Plus, Ruler, Shirt, Star, Trash2, UserRound } from "lucide-react";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Autoplay, EffectCoverflow, Pagination } from "swiper/modules";
 import type { Product } from "../../types";
 
 interface MyPageViewProps {
@@ -25,17 +23,52 @@ const cardClass =
   "rounded-2xl border border-white/10 bg-white/[0.055] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_18px_46px_rgba(0,0,0,0.42)] backdrop-blur-2xl";
 
 function ProductCardCarousel({ products, icon }: { products: Product[]; icon: React.ReactNode }) {
-  const preview = products.slice(0, 6);
-  const swiperRef = React.useRef<{ isEnd: boolean; slideNext: () => void; slideTo: (index: number) => void } | null>(null);
+  const preview = products.slice(0, 5);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const touchStartXRef = React.useRef<number | null>(null);
+  const touchStartYRef = React.useRef<number | null>(null);
+  const didSwipeRef = React.useRef(false);
 
   const slideToNext = () => {
-    const swiper = swiperRef.current;
-    if (!swiper || preview.length <= 1) return;
-    if (swiper.isEnd) {
-      swiper.slideTo(0);
+    if (preview.length <= 1) return;
+    setActiveIndex((current) => (current + 1) % preview.length);
+  };
+
+  const slideToPrevious = () => {
+    if (preview.length <= 1) return;
+    setActiveIndex((current) => (current - 1 + preview.length) % preview.length);
+  };
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLButtonElement>) => {
+    const touch = event.touches[0];
+    touchStartXRef.current = touch.clientX;
+    touchStartYRef.current = touch.clientY;
+    didSwipeRef.current = false;
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLButtonElement>) => {
+    const startX = touchStartXRef.current;
+    const startY = touchStartYRef.current;
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    if (startX === null || startY === null || preview.length <= 1) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    if (Math.abs(deltaX) < 36 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
+
+    didSwipeRef.current = true;
+    if (deltaX < 0) slideToNext();
+    else slideToPrevious();
+  };
+
+  const handleCarouselClick = () => {
+    if (didSwipeRef.current) {
+      didSwipeRef.current = false;
       return;
     }
-    swiper.slideNext();
+    slideToNext();
   };
 
   if (preview.length === 0) {
@@ -46,99 +79,55 @@ function ProductCardCarousel({ products, icon }: { products: Product[]; icon: Re
     );
   }
 
+  const getOffset = (index: number) => {
+    if (preview.length === 1) return 0;
+    if (preview.length === 2) return index === activeIndex ? 0 : 1;
+    let offset = index - activeIndex;
+    const half = preview.length / 2;
+    if (offset > half) offset -= preview.length;
+    if (offset < -half) offset += preview.length;
+    return offset;
+  };
+
+  const getCardStyle = (offset: number): React.CSSProperties => {
+    const visibleOffset = Math.abs(offset) <= 1;
+    const x = offset === 0 ? "0%" : offset < 0 ? "var(--mypage-side-card-x-neg)" : "var(--mypage-side-card-x)";
+    return {
+      left: "50%",
+      opacity: visibleOffset ? (offset === 0 ? 1 : 0.58) : 0,
+      pointerEvents: visibleOffset ? "auto" : "none",
+      transform: `translateX(calc(-50% + ${x})) translateY(-50%) scale(${offset === 0 ? 1 : 0.72})`,
+      zIndex: offset === 0 ? 10 : visibleOffset ? 1 : 0,
+    };
+  };
+
   return (
-    <div className="mypage-card-carousel min-h-[190px] w-full min-w-0 max-w-full overflow-hidden px-2 pt-3">
-      <style>{`
-        .mypage-card-carousel .swiper {
-          width: 100%;
-          max-width: 100%;
-          padding: 6px 0;
-          overflow: hidden;
-        }
-        .mypage-card-carousel .swiper-slide {
-          width: min(27vw, 132px);
-          height: min(33.75vw, 165px);
-          background: transparent;
-          border: 0;
-          box-shadow: none;
-          outline: none;
-        }
-        @media (min-width: 640px) {
-          .mypage-card-carousel .swiper-slide {
-            width: min(220px, calc(100% - 32px));
-            height: 275px;
-          }
-        }
-        .mypage-card-carousel .mypage-carousel-card {
-          transform: scale(0.9);
-          opacity: 1;
-          transition: transform 220ms ease, opacity 220ms ease;
-        }
-        .mypage-card-carousel .swiper-slide-active .mypage-carousel-card {
-          transform: scale(1);
-          opacity: 1;
-        }
-        .mypage-card-carousel .swiper-slide button {
-          appearance: none;
-          background: transparent;
-          border: 0;
-          box-shadow: none;
-          outline: none;
-        }
-        @media (min-width: 640px) {
-          .mypage-card-carousel .mypage-carousel-card {
-            transform: scale(0.82);
-            opacity: 1;
-          }
-        }
-        .mypage-card-carousel .swiper-pagination {
-          display: none;
-        }
-        .mypage-card-carousel .swiper-3d .swiper-slide-shadow-left,
-        .mypage-card-carousel .swiper-3d .swiper-slide-shadow-right {
-          background-image: none;
-          background: none;
-        }
-      `}</style>
-      <Swiper
-        spaceBetween={10}
-        autoplay={false}
-        effect="coverflow"
-        grabCursor
-        centeredSlides
-        loop={false}
-        slidesPerView="auto"
-        coverflowEffect={{
-          rotate: 0,
-          stretch: 0,
-          depth: 120,
-          modifier: 2.25,
-        }}
-        pagination={{ clickable: true }}
-        modules={[EffectCoverflow, Autoplay, Pagination]}
-        onSwiper={(swiper) => {
-          swiperRef.current = swiper;
-        }}
+    <div className="min-h-[190px] w-full min-w-0 max-w-full overflow-hidden px-2 pt-3 [--mypage-side-card-x-neg:-40%] [--mypage-side-card-x:40%] sm:min-h-[292px] sm:[--mypage-side-card-x-neg:-50%] sm:[--mypage-side-card-x:50%]">
+      <button
+        type="button"
+        onClick={handleCarouselClick}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="relative h-[170px] w-full touch-pan-y appearance-none border-0 bg-transparent p-0 shadow-none outline-none sm:h-[276px]"
+        aria-label="다음 상품 보기"
       >
-        {preview.map((product) => (
-          <SwiperSlide key={product.id}>
-            <button
-              type="button"
-              onClick={slideToNext}
-              className="mypage-carousel-card flex h-full w-full appearance-none flex-col border-0 bg-transparent p-0 text-left shadow-none outline-none"
-              aria-label="다음 상품 보기"
-            >
-              <div className="relative h-full w-full overflow-hidden rounded-2xl bg-white">
-                <img
-                  src={product.thumbnailImage || product.image}
-                  alt={product.name}
-                  className="h-full w-full object-contain"
-                />
-              </div>
-            </button>
-          </SwiperSlide>
-        ))}
-      </Swiper>
+        {preview.map((product, index) => {
+          const offset = getOffset(index);
+          return (
+          <div
+            key={product.id}
+            className="absolute top-1/2 aspect-[4/5] h-[160px] overflow-hidden rounded-2xl bg-white transition-all duration-300 ease-out sm:h-[260px]"
+            style={getCardStyle(offset)}
+          >
+            <img
+              src={product.thumbnailImage || product.image}
+              alt={product.name}
+              className="h-full w-full object-contain"
+            />
+          </div>
+          );
+        })}
+      </button>
     </div>
   );
 }
@@ -262,7 +251,7 @@ export function MyPageView({
         </div>
       </section>
 
-      <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4">
         <CollectionCard
           title="DIGBOX"
           count={digboxCount}
@@ -281,7 +270,7 @@ export function MyPageView({
         />
       </div>
 
-      <div className="grid min-w-0 gap-3 sm:gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-4">
         <section className={`${cardClass} p-5`}>
           <div className="mb-4 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.06] text-gray-300">
