@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import type { RefObject, SyntheticEvent } from "react";
 import { ChevronDown, ExternalLink, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
-import type { ClosetSizeSelection, Product, SizeRecommendation } from "../types";
+import type { ClosetSizeSelection, MySizeProfile, Product, SizeRecommendation } from "../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import { useMySizesContext } from "../contexts/MySizesContext";
 import {
+  compareMeasurementSnapshots,
   displayTableCell,
   getDisplaySizeTable,
   isPrimaryColumnHeader,
@@ -271,6 +273,12 @@ export function ProductDetailModal({
   useBodyScrollLock(modalRef);
   const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
   const [isExtraMeasurementsOpen, setIsExtraMeasurementsOpen] = useState(false);
+  const [isMySizeDetailsOpen, setIsMySizeDetailsOpen] = useState(false);
+  const [isMySizePickerOpen, setIsMySizePickerOpen] = useState(false);
+  const [mySizeSearchQuery, setMySizeSearchQuery] = useState("");
+  const [isSimilarProductsOpen, setIsSimilarProductsOpen] = useState(false);
+  const { mySizes } = useMySizesContext();
+  const [selectedMySizeId, setSelectedMySizeId] = useState<string>("");
   const savedClosetProduct = closetProduct || null;
   const savedSizeLabel = getClosetSizeLabel(savedClosetProduct);
   const savedSizeRowIndex = getClosetSizeRowIndex(savedClosetProduct);
@@ -279,13 +287,51 @@ export function ProductDetailModal({
     () => ({ ...product, sizeTable: displaySizeTable }),
     [displaySizeTable, product]
   );
+  const categoryMySizes = useMemo(
+    () => mySizes.filter((profile) => profile.category === product.category),
+    [mySizes, product.category]
+  );
+  const selectedMySize = useMemo(() => {
+    if (!categoryMySizes.length) return null;
+    return categoryMySizes.find((profile) => profile.id === selectedMySizeId) || categoryMySizes[0];
+  }, [categoryMySizes, selectedMySizeId]);
+  const filteredMySizes = useMemo(() => {
+    const query = mySizeSearchQuery.trim().toLowerCase();
+    if (!query) return categoryMySizes;
+    return categoryMySizes.filter((profile) =>
+      `${profile.title} ${profile.sizeLabel || ""} ${profile.fitNote || ""}`.toLowerCase().includes(query)
+    );
+  }, [categoryMySizes, mySizeSearchQuery]);
+  const activeProductSnapshot = useMemo(() => {
+    if (activeRowIndex === null || !displaySizeTable?.rows?.[activeRowIndex]) return null;
+    return {
+      headers: displaySizeTable.headers,
+      row: displaySizeTable.rows[activeRowIndex],
+    };
+  }, [activeRowIndex, displaySizeTable]);
+  const mySizeComparisons = useMemo(
+    () => compareMeasurementSnapshots(activeProductSnapshot, selectedMySize?.measurementSnapshot),
+    [activeProductSnapshot, selectedMySize]
+  );
+  const isSelectedMySizeSourceProduct = selectedMySize?.sourceProductId === product.id;
 
   useEffect(() => {
     setIsExtraMeasurementsOpen(false);
+    setIsMySizeDetailsOpen(false);
+    setIsMySizePickerOpen(false);
+    setMySizeSearchQuery("");
+    setIsSimilarProductsOpen(false);
   }, [product.id]);
+
+  useEffect(() => {
+    setSelectedMySizeId(categoryMySizes[0]?.id || "");
+    setIsMySizePickerOpen(false);
+    setMySizeSearchQuery("");
+  }, [categoryMySizes]);
 
   const handleRowClick = (rowIndex: number) => {
     onRowClick(rowIndex);
+    setIsSimilarProductsOpen(false);
     setTimeout(() => {
       const modal = modalRef.current;
       const target = recommendationsRef.current;
@@ -487,6 +533,165 @@ export function ProductDetailModal({
             )}
           </div>
 
+          {categoryMySizes.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400">내 기준 핏과 비교</h5>
+                  <p className="mt-1 text-xs font-semibold text-gray-500">
+                    {activeProductSnapshot?.row?.[0] ? `${activeProductSnapshot.row[0]}와 기준 핏 비교` : "비교할 상품 사이즈를 선택하세요"}
+                  </p>
+                </div>
+              </div>
+
+              {selectedMySize && (
+                <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-gray-600">기준 상품</p>
+                      <div className="mt-1 flex min-w-0 items-center gap-2">
+                        <p className="truncate text-sm font-black text-white">{selectedMySize.title}</p>
+                        {(selectedMySize.sizeLabel || selectedMySize.measurementSnapshot.row?.[0]) && (
+                          <span className="shrink-0 rounded-md bg-orange-500/12 px-1.5 py-0.5 text-[10px] font-black text-orange-300">
+                            {selectedMySize.sizeLabel || selectedMySize.measurementSnapshot.row?.[0]}
+                          </span>
+                        )}
+                      </div>
+                      {selectedMySize.fitNote && (
+                        <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-gray-500">
+                          착용감 메모: {selectedMySize.fitNote}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsMySizePickerOpen((value) => !value)}
+                      aria-expanded={isMySizePickerOpen}
+                      className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-black text-gray-300 transition hover:border-orange-500/40 hover:text-orange-300"
+                    >
+                      변경
+                    </button>
+                  </div>
+
+                  {isMySizePickerOpen && (
+                    <div className="mt-3 rounded-xl border border-white/[0.08] bg-[#111114] p-2">
+                      <input
+                        value={mySizeSearchQuery}
+                        onChange={(event) => setMySizeSearchQuery(event.target.value)}
+                        placeholder="상품명 또는 메모 검색"
+                        className="mb-2 h-10 w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-500/70"
+                      />
+                      <div className="grid max-h-[236px] gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        {filteredMySizes.length > 0 ? (
+                          filteredMySizes.map((profile) => {
+                            const selected = selectedMySize?.id === profile.id;
+                            const sizeLabel = String(profile.sizeLabel || profile.measurementSnapshot.row?.[0] || "").trim();
+                            return (
+                              <button
+                                key={profile.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedMySizeId(profile.id);
+                                  setIsMySizePickerOpen(false);
+                                  setMySizeSearchQuery("");
+                                }}
+                                className={`flex min-w-0 items-center justify-between gap-3 rounded-lg border px-2.5 py-2 text-left transition ${
+                                  selected
+                                    ? "border-orange-500/60 bg-orange-500/12"
+                                    : "border-transparent bg-transparent hover:border-white/[0.08] hover:bg-white/[0.045]"
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-bold text-white">{profile.title || "저장한 상품"}</p>
+                                  <p className="mt-0.5 truncate text-[11px] font-semibold text-gray-600">{profile.fitNote || "메모 없음"}</p>
+                                </div>
+                                {sizeLabel && (
+                                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-black ${
+                                    selected ? "bg-orange-500 text-black" : "bg-white/[0.08] text-gray-400"
+                                  }`}>
+                                    {sizeLabel}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="rounded-lg border border-white/[0.06] bg-white/[0.035] px-3 py-4 text-center text-xs font-semibold text-gray-500">
+                            검색 결과가 없습니다.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isSelectedMySizeSourceProduct ? (
+                <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-200">
+                  이 상품은 선택한 기준 핏으로 등록된 상품입니다.
+                </div>
+              ) : activeRowIndex === null ? null : mySizeComparisons.length > 0 ? (
+                <>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {mySizeComparisons.slice(0, 6).map((item) => {
+                      const diffText = `${item.diff > 0 ? "+" : ""}${item.diff.toFixed(1).replace(/\.0$/, "")}cm`;
+                      const tone =
+                        item.diff === 0
+                          ? "border-white/10 bg-white/[0.06] text-gray-300"
+                          : item.diff > 0
+                          ? "border-orange-500/25 bg-orange-500/10 text-orange-300"
+                          : "border-sky-400/25 bg-sky-400/10 text-sky-300";
+                      return (
+                        <span key={item.label} className={`rounded-xl border px-3 py-2 text-xs font-black ${tone}`}>
+                          <span className="mr-1.5 text-gray-400">{item.label}</span>
+                          {diffText}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMySizeDetailsOpen((value) => !value)}
+                    className="mt-3 flex w-full items-center justify-between rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2 text-left text-xs font-bold text-gray-400 transition hover:border-white/[0.14] hover:text-white"
+                  >
+                    <span>상세 실측 보기</span>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${isMySizeDetailsOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isMySizeDetailsOpen && (
+                    <div className="mt-2 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/20">
+                      <table className="min-w-full text-left text-xs sm:text-sm">
+                        <thead className="text-[11px] uppercase tracking-wide text-gray-500">
+                          <tr>
+                            <th className="px-3 py-2 font-black">항목</th>
+                            <th className="px-3 py-2 font-black">상품</th>
+                            <th className="px-3 py-2 font-black">내 기준</th>
+                            <th className="px-3 py-2 font-black">차이</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mySizeComparisons.map((item) => (
+                            <tr key={item.label} className="border-t border-white/[0.06]">
+                              <td className="px-3 py-2 font-bold text-gray-200">{item.label}</td>
+                              <td className="px-3 py-2 text-gray-300">{item.productValue.toFixed(1).replace(/\.0$/, "")}cm</td>
+                              <td className="px-3 py-2 text-gray-300">{item.referenceValue.toFixed(1).replace(/\.0$/, "")}cm</td>
+                              <td className={`px-3 py-2 font-black ${item.diff === 0 ? "text-gray-400" : item.diff > 0 ? "text-orange-300" : "text-sky-300"}`}>
+                                {item.diff > 0 ? "+" : ""}{item.diff.toFixed(1).replace(/\.0$/, "")}cm
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-sm font-semibold text-gray-500">
+                  비교 가능한 공통 실측이 없습니다.
+                </div>
+              )}
+            </div>
+          )}
+
           {displaySizeTable?.extra?.headers?.length ? (
             <div className="mt-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
               <button
@@ -535,21 +740,31 @@ export function ProductDetailModal({
             </div>
           ) : null}
 
-          {recommendations.length > 0 && (
-            <div ref={recommendationsRef} className="mt-6">
+          {activeRowIndex !== null && recommendations.length > 0 && (
+            <div ref={recommendationsRef} className="mt-4 [&>h5]:hidden">
+              <button
+                type="button"
+                onClick={() => setIsSimilarProductsOpen((value) => !value)}
+                className="flex w-full items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-left transition hover:border-white/[0.14] hover:bg-white/[0.055]"
+              >
+                <div>
+                  <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400">실측이 가까운 상품</h5>
+                  <p className="mt-1 text-xs font-semibold text-gray-500">선택한 사이즈와 비슷한 상품 {recommendations.length}개</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isSimilarProductsOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isSimilarProductsOpen && (
+              <>
               <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">유사한 추천 상품</h5>
               <div className="flex flex-col gap-2">
                 {recommendations.map(({ product: recProduct, rowIndex }) => {
                   const recSizeTable = getDisplaySizeTable(recProduct)!;
                   const matchedRow = recSizeTable.rows[rowIndex];
                   const sizeLabel = matchedRow[0] || "";
-                  const measurements = recSizeTable.headers
-                    .slice(1)
-                    .map((header, index) => ({
-                      label: normalizeMeasurementLabel(header) || header,
-                      value: normalizeMeasurementValueForDisplay(matchedRow[index + 1]),
-                    }))
-                    .filter(({ value }) => value !== "");
+                  const measurementDiffs = compareMeasurementSnapshots(
+                    activeProductSnapshot,
+                    { headers: recSizeTable.headers, row: matchedRow }
+                  ).slice(0, 4);
                   return (
                     <button
                       key={recProduct.id}
@@ -565,13 +780,25 @@ export function ProductDetailModal({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-bold uppercase text-orange-400">{recProduct.brand}</p>
                         <p className="truncate text-sm font-medium text-white">{recProduct.name}</p>
-                        {measurements.length > 0 && (
+                        {measurementDiffs.length > 0 && (
                           <div className="mt-1.5 flex flex-wrap gap-1">
-                            {measurements.map(({ label, value }, idx) => (
-                              <span key={idx} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-gray-300">
-                                {label} {value}
-                              </span>
-                            ))}
+                            {measurementDiffs.map((item) => {
+                              const diffText =
+                                item.diff === 0
+                                  ? "같음"
+                                  : `${item.diff > 0 ? "+" : ""}${item.diff.toFixed(1).replace(/\.0$/, "")}cm`;
+                              const tone =
+                                item.diff === 0
+                                  ? "text-gray-300"
+                                  : item.diff > 0
+                                  ? "text-orange-300"
+                                  : "text-sky-300";
+                              return (
+                                <span key={item.label} className={`rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}>
+                                  {item.label} {diffText}
+                                </span>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -582,6 +809,8 @@ export function ProductDetailModal({
                   );
                 })}
               </div>
+              </>
+              )}
             </div>
           )}
         </div>

@@ -6,6 +6,7 @@ import { MyPageView } from "../views/MyPageView";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useMySizesContext } from "../../contexts/MySizesContext";
 import { supabase } from "../../lib/supabase";
 
 export function MyPageClient() {
@@ -13,6 +14,7 @@ export function MyPageClient() {
   const auth = useAuthContext();
   const { closetProducts } = useClosetContext();
   const { digboxProducts } = useDigboxContext();
+  const { mySizes, createMySize, deleteMySize } = useMySizesContext();
 
   useEffect(() => {
     if (!auth.isAuthLoading && !auth.authUser) {
@@ -25,14 +27,6 @@ export function MyPageClient() {
   }
 
   const username = String(auth.dbUsername ?? auth.authUser.email?.split("@")[0] ?? "");
-  const sizeLabelMap = new Map<string, string>();
-  closetProducts.forEach((product) => {
-    const label = String(product.closetSelectedSizeLabel || "").trim();
-    if (!label) return;
-    const category = String(product.category || "Item").trim();
-    sizeLabelMap.set(`${category}:${label}`, `${category} ${label}`);
-  });
-  const sizeLabels = Array.from(sizeLabelMap.values());
 
   return (
     <main
@@ -45,7 +39,14 @@ export function MyPageClient() {
         digboxCount={digboxProducts.length}
         closetPreviewProducts={closetProducts.slice(0, 5)}
         digboxPreviewProducts={digboxProducts.slice(0, 5)}
-        sizeLabels={sizeLabels}
+        closetProducts={closetProducts}
+        mySizes={mySizes}
+        onCreateMySize={async (input) => {
+          await createMySize(input);
+        }}
+        onDeleteMySize={async (id) => {
+          await deleteMySize(id);
+        }}
         onLogout={() => {
           void supabase?.auth.signOut();
           router.push("/");

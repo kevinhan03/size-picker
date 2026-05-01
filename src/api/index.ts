@@ -2,6 +2,9 @@ import type {
   BrandBackfillResult,
   BrandRule,
   ClosetSizeSelection,
+  MySizeInput,
+  MySizeProfile,
+  MySizeUpdateInput,
   Product,
   ProductMetadataPayload,
   ProductRow,
@@ -185,6 +188,58 @@ export const removeFromCloset = async (productId: string): Promise<void> => {
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/closet/[productId]');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || '옷장 제거 실패');
+};
+
+export const fetchMySizes = async (): Promise<MySizeProfile[]> => {
+  const token = await getAccessToken();
+  if (!token) return [];
+  const response = await fetch('/api/my-sizes', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { profiles?: unknown[] }; error?: string }>(response, '/api/my-sizes');
+  if (!response.ok || !payload?.ok) return [];
+  const rows = Array.isArray(payload?.data?.profiles) ? payload.data!.profiles : [];
+  return rows.filter((profile): profile is MySizeProfile => profile !== null && typeof profile === 'object');
+};
+
+export const createMySize = async (input: MySizeInput): Promise<MySizeProfile> => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Authentication is required');
+  const { response, payload } = await postJson<MySizeInput, { profile?: MySizeProfile }>(
+    '/api/my-sizes',
+    input,
+    { Authorization: `Bearer ${token}` }
+  );
+  if (!response.ok || !payload?.ok || !payload.data?.profile) {
+    throw new Error(payload?.error || 'Failed to create my size');
+  }
+  return payload.data.profile;
+};
+
+export const updateMySize = async (id: string, input: MySizeUpdateInput): Promise<MySizeProfile> => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Authentication is required');
+  const response = await fetch(`/api/my-sizes/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { profile?: MySizeProfile }; error?: string }>(response, '/api/my-sizes/[id]');
+  if (!response.ok || !payload?.ok || !payload.data?.profile) {
+    throw new Error(payload?.error || 'Failed to update my size');
+  }
+  return payload.data.profile;
+};
+
+export const deleteMySize = async (id: string): Promise<void> => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Authentication is required');
+  const response = await fetch(`/api/my-sizes/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/my-sizes/[id]');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to delete my size');
 };
 
 export const fetchDigboxItems = async (): Promise<Product[]> => {

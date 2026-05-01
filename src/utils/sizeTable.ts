@@ -1,4 +1,4 @@
-import type { SizeTable, SizeConversionRow, SizeRegionKey, Product, SizeRecommendation } from '../types';
+import type { ClosetSizeSnapshot, SizeTable, SizeConversionRow, SizeRegionKey, Product, SizeRecommendation } from '../types';
 import {
   TOTAL_LENGTH_LABEL,
   ITEM_LABEL,
@@ -329,6 +329,38 @@ export const scoreMeasurementSimilarity = (a: Map<string, number>, b: Map<string
     totalWeight += weight;
   });
   return totalWeight === 0 ? Infinity : weightedDiff / totalWeight;
+};
+
+export interface MeasurementComparison {
+  label: string;
+  productValue: number;
+  referenceValue: number;
+  diff: number;
+}
+
+export const compareMeasurementSnapshots = (
+  productSnapshot: ClosetSizeSnapshot | null | undefined,
+  referenceSnapshot: ClosetSizeSnapshot | null | undefined
+): MeasurementComparison[] => {
+  if (!productSnapshot?.headers?.length || !productSnapshot?.row?.length) return [];
+  if (!referenceSnapshot?.headers?.length || !referenceSnapshot?.row?.length) return [];
+
+  const productMeasurements = extractMeasurements(productSnapshot.headers, productSnapshot.row);
+  const referenceMeasurements = extractMeasurements(referenceSnapshot.headers, referenceSnapshot.row);
+  const comparisons: MeasurementComparison[] = [];
+
+  productMeasurements.forEach((productValue, label) => {
+    const referenceValue = referenceMeasurements.get(label);
+    if (referenceValue === undefined) return;
+    comparisons.push({
+      label,
+      productValue,
+      referenceValue,
+      diff: productValue - referenceValue,
+    });
+  });
+
+  return comparisons;
 };
 
 export const computeSizeRecommendations = (

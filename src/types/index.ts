@@ -32,6 +32,36 @@ export interface ClosetSizeSnapshot {
   row: string[];
 }
 
+export type MySizeSnapshot = ClosetSizeSnapshot;
+
+export interface MySizeProfile {
+  id: string;
+  userId?: string;
+  sourceProductId: string | null;
+  category: string;
+  title: string;
+  sizeLabel: string | null;
+  measurementSnapshot: MySizeSnapshot;
+  fitNote: string | null;
+  fitTags: string[];
+  isDefault: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface MySizeInput {
+  sourceProductId?: string | null;
+  category: string;
+  title: string;
+  sizeLabel?: string | null;
+  measurementSnapshot: MySizeSnapshot;
+  fitNote?: string | null;
+  fitTags?: string[];
+  isDefault?: boolean;
+}
+
+export type MySizeUpdateInput = Partial<MySizeInput>;
+
 export interface ClosetSizeSelection {
   label: string | null;
   rowIndex: number | null;
