@@ -14,6 +14,7 @@ import {
   refreshBrandRulesCache,
   resolveProductMetadataFromHints,
 } from "../../../server/bootstrap/metadata.js";
+import { getBearerTokenFromRequest, validateInlineImageInput } from "../../../server/utils/request-validation.js";
 import { verifyBearerToken } from "../../../server/utils/verify-auth.js";
 
 const normalizeCellText = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
@@ -28,8 +29,7 @@ const pickFirstNonEmpty = (values: unknown[]) => {
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  const authorization = String(request.headers.get("authorization") || "").trim();
-  const token = authorization.replace(/^Bearer\s+/i, "").trim();
+  const token = getBearerTokenFromRequest(request);
   if (!token) {
     return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
   }
@@ -39,14 +39,9 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const imageBase64 = String(body?.imageBase64 || "").trim();
-  const mimeType = String(body?.mimeType || "image/png").trim();
-
-  if (!imageBase64) {
-    return NextResponse.json({ ok: false, error: "imageBase64 is required" }, { status: 400 });
-  }
 
   try {
+    const { imageBase64, mimeType } = validateInlineImageInput(body);
     await refreshBrandRulesCache();
     const metadataResult = await extractProductMetadataFromImageWithGemini({ imageBase64, mimeType });
     if (!metadataResult?.data) {

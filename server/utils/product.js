@@ -78,6 +78,7 @@ export const normalizeProductRow = (row) => {
       } catch { return null; }
     })(),
     createdAt: row.created_at || row.createdAt || null,
+    registeredBy: row.registered_by ? String(row.registered_by) : null,
     isInstagram: Boolean(row.is_instagram),
     instagramOrder: typeof row.instagram_order === "number" ? row.instagram_order : null,
   };
@@ -161,6 +162,7 @@ export const insertProductRow = async (input) => {
     slug,
     isInstagram = false,
     instagramOrder = null,
+    registeredBy = null,
   } = input || {};
   assertSupabaseConfig();
   const normalizedImagePath = String(imagePath || "").trim();
@@ -201,6 +203,7 @@ export const insertProductRow = async (input) => {
       slug: normalizedSlug,
       is_instagram: isInstagram,
       instagram_order: isInstagram ? effectiveInstagramOrder : null,
+      registered_by: registeredBy || null,
     },
     {
       brand: canonicalBrand,
@@ -213,6 +216,7 @@ export const insertProductRow = async (input) => {
       slug: normalizedSlug,
       is_instagram: isInstagram,
       instagram_order: isInstagram ? effectiveInstagramOrder : null,
+      registered_by: registeredBy || null,
     },
     {
       brand: canonicalBrand,
@@ -226,6 +230,7 @@ export const insertProductRow = async (input) => {
       slug: normalizedSlug,
       is_instagram: isInstagram,
       instagram_order: isInstagram ? effectiveInstagramOrder : null,
+      registered_by: registeredBy || null,
     },
     {
       brand: canonicalBrand,
@@ -238,6 +243,7 @@ export const insertProductRow = async (input) => {
       createdAt,
       is_instagram: isInstagram,
       instagram_order: isInstagram ? effectiveInstagramOrder : null,
+      registered_by: registeredBy || null,
     },
     {
       brand: canonicalBrand,
@@ -250,6 +256,7 @@ export const insertProductRow = async (input) => {
       created_at: createdAt,
       is_instagram: isInstagram,
       instagram_order: isInstagram ? effectiveInstagramOrder : null,
+      registered_by: registeredBy || null,
     },
   ];
 

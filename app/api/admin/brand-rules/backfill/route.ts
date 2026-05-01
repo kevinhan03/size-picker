@@ -1,21 +1,12 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
-import {
-  getAdminTokenFromCookieHeader,
-  verifyAdminSessionToken,
-} from "../../../../../server/auth/admin-session.js";
+import { verifyAdminRequest } from "../../../../../server/utils/admin-request.js";
 import { refreshBrandRulesCache } from "../../../../../server/utils/brand-rules.js";
 import { backfillProductBrands } from "../../../../../server/utils/product.js";
 
-const adminUnauthorized = () =>
-  NextResponse.json(
-    { ok: false, error: "admin authentication required" },
-    { status: 401 }
-  );
-
 export async function POST(request: Request) {
-  const token = getAdminTokenFromCookieHeader(request.headers.get("cookie") ?? "");
-  if (!verifyAdminSessionToken(token)) return adminUnauthorized();
+  const adminError = verifyAdminRequest(request);
+  if (adminError) return adminError;
 
   try {
     await refreshBrandRulesCache({ force: true });

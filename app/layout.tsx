@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import { ClientProviders } from "../src/components/ClientProviders";
-import { fetchInitialProducts } from "../server/utils/products-list";
 import "./globals.css";
 
 const siteUrl =
@@ -40,12 +39,10 @@ export default async function RootLayout({
   children: ReactNode;
   modal: ReactNode;
 }>) {
-  const initialProducts = await fetchInitialProducts().catch(() => []);
-
   return (
     <html lang="ko">
       <body>
-        <ClientProviders initialProducts={initialProducts}>
+        <ClientProviders>
           {children}
           {modal}
         </ClientProviders>

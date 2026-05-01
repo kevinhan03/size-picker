@@ -1,18 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
-import { AddProductModal } from "./AddProductModal";
 import { AppHeader } from "./AppHeader";
 import { GoogleSignupCompleteModal } from "./GoogleSignupCompleteModal";
 import { NeedsUsernameModal } from "./NeedsUsernameModal";
-import { SearchResultOverlay } from "./SearchResultOverlay";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useClosetContext } from "../contexts/ClosetContext";
 import { useDigboxContext } from "../contexts/DigboxContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
+import { useSearchContext } from "../contexts/SearchContext";
+
+const AddProductModal = dynamic(
+  () => import("./AddProductModal").then((mod) => mod.AddProductModal),
+  { ssr: false }
+);
+const SearchResultOverlay = dynamic(
+  () => import("./SearchResultOverlay").then((mod) => mod.SearchResultOverlay),
+  { ssr: false }
+);
 
 function ClosetIcon({ className = "" }: { className?: string }) {
   return (
@@ -134,12 +143,15 @@ function DigboxToast() {
   const auth = useAuthContext();
   const router = useRouter();
   const usernameRef = useRef(auth.dbUsername);
-  usernameRef.current = auth.dbUsername;
   const [visibleToast, setVisibleToast] = useState(toast);
   const [isVisible, setIsVisible] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasVisibleToastRef = useRef(false);
+
+  useEffect(() => {
+    usernameRef.current = auth.dbUsername;
+  }, [auth.dbUsername]);
 
   useEffect(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -246,6 +258,7 @@ function DigboxToast() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const auth = useAuthContext();
   const productForm = useProductFormContext();
+  const search = useSearchContext();
   const pathname = usePathname();
   const isAdminPage = pathname?.startsWith("/admin");
 
@@ -253,8 +266,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <>
       {!isAdminPage && <AppHeader />}
       {children}
-      <SearchResultOverlay />
-      <AddProductModal form={productForm} />
+      {search.result && <SearchResultOverlay />}
+      {productForm.isModalOpen && <AddProductModal form={productForm} />}
       {!isAdminPage && <ClosetToast />}
       {!isAdminPage && <DigboxToast />}
       {auth.needsUsername && (

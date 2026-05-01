@@ -487,8 +487,9 @@ function DeleteConfirmDialog({
 export function ClosetPageClient() {
   const router = useRouter();
   const auth = useAuthContext();
-  const { closetProducts, removeFromCloset } = useClosetContext();
+  const { closetProducts, removeFromCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const digbox = useDigboxContext();
+  const ensureDigboxLoaded = digbox.ensureLoaded;
   const { products } = useProductsContext();
 
   const [catFilter, setCatFilter] = useState("");
@@ -509,6 +510,13 @@ export function ClosetPageClient() {
       router.replace("/login");
     }
   }, [auth.authUser, auth.isAuthLoading, router]);
+
+  useEffect(() => {
+    if (auth.authUser) {
+      ensureClosetLoaded();
+      ensureDigboxLoaded();
+    }
+  }, [auth.authUser, ensureClosetLoaded, ensureDigboxLoaded]);
 
   const closetItems = useMemo(() => closetProducts, [closetProducts]);
 

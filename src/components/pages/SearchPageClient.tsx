@@ -32,9 +32,9 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
 }
 
 export function SearchPageClient() {
-  const { products, featuredProducts, productsError, retryProductsLoad } = useProductsContext();
-  const { toggleCloset, isInCloset } = useClosetContext();
-  const { toggleDigbox, isInDigbox } = useDigboxContext();
+  const { products, featuredProducts, isProductsLoading, productsError, retryProductsLoad } = useProductsContext();
+  const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
+  const { toggleDigbox, isInDigbox, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
   const {
     clearQuery,
     handleKeyDown,
@@ -57,6 +57,11 @@ export function SearchPageClient() {
   const featuredScrollRef = useRef<HTMLDivElement>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
   const gridRecommendationsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    ensureClosetLoaded();
+    ensureDigboxLoaded();
+  }, [ensureClosetLoaded, ensureDigboxLoaded]);
 
   useEffect(() => {
     fetch("/api/site-settings")
@@ -480,6 +485,7 @@ export function SearchPageClient() {
         isInteractionDisabled={showSuggestions}
         onProductClick={handleProductClick}
         onImageError={handleImageLoadError}
+        isLoading={isProductsLoading}
       />
 
       {normalizedProduct && (

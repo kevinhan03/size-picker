@@ -1,28 +1,19 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
-import {
-  getAdminTokenFromCookieHeader,
-  verifyAdminSessionToken,
-} from "../../../../../server/auth/admin-session.js";
+import { verifyAdminRequest } from "../../../../../server/utils/admin-request.js";
 import { SUPABASE_PRODUCTS_TABLE } from "../../../../../server/config/env.js";
 import { assertSupabaseConfig, supabase } from "../../../../../server/lib/supabase.js";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../../../server/utils/brand-rules.js";
 import { removeOldProductImageIfUnused, toProductWriteErrorResponse } from "../../../../../server/utils/product.js";
 import { normalizeSizeTableForCategory, parseSizeTable } from "../../../../../server/utils/size-table.js";
 
-const adminUnauthorized = () =>
-  NextResponse.json(
-    { ok: false, error: "admin authentication required" },
-    { status: 401 }
-  );
-
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const token = getAdminTokenFromCookieHeader(request.headers.get("cookie") ?? "");
-  if (!verifyAdminSessionToken(token)) return adminUnauthorized();
+  const adminError = verifyAdminRequest(request);
+  if (adminError) return adminError;
 
   const { id } = await context.params;
   const productId = String(id || "").trim();
@@ -151,8 +142,8 @@ export async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const token = getAdminTokenFromCookieHeader(request.headers.get("cookie") ?? "");
-  if (!verifyAdminSessionToken(token)) return adminUnauthorized();
+  const adminError = verifyAdminRequest(request);
+  if (adminError) return adminError;
 
   const { id } = await context.params;
   const productId = String(id || "").trim();

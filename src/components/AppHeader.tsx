@@ -53,7 +53,6 @@ export function AppHeader() {
   }, []);
 
   const authUser = authContext.authUser;
-  const dbUsername = authContext.dbUsername;
 
   const isLogin = pathname === "/login";
   const isAdmin = pathname === "/admin";
@@ -91,7 +90,13 @@ export function AppHeader() {
           {!isAdmin && (
             <div className="group relative">
               <button
-                onClick={() => productForm.openModal()}
+                onClick={() => {
+                  if (!authUser) {
+                    router.push("/login");
+                    return;
+                  }
+                  productForm.openModal();
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] text-[#00FF00] hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] shadow-[0_4px_16px_rgba(0,255,0,0.15)]"
               >
                 <Plus className="w-4 h-4" />

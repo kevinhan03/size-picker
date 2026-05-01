@@ -25,6 +25,7 @@ export function useProducts(initialProducts: Product[] = []) {
   const [productsError, setProductsError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>(initial.normal);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>(initial.featured);
+  const [isProductsLoading, setIsProductsLoading] = useState(initialProducts.length === 0);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const didInitRef = useRef(initialProducts.length > 0);
 
@@ -40,6 +41,7 @@ export function useProducts(initialProducts: Product[] = []) {
     let isActive = true;
 
     const load = async () => {
+      setIsProductsLoading(true);
       try {
         const loaded = await fetchAllProducts();
         if (!isActive) return;
@@ -52,6 +54,8 @@ export function useProducts(initialProducts: Product[] = []) {
         const message =
           loadError instanceof Error ? loadError.message : "상품 정보를 불러오는 중 오류가 발생했습니다.";
         setProductsError(message);
+      } finally {
+        if (isActive) setIsProductsLoading(false);
       }
     };
 
@@ -65,6 +69,7 @@ export function useProducts(initialProducts: Product[] = []) {
   return {
     products,
     featuredProducts,
+    isProductsLoading,
     productsError,
     setProductsError,
     retryProductsLoad,

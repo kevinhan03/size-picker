@@ -12,15 +12,23 @@ import { supabase } from "../../lib/supabase";
 export function MyPageClient() {
   const router = useRouter();
   const auth = useAuthContext();
-  const { closetProducts } = useClosetContext();
-  const { digboxProducts } = useDigboxContext();
-  const { mySizes, createMySize, deleteMySize } = useMySizesContext();
+  const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
+  const { digboxProducts, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
+  const { mySizes, createMySize, deleteMySize, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
 
   useEffect(() => {
     if (!auth.isAuthLoading && !auth.authUser) {
       router.replace("/login");
     }
   }, [auth.authUser, auth.isAuthLoading, router]);
+
+  useEffect(() => {
+    if (auth.authUser) {
+      ensureClosetLoaded();
+      ensureDigboxLoaded();
+      ensureMySizesLoaded();
+    }
+  }, [auth.authUser, ensureClosetLoaded, ensureDigboxLoaded, ensureMySizesLoaded]);
 
   if (auth.isAuthLoading || !auth.authUser) {
     return <main className="min-h-screen bg-black" />;

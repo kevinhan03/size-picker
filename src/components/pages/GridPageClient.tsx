@@ -14,15 +14,20 @@ import { smoothScrollTo } from "../../utils/scroll";
 import type { Product, SizeRecommendation } from "../../types";
 
 export function GridPageClient() {
-  const { products } = useProductsContext();
-  const { closetProducts, toggleCloset, isInCloset } = useClosetContext();
-  const { toggleDigbox, isInDigbox } = useDigboxContext();
+  const { products, isProductsLoading } = useProductsContext();
+  const { closetProducts, toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
+  const { toggleDigbox, isInDigbox, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
   const grid = useGridState(products);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const recommendationsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    ensureClosetLoaded();
+    ensureDigboxLoaded();
+  }, [ensureClosetLoaded, ensureDigboxLoaded]);
 
   const recommendations = useMemo<SizeRecommendation[]>(() => {
     if (activeRowIndex === null || !selectedProduct) return [];
@@ -87,6 +92,7 @@ export function GridPageClient() {
         setGridSearchQuery={grid.setGridSearchQuery}
         onProductClick={handleProductClick}
         onImageError={handleImageLoadError}
+        isLoading={isProductsLoading}
       />
 
       {normalizedProduct && (

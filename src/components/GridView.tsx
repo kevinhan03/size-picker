@@ -20,6 +20,7 @@ interface GridViewProps {
   onProductClick: (product: Product) => void;
   onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
   isInteractionDisabled?: boolean;
+  isLoading?: boolean;
 }
 
 export function GridView({
@@ -33,6 +34,7 @@ export function GridView({
   onProductClick,
   onImageError,
   isInteractionDisabled = false,
+  isLoading = false,
 }: GridViewProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [colCount, setColCount] = useState(2);
@@ -67,7 +69,9 @@ export function GridView({
   return (
     <div className={`w-full max-w-7xl ${isInteractionDisabled ? "pointer-events-none" : ""}`}>
 
-      {allProducts.length === 0 ? (
+      {isLoading && allProducts.length === 0 ? (
+        <div className="py-20 text-center text-gray-500">상품을 불러오는 중입니다.</div>
+      ) : allProducts.length === 0 ? (
         <div className="py-20 text-center text-gray-500">등록된 상품이 없습니다.</div>
       ) : filteredGridProducts.length === 0 ? (
         <div className="py-20 text-center text-gray-500">검색 조건에 맞는 상품이 없습니다.</div>

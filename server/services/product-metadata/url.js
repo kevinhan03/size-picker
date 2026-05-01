@@ -70,16 +70,34 @@ export const fetchWithTimeout = async (
   options = {},
   timeoutMs = PRODUCT_METADATA_FETCH_TIMEOUT_MS
 ) => {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
+  let currentUrl = assertPublicHttpUrl(url);
+  const maxRedirects = Math.max(0, Number(options.maxRedirects) || 5);
+
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(currentUrl, {
+        ...options,
+        redirect: "manual",
+        signal: controller.signal,
+      });
+
+      if (![301, 302, 303, 307, 308].includes(response.status)) {
+        return response;
+      }
+
+      const location = response.headers.get("location");
+      if (!location) return response;
+      currentUrl = assertPublicHttpUrl(new URL(location, currentUrl).toString());
+    } finally {
+      clearTimeout(timer);
+    }
   }
+
+  const error = new Error("too many redirects");
+  error.statusCode = 400;
+  throw error;
 };
 
 export const normalizeUrlCandidate = (baseUrl, value) => {

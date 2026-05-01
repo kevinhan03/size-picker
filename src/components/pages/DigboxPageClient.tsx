@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import Link from "next/link";
 import { Search, Trash2, X } from "lucide-react";
@@ -37,12 +37,16 @@ function GridCard({
   product,
   selected,
   isEditing,
+  otherDigboxCount,
+  otherDigboxCountLabel,
   onSelect,
   onOpen,
 }: {
   product: Product;
   selected: boolean;
   isEditing: boolean;
+  otherDigboxCount?: number;
+  otherDigboxCountLabel?: string;
   onSelect: () => void;
   onOpen: () => void;
 }) {
@@ -86,6 +90,13 @@ function GridCard({
         <div className="flex flex-1 flex-col bg-black/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
           <div className="mb-1 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
           <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
+          {otherDigboxCount ? (
+            <div className="mb-2">
+              <span className="inline-flex rounded-md bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-gray-400">
+                {otherDigboxCountLabel || `${otherDigboxCount}명이 담았어요`}
+              </span>
+            </div>
+          ) : null}
           <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
         </div>
       </Link>
@@ -123,12 +134,16 @@ function ListRow({
   product,
   selected,
   isEditing,
+  otherDigboxCount,
+  otherDigboxCountLabel,
   onSelect,
   onOpen,
 }: {
   product: Product;
   selected: boolean;
   isEditing: boolean;
+  otherDigboxCount?: number;
+  otherDigboxCountLabel?: string;
   onSelect: () => void;
   onOpen: () => void;
 }) {
@@ -222,6 +237,11 @@ function ListRow({
       <span style={{ fontSize: 10, color: "#6b7280", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "3px 8px", flexShrink: 0 }}>
         {product.category}
       </span>
+      {otherDigboxCount ? (
+        <span style={{ fontSize: 10, color: "#9ca3af", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "3px 8px", flexShrink: 0 }}>
+          {otherDigboxCountLabel || `${otherDigboxCount}명이 담았어요`}
+        </span>
+      ) : null}
       {isEditing && (
         <button
           type="button"
@@ -275,19 +295,30 @@ export function DigboxPageClient({
   username,
   bio: initialBio = "",
   products: initialProducts,
+  discoveredDigboxCounts: initialDiscoveredDigboxCounts = {},
 }: {
   username: string;
   bio?: string;
   products: Product[];
+  discoveredDigboxCounts?: Record<string, number>;
 }) {
   const auth = useAuthContext();
   const digbox = useDigboxContext();
-  const { toggleCloset, isInCloset } = useClosetContext();
+  const ensureDigboxLoaded = digbox.ensureLoaded;
+  const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const { products: allProducts } = useProductsContext();
 
   const isOwner = Boolean(auth.dbUsername && auth.dbUsername === username);
   const isLoading = auth.isAuthLoading || (isOwner && digbox.isLoading);
   const products = isOwner && !digbox.isLoading ? digbox.digboxProducts : initialProducts;
+  const discoveredDigboxCounts = isOwner ? digbox.discoveredDigboxCounts : initialDiscoveredDigboxCounts;
+
+  useEffect(() => {
+    if (isOwner) {
+      ensureDigboxLoaded();
+      ensureClosetLoaded();
+    }
+  }, [ensureClosetLoaded, ensureDigboxLoaded, isOwner]);
 
   const [catFilter, setCatFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -408,6 +439,12 @@ export function DigboxPageClient({
     setIsEditing(false);
     setConfirmBatchDelete(false);
   };
+
+  const getCardDigboxCountLabel = (count: number) =>
+    isOwner ? `${count}명이 담았어요` : `${count}명이 DIGBOX에 담았어요`;
+
+  const getDetailDigboxCountLabel = (count: number) =>
+    isOwner ? `내가 발굴한 상품을 ${count}명이 담았어요` : `이 상품을 ${count}명이 DIGBOX에 담았어요`;
 
   return (
     <main
@@ -752,6 +789,8 @@ export function DigboxPageClient({
                 product={p}
                 selected={selectedIds.has(p.id)}
                 isEditing={isEditing}
+                otherDigboxCount={discoveredDigboxCounts[p.id] || 0}
+                otherDigboxCountLabel={discoveredDigboxCounts[p.id] ? getCardDigboxCountLabel(discoveredDigboxCounts[p.id]) : undefined}
                 onSelect={() => toggleSelect(p.id)}
                 onOpen={() => handleProductOpen(p)}
               />
@@ -765,6 +804,8 @@ export function DigboxPageClient({
                 product={p}
                 selected={selectedIds.has(p.id)}
                 isEditing={isEditing}
+                otherDigboxCount={discoveredDigboxCounts[p.id] || 0}
+                otherDigboxCountLabel={discoveredDigboxCounts[p.id] ? getCardDigboxCountLabel(discoveredDigboxCounts[p.id]) : undefined}
                 onSelect={() => toggleSelect(p.id)}
                 onOpen={() => handleProductOpen(p)}
               />
@@ -798,6 +839,12 @@ export function DigboxPageClient({
           onToggleDigbox={() => digbox.toggleDigbox(normalizedProduct.id)}
           isInDigbox={digbox.isInDigbox(normalizedProduct.id)}
           hideDigboxButton={digbox.isInDigbox(normalizedProduct.id)}
+          otherDigboxCount={discoveredDigboxCounts[normalizedProduct.id] || 0}
+          otherDigboxCountLabel={
+            discoveredDigboxCounts[normalizedProduct.id]
+              ? getDetailDigboxCountLabel(discoveredDigboxCounts[normalizedProduct.id])
+              : undefined
+          }
         />
       )}
 

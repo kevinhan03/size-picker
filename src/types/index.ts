@@ -20,6 +20,7 @@ export interface Product {
   sizeTable: SizeTable | null;
   normalizedSizeTable?: SizeTable | null;
   createdAt?: string;
+  registeredBy?: string | null;
   isInstagram?: boolean;
   instagramOrder?: number | null;
   closetSelectedSizeLabel?: string | null;
@@ -78,6 +79,7 @@ export interface ProductRow {
   slug?: string | null;
   is_instagram?: boolean | null;
   instagram_order?: number | null;
+  registered_by?: string | null;
 }
 
 export interface SubmitProductForm {

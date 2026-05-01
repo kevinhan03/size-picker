@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
-import {
-  getAdminTokenFromCookieHeader,
-  verifyAdminSessionToken,
-} from "../../../../server/auth/admin-session.js";
+import { verifyAdminRequest } from "../../../../server/utils/admin-request.js";
 import { generateProductSlug, insertProductRow, normalizeProductRow, toProductWriteErrorResponse } from "../../../../server/utils/product.js";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../../server/utils/brand-rules.js";
 import { parseSizeTable } from "../../../../server/utils/size-table.js";
 
-const adminUnauthorized = () =>
-  NextResponse.json({ ok: false, error: "admin authentication required" }, { status: 401 });
-
 export async function POST(request: Request) {
-  const token = getAdminTokenFromCookieHeader(request.headers.get("cookie") ?? "");
-  if (!verifyAdminSessionToken(token)) return adminUnauthorized();
+  const adminError = verifyAdminRequest(request);
+  if (adminError) return adminError;
 
   const body = await request.json();
   const brand = String(body?.brand || "").trim();

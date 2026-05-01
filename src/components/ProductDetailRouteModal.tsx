@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProductDetailModal } from "./ProductDetailModal";
@@ -16,14 +16,19 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { products } = useProductsContext();
-  const { closetProducts, toggleCloset, isInCloset } = useClosetContext();
-  const { toggleDigbox, isInDigbox } = useDigboxContext();
+  const { closetProducts, toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
+  const { toggleDigbox, isInDigbox, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const recommendationsRef = useRef<HTMLDivElement>(null);
   const source = searchParams.get("source");
   const hideCollectionActions = source === "closet";
+
+  useEffect(() => {
+    ensureClosetLoaded();
+    ensureDigboxLoaded();
+  }, [ensureClosetLoaded, ensureDigboxLoaded]);
 
   const recommendations = useMemo<SizeRecommendation[]>(() => {
     if (activeRowIndex === null) return [];

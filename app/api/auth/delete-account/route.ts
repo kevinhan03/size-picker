@@ -29,14 +29,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error: deleteProfileError } = await db
-      .from("users")
-      .delete()
-      .eq("id", user.id);
-    if (deleteProfileError) throw deleteProfileError;
-
     const { error: deleteAuthError } = await db.auth.admin.deleteUser(user.id);
     if (deleteAuthError) throw deleteAuthError;
+
+    const cleanupQueries = [
+      db.from("user_closet_items").delete().eq("user_id", user.id),
+      db.from("user_digbox_items").delete().eq("user_id", user.id),
+      db.from("user_my_size_profiles").delete().eq("user_id", user.id),
+      db.from("users").delete().eq("id", user.id),
+    ];
+    const cleanupResults = await Promise.allSettled(cleanupQueries);
+    const cleanupError = cleanupResults.find(
+      (result) => result.status === "fulfilled" && result.value.error
+    );
+    if (cleanupError && cleanupError.status === "fulfilled") {
+      throw cleanupError.value.error;
+    }
+    const rejectedCleanup = cleanupResults.find((result) => result.status === "rejected");
+    if (rejectedCleanup && rejectedCleanup.status === "rejected") {
+      throw rejectedCleanup.reason;
+    }
 
     return NextResponse.json({
       ok: true,

@@ -10,6 +10,19 @@ function getToken(request: Request) {
   return String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
 }
 
+function buildOtherDigboxCounts(rows: { product_id?: string | null; user_id?: string | null }[]) {
+  const usersByProduct = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const productId = String(row.product_id || "").trim();
+    const userId = String(row.user_id || "").trim();
+    if (!productId || !userId) continue;
+    const users = usersByProduct.get(productId) ?? new Set<string>();
+    users.add(userId);
+    usersByProduct.set(productId, users);
+  }
+  return Object.fromEntries([...usersByProduct.entries()].map(([productId, users]) => [productId, users.size]));
+}
+
 export async function GET(request: Request) {
   const token = getToken(request);
   if (!token) return unauthorized();
@@ -30,15 +43,42 @@ export async function GET(request: Request) {
 
     const productIds = (digboxData ?? []).map((row: { product_id: string }) => row.product_id);
     if (productIds.length === 0) {
-      return NextResponse.json({ ok: true, data: { products: [] } });
+      return NextResponse.json({ ok: true, data: { products: [], discoveredDigboxCounts: {} } });
     }
 
     const { data: productsData, error: productsError } = await db
       .from("products")
-      .select("id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order")
+      .select("id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by")
       .in("id", productIds);
 
     if (productsError) throw productsError;
+
+    const { data: userData, error: userError } = await db
+      .from("users")
+      .select("username")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (userError) throw userError;
+    const username = String(userData?.username || "").trim();
+    const discoveredProductIds = username
+      ? (productsData ?? [])
+          .filter((product: { id?: string; registered_by?: string | null }) => String(product.registered_by || "").trim() === username)
+          .map((product: { id?: string }) => String(product.id || "").trim())
+          .filter(Boolean)
+      : [];
+
+    let discoveredDigboxCounts: Record<string, number> = {};
+    if (discoveredProductIds.length > 0) {
+      const { data: countRows, error: countError } = await db
+        .from("user_digbox_items")
+        .select("product_id, user_id")
+        .in("product_id", discoveredProductIds)
+        .neq("user_id", user.id);
+
+      if (countError) throw countError;
+      discoveredDigboxCounts = buildOtherDigboxCounts(countRows ?? []);
+    }
 
     await refreshBrandRulesCache();
 
@@ -47,7 +87,7 @@ export async function GET(request: Request) {
       .map((id: string) => normalizeProductRow(productMap.get(id)))
       .filter(Boolean);
 
-    return NextResponse.json({ ok: true, data: { products } });
+    return NextResponse.json({ ok: true, data: { products, discoveredDigboxCounts } });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "digbox fetch error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

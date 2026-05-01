@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { assertGeminiKey, callGemini } from "../../../server/bootstrap/gemini.js";
+import { getBearerTokenFromRequest, validateInlineImageInput } from "../../../server/utils/request-validation.js";
 import { verifyBearerToken } from "../../../server/utils/verify-auth.js";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  const authorization = String(request.headers.get("authorization") || "").trim();
-  const token = authorization.replace(/^Bearer\s+/i, "").trim();
+  const token = getBearerTokenFromRequest(request);
   if (!token) {
     return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
   }
@@ -17,14 +17,9 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const imageBase64 = String(body?.imageBase64 || "").trim();
-  const mimeType = String(body?.mimeType || "image/png").trim();
-
-  if (!imageBase64) {
-    return NextResponse.json({ ok: false, error: "imageBase64 is required" }, { status: 400 });
-  }
 
   try {
+    const { imageBase64, mimeType } = validateInlineImageInput(body);
     assertGeminiKey();
 
     const response = await callGemini("gemini-2.5-flash-image-preview", {

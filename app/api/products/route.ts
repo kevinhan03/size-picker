@@ -10,6 +10,8 @@ import {
   toProductWriteErrorResponse,
 } from "../../../server/utils/product.js";
 import { normalizeSizeTableForCategory, parseSizeTable } from "../../../server/utils/size-table.js";
+import { verifyBearerToken } from "../../../server/utils/verify-auth.js";
+import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
 
 export async function GET() {
   try {
@@ -36,6 +38,25 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const authorization = String(request.headers.get("authorization") || "").trim();
+    const token = authorization.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
+    }
+    const user = await verifyBearerToken(token);
+    if (!user) {
+      return NextResponse.json({ ok: false, error: "invalid auth token" }, { status: 401 });
+    }
+
+    assertSupabaseConfig();
+    let registeredBy: string | null = null;
+    const { data: userData } = await supabase!
+      .from("users")
+      .select("username")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (userData?.username) registeredBy = String(userData.username);
+
     const body = await request.json();
     const url = String(body?.url || "#").trim();
     await refreshBrandRulesCache();
@@ -48,7 +69,7 @@ export async function POST(request: Request) {
     const normalizedSizeTable =
       parseSizeTable(body?.normalizedSizeTable ?? null) ||
       normalizeSizeTableForCategory(category, sizeTable);
-    const isInstagram = Boolean(body?.isInstagram);
+    const isInstagram = false;
     const createdAt = new Date().toISOString();
 
     if (!brand || !name) {
@@ -74,6 +95,7 @@ export async function POST(request: Request) {
       isInstagram,
       createdAt,
       slug,
+      registeredBy,
     });
     const product = normalizeProductRow(insertedRow);
 

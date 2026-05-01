@@ -22,7 +22,7 @@ export const fetchAllProducts = async (): Promise<Product[]> => {
   assertSupabaseClient();
   const { data, error } = await supabase!
     .from('products')
-    .select('id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order')
+    .select('id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   const rows = Array.isArray(data) ? (data as ProductRow[]) : [];
@@ -52,6 +52,12 @@ export const uploadSubmissionImage = async (file: File): Promise<string> => {
   return data.path;
 };
 
+const getAccessToken = async (): Promise<string> => {
+  assertSupabaseClient();
+  const { data: { session } } = await supabase!.auth.getSession();
+  return String(session?.access_token || '').trim();
+};
+
 export const submitProduct = async (form: SubmitProductForm, isInstagram = false): Promise<void> => {
   const category = String(form.category || '').trim();
   if (!category) {
@@ -67,32 +73,39 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
     throw new Error('상품 사진은 필수입니다.');
   }
 
-  const { response, payload } = await postJson<object, unknown>('/api/products', {
-    brand: form.brand,
-    name: form.name,
-    category,
-    url: form.url || null,
-    image_path: imagePath,
-    sizeTable: form.sizeTable ?? null,
-    normalizedSizeTable: form.normalizedSizeTable ?? null,
-    isInstagram,
-  });
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error('Authentication is required');
+  }
+  const { response, payload } = await postJson<object, unknown>(
+    '/api/products',
+    {
+      brand: form.brand,
+      name: form.name,
+      category,
+      url: form.url || null,
+      image_path: imagePath,
+      sizeTable: form.sizeTable ?? null,
+      normalizedSizeTable: form.normalizedSizeTable ?? null,
+      isInstagram,
+    },
+    { Authorization: `Bearer ${token}` }
+  );
   if (!response.ok || !payload?.ok) {
     console.error('[submitProduct] insert failed', payload?.error);
     throw new Error(payload?.error || 'Product submission failed');
   }
 };
 
-const getAccessToken = async (): Promise<string> => {
-  assertSupabaseClient();
-  const { data: { session } } = await supabase!.auth.getSession();
-  return String(session?.access_token || '').trim();
-};
-
 export const fetchProductMetadataFromUrl = async (url: string): Promise<ProductMetadataPayload> => {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error('Authentication is required');
+  }
   const { response, payload } = await postJson<{ url: string }, ProductMetadataPayload>(
     '/api/product-metadata',
-    { url }
+    { url },
+    { Authorization: `Bearer ${token}` }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error || 'Failed to extract metadata from URL');
@@ -243,15 +256,35 @@ export const deleteMySize = async (id: string): Promise<void> => {
 };
 
 export const fetchDigboxItems = async (): Promise<Product[]> => {
+  const data = await fetchDigboxData();
+  return data.products;
+};
+
+export const fetchDigboxData = async (): Promise<{ products: Product[]; discoveredDigboxCounts: Record<string, number> }> => {
   const token = await getAccessToken();
-  if (!token) return [];
+  if (!token) return { products: [], discoveredDigboxCounts: {} };
   const response = await fetch('/api/digbox', {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const payload = await parseApiJson<{ ok?: boolean; data?: { products?: unknown[] }; error?: string }>(response, '/api/digbox');
-  if (!response.ok || !payload?.ok) return [];
+  const payload = await parseApiJson<{
+    ok?: boolean;
+    data?: { products?: unknown[]; discoveredDigboxCounts?: Record<string, unknown> };
+    error?: string;
+  }>(response, '/api/digbox');
+  if (!response.ok || !payload?.ok) return { products: [], discoveredDigboxCounts: {} };
   const rows = Array.isArray(payload?.data?.products) ? payload.data!.products : [];
-  return rows.filter((p): p is Product => p !== null && typeof p === 'object');
+  const counts = payload?.data?.discoveredDigboxCounts;
+  const discoveredDigboxCounts: Record<string, number> = {};
+  for (const [productId, count] of Object.entries(counts && typeof counts === 'object' ? counts : {})) {
+    const numericCount = Number(count) || 0;
+    if (productId && numericCount > 0) {
+      discoveredDigboxCounts[productId] = numericCount;
+    }
+  }
+  return {
+    products: rows.filter((p): p is Product => p !== null && typeof p === 'object'),
+    discoveredDigboxCounts,
+  };
 };
 
 export const addToDigbox = async (productId: string): Promise<void> => {

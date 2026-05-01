@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
-import {
-  getAdminTokenFromCookieHeader,
-  verifyAdminSessionToken,
-} from "../../../../server/auth/admin-session.js";
+import { verifyAdminRequest } from "../../../../server/utils/admin-request.js";
 import {
   getBrandRules,
   normalizeBrandRule,
@@ -11,15 +8,9 @@ import {
   writeBrandRules,
 } from "../../../../server/utils/brand-rules.js";
 
-const adminUnauthorized = () =>
-  NextResponse.json(
-    { ok: false, error: "admin authentication required" },
-    { status: 401 }
-  );
-
 export async function GET(request: Request) {
-  const token = getAdminTokenFromCookieHeader(request.headers.get("cookie") ?? "");
-  if (!verifyAdminSessionToken(token)) return adminUnauthorized();
+  const adminError = verifyAdminRequest(request);
+  if (adminError) return adminError;
   await refreshBrandRulesCache({ force: true });
 
   return NextResponse.json({
@@ -31,8 +22,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const token = getAdminTokenFromCookieHeader(request.headers.get("cookie") ?? "");
-  if (!verifyAdminSessionToken(token)) return adminUnauthorized();
+  const adminError = verifyAdminRequest(request);
+  if (adminError) return adminError;
 
   try {
     const body = await request.json();

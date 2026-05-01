@@ -76,6 +76,8 @@ interface ProductDetailModalProps {
   isInDigbox?: boolean;
   hideDigboxButton?: boolean;
   hideCollectionActions?: boolean;
+  otherDigboxCount?: number;
+  otherDigboxCountLabel?: string;
 }
 
 function getClosetSizeLabel(product?: Product | null): string {
@@ -129,9 +131,9 @@ function SizeSelectionSheet({
   onClose: () => void;
   onConfirm: (selection: ClosetSizeSelection | null) => void;
 }) {
-  const sizeTable = getDisplaySizeTable(product);
-  const rows = sizeTable?.rows ?? [];
-  const headers = sizeTable?.headers ?? [];
+  const sizeTable = useMemo(() => getDisplaySizeTable(product), [product]);
+  const rows = useMemo(() => sizeTable?.rows ?? [], [sizeTable]);
+  const headers = useMemo(() => sizeTable?.headers ?? [], [sizeTable]);
   const safeInitialIndex = initialRowIndex !== null && rows[initialRowIndex] ? initialRowIndex : null;
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(safeInitialIndex);
   const [manualSize, setManualSize] = useState("");
@@ -141,7 +143,10 @@ function SizeSelectionSheet({
     setManualSize("");
   }, [safeInitialIndex, product.id]);
 
-  const selectedRow = selectedRowIndex !== null ? rows[selectedRowIndex] : null;
+  const selectedRow = useMemo(
+    () => (selectedRowIndex !== null ? rows[selectedRowIndex] : null),
+    [rows, selectedRowIndex]
+  );
   const measurements = useMemo(() => {
     if (!selectedRow) return [];
     return headers
@@ -269,6 +274,8 @@ export function ProductDetailModal({
   isInDigbox,
   hideDigboxButton,
   hideCollectionActions,
+  otherDigboxCount = 0,
+  otherDigboxCountLabel,
 }: ProductDetailModalProps) {
   useBodyScrollLock(modalRef);
   const sizeTableTouchStartX = useRef<number | null>(null);
@@ -279,7 +286,7 @@ export function ProductDetailModal({
   const [isMySizePickerOpen, setIsMySizePickerOpen] = useState(false);
   const [mySizeSearchQuery, setMySizeSearchQuery] = useState("");
   const [isSimilarProductsOpen, setIsSimilarProductsOpen] = useState(false);
-  const { mySizes } = useMySizesContext();
+  const { mySizes, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
   const [selectedMySizeId, setSelectedMySizeId] = useState<string>("");
   const savedClosetProduct = closetProduct || null;
   const savedSizeLabel = getClosetSizeLabel(savedClosetProduct);
@@ -289,6 +296,11 @@ export function ProductDetailModal({
     () => ({ ...product, sizeTable: displaySizeTable }),
     [displaySizeTable, product]
   );
+
+  useEffect(() => {
+    ensureMySizesLoaded();
+  }, [ensureMySizesLoaded]);
+
   const categoryMySizes = useMemo(
     () => mySizes.filter((profile) => profile.category === product.category),
     [mySizes, product.category]
@@ -452,6 +464,18 @@ export function ProductDetailModal({
                 <span className="text-gray-500">{product.category}</span>
               </div>
               <h4 className="mb-2 text-2xl font-bold text-white">{product.name}</h4>
+              {product.registeredBy && (
+                <div className="mb-2">
+                  <span className="inline-flex rounded-md bg-white/[0.05] px-2 py-1 text-xs font-semibold text-gray-400">
+                    발굴한 사람: <span className="ml-1 text-gray-200">{product.registeredBy}</span>
+                  </span>
+                </div>
+              )}
+              {otherDigboxCount > 0 && (
+                <p className="mb-2 text-xs font-semibold text-gray-500">
+                  {otherDigboxCountLabel || `이 발굴 상품을 ${otherDigboxCount}명이 DIGBOX에 담았어요`}
+                </p>
+              )}
               {product.url ? (
                 <a
                   href={product.url}

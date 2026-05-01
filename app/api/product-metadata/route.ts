@@ -5,10 +5,21 @@ import {
   normalizeProductCategory,
   refreshBrandRulesCache,
 } from "../../../server/bootstrap/metadata.js";
+import { getBearerTokenFromRequest } from "../../../server/utils/request-validation.js";
+import { verifyBearerToken } from "../../../server/utils/verify-auth.js";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const token = getBearerTokenFromRequest(request);
+  if (!token) {
+    return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
+  }
+  const user = await verifyBearerToken(token);
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "invalid auth token" }, { status: 401 });
+  }
+
   const body = await request.json();
   const rawUrl = String(body?.url || "").trim();
 

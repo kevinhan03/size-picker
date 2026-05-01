@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import {
-  getAdminTokenFromCookieHeader,
-  verifyAdminSessionToken,
-} from "../../../server/auth/admin-session.js";
+import { verifyAdminRequest } from "../../../server/utils/admin-request.js";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
 
 export async function GET() {
@@ -27,15 +24,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const token = getAdminTokenFromCookieHeader(
-    request.headers.get("cookie") ?? ""
-  );
-  if (!verifyAdminSessionToken(token)) {
-    return NextResponse.json(
-      { ok: false, error: "admin authentication required" },
-      { status: 401 }
-    );
-  }
+  const adminError = verifyAdminRequest(request);
+  if (adminError) return adminError;
 
   const body = await request.json();
   const instagramUrl = String(body?.instagramUrl ?? "").trim();

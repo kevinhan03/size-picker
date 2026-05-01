@@ -10,6 +10,8 @@ export function useCloset(isLoggedIn: boolean) {
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<ClosetToast>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasLoadedRef = useRef(false);
+  const isLoadingRef = useRef(false);
 
   const showToast = useCallback((t: ClosetToast) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -28,23 +30,33 @@ export function useCloset(isLoggedIn: boolean) {
     if (!isLoggedIn) {
       setClosetProducts([]);
       setClosetIds(new Set());
+      hasLoadedRef.current = false;
       return;
     }
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
     setIsLoading(true);
     try {
       const products = await fetchClosetItems();
       setClosetProducts(products);
       setClosetIds(new Set(products.map((p) => p.id)));
+      hasLoadedRef.current = true;
     } catch {
       // silent
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
   }, [isLoggedIn]);
 
   useEffect(() => {
-    setTimeout(() => void load(), 0);
-  }, [load]);
+    if (!isLoggedIn) void load();
+  }, [isLoggedIn, load]);
+
+  const ensureLoaded = useCallback(() => {
+    if (!isLoggedIn || hasLoadedRef.current) return;
+    void load();
+  }, [isLoggedIn, load]);
 
   const addToCloset = useCallback(async (productId: string, sizeSelection?: ClosetSizeSelection | null) => {
     if (closetIds.has(productId)) return;
@@ -83,5 +95,5 @@ export function useCloset(isLoggedIn: boolean) {
     }
   }, [isLoggedIn, closetIds, addToCloset, showToast]);
 
-  return { closetProducts, closetIds, isLoading, toast, clearToast, addToCloset, removeFromCloset, isInCloset, toggleCloset, reload: load };
+  return { closetProducts, closetIds, isLoading, toast, clearToast, addToCloset, removeFromCloset, isInCloset, toggleCloset, reload: load, ensureLoaded };
 }
