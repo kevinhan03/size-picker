@@ -87,7 +87,7 @@ export default async function ProductPage({ params }: Props) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-gray-300 transition hover:text-orange-400"
                 >
-                  공식 페이지 바로가기
+                  공식 홈페이지 바로가기
                 </a>
               )}
             </div>

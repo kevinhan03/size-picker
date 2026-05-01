@@ -28,12 +28,16 @@ export function useInstagramProducts({
   const [isInstagramLoading, setIsInstagramLoading] = useState(false);
   const [isInstagramAnalyzing, setIsInstagramAnalyzing] = useState(false);
   const [instagramProfileUrl, setInstagramProfileUrl] = useState("");
+  const [featuredHeading, setFeaturedHeading] = useState("");
 
   useEffect(() => {
     fetch("/api/site-settings")
       .then((r) => r.json())
       .then((payload) => {
-        if (payload?.ok) setInstagramProfileUrl(payload.data?.instagramUrl ?? "");
+        if (payload?.ok) {
+          setInstagramProfileUrl(payload.data?.instagramUrl ?? "");
+          setFeaturedHeading(payload.data?.featuredHeading ?? "");
+        }
       })
       .catch(() => {});
   }, []);
@@ -156,7 +160,10 @@ export function useInstagramProducts({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ instagramUrl: instagramProfileUrl.trim() }),
+        body: JSON.stringify({
+          instagramUrl: instagramProfileUrl.trim(),
+          featuredHeading: featuredHeading.trim(),
+        }),
       });
       const payload = await res.json();
       if (!res.ok || !payload?.ok)
@@ -265,6 +272,8 @@ export function useInstagramProducts({
     handleInstagramCreate,
     instagramProfileUrl,
     setInstagramProfileUrl,
+    featuredHeading,
+    setFeaturedHeading,
     handleInstagramProfileUrlSave,
     handleInstagramPublish,
     handleInstagramUnpublish,

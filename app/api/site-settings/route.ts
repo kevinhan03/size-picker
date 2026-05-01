@@ -15,8 +15,11 @@ export async function GET() {
     const instagramUrl =
       (Array.isArray(data) ? data : []).find((r) => r.key === "instagram_url")
         ?.value ?? "";
+    const featuredHeading =
+      (Array.isArray(data) ? data : []).find((r) => r.key === "featured_heading")
+        ?.value ?? "";
 
-    return NextResponse.json({ ok: true, data: { instagramUrl } });
+    return NextResponse.json({ ok: true, data: { instagramUrl, featuredHeading } });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "settings fetch error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
@@ -28,15 +31,23 @@ export async function PATCH(request: Request) {
   if (adminError) return adminError;
 
   const body = await request.json();
-  const instagramUrl = String(body?.instagramUrl ?? "").trim();
+  const updates: Array<{ key: string; value: string }> = [];
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "instagramUrl")) {
+    updates.push({ key: "instagram_url", value: String(body?.instagramUrl ?? "").trim() });
+  }
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "featuredHeading")) {
+    updates.push({ key: "featured_heading", value: String(body?.featuredHeading ?? "").trim() });
+  }
 
   try {
     assertSupabaseConfig();
-    const { error } = await supabase!
-      .from("site_settings")
-      .upsert({ key: "instagram_url", value: instagramUrl });
+    if (updates.length > 0) {
+      const { error } = await supabase!
+        .from("site_settings")
+        .upsert(updates);
 
-    if (error) throw error;
+      if (error) throw error;
+    }
 
     revalidatePath("/", "layout");
     return NextResponse.json({ ok: true });

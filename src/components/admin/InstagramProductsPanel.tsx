@@ -15,6 +15,8 @@ interface InstagramProductsPanelProps {
   onMove: (id: string, direction: "up" | "down") => void;
   instagramProfileUrl: string;
   onInstagramProfileUrlChange: (url: string) => void;
+  featuredHeading: string;
+  onFeaturedHeadingChange: (heading: string) => void;
   onInstagramProfileUrlSave: () => void;
 }
 
@@ -27,6 +29,8 @@ export function InstagramProductsPanel({
   onMove,
   instagramProfileUrl,
   onInstagramProfileUrlChange,
+  featuredHeading,
+  onFeaturedHeadingChange,
   onInstagramProfileUrlSave,
 }: InstagramProductsPanelProps) {
   const productForm = useProductFormContext();
@@ -78,6 +82,18 @@ export function InstagramProductsPanel({
           >
             저장
           </button>
+        </div>
+        <div className="mt-3 flex items-start gap-2">
+          <label className="w-24 flex-shrink-0 pt-2 text-sm font-bold text-gray-300">
+            메인 노출 문구
+          </label>
+          <textarea
+            value={featuredHeading}
+            onChange={(e) => onFeaturedHeadingChange(e.target.value)}
+            placeholder="지금 주목할 상품"
+            rows={2}
+            className="min-w-0 flex-1 resize-y rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-orange-500 focus:outline-none"
+          />
         </div>
       </div>
 

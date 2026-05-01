@@ -9,14 +9,13 @@ export const STORAGE_BUCKET = "product-assets";
 export const STORAGE_PREFIX = "submissions/";
 export const DEFAULT_PRODUCT_PLACEHOLDER = "/images/default-product.svg";
 
-export const CATEGORY_OPTIONS = ["Outer", "Top", "Bottom", "Shoes", "Acc", "기타 상품(빈티지)"] as const;
+export const CATEGORY_OPTIONS = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
 export const CATEGORY_OPTION_BY_LOWER: Record<string, (typeof CATEGORY_OPTIONS)[number]> = {
   outer: "Outer",
   top: "Top",
   bottom: "Bottom",
   shoes: "Shoes",
   acc: "Acc",
-  "기타 상품(빈티지)": "기타 상품(빈티지)",
 };
 
 export const SIZE_REGION_OPTIONS = [

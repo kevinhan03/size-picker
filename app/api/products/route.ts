@@ -66,9 +66,11 @@ export async function POST(request: Request) {
     const imagePath = String(body?.image_path ?? body?.imagePath ?? "").trim();
     const image = String(body?.image || "").trim();
     const sizeTable = parseSizeTable(body?.sizeTable ?? null);
-    const normalizedSizeTable =
-      parseSizeTable(body?.normalizedSizeTable ?? null) ||
-      normalizeSizeTableForCategory(category, sizeTable);
+    const submittedNormalizedSizeTable = parseSizeTable(body?.normalizedSizeTable ?? null);
+    const normalizedSizeTable = normalizeSizeTableForCategory(
+      category,
+      submittedNormalizedSizeTable || sizeTable
+    );
     const isInstagram = false;
     const createdAt = new Date().toISOString();
 

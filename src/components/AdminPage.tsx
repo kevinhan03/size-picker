@@ -61,6 +61,8 @@ interface AdminPageProps {
   onInstagramMove: (id: string, direction: "up" | "down") => void;
   instagramProfileUrl: string;
   onInstagramProfileUrlChange: (url: string) => void;
+  featuredHeading: string;
+  onFeaturedHeadingChange: (heading: string) => void;
   onInstagramProfileUrlSave: () => void;
   onImageLoadError: (event: SyntheticEvent<HTMLImageElement>) => void;
 }
@@ -109,6 +111,8 @@ export const AdminPage = ({
   onInstagramMove,
   instagramProfileUrl,
   onInstagramProfileUrlChange,
+  featuredHeading,
+  onFeaturedHeadingChange,
   onInstagramProfileUrlSave,
   onImageLoadError,
 }: AdminPageProps) => {
@@ -277,6 +281,8 @@ export const AdminPage = ({
                   onMove={onInstagramMove}
                   instagramProfileUrl={instagramProfileUrl}
                   onInstagramProfileUrlChange={onInstagramProfileUrlChange}
+                  featuredHeading={featuredHeading}
+                  onFeaturedHeadingChange={onFeaturedHeadingChange}
                   onInstagramProfileUrlSave={onInstagramProfileUrlSave}
                 />
               </>

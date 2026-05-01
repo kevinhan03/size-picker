@@ -1,11 +1,7 @@
-import {
-  Camera,
-  Globe,
-  Loader2,
-  Plus,
-  X,
-} from 'lucide-react';
+import { useRef } from 'react';
+import { Camera, Loader2, X } from 'lucide-react';
 import type { useProductForm } from '../hooks/useProductForm';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { AddProductFormFields } from './add-product/AddProductFormFields';
 
 type ProductForm = ReturnType<typeof useProductForm>;
@@ -15,33 +11,6 @@ interface AddProductModalProps {
 }
 
 function ModalBody({ form }: AddProductModalProps) {
-  if (form.addProductMode === 'menu') {
-    return (
-      <div className="space-y-5">
-        <button
-          type="button"
-          onClick={() => form.setAddProductMode('url')}
-          className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-5 py-5 text-left transition hover:border-orange-500/60 hover:bg-white/[0.1]"
-        >
-          <div>
-            <p className="text-sm font-semibold text-white sm:text-base">{'\uACF5\uC2DD \uD648\uD398\uC774\uC9C0 URL\uB85C \uCD94\uAC00'}</p>
-          </div>
-          <Globe className="h-5 w-5 text-orange-400" />
-        </button>
-        <button
-          type="button"
-          onClick={() => form.setAddProductMode('manual')}
-          className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-5 py-5 text-left transition hover:border-white/20 hover:bg-white/[0.1]"
-        >
-          <div>
-            <p className="text-sm font-semibold text-white sm:text-base">{'\uC9C1\uC811 \uCD94\uAC00'}</p>
-          </div>
-          <Plus className="h-5 w-5 text-gray-300" />
-        </button>
-      </div>
-    );
-  }
-
   if (form.addProductMode === 'capture' && !form.isCaptureReviewReady) {
     return (
       <div className="space-y-3">
@@ -65,20 +34,23 @@ function ModalBody({ form }: AddProductModalProps) {
 }
 
 export function AddProductModal({ form }: AddProductModalProps) {
+  const modalScrollRef = useRef<HTMLDivElement | null>(null);
+  useBodyScrollLock(modalScrollRef, form.isModalOpen);
+
   if (!form.isModalOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={form.closeModal} />
-      <div className="ui-add-product-modal bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.06))] backdrop-blur-2xl rounded-3xl w-full max-w-lg shadow-[0_24px_60px_rgba(0,0,0,0.5)] overflow-hidden relative flex flex-col max-h-[90vh] border border-white/10">
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-black/20 sticky top-0 z-10 text-white backdrop-blur-sm">
+      <div className="absolute inset-0 bg-black/75" onClick={form.closeModal} />
+      <div className="ui-add-product-modal bg-[linear-gradient(180deg,#1b1b1f,#121214)] rounded-3xl w-full max-w-lg shadow-[0_24px_70px_rgba(0,0,0,0.68)] overflow-hidden relative flex flex-col max-h-[90vh] border border-white/15">
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#17171a] sticky top-0 z-10 text-white">
           <h3 className="text-lg font-bold" style={{ color: '#00FF00' }}>{'\uC0C1\uD488 \uCD94\uAC00'}</h3>
           <button onClick={form.closeModal} className="p-2 hover:bg-white/[0.1] rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-6 overflow-y-auto text-white space-y-4">
+        <div ref={modalScrollRef} className="p-6 overflow-y-auto overscroll-contain text-white space-y-4">
           <ModalBody form={form} />
         </div>
-        <div className="p-6 border-t border-white/10 bg-black/20 backdrop-blur-sm flex justify-end gap-3 sticky bottom-0">
+        <div className="p-6 border-t border-white/10 bg-[#17171a] flex justify-end gap-3 sticky bottom-0">
           <button onClick={form.closeModal} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 bg-white/[0.06] border border-white/10 hover:bg-white/[0.12] hover:text-white transition">{'\uCDE8\uC18C'}</button>
           <button onClick={form.handleSubmitProduct} disabled={!form.isFormValid} className={`px-5 py-2.5 rounded-xl text-sm font-bold text-black transition flex items-center gap-2 ${!form.isFormValid ? 'bg-gray-700 cursor-not-allowed text-gray-500' : 'hover:bg-orange-400'}`} style={!form.isFormValid ? {} : { backgroundColor: '#F97316' }}>
             {form.isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

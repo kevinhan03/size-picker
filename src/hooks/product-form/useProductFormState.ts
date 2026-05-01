@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react";
-import type { AddProductFormData, AddProductMode } from "../../types";
+import { useCallback, useEffect, useState } from "react";
+import type { AddProductFormData, AddProductMode, ClosetSizeSelection } from "../../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER, EMPTY_FORM_DATA } from "../../constants";
 
 export function useProductFormState() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [addProductMode, setAddProductMode] = useState<AddProductMode>("menu");
+  const [addProductMode, setAddProductMode] = useState<AddProductMode>("url");
   const [showDuplicateProductModal, setShowDuplicateProductModal] = useState(false);
 
   const [formData, setFormData] = useState<AddProductFormData>(EMPTY_FORM_DATA);
+  const [addToDigboxOnSubmit, setAddToDigboxOnSubmit] = useState(true);
+  const [addToClosetOnSubmit, setAddToClosetOnSubmit] = useState(false);
+  const [closetSizeSelection, setClosetSizeSelection] = useState<ClosetSizeSelection | null>(null);
+  const [submitToast, setSubmitToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null);
   const [autofilledProductImageUrl, setAutofilledProductImageUrl] = useState<string | null>(null);
   const [autofilledProductImageCandidates, setAutofilledProductImageCandidates] = useState<string[]>([]);
@@ -56,8 +60,19 @@ export function useProductFormState() {
     setProductImageNotice(null);
   };
 
+  const showSubmitToast = useCallback((toast: { message: string; type: "success" | "error" }) => {
+    setSubmitToast(toast);
+  }, []);
+
+  const clearSubmitToast = useCallback(() => {
+    setSubmitToast(null);
+  }, []);
+
   const resetState = () => {
     setFormData(EMPTY_FORM_DATA);
+    setAddToDigboxOnSubmit(true);
+    setAddToClosetOnSubmit(false);
+    setClosetSizeSelection(null);
     clearSelectedProductImage();
     clearAutoFillFeedback();
     setAiPreviewImageSrc(null);
@@ -69,7 +84,7 @@ export function useProductFormState() {
     setIsAutofillingFromImage(false);
     setIsSaving(false);
     setShowDuplicateProductModal(false);
-    setAddProductMode("menu");
+    setAddProductMode("url");
     setTableEditingCell(null);
     setIsInstagramMode(false);
   };
@@ -117,6 +132,15 @@ export function useProductFormState() {
     setShowDuplicateProductModal,
     formData,
     setFormData,
+    addToDigboxOnSubmit,
+    setAddToDigboxOnSubmit,
+    addToClosetOnSubmit,
+    setAddToClosetOnSubmit,
+    closetSizeSelection,
+    setClosetSizeSelection,
+    submitToast,
+    showSubmitToast,
+    clearSubmitToast,
     productPhotoFile,
     setProductPhotoFile,
     autofilledProductImageUrl,

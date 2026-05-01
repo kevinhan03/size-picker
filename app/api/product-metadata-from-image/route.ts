@@ -110,30 +110,17 @@ export async function POST(request: Request) {
     }
 
     const productImageSourceBonusByUrl = new Map<string, number>();
-    if (fallbackUrlMetadata?.image_path) {
-      productImageSourceBonusByUrl.set(fallbackUrlMetadata.image_path, 14);
-    }
-    for (const candidate of fallbackUrlMetadata?.productImageCandidates || []) {
-      productImageSourceBonusByUrl.set(
-        candidate,
-        Math.max(10, Number(productImageSourceBonusByUrl.get(candidate) || 0))
-      );
-    }
     if (rawImagePath) {
       productImageSourceBonusByUrl.set(
         rawImagePath,
-        Math.max(6, Number(productImageSourceBonusByUrl.get(rawImagePath) || 0))
+        Math.max(10, Number(productImageSourceBonusByUrl.get(rawImagePath) || 0))
       );
     }
 
-    const candidateImageUrls: string[] = [
-      rawImagePath,
-      fallbackUrlMetadata?.image_path || "",
-      ...((fallbackUrlMetadata?.productImageCandidates || []) as string[]),
-    ];
+    const candidateImageUrls: string[] = [rawImagePath];
 
     const prioritizedImageResult = await (prioritizeProductImageCandidates as any)({
-      primaryImage: fallbackUrlMetadata?.productImage || null,
+      primaryImage: null,
       candidates: candidateImageUrls,
       brand: metadataResult.data.brand || fallbackUrlMetadata?.brand || "",
       name: metadataResult.data.name || fallbackUrlMetadata?.name || "",
@@ -141,12 +128,7 @@ export async function POST(request: Request) {
     });
 
     const imagePath = prioritizedImageResult.imagePath || "";
-    const productImage =
-      fallbackUrlMetadata?.productImage?.sourceUrl === imagePath
-        ? fallbackUrlMetadata.productImage
-        : imagePath
-          ? { sourceUrl: imagePath, mimeType: "", base64: "" }
-          : null;
+    const productImage = imagePath ? { sourceUrl: imagePath, mimeType: "", base64: "" } : null;
     const productImageCandidates = prioritizedImageResult.productImageCandidates;
     const resolvedBrand = normalizeBrandName(metadataResult.data.brand || fallbackUrlMetadata?.brand || "");
 

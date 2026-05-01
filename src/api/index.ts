@@ -58,7 +58,7 @@ const getAccessToken = async (): Promise<string> => {
   return String(session?.access_token || '').trim();
 };
 
-export const submitProduct = async (form: SubmitProductForm, isInstagram = false): Promise<void> => {
+export const submitProduct = async (form: SubmitProductForm, isInstagram = false): Promise<Product> => {
   const category = String(form.category || '').trim();
   if (!category) {
     throw new Error('카테고리는 필수입니다.');
@@ -77,7 +77,7 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
   if (!token) {
     throw new Error('Authentication is required');
   }
-  const { response, payload } = await postJson<object, unknown>(
+  const { response, payload } = await postJson<object, { product?: Product }>(
     '/api/products',
     {
       brand: form.brand,
@@ -95,6 +95,10 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
     console.error('[submitProduct] insert failed', payload?.error);
     throw new Error(payload?.error || 'Product submission failed');
   }
+  if (!payload.data?.product) {
+    throw new Error('Product submission returned no product');
+  }
+  return payload.data.product;
 };
 
 export const fetchProductMetadataFromUrl = async (url: string): Promise<ProductMetadataPayload> => {

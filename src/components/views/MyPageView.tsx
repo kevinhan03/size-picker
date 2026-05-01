@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, ChevronRight, Copy, LogOut, Plus, Ruler, Save, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, LogOut, Plus, Ruler, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
 import type { MySizeInput, MySizeProfile, Product } from "../../types";
 
 interface MyPageViewProps {
@@ -423,7 +423,6 @@ function MySizesManager({
             disabled={isSaving}
             className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500"
           >
-            <Save className="h-4 w-4" />
             {isSaving ? "저장 중..." : "My Size 저장"}
           </button>
         </div>

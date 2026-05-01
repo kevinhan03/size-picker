@@ -255,6 +255,62 @@ function DigboxToast() {
   );
 }
 
+function ProductSubmitToast() {
+  const { submitToast, clearSubmitToast } = useProductFormContext();
+  const [visibleToast, setVisibleToast] = useState(submitToast);
+  const [isVisible, setIsVisible] = useState(false);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+
+    if (submitToast) {
+      setVisibleToast(submitToast);
+      requestAnimationFrame(() => setIsVisible(true));
+      clearTimerRef.current = setTimeout(() => clearSubmitToast(), 2600);
+      return () => {
+        if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      };
+    }
+
+    setIsVisible(false);
+    hideTimerRef.current = setTimeout(() => setVisibleToast(null), 220);
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    };
+  }, [clearSubmitToast, submitToast]);
+
+  if (!visibleToast) return null;
+
+  const isError = visibleToast.type === "error";
+
+  return (
+    <div className="pointer-events-none fixed left-1/2 top-1/2 z-[95] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2">
+      <div
+        className={`pointer-events-auto flex items-center gap-3 rounded-2xl border bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-all duration-200 ease-out ${
+          isError ? "border-red-500/30" : "border-orange-500/25"
+        } ${isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
+      >
+        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ${isError ? "bg-red-500/15 text-red-300" : "bg-orange-500/15 text-orange-400"}`}>
+          {isError ? "!" : "✓"}
+        </div>
+        <p className="min-w-0 flex-1 text-sm font-bold text-white">{visibleToast.message}</p>
+        <button
+          type="button"
+          onClick={clearSubmitToast}
+          aria-label="알림 닫기"
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-white/10 hover:text-white"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const auth = useAuthContext();
   const productForm = useProductFormContext();
@@ -268,6 +324,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {children}
       {search.result && <SearchResultOverlay />}
       {productForm.isModalOpen && <AddProductModal form={productForm} />}
+      {!isAdminPage && <ProductSubmitToast />}
       {!isAdminPage && <ClosetToast />}
       {!isAdminPage && <DigboxToast />}
       {auth.needsUsername && (

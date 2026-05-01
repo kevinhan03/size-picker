@@ -10,6 +10,8 @@ interface SizeTableSectionProps {
   form: ProductForm;
 }
 
+const UPLOAD_HINT = '클릭하거나 드래그해서 업로드';
+
 function commitTableCell(form: ProductForm, value: string) {
   const cell = form.tableEditingCell;
   if (!cell) return;
@@ -32,14 +34,49 @@ function commitTableCell(form: ProductForm, value: string) {
 
 export function SizeTableSection({ form }: SizeTableSectionProps) {
   const [isExtraOpen, setIsExtraOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const isOptional = form.isSizeTableOptionalCategory;
 
   return (
     <div className="space-y-2">
-      <label className="text-sm text-gray-400">{'\uC0AC\uC774\uC988\uD45C \uC774\uBBF8\uC9C0'}</label>
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <label className="cursor-pointer w-full sm:w-2/3 h-28 bg-white/[0.06] border-2 border-dashed border-white/15 rounded-xl flex items-center justify-center shrink-0 overflow-hidden hover:bg-white/[0.09] hover:border-white/25 transition backdrop-blur-sm relative">
+      <div>
+        <label className="text-sm font-semibold text-gray-300">
+          사이즈표 <span className={isOptional ? "text-gray-500" : "text-orange-300"}>{isOptional ? "선택" : "필수"}</span>
+        </label>
+        {form.addProductMode !== 'capture' ? (
+          <p className="mt-1 text-xs text-gray-500">
+            {'\uC0AC\uC774\uC988\uD45C \uC0AC\uC9C4\uC744 \uC62C\uB9AC\uBA74 \uC790\uB3D9\uC73C\uB85C \uD45C\uB97C \uCD94\uCD9C\uD569\uB2C8\uB2E4.'}
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-gray-500">
+            {'\uCEA1\uCC98\uBCF8\uC5D0\uC11C \uCD94\uCD9C\uD55C \uC0AC\uC774\uC988\uD45C\uB97C \uD655\uC778\uD558\uC138\uC694.'}
+          </p>
+        )}
+      </div>
+      <div>
+        <label
+          onDragOver={(event) => {
+            event.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setIsDragging(false);
+            const file = event.dataTransfer.files?.[0];
+            if (file) form.handleDroppedFile(file, 'chart');
+          }}
+          className={`cursor-pointer w-full h-28 border-2 border-dashed rounded-xl flex items-center justify-center overflow-hidden transition backdrop-blur-sm relative ${
+            isDragging
+              ? 'border-orange-500/70 bg-orange-500/10'
+              : 'border-white/15 bg-white/[0.06] hover:bg-white/[0.09] hover:border-orange-500/45'
+          }`}
+        >
           {!form.formData.sizeChartImage ? (
-            <Upload className="w-8 h-8 text-gray-500" />
+            <div className="flex flex-col items-center gap-2 text-gray-500">
+              <Upload className="w-8 h-8" />
+              <span className="text-xs font-bold">{UPLOAD_HINT}</span>
+            </div>
           ) : (
             <img src={form.formData.sizeChartImage} className="h-full object-contain" />
           )}
@@ -50,28 +87,15 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
           )}
           <input type="file" className="hidden" accept="image/*" onChange={(e) => form.handleFileUpload(e, 'chart')} />
         </label>
-        {form.addProductMode !== 'capture' ? (
-          <p className="text-xs text-gray-400 leading-relaxed">
-            {'\uC0AC\uC774\uC988\uD45C \uC0AC\uC9C4\uC744 \uC62C\uB9AC\uBA74'}
-            <br />
-            {'\uC790\uB3D9\uC73C\uB85C \uD45C\uB97C \uCD94\uCD9C\uD569\uB2C8\uB2E4.'}
-          </p>
-        ) : (
-          <p className="text-xs text-gray-400 leading-relaxed">
-            {'\uCEA1\uCC98\uBCF8\uC5D0\uC11C \uCD94\uCD9C\uD55C \uC0AC\uC774\uC988\uD45C\uB97C \uD655\uC778\uD558\uC138\uC694.'}
-            <br />
-            {'\uD544\uC694\uD558\uBA74 \uB2E4\uC2DC \uCEA1\uCC98\uD574\uC11C \uC7AC\uC5C5\uB85C\uB4DC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.'}
-          </p>
-        )}
       </div>
       {!form.formData.extractedTable && form.formData.sizeChartImage && !form.isAnalyzingTable ? (
         <div className="text-xs text-amber-300">{'\uC0AC\uC774\uC988\uD45C \uC774\uBBF8\uC9C0\uB294 \uC788\uC9C0\uB9CC \uAC80\uC99D\uB41C \uD45C \uCD94\uCD9C\uC740 \uC544\uC9C1 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.'}</div>
       ) : null}
       {form.formData.extractedTable && !form.isAnalyzingTable ? (
         <div className="rounded-xl border border-white/10 overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.04] border-b border-white/10">
-            <span className="text-[10px] text-gray-400">{'\uCD94\uCD9C\uB41C \uC0AC\uC774\uC988\uD45C - \uC140\uC744 \uD074\uB9AD\uD558\uBA74 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4'}</span>
-            <span className="text-[10px] font-semibold text-gray-500">{'단위: cm'}</span>
+          <div className="flex items-center justify-between px-3 py-2 bg-white/[0.04] border-b border-white/10">
+            <span className="text-xs text-gray-500">{'\uC140\uC744 \uD074\uB9AD\uD558\uBA74 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.'}</span>
+            <span className="text-xs font-semibold text-gray-500">{'단위: cm'}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">

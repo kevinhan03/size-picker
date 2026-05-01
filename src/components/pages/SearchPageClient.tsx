@@ -17,6 +17,8 @@ import { smoothScrollTo } from "../../utils/scroll";
 import type { Product, SizeRecommendation } from "../../types";
 import { CATEGORY_OPTIONS } from "../../constants";
 
+const DEFAULT_FEATURED_HEADING = "지금 주목할 상품";
+
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
   if (idx === -1) return <span>{text}</span>;
@@ -51,6 +53,7 @@ export function SearchPageClient() {
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const [instagramProfileUrl, setInstagramProfileUrl] = useState("");
+  const [featuredHeading, setFeaturedHeading] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [showAllBrands, setShowAllBrands] = useState(false);
   const [featuredScrollState, setFeaturedScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
@@ -67,7 +70,10 @@ export function SearchPageClient() {
     fetch("/api/site-settings")
       .then((r) => r.json())
       .then((payload) => {
-        if (payload?.ok) setInstagramProfileUrl(payload.data?.instagramUrl ?? "");
+        if (payload?.ok) {
+          setInstagramProfileUrl(payload.data?.instagramUrl ?? "");
+          setFeaturedHeading(payload.data?.featuredHeading ?? "");
+        }
       })
       .catch(() => {});
   }, []);
@@ -87,10 +93,7 @@ export function SearchPageClient() {
     [brandFilter, grid.filteredGridProducts]
   );
 
-  const categoryFilters = useMemo(
-    () => ["", ...CATEGORY_OPTIONS.filter((c) => c !== "기타 상품(빈티지)")],
-    []
-  );
+  const categoryFilters = useMemo(() => ["", ...CATEGORY_OPTIONS], []);
 
   const brandSuggestions = useMemo(() => {
     if (!query) return [];
@@ -214,8 +217,9 @@ export function SearchPageClient() {
           {/* 헤더 */}
           <div className="mb-3 flex items-end justify-between sm:mb-4">
             <div className="min-w-0">
-              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-orange-500">Editor&apos;s Pick</p>
-              <h2 className="text-lg font-black leading-tight text-white sm:text-xl">지금 주목할 상품</h2>
+              <h2 className="whitespace-pre-line text-xl font-black leading-tight text-white sm:text-2xl">
+                {featuredHeading.trim() || DEFAULT_FEATURED_HEADING}
+              </h2>
             </div>
             {instagramProfileUrl && (
               <a
