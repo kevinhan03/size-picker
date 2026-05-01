@@ -36,24 +36,13 @@ export function useMySizes(isLoggedIn: boolean) {
 
   const createMySize = useCallback(async (input: MySizeInput) => {
     const profile = await apiCreate(input);
-    setMySizes((prev) => {
-      const cleared = profile.isDefault
-        ? prev.map((item) => (item.category === profile.category ? { ...item, isDefault: false } : item))
-        : prev;
-      return [profile, ...cleared];
-    });
+    setMySizes((prev) => [profile, ...prev]);
     return profile;
   }, []);
 
   const updateMySize = useCallback(async (id: string, input: MySizeUpdateInput) => {
     const profile = await apiUpdate(id, input);
-    setMySizes((prev) =>
-      prev.map((item) => {
-        if (item.id === id) return profile;
-        if (profile.isDefault && item.category === profile.category) return { ...item, isDefault: false };
-        return item;
-      })
-    );
+    setMySizes((prev) => prev.map((item) => (item.id === id ? profile : item)));
     return profile;
   }, []);
 

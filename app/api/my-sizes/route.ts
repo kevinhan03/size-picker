@@ -8,15 +8,13 @@ type MySizeRow = {
   id: string;
   user_id?: string | null;
   source_product_id?: string | null;
+  brand?: string | null;
   category?: string | null;
   title?: string | null;
   size_label?: string | null;
   measurement_snapshot?: unknown;
   fit_note?: string | null;
-  fit_tags?: string[] | null;
-  is_default?: boolean | null;
   created_at?: string | null;
-  updated_at?: string | null;
 };
 
 function getToken(request: Request) {
@@ -32,11 +30,6 @@ function normalizeSizeSnapshot(value: unknown) {
   return { headers, row };
 }
 
-function normalizeTags(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((tag) => String(tag ?? "").trim()).filter(Boolean).slice(0, 12);
-}
-
 function normalizeProfile(row: MySizeRow) {
   const snapshot = normalizeSizeSnapshot(row.measurement_snapshot);
   if (!snapshot) return null;
@@ -44,15 +37,13 @@ function normalizeProfile(row: MySizeRow) {
     id: String(row.id),
     userId: row.user_id ? String(row.user_id) : undefined,
     sourceProductId: String(row.source_product_id || "").trim() || null,
+    brand: String(row.brand || "").trim() || null,
     category: String(row.category || "").trim(),
     title: String(row.title || "").trim(),
     sizeLabel: String(row.size_label || "").trim() || null,
     measurementSnapshot: snapshot,
     fitNote: String(row.fit_note || "").trim() || null,
-    fitTags: normalizeTags(row.fit_tags),
-    isDefault: Boolean(row.is_default),
     createdAt: row.created_at || null,
-    updatedAt: row.updated_at || null,
   };
 }
 
@@ -68,10 +59,9 @@ export async function GET(request: Request) {
 
     const { data, error } = await db
       .from("user_my_size_profiles")
-      .select("id,user_id,source_product_id,category,title,size_label,measurement_snapshot,fit_note,fit_tags,is_default,created_at,updated_at")
+      .select("id,user_id,source_product_id,brand,category,title,size_label,measurement_snapshot,fit_note,created_at")
       .eq("user_id", user.id)
-      .order("is_default", { ascending: false })
-      .order("updated_at", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
@@ -104,30 +94,19 @@ export async function POST(request: Request) {
     if (!title) return NextResponse.json({ ok: false, error: "title is required" }, { status: 400 });
     if (!snapshot) return NextResponse.json({ ok: false, error: "measurementSnapshot is required" }, { status: 400 });
 
-    const isDefault = Boolean(body?.isDefault);
-    if (isDefault) {
-      const { error } = await db
-        .from("user_my_size_profiles")
-        .update({ is_default: false })
-        .eq("user_id", user.id)
-        .eq("category", category);
-      if (error) throw error;
-    }
-
     const { data, error } = await db
       .from("user_my_size_profiles")
       .insert({
         user_id: user.id,
         source_product_id: String(body?.sourceProductId || "").trim() || null,
+        brand: String(body?.brand || "").trim() || null,
         category,
         title,
         size_label: String(body?.sizeLabel || "").trim() || null,
         measurement_snapshot: snapshot,
         fit_note: String(body?.fitNote || "").trim() || null,
-        fit_tags: normalizeTags(body?.fitTags),
-        is_default: isDefault,
       })
-      .select("id,user_id,source_product_id,category,title,size_label,measurement_snapshot,fit_note,fit_tags,is_default,created_at,updated_at")
+      .select("id,user_id,source_product_id,brand,category,title,size_label,measurement_snapshot,fit_note,created_at")
       .single();
 
     if (error) throw error;

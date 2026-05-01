@@ -127,7 +127,6 @@ body {
 }
 
 button,
-input:not([type='hidden']),
 select,
 textarea {
   box-shadow: var(--ui-depth-shadow);

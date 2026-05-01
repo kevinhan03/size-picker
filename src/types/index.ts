@@ -38,26 +38,23 @@ export interface MySizeProfile {
   id: string;
   userId?: string;
   sourceProductId: string | null;
+  brand: string | null;
   category: string;
   title: string;
   sizeLabel: string | null;
   measurementSnapshot: MySizeSnapshot;
   fitNote: string | null;
-  fitTags: string[];
-  isDefault: boolean;
   createdAt?: string | null;
-  updatedAt?: string | null;
 }
 
 export interface MySizeInput {
   sourceProductId?: string | null;
+  brand?: string | null;
   category: string;
   title: string;
   sizeLabel?: string | null;
   measurementSnapshot: MySizeSnapshot;
   fitNote?: string | null;
-  fitTags?: string[];
-  isDefault?: boolean;
 }
 
 export type MySizeUpdateInput = Partial<MySizeInput>;

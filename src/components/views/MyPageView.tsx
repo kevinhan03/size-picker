@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Copy, LogOut, Plus, Ruler, Save, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, LogOut, Plus, Ruler, Save, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
 import type { MySizeInput, MySizeProfile, Product } from "../../types";
 
 interface MyPageViewProps {
@@ -149,9 +149,6 @@ function CollectionCard({
               </span>
               <h2 className="min-w-0 truncate text-sm font-black text-white transition group-hover:text-orange-300 sm:text-lg">{title}</h2>
             </div>
-            <p className="text-xs font-semibold text-gray-500 sm:text-sm">
-              {count > 0 ? `${count}개 저장됨` : "아직 저장된 상품이 없습니다"}
-            </p>
           </div>
           <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-gray-500 transition group-hover:text-orange-300 sm:h-5 sm:w-5" />
         </Link>
@@ -197,9 +194,15 @@ function MySizesManager({
   onCreateMySize: (input: MySizeInput) => Promise<void>;
   onDeleteMySize: (id: string) => Promise<void>;
 }) {
+  const registeredProductIds = useMemo(
+    () => new Set(mySizes.map((p) => p.sourceProductId).filter(Boolean)),
+    [mySizes]
+  );
   const closetCandidates = useMemo(
-    () => closetProducts.filter((product) => product.closetSelectedSizeSnapshot?.headers?.length),
-    [closetProducts]
+    () => closetProducts.filter(
+      (product) => product.closetSelectedSizeSnapshot?.headers?.length && !registeredProductIds.has(product.id)
+    ),
+    [closetProducts, registeredProductIds]
   );
   const groupedProfiles = useMemo(() => {
     const groups = new Map<string, MySizeProfile[]>();
@@ -218,6 +221,15 @@ function MySizesManager({
   const [expandedProfileId, setExpandedProfileId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
+
+  const toggleCategory = (category: string) => {
+    setOpenCategories((prev) => {
+      const next = new Set(prev);
+      next.has(category) ? next.delete(category) : next.add(category);
+      return next;
+    });
+  };
 
   const selectedProduct = closetCandidates.find((product) => product.id === sourceProductId) || null;
   const filteredClosetCandidates = useMemo(() => {
@@ -250,13 +262,12 @@ function MySizesManager({
       if (!selectedProduct || !snapshot) throw new Error("저장된 사이즈가 있는 옷장 상품을 선택해 주세요.");
       await onCreateMySize({
         sourceProductId: selectedProduct.id,
+        brand: selectedProduct.brand || null,
         category: selectedProduct.category || "Item",
         title: selectedProduct.name || selectedProduct.category || "My size",
         sizeLabel: selectedProduct.closetSelectedSizeLabel || snapshot.row[0] || null,
         measurementSnapshot: snapshot,
         fitNote: fitNote.trim() || null,
-        fitTags: [],
-        isDefault: false,
       });
       closeAddDialog();
     } catch (error: unknown) {
@@ -267,15 +278,14 @@ function MySizesManager({
   };
 
   return (
-    <section className={`${cardClass} p-5`}>
+    <section className={`${cardClass} min-w-0 overflow-hidden p-5`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.06] text-gray-300">
             <Ruler className="h-4 w-4" />
           </span>
           <div>
-            <h2 className="text-lg font-black text-white">마이사이즈</h2>
-            <p className="mt-0.5 text-xs font-semibold text-gray-500">기준 핏 {mySizes.length}개</p>
+            <h2 className="text-lg font-black text-white">My Size</h2>
           </div>
         </div>
         <button
@@ -299,8 +309,8 @@ function MySizesManager({
         <div className="mb-4 rounded-2xl border border-white/10 bg-black/20 p-4">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-base font-black text-white">기준 핏 추가</h3>
-              <p className="mt-1 text-xs font-semibold text-gray-500">옷장에 저장한 상품 사이즈를 기준 핏으로 저장합니다.</p>
+              <h3 className="text-base font-black text-white">My Size 추가</h3>
+              <p className="mt-1 text-xs font-semibold text-gray-500">옷장에서 잘 맞았던 사이즈를 저장합니다.</p>
             </div>
           </div>
 
@@ -311,13 +321,13 @@ function MySizesManager({
                 <button
                   type="button"
                   onClick={() => setIsProductPickerOpen((value) => !value)}
-                  className={`flex h-12 w-full min-w-0 items-center justify-between gap-3 rounded-xl border px-3 text-left transition ${
+                  className={`flex h-12 w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-xl border px-3 text-left transition ${
                     isProductPickerOpen || selectedProduct
                       ? "border-orange-500/50 bg-orange-500/10"
                       : "border-white/10 bg-white/[0.06] hover:border-white/20"
                   }`}
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1 overflow-hidden">
                     {selectedProduct ? (
                       <>
                         <p className="truncate text-xs font-black text-white">{selectedProduct.name}</p>
@@ -327,8 +337,7 @@ function MySizesManager({
                       </>
                     ) : (
                       <>
-                        <p className="text-xs font-black text-white">기준 핏으로 사용할 옷장 상품 선택</p>
-                        <p className="mt-0.5 text-[11px] font-bold text-gray-500">상품명, 브랜드, 사이즈로 검색할 수 있습니다</p>
+                        <p className="text-xs font-black text-white">옷장에서 상품 선택</p>
                       </>
                     )}
                   </div>
@@ -343,7 +352,7 @@ function MySizesManager({
                       placeholder="상품명 또는 브랜드 검색"
                       className="mb-2 h-10 w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-500/70"
                     />
-                    <div className="grid max-h-[232px] gap-1.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div className="grid max-h-[210px] gap-1.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {filteredClosetCandidates.length > 0 ? (
                         filteredClosetCandidates.map((product) => {
                           const sizeLabel = product.closetSelectedSizeLabel || product.closetSelectedSizeSnapshot?.row?.[0] || "사이즈";
@@ -395,7 +404,7 @@ function MySizesManager({
             )}
             {closetCandidates.length === 0 && (
               <p className="mt-2 text-xs font-semibold text-gray-500">
-                옷장에서 사이즈를 선택해 저장한 상품이 있어야 기준 핏으로 등록할 수 있습니다.
+                옷장에서 사이즈를 선택해 저장한 상품이 있어야 My Size으로 등록할 수 있습니다.
               </p>
             )}
           </div>
@@ -415,35 +424,48 @@ function MySizesManager({
             className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500"
           >
             <Save className="h-4 w-4" />
-            {isSaving ? "저장 중..." : "기준 핏 저장"}
+            {isSaving ? "저장 중..." : "My Size 저장"}
           </button>
         </div>
       )}
 
       {mySizes.length > 0 ? (
-        <div className="grid gap-4">
-          {groupedProfiles.map(([group, profiles]) => (
-            <div key={group}>
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-[11px] font-black uppercase tracking-wide text-gray-500">{group}</p>
-                <p className="text-[11px] font-bold text-gray-600">{profiles.length}</p>
-              </div>
-              <div className="grid gap-2">
-                {profiles.map((profile) => {
+        <div className="grid gap-2">
+          {groupedProfiles.map(([group, profiles]) => {
+            const isOpen = openCategories.has(group);
+            return (
+              <div key={group} className="rounded-xl border border-white/[0.08] bg-black/20 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(group)}
+                  className="flex w-full items-center justify-between px-3 py-3 transition hover:bg-white/[0.035]"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black uppercase tracking-wide text-white">{group}</span>
+                    <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[10px] font-bold text-gray-400">{profiles.length}</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                </button>
+                {isOpen && (
+                  <div className="grid max-h-[240px] gap-2 overflow-y-auto border-t border-white/[0.06] p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {profiles.map((profile) => {
                   const preview = getSnapshotPreview(profile);
                   const isExpanded = expandedProfileId === profile.id;
                   return (
                     <article
                       key={profile.id}
                       onClick={() => setExpandedProfileId((current) => (current === profile.id ? null : profile.id))}
-                      className="cursor-pointer rounded-xl border border-white/[0.08] bg-black/20 px-3 py-3 transition hover:border-white/[0.14] hover:bg-white/[0.035]"
+                      className="min-w-0 cursor-pointer overflow-hidden rounded-xl border border-white/[0.08] bg-black/20 px-3 py-3 transition hover:border-white/[0.14] hover:bg-white/[0.035]"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex min-w-0 items-center gap-2">
                             <h3 className="truncate text-sm font-black text-white">{getMySizePrimaryLabel(profile)}</h3>
                           </div>
-                          <p className="mt-1 truncate text-xs font-bold text-gray-500">
+                          {profile.brand && (
+                            <p className="mt-1 truncate text-xs font-bold text-orange-400/70">{profile.brand}</p>
+                          )}
+                          <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">
                             {profile.title || "상품명 없음"}
                           </p>
                         </div>
@@ -486,14 +508,16 @@ function MySizesManager({
                       )}
                     </article>
                   );
-                })}
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : !isAdding ? (
         <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4 text-sm font-semibold text-gray-500">
-          옷장에 저장한 상품 사이즈를 기준 핏으로 등록해 보세요.
+          잘 맞았던 사이즈를 My Size으로 저장해 보세요.
         </div>
       ) : null}
     </section>
@@ -544,7 +568,6 @@ export function MyPageView({
             </div>
             <div className="min-w-0">
               <p className="truncate text-xl font-black tracking-tight text-white sm:text-2xl">{username}</p>
-          <p className="mt-1 text-sm font-semibold text-gray-500">DIGBOX 계정</p>
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:w-[340px]">
@@ -564,7 +587,7 @@ export function MyPageView({
               className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] text-sm font-bold text-gray-300 transition hover:border-yellow-400/40 hover:text-yellow-300"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied ? "복사됨" : "공개 DIGBOX 링크 복사"}
+              {copied ? "복사됨" : "DIGBOX 링크 복사"}
             </button>
           </div>
         </div>

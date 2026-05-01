@@ -333,6 +333,7 @@ export const scoreMeasurementSimilarity = (a: Map<string, number>, b: Map<string
 
 export interface MeasurementComparison {
   label: string;
+  displayLabel: string;
   productValue: number;
   referenceValue: number;
   diff: number;
@@ -349,11 +350,18 @@ export const compareMeasurementSnapshots = (
   const referenceMeasurements = extractMeasurements(referenceSnapshot.headers, referenceSnapshot.row);
   const comparisons: MeasurementComparison[] = [];
 
+  const normalizedToOriginal = new Map<string, string>();
+  productSnapshot.headers.forEach((h) => {
+    const normalized = normalizeMeasurementLabel(h);
+    if (normalized && !normalizedToOriginal.has(normalized)) normalizedToOriginal.set(normalized, normalizeCellText(h));
+  });
+
   productMeasurements.forEach((productValue, label) => {
     const referenceValue = referenceMeasurements.get(label);
     if (referenceValue === undefined) return;
     comparisons.push({
       label,
+      displayLabel: normalizedToOriginal.get(label) || label,
       productValue,
       referenceValue,
       diff: productValue - referenceValue,

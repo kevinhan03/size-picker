@@ -23,6 +23,9 @@ localhost-key.pem
 # MCP configuration (contains API keys)
 .mcp.json
 
+# Supabase CLI temp files
+supabase/.temp/
+
 # Playwright MCP artifacts
 .playwright-mcp/
 

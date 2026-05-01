@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject, SyntheticEvent } from "react";
 import { ChevronDown, ExternalLink, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
@@ -271,6 +271,8 @@ export function ProductDetailModal({
   hideCollectionActions,
 }: ProductDetailModalProps) {
   useBodyScrollLock(modalRef);
+  const sizeTableTouchStartX = useRef<number | null>(null);
+  const sizeTableIsScrolling = useRef(false);
   const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
   const [isExtraMeasurementsOpen, setIsExtraMeasurementsOpen] = useState(false);
   const [isMySizeDetailsOpen, setIsMySizeDetailsOpen] = useState(false);
@@ -480,7 +482,19 @@ export function ProductDetailModal({
           {displaySizeTable?.headers?.length ? (
             <div className="mt-8 flex justify-start text-[11px] font-semibold text-gray-500">{"단위: cm"}</div>
           ) : null}
-          <div className={`${displaySizeTable?.headers?.length ? "mt-1" : "mt-8"} relative overflow-x-auto rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]`}>
+          <div
+            className={`${displaySizeTable?.headers?.length ? "mt-1" : "mt-8"} relative overflow-x-auto rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+            onTouchStart={(e) => {
+              sizeTableTouchStartX.current = e.touches[0].clientX;
+              sizeTableIsScrolling.current = false;
+            }}
+            onTouchMove={(e) => {
+              if (sizeTableTouchStartX.current !== null) {
+                const dx = Math.abs(e.touches[0].clientX - sizeTableTouchStartX.current);
+                if (dx > 6) sizeTableIsScrolling.current = true;
+              }
+            }}
+          >
             <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018)_55%,transparent)]" />
             {displaySizeTable?.headers?.length ? (
               <table className="relative z-[1] min-w-full w-max text-center text-[11px] sm:text-sm">
@@ -504,7 +518,7 @@ export function ProductDetailModal({
                     return (
                       <tr
                         key={rowIndex}
-                        onClick={() => handleRowClick(rowIndex)}
+                        onClick={() => { if (!sizeTableIsScrolling.current) handleRowClick(rowIndex); }}
                         className="group cursor-pointer transition-transform duration-200 active:scale-95"
                       >
                         {row.map((cell, cellIndex) => {
@@ -537,9 +551,9 @@ export function ProductDetailModal({
             <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400">내 기준 핏과 비교</h5>
+                  <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400">내 사이즈와 비교</h5>
                   <p className="mt-1 text-xs font-semibold text-gray-500">
-                    {activeProductSnapshot?.row?.[0] ? `${activeProductSnapshot.row[0]}와 기준 핏 비교` : "비교할 상품 사이즈를 선택하세요"}
+                    {activeProductSnapshot?.row?.[0] ? `${activeProductSnapshot.row[0]}와 사이즈 비교` : "비교할 상품 사이즈를 선택하세요"}
                   </p>
                 </div>
               </div>
@@ -548,7 +562,7 @@ export function ProductDetailModal({
                 <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 p-3">
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-wide text-gray-600">기준 상품</p>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-gray-600">비교할 상품</p>
                       <div className="mt-1 flex min-w-0 items-center gap-2">
                         <p className="truncate text-sm font-black text-white">{selectedMySize.title}</p>
                         {(selectedMySize.sizeLabel || selectedMySize.measurementSnapshot.row?.[0]) && (
@@ -628,62 +642,39 @@ export function ProductDetailModal({
 
               {isSelectedMySizeSourceProduct ? (
                 <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-200">
-                  이 상품은 선택한 기준 핏으로 등록된 상품입니다.
+                  동일한 상품입니다.
                 </div>
               ) : activeRowIndex === null ? null : mySizeComparisons.length > 0 ? (
-                <>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {mySizeComparisons.slice(0, 6).map((item) => {
-                      const diffText = `${item.diff > 0 ? "+" : ""}${item.diff.toFixed(1).replace(/\.0$/, "")}cm`;
-                      const tone =
-                        item.diff === 0
-                          ? "border-white/10 bg-white/[0.06] text-gray-300"
-                          : item.diff > 0
-                          ? "border-orange-500/25 bg-orange-500/10 text-orange-300"
-                          : "border-sky-400/25 bg-sky-400/10 text-sky-300";
-                      return (
-                        <span key={item.label} className={`rounded-xl border px-3 py-2 text-xs font-black ${tone}`}>
-                          <span className="mr-1.5 text-gray-400">{item.label}</span>
-                          {diffText}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsMySizeDetailsOpen((value) => !value)}
-                    className="mt-3 flex w-full items-center justify-between rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2 text-left text-xs font-bold text-gray-400 transition hover:border-white/[0.14] hover:text-white"
-                  >
-                    <span>상세 실측 보기</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${isMySizeDetailsOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  {isMySizeDetailsOpen && (
-                    <div className="mt-2 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/20">
-                      <table className="min-w-full text-left text-xs sm:text-sm">
-                        <thead className="text-[11px] uppercase tracking-wide text-gray-500">
-                          <tr>
-                            <th className="px-3 py-2 font-black">항목</th>
-                            <th className="px-3 py-2 font-black">상품</th>
-                            <th className="px-3 py-2 font-black">내 기준</th>
-                            <th className="px-3 py-2 font-black">차이</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {mySizeComparisons.map((item) => (
-                            <tr key={item.label} className="border-t border-white/[0.06]">
-                              <td className="px-3 py-2 font-bold text-gray-200">{item.label}</td>
-                              <td className="px-3 py-2 text-gray-300">{item.productValue.toFixed(1).replace(/\.0$/, "")}cm</td>
-                              <td className="px-3 py-2 text-gray-300">{item.referenceValue.toFixed(1).replace(/\.0$/, "")}cm</td>
-                              <td className={`px-3 py-2 font-black ${item.diff === 0 ? "text-gray-400" : item.diff > 0 ? "text-orange-300" : "text-sky-300"}`}>
-                                {item.diff > 0 ? "+" : ""}{item.diff.toFixed(1).replace(/\.0$/, "")}cm
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
+                <div className="mt-3 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <table className="w-full table-fixed text-left text-xs sm:text-sm">
+                    <colgroup>
+                      <col style={{ width: "96px" }} />
+                      <col style={{ width: "88px" }} />
+                      <col style={{ width: "80px" }} />
+                      <col style={{ width: "72px" }} />
+                    </colgroup>
+                    <thead className="text-[11px] uppercase tracking-wide text-gray-500">
+                      <tr>
+                        <th className="whitespace-nowrap px-3 py-2 font-black">항목</th>
+                        <th className="whitespace-nowrap px-3 py-2 font-black">내 사이즈</th>
+                        <th className="whitespace-nowrap px-3 py-2 font-black">상품</th>
+                        <th className="whitespace-nowrap px-3 py-2 font-black">차이</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mySizeComparisons.map((item) => (
+                        <tr key={item.label} className="border-t border-white/[0.06]">
+                          <td className="whitespace-nowrap px-3 py-2 font-bold text-gray-200">{item.displayLabel}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.referenceValue.toFixed(1).replace(/\.0$/, "")}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.productValue.toFixed(1).replace(/\.0$/, "")}</td>
+                          <td className={`px-3 py-2 font-black ${item.diff === 0 ? "text-gray-400" : item.diff > 0 ? "text-orange-300" : "text-sky-300"}`}>
+                            {item.diff > 0 ? "+" : ""}{item.diff.toFixed(1).replace(/\.0$/, "")}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-sm font-semibold text-gray-500">
                   비교 가능한 공통 실측이 없습니다.
@@ -748,8 +739,7 @@ export function ProductDetailModal({
                 className="flex w-full items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-left transition hover:border-white/[0.14] hover:bg-white/[0.055]"
               >
                 <div>
-                  <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400">실측이 가까운 상품</h5>
-                  <p className="mt-1 text-xs font-semibold text-gray-500">선택한 사이즈와 비슷한 상품 {recommendations.length}개</p>
+                  <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400">선택한 사이즈와 비슷한 상품</h5>
                 </div>
                 <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isSimilarProductsOpen ? "rotate-180" : ""}`} />
               </button>
@@ -795,7 +785,7 @@ export function ProductDetailModal({
                                   : "text-sky-300";
                               return (
                                 <span key={item.label} className={`rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}>
-                                  {item.label} {diffText}
+                                  {item.displayLabel} {diffText}
                                 </span>
                               );
                             })}
