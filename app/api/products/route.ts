@@ -13,6 +13,16 @@ import { normalizeSizeTableForCategory, parseSizeTable } from "../../../server/u
 import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
 
+interface RegisteredUser {
+  id: string;
+  email?: string;
+  appUsername: string;
+}
+
+const VALID_CATEGORIES = new Set([
+  "Outer", "Top", "Bottom", "Shoes", "Acc", "단종된 상품(빈티지)",
+]);
+
 export async function GET() {
   try {
     await refreshBrandRulesCache();
@@ -43,20 +53,26 @@ export async function POST(request: Request) {
     if (!token) {
       return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
     }
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await verifyRegisteredBearerToken(token) as RegisteredUser | null;
     if (!user) {
       return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
     }
 
     assertSupabaseConfig();
-    const registeredBy = String((user as any).appUsername || "").trim() || null;
+    const registeredBy = String(user.appUsername || "").trim() || null;
 
     const body = await request.json();
     const url = String(body?.url || "#").trim();
     await refreshBrandRulesCache();
     const brand = normalizeBrandName(String(body?.brand || "").trim());
     const name = String(body?.name || "").trim();
-    const category = String(body?.category || "User Uploaded").trim();
+    const category = String(body?.category || "").trim();
+    if (!VALID_CATEGORIES.has(category)) {
+      return NextResponse.json(
+        { ok: false, error: `category must be one of: ${[...VALID_CATEGORIES].join(", ")}` },
+        { status: 400 }
+      );
+    }
     const imagePath = String(body?.image_path ?? body?.imagePath ?? "").trim();
     const image = String(body?.image || "").trim();
     const sizeTable = parseSizeTable(body?.sizeTable ?? null);

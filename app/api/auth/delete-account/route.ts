@@ -29,9 +29,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error: deleteAuthError } = await db.auth.admin.deleteUser(user.id);
-    if (deleteAuthError) throw deleteAuthError;
-
     const cleanupQueries = [
       db.from("user_closet_items").delete().eq("user_id", user.id),
       db.from("user_digbox_items").delete().eq("user_id", user.id),
@@ -49,6 +46,9 @@ export async function POST(request: Request) {
     if (rejectedCleanup && rejectedCleanup.status === "rejected") {
       throw rejectedCleanup.reason;
     }
+
+    const { error: deleteAuthError } = await db.auth.admin.deleteUser(user.id);
+    if (deleteAuthError) throw deleteAuthError;
 
     return NextResponse.json({
       ok: true,

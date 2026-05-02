@@ -41,8 +41,8 @@ export function useAuth() {
       if (processingUserIdRef.current === (user.id ?? null)) return;
       processingUserIdRef.current = user.id ?? null;
 
-      const rawIntent = localStorage.getItem("google_oauth_intent");
-      localStorage.removeItem("google_oauth_intent");
+      const rawIntent = sessionStorage.getItem("google_oauth_intent");
+      sessionStorage.removeItem("google_oauth_intent");
       const intent = rawIntent === "login" || rawIntent === "signup" ? rawIntent : null;
 
       const { data } = await supabase.from("users").select("id, username").eq("id", user.id).maybeSingle();

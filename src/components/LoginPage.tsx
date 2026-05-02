@@ -111,7 +111,7 @@ export const LoginPage = ({
 
   const handleGoogleLogin = async () => {
     setError(null);
-    localStorage.setItem('google_oauth_intent', tab);
+    sessionStorage.setItem('google_oauth_intent', tab);
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },

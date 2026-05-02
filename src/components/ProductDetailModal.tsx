@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent, RefObject, SyntheticEvent, TouchEvent } from "react";
+import type { MouseEvent, PointerEvent, RefObject, SyntheticEvent, TouchEvent } from "react";
 import { ChevronDown, ExternalLink, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { ClosetSizeSelection, MySizeProfile, Product, SizeRecommendation } from "../types";
@@ -126,6 +126,8 @@ export function ProductDetailModal({
   const sizeTableTouchStartY = useRef<number | null>(null);
   const sizeTableIsScrolling = useRef(false);
   const sizeTableSuppressClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerDownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerDownSelectedRowRef = useRef<number | null>(null);
   const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
   const [isExtraMeasurementsOpen, setIsExtraMeasurementsOpen] = useState(false);
   const [isMySizeDetailsOpen, setIsMySizeDetailsOpen] = useState(false);
@@ -149,9 +151,8 @@ export function ProductDetailModal({
 
   useEffect(() => {
     return () => {
-      if (sizeTableSuppressClickTimer.current) {
-        clearTimeout(sizeTableSuppressClickTimer.current);
-      }
+      if (sizeTableSuppressClickTimer.current) clearTimeout(sizeTableSuppressClickTimer.current);
+      if (pointerDownTimerRef.current) clearTimeout(pointerDownTimerRef.current);
     };
   }, []);
 
@@ -242,6 +243,10 @@ export function ProductDetailModal({
     const dy = Math.abs(touch.clientY - startY);
     if (dx > 8 && dx > dy) {
       sizeTableIsScrolling.current = true;
+      if (pointerDownTimerRef.current) {
+        clearTimeout(pointerDownTimerRef.current);
+        pointerDownTimerRef.current = null;
+      }
     }
   };
 
@@ -253,7 +258,31 @@ export function ProductDetailModal({
     }
   };
 
+  const handleSizeTableRowPointerDown = (event: PointerEvent<HTMLTableRowElement>, rowIndex: number) => {
+    if (event.pointerType !== "touch") return;
+    if (pointerDownTimerRef.current) clearTimeout(pointerDownTimerRef.current);
+    pointerDownSelectedRowRef.current = null;
+
+    pointerDownTimerRef.current = setTimeout(() => {
+      pointerDownTimerRef.current = null;
+      if (!sizeTableIsScrolling.current) {
+        pointerDownSelectedRowRef.current = rowIndex;
+        handleRowClick(rowIndex);
+      }
+    }, 100);
+  };
+
   const handleSizeTableRowClick = (event: MouseEvent<HTMLTableRowElement>, rowIndex: number) => {
+    if (pointerDownTimerRef.current) {
+      clearTimeout(pointerDownTimerRef.current);
+      pointerDownTimerRef.current = null;
+    }
+    if (pointerDownSelectedRowRef.current === rowIndex) {
+      pointerDownSelectedRowRef.current = null;
+      return;
+    }
+    pointerDownSelectedRowRef.current = null;
+
     if (sizeTableIsScrolling.current) {
       event.preventDefault();
       event.stopPropagation();
@@ -413,7 +442,7 @@ export function ProductDetailModal({
             <div className="mt-8 flex justify-start text-[11px] font-semibold text-gray-500">{"단위: cm"}</div>
           ) : null}
           <div
-            className={`${displaySizeTable?.headers?.length ? "mt-1" : "mt-8"} relative touch-pan-x overflow-x-auto overscroll-x-contain rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+            className={`${displaySizeTable?.headers?.length ? "mt-1" : "mt-8"} relative touch-manipulation overflow-x-auto overscroll-x-contain rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
             onTouchStart={handleSizeTableTouchStart}
             onTouchMove={handleSizeTableTouchMove}
             onTouchEnd={handleSizeTableTouchEnd}
@@ -442,6 +471,7 @@ export function ProductDetailModal({
                     return (
                       <tr
                         key={rowIndex}
+                        onPointerDown={(event) => handleSizeTableRowPointerDown(event, rowIndex)}
                         onClick={(event) => handleSizeTableRowClick(event, rowIndex)}
                         className="group cursor-pointer transition-transform duration-200 active:scale-95"
                       >
@@ -569,7 +599,7 @@ export function ProductDetailModal({
                   동일한 상품입니다.
                 </div>
               ) : activeRowIndex === null ? null : mySizeComparisons.length > 0 ? (
-                <div className="mt-3 touch-pan-x overflow-x-auto overscroll-x-contain rounded-xl border border-white/[0.06] bg-black/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="mt-3 touch-manipulation overflow-x-auto overscroll-x-contain rounded-xl border border-white/[0.06] bg-black/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <table className="min-w-[420px] table-fixed text-left text-xs sm:min-w-full sm:text-sm">
                     <colgroup>
                       <col style={{ width: "96px" }} />

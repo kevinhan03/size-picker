@@ -87,22 +87,13 @@ export const normalizeProductRow = (row) => {
 export const fetchProductsRows = async () => {
   assertSupabaseConfig();
 
-  const queries = [
-    () => supabase.from(SUPABASE_PRODUCTS_TABLE).select("*").order("created_at", { ascending: false }),
-    () => supabase.from(SUPABASE_PRODUCTS_TABLE).select("*").order("createdAt", { ascending: false }),
-    () => supabase.from(SUPABASE_PRODUCTS_TABLE).select("*"),
-  ];
+  const { data, error } = await supabase
+    .from(SUPABASE_PRODUCTS_TABLE)
+    .select("*")
+    .order("created_at", { ascending: false });
 
-  let lastError = null;
-  for (const runQuery of queries) {
-    const { data, error } = await runQuery();
-    if (!error) {
-      return Array.isArray(data) ? data : [];
-    }
-    lastError = error;
-  }
-
-  throw new Error(lastError?.message || "failed to fetch products");
+  if (error) throw new Error(error.message || "failed to fetch products");
+  return Array.isArray(data) ? data : [];
 };
 
 const normalizeStoragePath = (value) => {
@@ -190,8 +181,9 @@ export const insertProductRow = async (input) => {
   const effectiveSizeTable = parseSizeTable(sizeTable);
   const effectiveNormalizedSizeTable =
     parseSizeTable(normalizedSizeTable) || normalizeSizeTableForCategory(category, effectiveSizeTable);
-  const payloads = [
-    {
+  const { data, error } = await supabase
+    .from(SUPABASE_PRODUCTS_TABLE)
+    .insert({
       brand: canonicalBrand,
       name,
       category,
@@ -204,77 +196,12 @@ export const insertProductRow = async (input) => {
       is_instagram: isInstagram,
       instagram_order: isInstagram ? effectiveInstagramOrder : null,
       registered_by: registeredBy || null,
-    },
-    {
-      brand: canonicalBrand,
-      name,
-      category,
-      url,
-      image_path: effectiveImagePath,
-      size_table: effectiveSizeTable,
-      created_at: createdAt,
-      slug: normalizedSlug,
-      is_instagram: isInstagram,
-      instagram_order: isInstagram ? effectiveInstagramOrder : null,
-      registered_by: registeredBy || null,
-    },
-    {
-      brand: canonicalBrand,
-      name,
-      category,
-      url,
-      image_path: effectiveImagePath,
-      sizeTable: JSON.stringify(effectiveSizeTable),
-      normalizedSizeTable: JSON.stringify(effectiveNormalizedSizeTable),
-      createdAt,
-      slug: normalizedSlug,
-      is_instagram: isInstagram,
-      instagram_order: isInstagram ? effectiveInstagramOrder : null,
-      registered_by: registeredBy || null,
-    },
-    {
-      brand: canonicalBrand,
-      name,
-      category,
-      url,
-      image: effectiveImage,
-      size_table: effectiveSizeTable,
-      normalized_size_table: effectiveNormalizedSizeTable,
-      createdAt,
-      is_instagram: isInstagram,
-      instagram_order: isInstagram ? effectiveInstagramOrder : null,
-      registered_by: registeredBy || null,
-    },
-    {
-      brand: canonicalBrand,
-      name,
-      category,
-      url,
-      image: effectiveImage,
-      sizeTable: JSON.stringify(effectiveSizeTable),
-      normalizedSizeTable: JSON.stringify(effectiveNormalizedSizeTable),
-      created_at: createdAt,
-      is_instagram: isInstagram,
-      instagram_order: isInstagram ? effectiveInstagramOrder : null,
-      registered_by: registeredBy || null,
-    },
-  ];
+    })
+    .select("*")
+    .single();
 
-  let lastError = null;
-  for (const payload of payloads) {
-    const { data, error } = await supabase
-      .from(SUPABASE_PRODUCTS_TABLE)
-      .insert(payload)
-      .select("*")
-      .single();
-    if (!error) {
-      return data;
-    }
-    lastError = error;
-  }
-
-  if (lastError) throw lastError;
-  throw new Error("failed to insert product");
+  if (error) throw error;
+  return data;
 };
 
 export const backfillProductBrands = async () => {
