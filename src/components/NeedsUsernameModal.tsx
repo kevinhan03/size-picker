@@ -27,6 +27,9 @@ export function NeedsUsernameModal({
           className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 placeholder:text-sm focus:outline-none focus:border-orange-500 transition mb-3"
           autoFocus
         />
+        <p className="-mt-1 mb-3 text-xs font-medium text-gray-500">
+          영문, 숫자, 밑줄(_)만 사용해 3-20자로 입력하세요.
+        </p>
         {usernameError && (
           <p className="text-sm text-red-400 bg-red-900/20 border border-red-500/30 rounded-lg px-3 py-2 mb-3">
             {usernameError}

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 
 /**
  * Verifies a Bearer token using the anon key client.
@@ -17,4 +18,18 @@ export async function verifyBearerToken(token) {
   const { data: { user }, error } = await client.auth.getUser();
   if (error || !user) return null;
   return user;
+}
+
+export async function verifyRegisteredBearerToken(token) {
+  const user = await verifyBearerToken(token);
+  if (!user?.id) return null;
+
+  assertSupabaseConfig();
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, username")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error || !data?.id) return null;
+  return { ...user, appUsername: data.username };
 }

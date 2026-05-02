@@ -15,7 +15,7 @@ import {
   resolveProductMetadataFromHints,
 } from "../../../server/bootstrap/metadata.js";
 import { getBearerTokenFromRequest, validateInlineImageInput } from "../../../server/utils/request-validation.js";
-import { verifyBearerToken } from "../../../server/utils/verify-auth.js";
+import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 
 const normalizeCellText = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
 const pickFirstNonEmpty = (values: unknown[]) => {
@@ -33,9 +33,9 @@ export async function POST(request: Request) {
   if (!token) {
     return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
   }
-  const user = await verifyBearerToken(token);
+  const user = await verifyRegisteredBearerToken(token);
   if (!user) {
-    return NextResponse.json({ ok: false, error: "invalid auth token" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
   }
 
   const body = await request.json();

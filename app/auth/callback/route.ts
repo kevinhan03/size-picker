@@ -30,6 +30,13 @@ export async function GET(request: NextRequest) {
     },
   );
 
-  await supabase.auth.exchangeCodeForSession(code);
-  return NextResponse.redirect(new URL('/', request.url));
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  if (exchangeError) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('error', 'auth_callback_failed');
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const loginUrl = new URL('/login', request.url);
+  return NextResponse.redirect(loginUrl);
 }

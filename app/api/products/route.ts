@@ -10,8 +10,8 @@ import {
   toProductWriteErrorResponse,
 } from "../../../server/utils/product.js";
 import { normalizeSizeTableForCategory, parseSizeTable } from "../../../server/utils/size-table.js";
-import { verifyBearerToken } from "../../../server/utils/verify-auth.js";
-import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
+import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
+import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
 
 export async function GET() {
   try {
@@ -43,19 +43,13 @@ export async function POST(request: Request) {
     if (!token) {
       return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
     }
-    const user = await verifyBearerToken(token);
+    const user = await verifyRegisteredBearerToken(token);
     if (!user) {
-      return NextResponse.json({ ok: false, error: "invalid auth token" }, { status: 401 });
+      return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
     }
 
     assertSupabaseConfig();
-    let registeredBy: string | null = null;
-    const { data: userData } = await supabase!
-      .from("users")
-      .select("username")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (userData?.username) registeredBy = String(userData.username);
+    const registeredBy = String((user as any).appUsername || "").trim() || null;
 
     const body = await request.json();
     const url = String(body?.url || "#").trim();

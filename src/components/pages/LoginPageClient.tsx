@@ -11,13 +11,13 @@ export function LoginPageClient() {
   const auth = useAuthContext();
 
   useEffect(() => {
-    if (!auth.isAuthLoading && auth.authUser) {
+    if (!auth.isAuthLoading && auth.authUser && auth.dbUsername) {
       router.replace("/");
     }
-  }, [auth.authUser, auth.isAuthLoading, router]);
+  }, [auth.authUser, auth.dbUsername, auth.isAuthLoading, router]);
 
   return (
-    <main className="pt-[var(--app-main-pt)] pb-[var(--app-main-pb)] px-[var(--app-main-px)] flex flex-col items-center min-h-screen bg-black text-white">
+    <main className="pt-[var(--app-main-pt)] pb-[var(--app-main-pb)] px-[var(--app-main-px)] flex min-h-screen flex-col items-center bg-black text-white">
       {supabase ? (
         <LoginPage
           supabase={supabase}

@@ -338,3 +338,24 @@ export const deleteMyAccount = async (): Promise<void> => {
     throw new Error(payload?.error || 'Failed to delete account');
   }
 };
+
+export const completeMyProfile = async (username: string): Promise<string> => {
+  assertSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase!.auth.getSession();
+  const accessToken = String(session?.access_token || '').trim();
+  if (!accessToken) {
+    throw new Error('Authentication is required');
+  }
+
+  const { response, payload } = await postJson<{ username: string }, { username?: string }>(
+    '/api/auth/complete-profile',
+    { username },
+    { Authorization: `Bearer ${accessToken}` }
+  );
+  if (!response.ok || !payload?.ok || !payload.data?.username) {
+    throw new Error(payload?.error || 'Failed to complete profile');
+  }
+  return payload.data.username;
+};

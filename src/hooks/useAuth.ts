@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteMyAccount } from "../api";
+import { completeMyProfile, deleteMyAccount } from "../api";
 import { supabase } from "../lib/supabase";
+import { getAuthErrorMessage } from "../utils/authMessage";
+import { normalizeUsername, validateUsername } from "../utils/username";
 
 type AuthUser = { id?: string; email?: string; user_metadata?: Record<string, unknown> } | null;
 
@@ -49,6 +51,7 @@ export function useAuth() {
 
       if (!data) {
         setDbUsername(null);
+        const metadataUsername = normalizeUsername(user.user_metadata?.username);
         if (intent === "login") {
           processingUserIdRef.current = null;
           try {
@@ -59,10 +62,28 @@ export function useAuth() {
           await supabase.auth.signOut();
           setAuthUser(null);
           setNeedsUsername(false);
-          setGoogleAuthError("This Google account is not registered. Please sign up with Google first.");
+          setGoogleAuthError("가입되지 않은 Google 계정입니다. 먼저 Google로 회원가입을 진행해 주세요.");
           setIsAuthLoading(false);
           navigateToLogin();
           return;
+        }
+
+        if (metadataUsername) {
+          const validationError = validateUsername(metadataUsername);
+          if (!validationError) {
+            try {
+              const completedUsername = await completeMyProfile(metadataUsername);
+              if (processingUserIdRef.current !== user.id) return;
+              setNeedsUsername(false);
+              setDbUsername(completedUsername);
+              setPendingUsername("");
+              setIsAuthLoading(false);
+              return;
+            } catch {
+              // Fall through to the username modal so the user can choose another name.
+            }
+          }
+          setPendingUsername(metadataUsername);
         }
 
         setNeedsUsername(true);
@@ -99,8 +120,9 @@ export function useAuth() {
 
   const submitUsername = async (onSuccess: () => void) => {
     const trimmed = pendingUsername.trim();
-    if (!trimmed) {
-      setUsernameError("Please enter a username.");
+    const validationError = validateUsername(trimmed);
+    if (validationError) {
+      setUsernameError(validationError);
       return;
     }
     if (isSubmittingUsername) return;
@@ -120,23 +142,17 @@ export function useAuth() {
       return;
     }
 
-    const { data: existing } = await supabase!.from("users").select("username").eq("username", trimmed).maybeSingle();
-    if (existing) {
-      setUsernameError("That username is already taken.");
-      setIsSubmittingUsername(false);
-      return;
-    }
-
-    const { error: insertError } = await supabase!.from("users").insert({ id: currentUser.id, username: trimmed });
-    if (insertError) {
-      console.error("users insert error:", insertError);
-      setUsernameError("An error occurred. Please try again.");
+    let completedUsername = "";
+    try {
+      completedUsername = await completeMyProfile(trimmed);
+    } catch (error: unknown) {
+      setUsernameError(getAuthErrorMessage(error));
       setIsSubmittingUsername(false);
       return;
     }
 
     setNeedsUsername(false);
-    setDbUsername(trimmed);
+    setDbUsername(completedUsername);
     setPendingUsername("");
     setGoogleSignupComplete(true);
     setIsSubmittingUsername(false);
@@ -160,7 +176,7 @@ export function useAuth() {
       navigateToLogin();
       return true;
     } catch (error: unknown) {
-      setDeleteAccountError(error instanceof Error ? error.message : "Failed to delete account");
+      setDeleteAccountError(getAuthErrorMessage(error, "계정 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요."));
       return false;
     } finally {
       setIsDeletingAccount(false);

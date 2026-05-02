@@ -540,6 +540,16 @@ export function MyPageView({
   deleteAccountError,
 }: MyPageViewProps) {
   const [copied, setCopied] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const canConfirmDelete = deleteConfirmText.trim() === "삭제";
+
+  const closeDeleteConfirm = () => {
+    if (isDeletingAccount) return;
+    setIsDeleteConfirmOpen(false);
+    setDeleteConfirmText("");
+  };
 
   const copyPublicLink = async () => {
     const url = `${window.location.origin}${digboxHref}`;
@@ -558,6 +568,7 @@ export function MyPageView({
   };
 
   return (
+    <>
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:gap-4">
       <section className={`${cardClass} p-4 sm:p-6`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -624,7 +635,7 @@ export function MyPageView({
           <div className="flex flex-col gap-2">
             <button
               type="button"
-              onClick={onLogout}
+              onClick={() => setIsLogoutConfirmOpen(true)}
               className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.045] px-4 text-sm font-bold text-gray-300 transition hover:border-orange-500/40 hover:text-orange-400"
             >
               <span>로그아웃</span>
@@ -632,7 +643,7 @@ export function MyPageView({
             </button>
             <button
               type="button"
-              onClick={onDeleteAccount}
+              onClick={() => setIsDeleteConfirmOpen(true)}
               disabled={isDeletingAccount}
               className="flex h-11 items-center justify-between rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 text-sm font-bold text-red-300 transition hover:border-red-500/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -646,5 +657,89 @@ export function MyPageView({
         </section>
       </div>
     </div>
+    {isLogoutConfirmOpen && (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+        <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.65)]">
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-400">
+            <LogOut className="h-5 w-5" />
+          </div>
+          <h2 className="mt-4 text-lg font-black text-white">로그아웃할까요?</h2>
+          <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-400">
+            현재 계정에서 로그아웃됩니다. 저장된 옷장과 DIGBOX는 계정에 그대로 유지됩니다.
+          </p>
+          <div className="mt-6 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsLogoutConfirmOpen(false)}
+              className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-gray-300 transition hover:bg-white/[0.08] hover:text-white"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsLogoutConfirmOpen(false);
+                onLogout();
+              }}
+              className="h-11 rounded-xl bg-orange-500 text-sm font-black text-black transition hover:bg-orange-400"
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    {isDeleteConfirmOpen && (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+        <div className="w-full max-w-sm rounded-2xl border border-red-500/20 bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)]">
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-red-500/25 bg-red-500/10 text-red-300">
+            <Trash2 className="h-5 w-5" />
+          </div>
+          <h2 className="mt-4 text-lg font-black text-white">계정을 삭제할까요?</h2>
+          <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-400">
+            계정을 삭제하면 프로필, 옷장, DIGBOX, 내 사이즈 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+          </p>
+          <label className="mt-5 block text-left">
+            <span className="mb-2 block text-xs font-black text-gray-500">
+              계속하려면 <span className="text-red-300">삭제</span>를 입력해 주세요.
+            </span>
+            <input
+              value={deleteConfirmText}
+              onChange={(event) => setDeleteConfirmText(event.target.value)}
+              disabled={isDeletingAccount}
+              placeholder="삭제"
+              className="h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-sm font-bold text-white outline-none transition placeholder:text-gray-600 focus:border-red-400/60"
+            />
+          </label>
+          {deleteAccountError && (
+            <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300">
+              {deleteAccountError}
+            </p>
+          )}
+          <div className="mt-6 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={closeDeleteConfirm}
+              disabled={isDeletingAccount}
+              className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-gray-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!canConfirmDelete) return;
+                onDeleteAccount();
+              }}
+              disabled={!canConfirmDelete || isDeletingAccount}
+              className="h-11 rounded-xl bg-red-500 text-sm font-black text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500"
+            >
+              {isDeletingAccount ? "삭제 중..." : "계정 삭제"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

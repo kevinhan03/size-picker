@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { assertGeminiKey, callGemini } from "../../../server/bootstrap/gemini.js";
 import { getBearerTokenFromRequest, validateInlineImageInput } from "../../../server/utils/request-validation.js";
-import { verifyBearerToken } from "../../../server/utils/verify-auth.js";
+import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 
 export const maxDuration = 60;
 
@@ -11,9 +11,9 @@ export async function POST(request: Request) {
   if (!token) {
     return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
   }
-  const user = await verifyBearerToken(token);
+  const user = await verifyRegisteredBearerToken(token);
   if (!user) {
-    return NextResponse.json({ ok: false, error: "invalid auth token" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
   }
 
   const body = await request.json();

@@ -81,6 +81,7 @@ export function SizeSelectionSheet({
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wide text-orange-400">{product.brand}</p>
+            <p className="mt-0.5 truncate text-sm font-semibold text-white">{product.name}</p>
             <h3 className="mt-1 truncate text-lg font-black">옷장에 추가</h3>
             <p className="mt-1 text-sm text-gray-400">보유한 사이즈를 선택하세요.</p>
           </div>

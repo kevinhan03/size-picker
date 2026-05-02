@@ -14,6 +14,8 @@ import { useDigboxContext } from "../contexts/DigboxContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
 import { useSearchContext } from "../contexts/SearchContext";
 
+const SIGNUP_VERIFIED_TOAST_KEY = "digbox_signup_verified_toast";
+
 const AddProductModal = dynamic(
   () => import("./AddProductModal").then((mod) => mod.AddProductModal),
   { ssr: false }
@@ -311,6 +313,42 @@ function ProductSubmitToast() {
   );
 }
 
+function SignupVerifiedToast() {
+  const pathname = usePathname();
+  const [isVisible, setIsVisible] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem(SIGNUP_VERIFIED_TOAST_KEY) !== "1") return;
+    sessionStorage.removeItem(SIGNUP_VERIFIED_TOAST_KEY);
+    setShouldRender(true);
+    requestAnimationFrame(() => setIsVisible(true));
+
+    const hideTimer = window.setTimeout(() => setIsVisible(false), 1900);
+    const removeTimer = window.setTimeout(() => setShouldRender(false), 2150);
+    return () => {
+      window.clearTimeout(hideTimer);
+      window.clearTimeout(removeTimer);
+    };
+  }, [pathname]);
+
+  if (!shouldRender) return null;
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center px-4">
+      <div
+        className={`pointer-events-auto w-full max-w-sm rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-6 py-5 text-center text-white shadow-[0_24px_64px_rgba(0,0,0,0.62)] backdrop-blur-2xl transition-all duration-200 ease-out ${
+          isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"
+        }`}
+      >
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-400">DIGBOX</p>
+        <h2 className="mt-2 text-lg font-black text-white">이메일 인증이 완료되었습니다</h2>
+        <p className="mt-2 text-sm font-semibold text-gray-400">회원가입이 완료되었어요.</p>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const auth = useAuthContext();
   const productForm = useProductFormContext();
@@ -325,6 +363,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {search.result && <SearchResultOverlay />}
       {productForm.isModalOpen && <AddProductModal form={productForm} />}
       {!isAdminPage && <ProductSubmitToast />}
+      {!isAdminPage && <SignupVerifiedToast />}
       {!isAdminPage && <ClosetToast />}
       {!isAdminPage && <DigboxToast />}
       {auth.needsUsername && (

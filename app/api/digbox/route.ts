@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
 import { normalizeProductRow } from "../../../server/utils/product.js";
 import { refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
+import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 
 const unauthorized = (msg = "authorization token is required") =>
   NextResponse.json({ ok: false, error: msg }, { status: 401 });
@@ -30,8 +31,8 @@ export async function GET(request: Request) {
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const { data: { user }, error: authError } = await db.auth.getUser(token);
-    if (authError || !user) return unauthorized(authError?.message || "invalid token");
+    const user = await verifyRegisteredBearerToken(token);
+    if (!user) return unauthorized("registered account required");
 
     const { data: digboxData, error: digboxError } = await db
       .from("user_digbox_items")
@@ -101,8 +102,8 @@ export async function POST(request: Request) {
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const { data: { user }, error: authError } = await db.auth.getUser(token);
-    if (authError || !user) return unauthorized(authError?.message || "invalid token");
+    const user = await verifyRegisteredBearerToken(token);
+    if (!user) return unauthorized("registered account required");
 
     const body = await request.json();
     const productId = String(body?.productId || "").trim();

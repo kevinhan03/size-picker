@@ -60,8 +60,6 @@ export function MyPageClient() {
           router.push("/");
         }}
         onDeleteAccount={() => {
-          const shouldDelete = window.confirm("Delete your account permanently? This cannot be undone.");
-          if (!shouldDelete) return;
           void auth.deleteAccount().then((deleted) => {
             if (deleted) {
               router.push("/");

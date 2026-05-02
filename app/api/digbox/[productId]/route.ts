@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
+import { verifyRegisteredBearerToken } from "../../../../server/utils/verify-auth.js";
 
 const unauthorized = (msg = "authorization token is required") =>
   NextResponse.json({ ok: false, error: msg }, { status: 401 });
@@ -14,8 +15,8 @@ export async function DELETE(
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const { data: { user }, error: authError } = await db.auth.getUser(token);
-    if (authError || !user) return unauthorized(authError?.message || "invalid token");
+    const user = await verifyRegisteredBearerToken(token);
+    if (!user) return unauthorized("registered account required");
 
     const { productId } = await context.params;
     const pid = String(productId || "").trim();
