@@ -14,7 +14,7 @@ const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: https://${supabaseHostname} https://images.unsplash.com`,
+  "img-src 'self' data: blob: https:",
   `connect-src 'self' https://${supabaseHostname} https://accounts.google.com https://oauth2.googleapis.com`,
   "font-src 'self'",
   "frame-src 'none'",
