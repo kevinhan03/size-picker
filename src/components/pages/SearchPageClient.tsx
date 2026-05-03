@@ -289,7 +289,7 @@ export function SearchPageClient() {
                     </div>
                     <div className="flex h-[82px] flex-col px-1.5 pt-2 text-left sm:h-[104px] sm:px-2.5 sm:pt-3">
                       <div className="min-h-0">
-                        <p className="mb-0.5 truncate text-[10px] font-black uppercase tracking-wide text-orange-400 transition-colors duration-200 group-hover:text-orange-300 sm:text-[11px]">{product.brand}</p>
+                        <p className="mb-0.5 truncate text-[10px] font-black tracking-wide text-orange-400 transition-colors duration-200 group-hover:text-orange-300 sm:text-[11px]">{product.brand}</p>
                         <p title={product.name} className="line-clamp-2 break-words text-[12px] font-bold leading-[1.2] text-white [overflow-wrap:anywhere] sm:text-[15px] lg:text-[16px]">
                           {product.name}
                         </p>

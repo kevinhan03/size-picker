@@ -28,7 +28,7 @@ export function NeedsUsernameModal({
           autoFocus
         />
         <p className="-mt-1 mb-3 text-xs font-medium text-gray-500">
-          영문, 숫자, 밑줄(_)만 사용해 3-20자로 입력하세요.
+          영문, 숫자, 밑줄(_), 마침표(.)만 사용해 3-20자로 입력하세요.
         </p>
         {usernameError && (
           <p className="text-sm text-red-400 bg-red-900/20 border border-red-500/30 rounded-lg px-3 py-2 mb-3">

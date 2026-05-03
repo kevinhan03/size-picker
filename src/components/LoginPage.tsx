@@ -337,7 +337,7 @@ export const LoginPage = ({
                   className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 placeholder:text-sm transition focus:border-orange-500 focus:outline-none"
                 />
                 <p className="mt-1.5 text-xs font-medium text-gray-500">
-                  영문, 숫자, 밑줄(_)만 사용해 3-20자로 입력해 주세요.
+                  영문, 숫자, 밑줄(_), 마침표(.)만 사용해 3-20자로 입력해 주세요.
                 </p>
               </div>
             )}
