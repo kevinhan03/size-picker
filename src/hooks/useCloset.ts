@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { fetchClosetItems, addToCloset as apiAdd, removeFromCloset as apiRemove } from "../api";
 import type { ClosetSizeSelection, Product } from "../types";
 
 export type ClosetToast = { message: string; type: "success" | "info" | "error" } | null;
 
 export function useCloset(isLoggedIn: boolean) {
+  const router = useRouter();
   const [closetProducts, setClosetProducts] = useState<Product[]>([]);
   const [closetIds, setClosetIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
@@ -59,11 +61,15 @@ export function useCloset(isLoggedIn: boolean) {
   }, [isLoggedIn, load]);
 
   const addToCloset = useCallback(async (productId: string, sizeSelection?: ClosetSizeSelection | null) => {
+    if (!isLoggedIn) {
+      router.push("/login");
+      return;
+    }
     if (closetIds.has(productId)) return;
     await apiAdd(productId, sizeSelection);
     setClosetIds((prev) => new Set([...prev, productId]));
     void load();
-  }, [closetIds, load]);
+  }, [isLoggedIn, router, closetIds, load]);
 
   const removeFromCloset = useCallback(async (productId: string) => {
     await apiRemove(productId);
@@ -79,7 +85,7 @@ export function useCloset(isLoggedIn: boolean) {
 
   const toggleCloset = useCallback(async (productId: string, sizeSelection?: ClosetSizeSelection | null) => {
     if (!isLoggedIn) {
-      showToast({ message: "login_required", type: "info" });
+      router.push("/login");
       return;
     }
     if (closetIds.has(productId)) {
@@ -93,7 +99,7 @@ export function useCloset(isLoggedIn: boolean) {
       console.error("[closet] add failed", error);
       showToast({ message: "add_failed", type: "error" });
     }
-  }, [isLoggedIn, closetIds, addToCloset, showToast]);
+  }, [isLoggedIn, router, closetIds, addToCloset, showToast]);
 
   return { closetProducts, closetIds, isLoading, toast, clearToast, addToCloset, removeFromCloset, isInCloset, toggleCloset, reload: load, ensureLoaded };
 }

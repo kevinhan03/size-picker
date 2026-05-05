@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { fetchDigboxData, addToDigbox as apiAdd, removeFromDigbox as apiRemove } from "../api";
 import type { Product } from "../types";
 
 export type DigboxToast = { message: string; type: "success" | "info" | "error" } | null;
 
 export function useDigbox(isLoggedIn: boolean) {
+  const router = useRouter();
   const [digboxProducts, setDigboxProducts] = useState<Product[]>([]);
   const [digboxIds, setDigboxIds] = useState<Set<string>>(new Set());
   const [discoveredDigboxCounts, setDiscoveredDigboxCounts] = useState<Record<string, number>>({});
@@ -62,11 +64,15 @@ export function useDigbox(isLoggedIn: boolean) {
   }, [isLoggedIn, load]);
 
   const addToDigbox = useCallback(async (productId: string) => {
+    if (!isLoggedIn) {
+      router.push("/login");
+      return;
+    }
     if (digboxIds.has(productId)) return;
     await apiAdd(productId);
     setDigboxIds((prev) => new Set([...prev, productId]));
     void load();
-  }, [digboxIds, load]);
+  }, [isLoggedIn, router, digboxIds, load]);
 
   const removeFromDigbox = useCallback(async (productId: string) => {
     await apiRemove(productId);
@@ -88,7 +94,7 @@ export function useDigbox(isLoggedIn: boolean) {
 
   const toggleDigbox = useCallback(async (productId: string) => {
     if (!isLoggedIn) {
-      showToast({ message: "login_required", type: "info" });
+      router.push("/login");
       return;
     }
     if (digboxIds.has(productId)) {
@@ -102,7 +108,7 @@ export function useDigbox(isLoggedIn: boolean) {
       console.error("[digbox] add failed", error);
       showToast({ message: "add_failed", type: "error" });
     }
-  }, [isLoggedIn, digboxIds, addToDigbox, showToast]);
+  }, [isLoggedIn, router, digboxIds, addToDigbox, showToast]);
 
   return { digboxProducts, digboxIds, discoveredDigboxCounts, isLoading, toast, clearToast, addToDigbox, removeFromDigbox, isInDigbox, toggleDigbox, reload: load, ensureLoaded };
 }

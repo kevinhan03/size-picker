@@ -1,8 +1,10 @@
 "use client";
 
 import { createContext, useContext, useMemo } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useProductForm } from "../hooks/useProductForm";
 import { normalizeComparableProductUrl } from "../utils/product";
+import { useAuthContext } from "./AuthContext";
 import { useClosetContext } from "./ClosetContext";
 import { useDigboxContext } from "./DigboxContext";
 import { useProductsContext } from "./ProductsContext";
@@ -12,6 +14,9 @@ type ProductFormContextValue = ReturnType<typeof useProductForm>;
 const ProductFormContext = createContext<ProductFormContextValue | null>(null);
 
 export function ProductFormProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const auth = useAuthContext();
   const products = useProductsContext();
   const digbox = useDigboxContext();
   const closet = useClosetContext();
@@ -33,6 +38,8 @@ export function ProductFormProvider({ children }: { children: React.ReactNode })
     },
     onAddToDigbox: digbox.addToDigbox,
     onAddToCloset: closet.addToCloset,
+    isLoggedIn: Boolean(auth.authUser) || Boolean(pathname?.startsWith("/admin")),
+    onLoginRequired: () => router.push("/login"),
   });
 
   return <ProductFormContext.Provider value={value}>{children}</ProductFormContext.Provider>;

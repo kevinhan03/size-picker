@@ -8,6 +8,8 @@ interface UseProductFormOptions {
   onSubmitSuccess: () => void;
   onAddToDigbox?: (productId: string) => Promise<void>;
   onAddToCloset?: (productId: string, sizeSelection?: ClosetSizeSelection | null) => Promise<void>;
+  isLoggedIn?: boolean;
+  onLoginRequired?: () => void;
 }
 
 export function useProductForm({
@@ -15,12 +17,21 @@ export function useProductForm({
   onSubmitSuccess,
   onAddToDigbox,
   onAddToCloset,
+  isLoggedIn,
+  onLoginRequired,
 }: UseProductFormOptions) {
   const state = useProductFormState();
 
   const autofill = useProductFormAutofill({ state, productUrlSet });
 
-  const submit = useProductFormSubmit({ state, onSubmitSuccess, onAddToDigbox, onAddToCloset });
+  const submit = useProductFormSubmit({
+    state,
+    onSubmitSuccess,
+    onAddToDigbox,
+    onAddToCloset,
+    isLoggedIn,
+    onLoginRequired,
+  });
 
   return {
     ...state,

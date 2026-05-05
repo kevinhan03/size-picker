@@ -27,6 +27,8 @@ interface UseProductFormSubmitOptions {
   onSubmitSuccess: () => void;
   onAddToDigbox?: (productId: string) => Promise<void>;
   onAddToCloset?: (productId: string, sizeSelection?: ClosetSizeSelection | null) => Promise<void>;
+  isLoggedIn?: boolean;
+  onLoginRequired?: () => void;
 }
 
 function getSuccessMessage(addToDigbox: boolean, addToCloset: boolean) {
@@ -41,6 +43,8 @@ export function useProductFormSubmit({
   onSubmitSuccess,
   onAddToDigbox,
   onAddToCloset,
+  isLoggedIn = true,
+  onLoginRequired,
 }: UseProductFormSubmitOptions) {
   const isSizeTableOptionalCategory = isOptionalMetadataCategory(state.formData.category);
 
@@ -57,6 +61,11 @@ export function useProductFormSubmit({
   });
 
   const handleSubmitProduct = async () => {
+    if (!isLoggedIn) {
+      onLoginRequired?.();
+      return;
+    }
+
     const validationError = getSubmitValidationError({
       hasProductImageCheck: Boolean(state.productPhotoFile) || Boolean(state.autofilledProductImageUrl),
       hasCategory: Boolean(state.formData.category.trim()),
