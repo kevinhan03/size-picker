@@ -11,16 +11,16 @@ const siteUrl =
 export const metadata: Metadata = {
   metadataBase: siteUrl ? new URL(siteUrl) : undefined,
   title: "DIGBOX",
-  description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
+  description: "취향은 더 깊게, 발견은 더 쉽게. 마음에 드는 옷과 패션 아이템을 한곳에서 디깅하세요.",
   openGraph: {
     title: "DIGBOX",
-    description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
+    description: "취향은 더 깊게, 발견은 더 쉽게. 마음에 드는 옷과 패션 아이템을 한곳에서 디깅하세요.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "DIGBOX",
-    description: "의류와 신발의 사이즈표를 검색하고 비교하는 Next.js 기반 상품 사이즈 플랫폼.",
+    description: "취향은 더 깊게, 발견은 더 쉽게. 마음에 드는 옷과 패션 아이템을 한곳에서 디깅하세요.",
   },
   icons: {
     icon: "/favicon-simple.svg",
