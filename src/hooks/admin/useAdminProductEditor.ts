@@ -42,7 +42,11 @@ export function useAdminProductEditor({
     setAdminImagePreview(product.image);
     setAdminProductPhotoFile(null);
     setAdminSizeChartImage(null);
-    setAdminExtractedTable(product.sizeTable ?? null);
+    setAdminExtractedTable(
+      (product.category === 'Bottom'
+        ? (product.normalizedSizeTable ?? product.sizeTable)
+        : product.sizeTable) ?? null
+    );
     setAdminActionError(null);
   };
 

@@ -8,7 +8,7 @@ import {
 } from "../config/env.js";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { normalizeBrandName } from "./brand-rules.js";
-import { normalizeSizeTableForCategory, parseSizeTable } from "./size-table.js";
+import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "./size-table.js";
 
 export const DUPLICATE_PRODUCT_ERROR_MESSAGE = "이미 등록된 상품입니다";
 
@@ -179,8 +179,9 @@ export const insertProductRow = async (input) => {
 
   const canonicalBrand = normalizeBrandName(brand);
   const effectiveSizeTable = parseSizeTable(sizeTable);
-  const effectiveNormalizedSizeTable =
-    parseSizeTable(normalizedSizeTable) || normalizeSizeTableForCategory(category, effectiveSizeTable);
+  const effectiveNormalizedSizeTable = isBottomCategory(category)
+    ? parseSizeTable(normalizedSizeTable) || normalizeSizeTableForCategory(category, effectiveSizeTable)
+    : null;
   const { data, error } = await supabase
     .from(SUPABASE_PRODUCTS_TABLE)
     .insert({

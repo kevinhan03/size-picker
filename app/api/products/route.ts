@@ -9,7 +9,7 @@ import {
   normalizeProductRow,
   toProductWriteErrorResponse,
 } from "../../../server/utils/product.js";
-import { normalizeSizeTableForCategory, parseSizeTable } from "../../../server/utils/size-table.js";
+import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../server/utils/size-table.js";
 import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
 
@@ -77,10 +77,9 @@ export async function POST(request: Request) {
     const image = String(body?.image || "").trim();
     const sizeTable = parseSizeTable(body?.sizeTable ?? null);
     const submittedNormalizedSizeTable = parseSizeTable(body?.normalizedSizeTable ?? null);
-    const normalizedSizeTable = normalizeSizeTableForCategory(
-      category,
-      submittedNormalizedSizeTable || sizeTable
-    );
+    const normalizedSizeTable = isBottomCategory(category)
+      ? normalizeSizeTableForCategory(category, submittedNormalizedSizeTable || sizeTable)
+      : null;
     const isInstagram = false;
     const createdAt = new Date().toISOString();
 

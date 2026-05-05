@@ -6,7 +6,7 @@ import { SUPABASE_PRODUCTS_TABLE } from "../../../../../server/config/env.js";
 import { assertSupabaseConfig, supabase } from "../../../../../server/lib/supabase.js";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../../../server/utils/brand-rules.js";
 import { removeOldProductImageIfUnused, toProductWriteErrorResponse } from "../../../../../server/utils/product.js";
-import { normalizeSizeTableForCategory, parseSizeTable } from "../../../../../server/utils/size-table.js";
+import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../../../server/utils/size-table.js";
 
 export async function PATCH(
   request: Request,
@@ -49,7 +49,9 @@ export async function PATCH(
       const sizeTable = parseSizeTable(body?.sizeTable ?? null);
       payload.size_table = sizeTable;
       const categoryForNormalization = nextCategory || String(body?.currentCategory || "").trim();
-      payload.normalized_size_table = normalizeSizeTableForCategory(categoryForNormalization, sizeTable);
+      payload.normalized_size_table = isBottomCategory(categoryForNormalization)
+        ? normalizeSizeTableForCategory(categoryForNormalization, sizeTable)
+        : null;
     }
     if ("isInstagram" in body) {
       payload.is_instagram = Boolean(body.isInstagram);

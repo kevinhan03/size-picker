@@ -109,7 +109,9 @@ export const buildSubmitProductPayload = (
   name: formData.name,
   category: formData.category || null,
   url: formData.url || null,
-  sizeTable: formData.rawExtractedTable || formData.extractedTable,
+  sizeTable: formData.category === 'Bottom'
+    ? (formData.rawExtractedTable || formData.extractedTable)
+    : formData.extractedTable,
   normalizedSizeTable: formData.extractedTable,
   productPhoto: productPhotoFile,
   productImageUrl: autofilledProductImageUrl,

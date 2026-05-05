@@ -113,7 +113,7 @@ const BOTTOM_STANDARD_HEADERS = [
 
 const normalizeDisplayCategory = (category) => normalizeCellText(category).toLowerCase();
 
-const isBottomCategory = (category) => normalizeDisplayCategory(category) === "bottom";
+export const isBottomCategory = (category) => normalizeDisplayCategory(category) === "bottom";
 
 export const isBottomDisplaySizeTable = (table) => {
   const normalized = parseSizeTable(table);
