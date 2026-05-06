@@ -25,7 +25,6 @@ npm run backfill:slugs:dry
 |------|------|-------|
 | `/` | `app/page.tsx` | Search page |
 | `/grid` | `app/grid/page.tsx` | Product grid |
-| `/converter` | `app/converter/page.tsx` | Size converter |
 | `/login` | `app/login/page.tsx` | Login / signup |
 | `/mypage` | `app/mypage/page.tsx` | My page |
 | `/closet` | `app/closet/page.tsx` | My closet (auth required) |
@@ -105,7 +104,6 @@ src/
 │   ├── useProducts.ts
 │   ├── useProductSearch.ts
 │   ├── useGridState.ts
-│   └── useSizeConverterState.ts
 ├── lib/
 │   ├── supabase.ts     # Browser Supabase client (anon key)
 │   └── api-error.ts

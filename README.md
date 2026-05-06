@@ -1,6 +1,6 @@
 # DIGBOX
 
-Next.js App Router application for product search, grid browsing, size conversion, product detail pages, and admin tooling.
+Next.js App Router application for product search, grid browsing, product detail pages, and admin tooling.
 
 ## Architecture
 
@@ -15,7 +15,6 @@ Next.js App Router application for product search, grid browsing, size conversio
 
 - `/`
 - `/grid`
-- `/converter`
 - `/login`
 - `/mypage`
 - `/product/[id]`

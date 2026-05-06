@@ -1,4 +1,4 @@
-import type { ClosetSizeSnapshot, SizeTable, SizeConversionRow, SizeRegionKey, Product, SizeRecommendation } from '../types';
+import type { ClosetSizeSnapshot, SizeTable, Product, SizeRecommendation } from '../types';
 import {
   TOTAL_LENGTH_LABEL,
   ITEM_LABEL,
@@ -135,22 +135,6 @@ export const getDisplaySizeTable = (product: Product): SizeTable | null => {
 };
 
 export const normalizeSizeLabel = (value: unknown): string => normalizeCellText(value).toUpperCase();
-export const normalizeSizeLookupValue = (value: unknown): string =>
-  normalizeCellText(value)
-    .toUpperCase()
-    .replace(/\s+/g, '')
-    .replace(/MM$/, '');
-
-export const findConvertedSize = (
-  rows: SizeConversionRow[],
-  region: SizeRegionKey,
-  size: string
-): SizeConversionRow | null => {
-  const lookup = normalizeSizeLookupValue(size);
-  if (!lookup) return null;
-  return rows.find((row) => normalizeSizeLookupValue(row[region]) === lookup) || null;
-};
-
 export const isLikelySizeLabel = (value: unknown): boolean => {
   const text = normalizeSizeLabel(value);
   if (!text) return false;

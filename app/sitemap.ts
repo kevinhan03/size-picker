@@ -12,11 +12,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 1,
     },
-    {
-      url: `${siteUrl}/converter`,
-      changeFrequency: "weekly",
-      priority: 0.6,
-    },
   ];
 
   const products = await fetchInitialProducts();

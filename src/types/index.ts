@@ -165,22 +165,10 @@ export interface BrandBackfillResult {
   changes: BrandBackfillChange[];
 }
 
-export interface SizeConversionRow {
-  label: string;
-  kr: string;
-  jp: string;
-  us: string;
-  eu: string;
-  uk: string;
-}
-
 export interface SizeRecommendation {
   product: Product;
   rowIndex: number;
   score: number;
 }
 
-export type SizeCategory = 'clothing' | 'shoes';
-export type SizeGender = 'men' | 'women';
-export type SizeRegionKey = 'kr' | 'jp' | 'us' | 'eu' | 'uk';
 export type AddProductMode = 'menu' | 'capture' | 'url' | 'manual';
