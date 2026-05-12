@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SyntheticEvent } from "react";
+import type { KeyboardEvent, SyntheticEvent } from "react";
 import { ChevronLeft, ChevronRight, Instagram, RefreshCw, Search, ShieldAlert, Users, X } from "lucide-react";
 import { GridView } from "../GridView";
+import { FilterBar } from "../FilterBar";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { useClosetContext } from "../../contexts/ClosetContext";
@@ -16,6 +17,23 @@ import { computeSizeRecommendations } from "../../utils/sizeTable";
 import { smoothScrollTo } from "../../utils/scroll";
 import type { Product, SizeRecommendation } from "../../types";
 import { CATEGORY_OPTIONS } from "../../constants";
+
+const mulberry32 = (seed: number) => {
+  return () => {
+    let value = (seed += 0x6d2b79f5);
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const shuffleProducts = (items: Product[], seed: number): Product[] => {
+  const random = mulberry32(seed);
+  return items
+    .map((product, index) => ({ product, index, weight: random() }))
+    .sort((a, b) => a.weight - b.weight || a.index - b.index)
+    .map(({ product }) => product);
+};
 
 const DEFAULT_FEATURED_HEADING = "지금 주목할 상품";
 
@@ -39,7 +57,6 @@ export function SearchPageClient() {
   const { toggleDigbox, isInDigbox, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
   const {
     clearQuery,
-    handleKeyDown,
     handleQueryChange,
     handleSearchSubmit,
     query,
@@ -48,7 +65,13 @@ export function SearchPageClient() {
     showSuggestions,
     suggestions,
   } = useSearchContext();
-  const grid = useGridState(products);
+  const [shuffleSeed, setShuffleSeed] = useState<number | null>(null);
+  const [isShuffling, setIsShuffling] = useState(false);
+  const displayProducts = useMemo(
+    () => (shuffleSeed === null ? products : shuffleProducts(products, shuffleSeed)),
+    [products, shuffleSeed]
+  );
+  const grid = useGridState(displayProducts);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
@@ -61,6 +84,7 @@ export function SearchPageClient() {
   const featuredScrollRef = useRef<HTMLDivElement>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
   const gridRecommendationsRef = useRef<HTMLDivElement>(null);
+  const shuffleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     ensureClosetLoaded();
@@ -95,7 +119,13 @@ export function SearchPageClient() {
     [brandFilter, grid.filteredGridProducts]
   );
 
-  const categoryFilters = useMemo(() => ["", ...CATEGORY_OPTIONS], []);
+  const categoryFilterOptions = useMemo(
+    () => [
+      { label: "전체", value: "" },
+      ...CATEGORY_OPTIONS.map((category) => ({ label: category, value: category })),
+    ],
+    []
+  );
 
   const brandSuggestions = useMemo(() => {
     if (!query) return [];
@@ -120,6 +150,16 @@ export function SearchPageClient() {
   );
 
   const popularBrandOptions = useMemo(() => brandOptions.slice(0, 10), [brandOptions]);
+
+  const brandFilterOptions = useMemo(
+    () => [
+      { label: "전체 브랜드", value: "" },
+      ...Array.from(new Set(products.map((product) => product.brand.trim()).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b))
+        .map((brand) => ({ label: brand, value: brand })),
+    ],
+    [products]
+  );
 
   const gridRecommendations = useMemo<SizeRecommendation[]>(() => {
     if (activeRowIndex === null || !selectedProduct) return [];
@@ -152,12 +192,41 @@ export function SearchPageClient() {
     return () => window.removeEventListener("resize", updateFeaturedScrollState);
   }, [featuredProducts.length]);
 
+  useEffect(() => {
+    return () => {
+      if (shuffleTimeoutRef.current) {
+        clearTimeout(shuffleTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleBrandSelect = (brand: string) => {
     setBrandFilter(brand);
-    grid.setGridCategoryFilter("");
+    grid.setGridSearchQuery("");
     setShowAllBrands(false);
     setShowSuggestions(false);
     clearQuery();
+  };
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    const term = query.trim();
+    grid.setGridSearchQuery(term);
+    setShowSuggestions(false);
+  };
+
+  const handleShuffle = () => {
+    if (shuffleTimeoutRef.current) {
+      clearTimeout(shuffleTimeoutRef.current);
+    }
+    setShuffleSeed(Math.floor(Math.random() * 0xffffffff));
+    setIsShuffling(true);
+    shuffleTimeoutRef.current = setTimeout(() => {
+      setIsShuffling(false);
+      shuffleTimeoutRef.current = null;
+    }, 380);
   };
 
   const handleProductClick = (product: Product) => {
@@ -340,7 +409,7 @@ export function SearchPageClient() {
             setShowAllBrands(false);
             handleQueryChange(e.target.value);
           }}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleSearchKeyDown}
           onFocus={() => {
             setShowSuggestions(true);
           }}
@@ -349,6 +418,7 @@ export function SearchPageClient() {
           <button
             onClick={() => {
               setShowAllBrands(false);
+              grid.setGridSearchQuery("");
               clearQuery();
             }}
             className="absolute inset-y-0 right-0 flex w-11 items-center justify-center border-none bg-transparent p-0 text-gray-400 shadow-none outline-none transition hover:text-white"
@@ -454,60 +524,33 @@ export function SearchPageClient() {
         )}
       </div>
 
-      {/* Category chips */}
-      <div className="mb-8 w-full max-w-2xl">
-        <div className="py-0.5">
-          <div className="grid grid-cols-6 gap-2">
-            {categoryFilters.map((cat) => {
-              const label = cat === "" ? "All" : cat;
-              const isActive = grid.gridCategoryFilter === cat && !brandFilter;
-              return (
-                <button
-                  key={label}
-                  onClick={() => { grid.setGridCategoryFilter(cat); setBrandFilter(""); }}
-                  className={`flex h-9 items-center justify-center rounded-xl border px-3.5 text-[11px] font-black transition-all sm:h-10 sm:text-xs ${
-                    isActive
-                      ? "border-orange-500/55 bg-orange-500/[0.12] text-orange-400"
-                      : "border-white/10 bg-white/[0.045] text-gray-400 hover:text-gray-100"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        {brandFilter && (
-          <div className="mt-3 flex">
-            <button
-              type="button"
-              onClick={() => setBrandFilter("")}
-              className="flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-white/15"
-            >
-              <span className="flex-shrink-0 text-[10px] font-black uppercase tracking-wide text-gray-500">Brand</span>
-              <span className="text-gray-600">·</span>
-              <span className="truncate text-orange-300">{brandFilter}</span>
-              <span className="ml-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-gray-500 transition hover:bg-orange-500/[0.14] hover:text-orange-300">
-                <X className="h-3 w-3" />
-              </span>
-            </button>
-          </div>
-        )}
+      <FilterBar
+        categoryOptions={categoryFilterOptions}
+        categoryValue={grid.gridCategoryFilter}
+        onCategoryChange={grid.setGridCategoryFilter}
+        brandOptions={brandFilterOptions}
+        brandValue={brandFilter}
+        onBrandChange={setBrandFilter}
+        onShuffle={handleShuffle}
+        isShuffling={isShuffling}
+      />
+
+      <div className={`w-full max-w-7xl ${isShuffling ? "dig-grid is-shuffling" : "dig-grid"}`}>
+        <GridView
+          allProducts={products}
+          filteredGridProducts={brandFilteredProducts}
+          gridCategoryCounts={grid.gridCategoryCounts}
+          gridCategoryFilter={grid.gridCategoryFilter}
+          setGridCategoryFilter={grid.setGridCategoryFilter}
+          gridSearchQuery={grid.gridSearchQuery}
+          setGridSearchQuery={grid.setGridSearchQuery}
+          isInteractionDisabled={showSuggestions}
+          onProductClick={handleProductClick}
+          onImageError={handleImageLoadError}
+          isLoading={isProductsLoading}
+        />
       </div>
 
-      <GridView
-        allProducts={products}
-        filteredGridProducts={brandFilteredProducts}
-        gridCategoryCounts={grid.gridCategoryCounts}
-        gridCategoryFilter={grid.gridCategoryFilter}
-        setGridCategoryFilter={grid.setGridCategoryFilter}
-        gridSearchQuery={grid.gridSearchQuery}
-        setGridSearchQuery={grid.setGridSearchQuery}
-        isInteractionDisabled={showSuggestions}
-        onProductClick={handleProductClick}
-        onImageError={handleImageLoadError}
-        isLoading={isProductsLoading}
-      />
 
       {normalizedProduct && (
         <ProductDetailModal

@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "backfill:brands": "node scripts/backfill-brand-names.mjs",
     "backfill:brands:dry": "node scripts/backfill-brand-names.mjs --dry-run",
     "backfill:brands:report": "node scripts/backfill-brand-names.mjs --dry-run --report",
