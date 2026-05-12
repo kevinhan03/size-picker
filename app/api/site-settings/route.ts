@@ -15,11 +15,14 @@ export async function GET() {
     const instagramUrl =
       (Array.isArray(data) ? data : []).find((r) => r.key === "instagram_url")
         ?.value ?? "";
+    const digboxUrl =
+      (Array.isArray(data) ? data : []).find((r) => r.key === "digbox_url")
+        ?.value ?? "";
     const featuredHeading =
       (Array.isArray(data) ? data : []).find((r) => r.key === "featured_heading")
         ?.value ?? "";
 
-    return NextResponse.json({ ok: true, data: { instagramUrl, featuredHeading } });
+    return NextResponse.json({ ok: true, data: { instagramUrl, digboxUrl, featuredHeading } });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "settings fetch error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
@@ -34,6 +37,9 @@ export async function PATCH(request: Request) {
   const updates: Array<{ key: string; value: string }> = [];
   if (Object.prototype.hasOwnProperty.call(body ?? {}, "instagramUrl")) {
     updates.push({ key: "instagram_url", value: String(body?.instagramUrl ?? "").trim() });
+  }
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "digboxUrl")) {
+    updates.push({ key: "digbox_url", value: String(body?.digboxUrl ?? "").trim() });
   }
   if (Object.prototype.hasOwnProperty.call(body ?? {}, "featuredHeading")) {
     updates.push({ key: "featured_heading", value: String(body?.featuredHeading ?? "").trim() });

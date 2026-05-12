@@ -15,6 +15,8 @@ interface InstagramProductsPanelProps {
   onMove: (id: string, direction: "up" | "down") => void;
   instagramProfileUrl: string;
   onInstagramProfileUrlChange: (url: string) => void;
+  digboxUrl: string;
+  onDigboxUrlChange: (url: string) => void;
   featuredHeading: string;
   onFeaturedHeadingChange: (heading: string) => void;
   onInstagramProfileUrlSave: () => void;
@@ -29,6 +31,8 @@ export function InstagramProductsPanel({
   onMove,
   instagramProfileUrl,
   onInstagramProfileUrlChange,
+  digboxUrl,
+  onDigboxUrlChange,
   featuredHeading,
   onFeaturedHeadingChange,
   onInstagramProfileUrlSave,
@@ -82,6 +86,17 @@ export function InstagramProductsPanel({
           >
             저장
           </button>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <Users className="h-5 w-5 flex-shrink-0 text-orange-400" />
+          <input
+            type="url"
+            value={digboxUrl}
+            onChange={(e) => onDigboxUrlChange(e.target.value)}
+            placeholder="DIGBOX 페이지 링크"
+            className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-orange-500 focus:outline-none"
+          />
+          <div className="w-[61px] flex-shrink-0" />
         </div>
         <div className="mt-3 flex items-start gap-2">
           <label className="w-24 flex-shrink-0 pt-2 text-sm font-bold text-gray-300">

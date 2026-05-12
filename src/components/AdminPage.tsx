@@ -61,6 +61,8 @@ interface AdminPageProps {
   onInstagramMove: (id: string, direction: "up" | "down") => void;
   instagramProfileUrl: string;
   onInstagramProfileUrlChange: (url: string) => void;
+  digboxUrl: string;
+  onDigboxUrlChange: (url: string) => void;
   featuredHeading: string;
   onFeaturedHeadingChange: (heading: string) => void;
   onInstagramProfileUrlSave: () => void;
@@ -111,6 +113,8 @@ export const AdminPage = ({
   onInstagramMove,
   instagramProfileUrl,
   onInstagramProfileUrlChange,
+  digboxUrl,
+  onDigboxUrlChange,
   featuredHeading,
   onFeaturedHeadingChange,
   onInstagramProfileUrlSave,
@@ -281,6 +285,8 @@ export const AdminPage = ({
                   onMove={onInstagramMove}
                   instagramProfileUrl={instagramProfileUrl}
                   onInstagramProfileUrlChange={onInstagramProfileUrlChange}
+                  digboxUrl={digboxUrl}
+                  onDigboxUrlChange={onDigboxUrlChange}
                   featuredHeading={featuredHeading}
                   onFeaturedHeadingChange={onFeaturedHeadingChange}
                   onInstagramProfileUrlSave={onInstagramProfileUrlSave}

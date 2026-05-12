@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
-import { ChevronLeft, ChevronRight, Instagram, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Instagram, RefreshCw, Search, ShieldAlert, Users, X } from "lucide-react";
 import { GridView } from "../GridView";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ProgressiveImage } from "../ProgressiveImage";
@@ -53,6 +53,7 @@ export function SearchPageClient() {
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const [instagramProfileUrl, setInstagramProfileUrl] = useState("");
+  const [digboxUrl, setDigboxUrl] = useState("");
   const [featuredHeading, setFeaturedHeading] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [showAllBrands, setShowAllBrands] = useState(false);
@@ -72,6 +73,7 @@ export function SearchPageClient() {
       .then((payload) => {
         if (payload?.ok) {
           setInstagramProfileUrl(payload.data?.instagramUrl ?? "");
+          setDigboxUrl(payload.data?.digboxUrl ?? "");
           setFeaturedHeading(payload.data?.featuredHeading ?? "");
         }
       })
@@ -215,22 +217,37 @@ export function SearchPageClient() {
       {featuredProducts.length > 0 && (
         <section className="mb-8 w-full max-w-2xl sm:max-w-[980px] lg:max-w-[1120px]">
           {/* 헤더 */}
-          <div className="mb-3 flex items-end justify-between sm:mb-4">
+          <div className="mb-3 flex items-end justify-between gap-3 sm:mb-4">
             <div className="min-w-0">
               <h2 className="whitespace-pre-line text-xl font-black leading-tight text-white sm:text-2xl">
                 {featuredHeading.trim() || DEFAULT_FEATURED_HEADING}
               </h2>
             </div>
-            {instagramProfileUrl && (
-              <a
-                href={instagramProfileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-gray-400 transition hover:border-pink-500/40 hover:bg-pink-500/10 hover:text-pink-400 sm:px-3 sm:py-1.5 sm:text-xs"
-              >
-                <Instagram className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                Instagram
-              </a>
+            {(instagramProfileUrl.trim() || digboxUrl.trim()) && (
+              <div className="flex flex-shrink-0 flex-wrap justify-end gap-2">
+                {instagramProfileUrl.trim() && (
+                  <a
+                    href={instagramProfileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-gray-400 transition hover:border-pink-500/40 hover:bg-pink-500/10 hover:text-pink-400 sm:px-3 sm:py-1.5 sm:text-xs"
+                  >
+                    <Instagram className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    Instagram
+                  </a>
+                )}
+                {digboxUrl.trim() && (
+                  <a
+                    href={digboxUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-gray-400 transition hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300 sm:px-3 sm:py-1.5 sm:text-xs"
+                  >
+                    <Users className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    DIGBOX
+                  </a>
+                )}
+              </div>
             )}
           </div>
           {/* Scrollable featured product shelf */}

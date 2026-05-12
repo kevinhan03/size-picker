@@ -65,6 +65,8 @@ export function AdminRoutePageClient() {
       onInstagramMove={(id, direction) => void admin.handleInstagramMove(featuredProducts, id, direction)}
       instagramProfileUrl={admin.instagramProfileUrl}
       onInstagramProfileUrlChange={admin.setInstagramProfileUrl}
+      digboxUrl={admin.digboxUrl}
+      onDigboxUrlChange={admin.setDigboxUrl}
       featuredHeading={admin.featuredHeading}
       onFeaturedHeadingChange={admin.setFeaturedHeading}
       onInstagramProfileUrlSave={() => void admin.handleInstagramProfileUrlSave()}

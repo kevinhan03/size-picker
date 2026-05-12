@@ -28,6 +28,7 @@ export function useInstagramProducts({
   const [isInstagramLoading, setIsInstagramLoading] = useState(false);
   const [isInstagramAnalyzing, setIsInstagramAnalyzing] = useState(false);
   const [instagramProfileUrl, setInstagramProfileUrl] = useState("");
+  const [digboxUrl, setDigboxUrl] = useState("");
   const [featuredHeading, setFeaturedHeading] = useState("");
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export function useInstagramProducts({
       .then((payload) => {
         if (payload?.ok) {
           setInstagramProfileUrl(payload.data?.instagramUrl ?? "");
+          setDigboxUrl(payload.data?.digboxUrl ?? "");
           setFeaturedHeading(payload.data?.featuredHeading ?? "");
         }
       })
@@ -162,6 +164,7 @@ export function useInstagramProducts({
         credentials: "include",
         body: JSON.stringify({
           instagramUrl: instagramProfileUrl.trim(),
+          digboxUrl: digboxUrl.trim(),
           featuredHeading: featuredHeading.trim(),
         }),
       });
@@ -272,6 +275,8 @@ export function useInstagramProducts({
     handleInstagramCreate,
     instagramProfileUrl,
     setInstagramProfileUrl,
+    digboxUrl,
+    setDigboxUrl,
     featuredHeading,
     setFeaturedHeading,
     handleInstagramProfileUrlSave,
