@@ -1,8 +1,9 @@
 "use client";
 
-import { type SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent, type SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { ProgressiveImage } from "./ProgressiveImage";
+import type { TutorialAnchorRect } from "./OnboardingTutorial";
 import type { Product } from "../types";
 import { CATEGORY_OPTIONS } from "../constants";
 
@@ -17,7 +18,7 @@ interface GridViewProps {
   setGridCategoryFilter: (value: string) => void;
   gridSearchQuery: string;
   setGridSearchQuery: (value: string) => void;
-  onProductClick: (product: Product) => void;
+  onProductClick: (product: Product, anchorRect?: TutorialAnchorRect) => void;
   onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
   isInteractionDisabled?: boolean;
   isLoading?: boolean;
@@ -66,6 +67,18 @@ export function GridView({
     scrollMargin,
   });
 
+  const getAnchorRect = (event: MouseEvent<HTMLElement>): TutorialAnchorRect => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+
   return (
     <div className={`w-full max-w-7xl ${isInteractionDisabled ? "pointer-events-none" : ""}`}>
 
@@ -97,7 +110,7 @@ export function GridView({
               {rows[vRow.index].map((product) => (
                 <div
                   key={product.id}
-                  onClick={() => onProductClick(product)}
+                  onClick={(event) => onProductClick(product, getAnchorRect(event))}
                   className={`ui-product-card relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition ${
                     isInteractionDisabled
                       ? "cursor-default"

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { ClosetSizeSelection, Product } from "../types";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
 import {
   getDisplaySizeTable,
   normalizeMeasurementLabel,
@@ -46,6 +47,7 @@ export function SizeSelectionSheet({
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(safeInitialIndex);
   const [manualSize, setManualSize] = useState("");
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
 
   useBodyScrollLock(sheetRef);
 
@@ -53,6 +55,26 @@ export function SizeSelectionSheet({
     setSelectedRowIndex(safeInitialIndex);
     setManualSize("");
   }, [safeInitialIndex, product.id]);
+
+  useEffect(() => {
+    const storageKey = "sizepicker:tutorial:v2:sizeSelection";
+    if (window.localStorage.getItem(storageKey)) return;
+    window.localStorage.setItem(storageKey, "true");
+    const rect = sheetRef.current?.getBoundingClientRect();
+    setActiveTutorial({
+      id: "sizeSelection",
+      anchorRect: rect
+        ? {
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+          }
+        : undefined,
+    });
+  }, []);
 
   const selectedRow = useMemo(
     () => (selectedRowIndex !== null ? rows[selectedRowIndex] : null),
@@ -166,6 +188,13 @@ export function SizeSelectionSheet({
           </button>
         </div>
       </div>
+      {activeTutorial && (
+        <OnboardingTutorial
+          tutorialId={activeTutorial.id}
+          anchorRect={activeTutorial.anchorRect}
+          onClose={() => setActiveTutorial(null)}
+        />
+      )}
     </div>
   );
 }

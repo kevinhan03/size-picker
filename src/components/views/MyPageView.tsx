@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, ChevronRight, Copy, LogOut, Plus, Ruler, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
 import type { MySizeInput, MySizeProfile, Product } from "../../types";
+import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 
 interface MyPageViewProps {
   username: string;
@@ -222,6 +223,26 @@ function MySizesManager({
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
+  const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
+
+  const getAnchorRect = (element: Element): TutorialAnchorRect => {
+    const rect = element.getBoundingClientRect();
+    return {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+
+  const showTutorialOnce = (tutorialId: TutorialId, anchorRect?: TutorialAnchorRect) => {
+    const storageKey = `sizepicker:tutorial:v2:${tutorialId}`;
+    if (window.localStorage.getItem(storageKey)) return;
+    window.localStorage.setItem(storageKey, "true");
+    setActiveTutorial({ id: tutorialId, anchorRect });
+  };
 
   const toggleCategory = (category: string) => {
     setOpenCategories((prev) => {
@@ -290,11 +311,12 @@ function MySizesManager({
         </div>
         <button
           type="button"
-          onClick={() => {
+          onClick={(event) => {
             if (isAdding) {
               closeAddDialog();
               return;
             }
+            showTutorialOnce("mySizeSetup", getAnchorRect(event.currentTarget));
             setIsAdding(true);
             setFormError(null);
           }}
@@ -320,7 +342,10 @@ function MySizesManager({
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setIsProductPickerOpen((value) => !value)}
+                  onClick={(event) => {
+                    showTutorialOnce("mySizeSetup", getAnchorRect(event.currentTarget));
+                    setIsProductPickerOpen((value) => !value);
+                  }}
                   className={`flex h-12 w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-xl border px-3 text-left transition ${
                     isProductPickerOpen || selectedProduct
                       ? "border-orange-500/50 bg-orange-500/10"
@@ -519,6 +544,13 @@ function MySizesManager({
           잘 맞았던 사이즈를 My Size으로 저장해 보세요.
         </div>
       ) : null}
+      {activeTutorial && (
+        <OnboardingTutorial
+          tutorialId={activeTutorial.id}
+          anchorRect={activeTutorial.anchorRect}
+          onClose={() => setActiveTutorial(null)}
+        />
+      )}
     </section>
   );
 }

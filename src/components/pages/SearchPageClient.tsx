@@ -7,6 +7,7 @@ import { GridView } from "../GridView";
 import { FilterBar } from "../FilterBar";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ProgressiveImage } from "../ProgressiveImage";
+import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
@@ -36,6 +37,34 @@ const shuffleProducts = (items: Product[], seed: number): Product[] => {
 };
 
 const DEFAULT_FEATURED_HEADING = "지금 주목할 상품";
+
+const TUTORIAL_IDS = [
+  "search",
+  "filters",
+  "detail",
+  "collection",
+  "sizeSelection",
+  "sizeRecommendations",
+  "mySizeCompare",
+  "mySizeSetup",
+  "digboxShare",
+] as const satisfies readonly TutorialId[];
+const TUTORIAL_STORAGE_PREFIX = "sizepicker:tutorial:v2:";
+
+const getRequestedTutorialId = (value: string | null): TutorialId | null => {
+  if (!value) return null;
+  return TUTORIAL_IDS.includes(value as TutorialId) ? (value as TutorialId) : null;
+};
+
+const resetTutorialStorage = (tutorialId?: TutorialId) => {
+  if (tutorialId) {
+    window.localStorage.removeItem(`${TUTORIAL_STORAGE_PREFIX}${tutorialId}`);
+    return;
+  }
+  Object.keys(window.localStorage)
+    .filter((key) => key.startsWith(TUTORIAL_STORAGE_PREFIX))
+    .forEach((key) => window.localStorage.removeItem(key));
+};
 
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
@@ -80,6 +109,8 @@ export function SearchPageClient() {
   const [featuredHeading, setFeaturedHeading] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [showAllBrands, setShowAllBrands] = useState(false);
+  const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
+  const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const [featuredScrollState, setFeaturedScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
   const featuredScrollRef = useRef<HTMLDivElement>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
@@ -152,13 +183,16 @@ export function SearchPageClient() {
   const popularBrandOptions = useMemo(() => brandOptions.slice(0, 10), [brandOptions]);
 
   const brandFilterOptions = useMemo(
-    () => [
-      { label: "전체 브랜드", value: "" },
-      ...Array.from(new Set(products.map((product) => product.brand.trim()).filter(Boolean)))
-        .sort((a, b) => a.localeCompare(b))
-        .map((brand) => ({ label: brand, value: brand })),
-    ],
-    [products]
+    () => {
+      if (!isBrandDropdownOpen) return [{ label: "전체 브랜드", value: "" }];
+      return [
+        { label: "전체 브랜드", value: "" },
+        ...Array.from(new Set(products.map((product) => product.brand.trim()).filter(Boolean)))
+          .sort((a, b) => a.localeCompare(b))
+          .map((brand) => ({ label: brand, value: brand })),
+      ];
+    },
+    [isBrandDropdownOpen, products]
   );
 
   const gridRecommendations = useMemo<SizeRecommendation[]>(() => {
@@ -200,12 +234,84 @@ export function SearchPageClient() {
     };
   }, []);
 
+  const getAnchorRect = (element: Element): TutorialAnchorRect => {
+    const rect = element.getBoundingClientRect();
+    return {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+
+  const showTutorialOnce = (tutorialId: TutorialId, anchorRect?: TutorialAnchorRect) => {
+    const storageKey = `sizepicker:tutorial:v2:${tutorialId}`;
+    if (window.localStorage.getItem(storageKey)) return;
+    window.localStorage.setItem(storageKey, "true");
+    setActiveTutorial({ id: tutorialId, anchorRect });
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTutorial = getRequestedTutorialId(params.get("tutorial"));
+    const shouldResetTutorials =
+      params.get("tutorial") === "reset" || params.get("resetTutorials") === "1";
+
+    if (shouldResetTutorials || requestedTutorial) {
+      resetTutorialStorage(requestedTutorial ?? undefined);
+    }
+
+    if (!requestedTutorial) return;
+
+    const timer = window.setTimeout(() => {
+      const rect = requestedTutorial === "search"
+        ? searchContainerRef.current?.getBoundingClientRect()
+        : null;
+      setActiveTutorial({
+        id: requestedTutorial,
+        anchorRect: rect
+          ? {
+              top: rect.top,
+              right: rect.right,
+              bottom: rect.bottom,
+              left: rect.left,
+              width: rect.width,
+              height: rect.height,
+            }
+          : undefined,
+      });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [searchContainerRef]);
+
   const handleBrandSelect = (brand: string) => {
+    const anchorRect = searchContainerRef.current ? getAnchorRect(searchContainerRef.current) : undefined;
+    showTutorialOnce("filters", anchorRect);
     setBrandFilter(brand);
     grid.setGridSearchQuery("");
     setShowAllBrands(false);
     setShowSuggestions(false);
     clearQuery();
+  };
+
+  const handleCategoryFilterChange = (value: string, anchorRect?: TutorialAnchorRect) => {
+    showTutorialOnce("filters", anchorRect);
+    grid.setGridCategoryFilter(value);
+  };
+
+  const handleBrandFilterChange = (value: string, anchorRect?: TutorialAnchorRect) => {
+    showTutorialOnce("filters", anchorRect);
+    setBrandFilter(value);
+  };
+
+  const handleBrandDropdownOpenChange = (isOpen: boolean, anchorRect?: TutorialAnchorRect) => {
+    setIsBrandDropdownOpen(isOpen);
+    if (isOpen) {
+      showTutorialOnce("filters", anchorRect);
+    }
   };
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -217,7 +323,8 @@ export function SearchPageClient() {
     setShowSuggestions(false);
   };
 
-  const handleShuffle = () => {
+  const handleShuffle = (anchorRect?: TutorialAnchorRect) => {
+    showTutorialOnce("filters", anchorRect);
     if (shuffleTimeoutRef.current) {
       clearTimeout(shuffleTimeoutRef.current);
     }
@@ -229,10 +336,11 @@ export function SearchPageClient() {
     }, 380);
   };
 
-  const handleProductClick = (product: Product) => {
+  const handleProductClick = (product: Product, anchorRect?: TutorialAnchorRect) => {
     setSelectedProduct(product);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
+    showTutorialOnce("detail", anchorRect);
     window.history.pushState(null, "", getProductPageUrl(product));
   };
 
@@ -243,10 +351,11 @@ export function SearchPageClient() {
     window.history.back();
   };
 
-  const handleGridRecommendationClick = (product: Product) => {
+  const handleGridRecommendationClick = (product: Product, anchorRect?: TutorialAnchorRect) => {
     setSelectedProduct(product);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
+    showTutorialOnce("detail", anchorRect);
     window.history.replaceState(null, "", getProductPageUrl(product));
   };
 
@@ -410,8 +519,9 @@ export function SearchPageClient() {
             handleQueryChange(e.target.value);
           }}
           onKeyDown={handleSearchKeyDown}
-          onFocus={() => {
+          onFocus={(event) => {
             setShowSuggestions(true);
+            showTutorialOnce("search", getAnchorRect(event.currentTarget));
           }}
         />
         {query && (
@@ -527,12 +637,13 @@ export function SearchPageClient() {
       <FilterBar
         categoryOptions={categoryFilterOptions}
         categoryValue={grid.gridCategoryFilter}
-        onCategoryChange={grid.setGridCategoryFilter}
+        onCategoryChange={handleCategoryFilterChange}
         brandOptions={brandFilterOptions}
         brandValue={brandFilter}
-        onBrandChange={setBrandFilter}
+        onBrandChange={handleBrandFilterChange}
         onShuffle={handleShuffle}
         isShuffling={isShuffling}
+        onBrandDropdownOpenChange={handleBrandDropdownOpenChange}
       />
 
       <div className={`w-full max-w-7xl ${isShuffling ? "dig-grid is-shuffling" : "dig-grid"}`}>
@@ -565,9 +676,14 @@ export function SearchPageClient() {
           modalRef={gridModalRef}
           recommendationsRef={gridRecommendationsRef}
           smoothScrollTo={smoothScrollTo}
-          onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
+          onCollectionActionStart={(anchorRect) => showTutorialOnce("collection", anchorRect)}
+          onToggleCloset={(selection) => {
+            toggleCloset(normalizedProduct.id, selection);
+          }}
           isInCloset={isInCloset(normalizedProduct.id)}
-          onToggleDigbox={() => toggleDigbox(normalizedProduct.id)}
+          onToggleDigbox={() => {
+            toggleDigbox(normalizedProduct.id);
+          }}
           isInDigbox={isInDigbox(normalizedProduct.id)}
         />
       )}
@@ -587,6 +703,14 @@ export function SearchPageClient() {
             />
           </div>
         </div>
+      )}
+
+      {activeTutorial && (
+        <OnboardingTutorial
+          tutorialId={activeTutorial.id}
+          anchorRect={activeTutorial.anchorRect}
+          onClose={() => setActiveTutorial(null)}
+        />
       )}
     </main>
   );

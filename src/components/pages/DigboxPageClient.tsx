@@ -11,6 +11,7 @@ import { useProductsContext } from "../../contexts/ProductsContext";
 import { supabase } from "../../lib/supabase";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { ProductDetailModal } from "../ProductDetailModal";
+import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 import { getProductPageUrl, toPublicUrl } from "../../utils/product";
 import { computeSizeRecommendations } from "../../utils/sizeTable";
 import { smoothScrollTo } from "../../utils/scroll";
@@ -338,7 +339,27 @@ export function DigboxPageClient({
   const [bioSaving, setBioSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const bioTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const getAnchorRect = (element: Element): TutorialAnchorRect => {
+    const rect = element.getBoundingClientRect();
+    return {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+
+  const showTutorialOnce = (tutorialId: TutorialId, anchorRect?: TutorialAnchorRect) => {
+    const storageKey = `sizepicker:tutorial:v2:${tutorialId}`;
+    if (window.localStorage.getItem(storageKey)) return;
+    window.localStorage.setItem(storageKey, "true");
+    setActiveTutorial({ id: tutorialId, anchorRect });
+  };
 
   const handleShare = async () => {
     setMenuOpen(false);
@@ -468,7 +489,10 @@ export function DigboxPageClient({
               <div style={{ position: "relative" }}>
                 <button
                   type="button"
-                  onClick={() => setMenuOpen((v) => !v)}
+                  onClick={(event) => {
+                    showTutorialOnce("digboxShare", getAnchorRect(event.currentTarget));
+                    setMenuOpen((v) => !v);
+                  }}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                     gap: 3, width: 32, height: 32, borderRadius: 9,
@@ -863,6 +887,13 @@ export function DigboxPageClient({
             />
           </div>
         </div>
+      )}
+      {activeTutorial && (
+        <OnboardingTutorial
+          tutorialId={activeTutorial.id}
+          anchorRect={activeTutorial.anchorRect}
+          onClose={() => setActiveTutorial(null)}
+        />
       )}
     </main>
   );

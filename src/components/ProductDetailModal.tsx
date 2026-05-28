@@ -7,6 +7,7 @@ import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useMySizesContext } from "../contexts/MySizesContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
+import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
 import {
   compareMeasurementSnapshots,
   displayTableCell,
@@ -73,6 +74,7 @@ interface ProductDetailModalProps {
   isInCloset?: boolean;
   onToggleDigbox?: () => void;
   isInDigbox?: boolean;
+  onCollectionActionStart?: (anchorRect?: TutorialAnchorRect) => void;
   hideDigboxButton?: boolean;
   hideCollectionActions?: boolean;
   otherDigboxCount?: number;
@@ -116,6 +118,7 @@ export function ProductDetailModal({
   isInCloset,
   onToggleDigbox,
   isInDigbox,
+  onCollectionActionStart,
   hideDigboxButton,
   hideCollectionActions,
   otherDigboxCount = 0,
@@ -134,6 +137,7 @@ export function ProductDetailModal({
   const [isMySizePickerOpen, setIsMySizePickerOpen] = useState(false);
   const [mySizeSearchQuery, setMySizeSearchQuery] = useState("");
   const [isSimilarProductsOpen, setIsSimilarProductsOpen] = useState(false);
+  const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const { mySizes, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
   const [selectedMySizeId, setSelectedMySizeId] = useState<string>("");
   const savedClosetProduct = closetProduct || null;
@@ -198,9 +202,17 @@ export function ProductDetailModal({
     setMySizeSearchQuery("");
   }, [categoryMySizes]);
 
-  const handleRowClick = (rowIndex: number) => {
+  const showTutorialOnce = (tutorialId: TutorialId, anchorRect?: TutorialAnchorRect) => {
+    const storageKey = `sizepicker:tutorial:v2:${tutorialId}`;
+    if (window.localStorage.getItem(storageKey)) return;
+    window.localStorage.setItem(storageKey, "true");
+    setActiveTutorial({ id: tutorialId, anchorRect });
+  };
+
+  const handleRowClick = (rowIndex: number, anchorRect?: TutorialAnchorRect) => {
     onRowClick(rowIndex);
     setIsSimilarProductsOpen(false);
+    showTutorialOnce("sizeRecommendations", anchorRect);
     setTimeout(() => {
       const modal = modalRef.current;
       const target = recommendationsRef.current;
@@ -267,7 +279,7 @@ export function ProductDetailModal({
       pointerDownTimerRef.current = null;
       if (!sizeTableIsScrolling.current) {
         pointerDownSelectedRowRef.current = rowIndex;
-        handleRowClick(rowIndex);
+        handleRowClick(rowIndex, getAnchorRect(event));
       }
     }, 100);
   };
@@ -289,11 +301,24 @@ export function ProductDetailModal({
       clearSizeTableClickSuppressionSoon();
       return;
     }
-    handleRowClick(rowIndex);
+    handleRowClick(rowIndex, getAnchorRect(event));
   };
 
-  const handleClosetClick = () => {
+  const getAnchorRect = (event: { currentTarget: HTMLElement }): TutorialAnchorRect => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+
+  const handleClosetClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (!onToggleCloset) return;
+    onCollectionActionStart?.(getAnchorRect(event));
     if (isInCloset) {
       onToggleCloset(null);
       return;
@@ -321,7 +346,10 @@ export function ProductDetailModal({
               <button
                 type="button"
                 aria-label="DIGBOX에 추가"
-                onClick={onToggleDigbox}
+                onClick={(event) => {
+                  onCollectionActionStart?.(getAnchorRect(event));
+                  onToggleDigbox?.();
+                }}
                 className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold backdrop-blur-xl transition ${
                   isInDigbox
                     ? "border-yellow-400/80 bg-[linear-gradient(180deg,rgba(250,204,21,0.45),rgba(250,204,21,0.28))] text-yellow-300 shadow-[0_4px_16px_rgba(250,204,21,0.35)]"
@@ -533,7 +561,10 @@ export function ProductDetailModal({
                     </div>
                     <button
                       type="button"
-                      onClick={() => setIsMySizePickerOpen((value) => !value)}
+                      onClick={(event) => {
+                        showTutorialOnce("mySizeCompare", getAnchorRect(event));
+                        setIsMySizePickerOpen((value) => !value);
+                      }}
                       aria-expanded={isMySizePickerOpen}
                       className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-black text-gray-300 transition hover:border-orange-500/40 hover:text-orange-300"
                     >
@@ -767,6 +798,13 @@ export function ProductDetailModal({
         initialRowIndex={activeRowIndex}
         onClose={() => setIsSizeSheetOpen(false)}
         onConfirm={handleConfirmClosetSize}
+      />
+    )}
+    {activeTutorial && (
+      <OnboardingTutorial
+        tutorialId={activeTutorial.id}
+        anchorRect={activeTutorial.anchorRect}
+        onClose={() => setActiveTutorial(null)}
       />
     )}
     </>

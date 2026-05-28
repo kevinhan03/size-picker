@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
+import type { TutorialAnchorRect } from "./OnboardingTutorial";
 
 export interface FilterDropdownOption {
   label: string;
@@ -12,15 +13,32 @@ interface FilterDropdownProps {
   eyebrow: string;
   options: FilterDropdownOption[];
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, anchorRect?: TutorialAnchorRect) => void;
+  onOpenChange?: (isOpen: boolean, anchorRect?: TutorialAnchorRect) => void;
 }
 
-export function FilterDropdown({ eyebrow, options, value, onChange }: FilterDropdownProps) {
+export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange }: FilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
   const selectedOption = options.find((option) => option.value === value) ?? options[0];
   const hasValue = value !== "";
+  const getAnchorRect = (): TutorialAnchorRect | undefined => {
+    const rect = dropdownRef.current?.getBoundingClientRect();
+    if (!rect) return undefined;
+    return {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+
+  useEffect(() => {
+    onOpenChange?.(isOpen, getAnchorRect());
+  }, [isOpen, onOpenChange]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -96,13 +114,13 @@ export function FilterDropdown({ eyebrow, options, value, onChange }: FilterDrop
                 role="option"
                 aria-selected={selected}
                 onClick={() => {
-                  onChange(option.value);
+                  onChange(option.value, getAnchorRect());
                   setIsOpen(false);
                 }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    onChange(option.value);
+                    onChange(option.value, getAnchorRect());
                     setIsOpen(false);
                   }
                 }}
