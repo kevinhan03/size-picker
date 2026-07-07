@@ -29,12 +29,13 @@
       "Bash(grep -r canonical /c/dev/sizepicker/app --include=*.tsx --include=*.ts)",
       "Bash(kill %1)",
       "Bash(wait)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(gh pr *)"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "supabase",
     "size_picker_supabase"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

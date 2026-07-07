@@ -26,6 +26,13 @@ localhost-key.pem
 # Supabase CLI temp files
 supabase/.temp/
 
+# Python
+__pycache__/
+*.pyc
+
+# Temp / migration reports
+tmp/
+
 # Playwright MCP artifacts
 .playwright-mcp/
 

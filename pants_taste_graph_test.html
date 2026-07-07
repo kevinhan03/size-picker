@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bottom Taste Graph Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/force-graph"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101116;
+      --panel: rgba(25, 27, 33, 0.88);
+      --panel-strong: #242832;
+      --text: #f3f4f6;
+      --muted: #a5acb8;
+      --faint: #697283;
+      --tag: #f59e0b;
+      --tag-strong: #f97316;
+      --item-stroke: #e7ebf3;
+      --danger: #fb7185;
+      --warning: #facc15;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button { font: inherit; }
+
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.045), transparent 44%),
+        linear-gradient(180deg, #151720 0%, #0e0f13 100%);
+    }
+
+    #graph {
+      width: 100%;
+      height: 100%;
+      opacity: 1;
+      transition: opacity 120ms ease;
+    }
+
+    .topbar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 5;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      pointer-events: none;
+    }
+
+    .status-panel,
+    .legend,
+    .more-panel,
+    .product-panel {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(12px);
+    }
+
+    .status-panel {
+      max-width: min(720px, calc(100vw - 32px));
+      padding: 12px 14px;
+      pointer-events: auto;
+    }
+
+    .status-title {
+      margin: 0 0 4px;
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .status-line {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status-panel.error { border-color: rgba(251, 113, 133, 0.5); }
+    .status-panel.warning { border-color: rgba(250, 204, 21, 0.48); }
+
+    .controls {
+      display: flex;
+      justify-content: flex-end;
+      pointer-events: auto;
+    }
+
+    .control-button,
+    .more-button {
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(31, 34, 42, 0.9);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .control-button:disabled {
+      color: var(--faint);
+      cursor: default;
+      opacity: 0.55;
+    }
+
+    .legend {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 14px;
+      pointer-events: none;
+    }
+
+    .legend-items {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+
+    .legend-dot.item {
+      border: 2px solid var(--item-stroke);
+      background: #7a8392;
+    }
+
+    .legend-dot.tag { background: var(--tag); }
+
+    .legend-line {
+      width: 32px;
+      height: 0;
+      border-top: 3px solid var(--tag);
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+
+    .legend-stats {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .more-panel {
+      position: absolute;
+      left: 50%;
+      bottom: 72px;
+      z-index: 6;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      transform: translateX(-50%);
+      pointer-events: auto;
+    }
+
+    .more-panel.visible { display: flex; }
+
+    .more-text {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .product-panel {
+      position: absolute;
+      top: 72px;
+      right: 16px;
+      z-index: 6;
+      display: none;
+      width: min(320px, calc(100vw - 32px));
+      padding: 14px;
+      pointer-events: auto;
+    }
+
+    .product-panel.visible { display: block; }
+
+    .product-title {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .product-tags {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+    }
+
+    .product-tag-row {
+      display: grid;
+      grid-template-columns: 72px 1fr 42px;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .product-tag-name {
+      color: var(--text);
+      font-weight: 750;
+    }
+
+    .product-tag-bar {
+      height: 6px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .product-tag-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: var(--tag);
+    }
+
+    .product-note {
+      margin: 10px 0 0;
+      color: var(--faint);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .controls { justify-content: flex-start; }
+
+      .legend {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .legend-stats { white-space: normal; }
+      .product-panel { top: auto; right: 16px; bottom: 126px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="graph"></div>
+
+    <div class="topbar">
+      <div id="status" class="status-panel">
+        <p class="status-title">바지 취향그래프</p>
+        <p class="status-line">Supabase 설정을 확인하는 중...</p>
+      </div>
+
+      <div class="controls" aria-label="그래프 보기 제어">
+        <button id="resetViewButton" class="control-button" type="button" disabled>전체 보기로 돌아가기</button>
+      </div>
+    </div>
+
+    <div id="morePanel" class="more-panel">
+      <span id="moreText" class="more-text"></span>
+      <button id="moreButton" class="more-button" type="button">더 보기</button>
+    </div>
+
+    <aside id="productPanel" class="product-panel" aria-live="polite"></aside>
+
+    <div class="legend">
+      <div class="legend-items">
+        <span class="legend-item"><span class="legend-dot tag"></span>태그 노드</span>
+        <span class="legend-item"><span class="legend-dot item"></span>상품 노드</span>
+        <span class="legend-item"><span class="legend-line"></span>태그 연결선</span>
+      </div>
+      <div id="legendStats" class="legend-stats">상품 0 · 태그 0 · 태그링크 0 · 배치보정 0</div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "";
+    const SUPABASE_ANON_KEY = "";
+    const CATEGORY = "Bottom";
+    const STORAGE_BUCKET = "product-assets";
+    const TAG_TOP_N = 2;
+    const SECOND_TAG_MIN_CONFIDENCE = 0.15;
+    const EMBEDDING_TOP_K = 2;
+    const TAG_DETAIL_INITIAL_LIMIT = 15;
+    const ITEM_COLLAPSED_OPACITY = 0.82;
+    const ITEM_COLLAPSED_RADIUS = 14;
+    const ITEM_DETAIL_RADIUS = 20;
+    const MIN_TAG_RADIUS = 20;
+    const MAX_TAG_RADIUS = 42;
+    const TAGS = ["캐주얼", "미니멀", "스트릿", "클래식", "빈티지", "레트로", "로맨틱", "스포티", "프레피", "워크웨어"];
+
+    const graphEl = document.querySelector("#graph");
+    const statusEl = document.querySelector("#status");
+    const legendStatsEl = document.querySelector("#legendStats");
+    const resetViewButton = document.querySelector("#resetViewButton");
+    const morePanel = document.querySelector("#morePanel");
+    const moreText = document.querySelector("#moreText");
+    const moreButton = document.querySelector("#moreButton");
+    const productPanel = document.querySelector("#productPanel");
+
+    let Graph = null;
+    let graphState = null;
+    let selectedTag = null;
+    let selectedProductNodeId = null;
+    let expandedTagItems = false;
+    let initialFitDone = false;
+    let initialFitCallback = null;
+    const imageCache = new Map();
+
+    function setStatus(title, lines, type = "info") {
+      statusEl.classList.toggle("error", type === "error");
+      statusEl.classList.toggle("warning", type === "warning");
+      const body = Array.isArray(lines) ? lines : [lines];
+      statusEl.innerHTML = [
+        `<p class="status-title">${escapeHtml(title)}</p>`,
+        ...body.map((line) => `<p class="status-line">${escapeHtml(String(line))}</p>`)
+      ].join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function isConfigured() {
+      return Boolean(SUPABASE_URL.trim() && SUPABASE_ANON_KEY.trim());
+    }
+
+    function encodeStoragePath(path) {
+      return String(path)
+        .trim()
+        .replace(/^\/+/, "")
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+    }
+
+    function resolveImageUrl(imagePath) {
+      const raw = String(imagePath || "").trim();
+      if (!raw) return "";
+      if (/^https?:\/\//i.test(raw)) return raw;
+      return `${SUPABASE_URL.replace(/\/+$/, "")}/storage/v1/object/public/${encodeURIComponent(STORAGE_BUCKET)}/${encodeStoragePath(raw)}`;
+    }
+
+    function parseEmbedding(raw) {
+      if (Array.isArray(raw)) {
+        const values = raw.map(Number).filter(Number.isFinite);
+        return values.length ? values : null;
+      }
+
+      if (typeof raw === "string") {
+        const cleaned = raw.trim().replace(/^\[/, "").replace(/\]$/, "");
+        const values = cleaned
+          .split(",")
+          .map((value) => Number(value.trim()))
+          .filter(Number.isFinite);
+        return values.length ? values : null;
+      }
+
+      if (raw && typeof raw === "object" && Array.isArray(raw.values)) {
+        const values = raw.values.map(Number).filter(Number.isFinite);
+        return values.length ? values : null;
+      }
+
+      return null;
+    }
+
+    function cosineSimilarity(a, b) {
+      const length = Math.min(a.length, b.length);
+      if (!length) return null;
+
+      let dot = 0;
+      let normA = 0;
+      let normB = 0;
+
+      for (let index = 0; index < length; index += 1) {
+        const av = a[index];
+        const bv = b[index];
+        dot += av * bv;
+        normA += av * av;
+        normB += bv * bv;
+      }
+
+      if (!normA || !normB) return null;
+      return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    function normalizeStyleTags(styleTags) {
+      if (!styleTags || typeof styleTags !== "object" || Array.isArray(styleTags)) return {};
+      const normalized = {};
+      for (const tag of TAGS) {
+        const score = Number(styleTags[tag]);
+        if (Number.isFinite(score)) normalized[tag] = Math.max(0, Math.min(1, score));
+      }
+      return normalized;
+    }
+
+    function selectTopTags(styleTags) {
+      const sorted = Object.entries(styleTags)
+        .filter(([, score]) => Number.isFinite(score))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, TAG_TOP_N);
+
+      if (sorted.length <= 1) return sorted;
+      if (sorted[1][1] < SECOND_TAG_MIN_CONFIDENCE) return [sorted[0]];
+      return sorted;
+    }
+
+    function getImage(url) {
+      if (!url) return null;
+      if (imageCache.has(url)) return imageCache.get(url);
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.decoding = "async";
+      image.onload = () => redrawBriefly();
+      image.src = url;
+      imageCache.set(url, image);
+      return image;
+    }
+
+    function createGraph(rows) {
+      const warnings = { missingStyleTags: 0, missingEmbedding: 0, invalidEmbedding: 0, missingImagePath: 0 };
+      const nodes = [];
+      const tagLinks = [];
+      const tagItems = new Map(TAGS.map((tag) => [tag, []]));
+      const tagCounts = new Map(TAGS.map((tag) => [tag, 0]));
+      const productByNodeId = new Map();
+
+      const products = rows.map((row) => {
+        const embedding = parseEmbedding(row.image_embedding);
+        if (!row.style_tags) warnings.missingStyleTags += 1;
+        if (!row.image_embedding) warnings.missingEmbedding += 1;
+        if (row.image_embedding && !embedding) warnings.invalidEmbedding += 1;
+        if (!row.image_path) warnings.missingImagePath += 1;
+
+        return {
+          id: String(row.id),
+          nodeId: `item:${row.id}`,
+          label: String(row.name || `Product ${row.id}`),
+          imageUrl: resolveImageUrl(row.image_path),
+          styleTags: normalizeStyleTags(row.style_tags),
+          embedding
+        };
+      });
+
+      for (const product of products) {
+        const topTags = selectTopTags(product.styleTags);
+        product.tagAssignments = topTags.map(([tag, score], index) => ({ tag, score, rank: index + 1 }));
+        productByNodeId.set(product.nodeId, product);
+
+        nodes.push({
+          id: product.nodeId,
+          type: "item",
+          productId: product.id,
+          label: product.label,
+          imageUrl: product.imageUrl,
+          product,
+          radius: ITEM_COLLAPSED_RADIUS,
+          visible: true,
+          opacity: ITEM_COLLAPSED_OPACITY
+        });
+
+        const scoreTotal = topTags.reduce((sum, [, score]) => sum + score, 0) || 1;
+        topTags.forEach(([tag, score], index) => {
+          const link = {
+            source: product.nodeId,
+            target: `tag:${tag}`,
+            tag,
+            productNodeId: product.nodeId,
+            weight: score,
+            rank: index + 1,
+            normalizedStrength: score / scoreTotal,
+            type: "tag",
+            visible: true
+          };
+          tagLinks.push(link);
+          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+          tagItems.get(tag).push({ productNodeId: product.nodeId, weight: score, rank: index + 1 });
+        });
+      }
+
+      const connectedTags = TAGS.filter((tag) => (tagCounts.get(tag) || 0) > 0);
+      const maxTagCount = Math.max(1, ...connectedTags.map((tag) => tagCounts.get(tag) || 0));
+      for (const tag of connectedTags) {
+        const count = tagCounts.get(tag) || 0;
+        nodes.push({
+          id: `tag:${tag}`,
+          type: "tag",
+          label: tag,
+          count,
+          radius: MIN_TAG_RADIUS + (MAX_TAG_RADIUS - MIN_TAG_RADIUS) * Math.sqrt(count / maxTagCount),
+          visible: true,
+          opacity: 1
+        });
+        tagItems.get(tag).sort((a, b) => b.weight - a.weight || a.rank - b.rank);
+      }
+
+      const embeddingForceLinks = createEmbeddingForceLinks(products);
+      const forceLinks = [...tagLinks, ...embeddingForceLinks];
+
+      return {
+        nodes,
+        links: tagLinks,
+        forceLinks,
+        embeddingForceLinks,
+        products,
+        productByNodeId,
+        tagItems,
+        warnings,
+        counts: { items: products.length, tags: connectedTags.length, tagLinks: tagLinks.length, embeddingLinks: embeddingForceLinks.length }
+      };
+    }
+
+    function createEmbeddingForceLinks(products) {
+      const productsWithEmbedding = products.filter((product) => product.embedding);
+      const pairMap = new Map();
+
+      for (const product of productsWithEmbedding) {
+        const scored = [];
+        for (const other of productsWithEmbedding) {
+          if (product.id === other.id) continue;
+          const similarity = cosineSimilarity(product.embedding, other.embedding);
+          if (Number.isFinite(similarity)) scored.push({ other, similarity });
+        }
+
+        scored.sort((a, b) => b.similarity - a.similarity);
+        for (const entry of scored.slice(0, EMBEDDING_TOP_K)) {
+          const left = product.nodeId < entry.other.nodeId ? product.nodeId : entry.other.nodeId;
+          const right = product.nodeId < entry.other.nodeId ? entry.other.nodeId : product.nodeId;
+          const key = `${left}|${right}`;
+          const existing = pairMap.get(key);
+          const weight = Math.max(0, Math.min(1, entry.similarity));
+
+          if (!existing || weight > existing.weight) {
+            pairMap.set(key, {
+              source: left,
+              target: right,
+              weight,
+              type: "embedding",
+              visible: false
+            });
+          }
+        }
+      }
+
+      return Array.from(pairMap.values());
+    }
+
+    async function loadProducts() {
+      if (!isConfigured()) {
+        setStatus("Supabase 설정 필요", [
+          "파일 상단의 SUPABASE_URL, SUPABASE_ANON_KEY 값을 채운 뒤 다시 열어주세요.",
+          `현재 기본 카테고리는 ${CATEGORY}입니다.`
+        ], "error");
+        return null;
+      }
+
+      const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { data, error } = await client
+        .from("products")
+        .select("id,name,category,image_path,style_tags,image_embedding")
+        .eq("category", CATEGORY)
+        .order("id", { ascending: true });
+
+      if (error) throw new Error(`products 조회 실패: ${error.message}`);
+      return Array.isArray(data) ? data : [];
+    }
+
+    function initGraph(graph, onInitialFit) {
+      graphState = graph;
+      selectedTag = null;
+      selectedProductNodeId = null;
+      expandedTagItems = false;
+      initialFitDone = false;
+      initialFitCallback = typeof onInitialFit === "function" ? onInitialFit : null;
+      graphEl.style.opacity = "0";
+
+      Graph = ForceGraph()(graphEl)
+        .backgroundColor("rgba(0,0,0,0)")
+        .graphData({ nodes: graph.nodes, links: graph.forceLinks })
+        .nodeId("id")
+        .nodeRelSize(1)
+        .nodeVal((node) => Math.max(1, node.radius || 4))
+        .linkVisibility((link) => link.type === "tag" && link.visible)
+        .linkColor((link) => link.highlighted ? "rgba(249, 115, 22, 0.95)" : "rgba(245, 158, 11, 0.36)")
+        .linkWidth((link) => link.type === "tag" && link.visible ? (link.highlighted ? 3.2 + link.weight * 3 : 0.8 + link.weight * 2.4) : 0)
+        .linkDirectionalParticles(0)
+        .linkCanvasObjectMode(() => "replace")
+        .linkCanvasObject((link, ctx) => {
+          if (link.type !== "tag" || !link.visible) return;
+          ctx.save();
+          ctx.globalAlpha = link.highlighted ? 0.95 : (link.opacity ?? 0.34);
+          ctx.strokeStyle = link.highlighted ? "#f97316" : "#f59e0b";
+          ctx.lineWidth = link.highlighted ? 3.2 + link.weight * 3 : 0.8 + link.weight * 2.4;
+          ctx.beginPath();
+          ctx.moveTo(link.source.x, link.source.y);
+          ctx.lineTo(link.target.x, link.target.y);
+          ctx.stroke();
+          ctx.restore();
+        })
+        .nodeCanvasObject((node, ctx, globalScale) => drawNode(node, ctx, globalScale))
+        .nodePointerAreaPaint((node, color, ctx) => {
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, Math.max(6, node.radius || 4), 0, Math.PI * 2);
+          ctx.fill();
+        })
+        .onNodeClick((node) => {
+          if (node.type === "tag") {
+            showTagDetail(node.label, false);
+          } else if (node.visible) {
+            showProductInsight(node.id);
+          }
+        })
+        .onBackgroundClick(() => clearProductInsight())
+        .cooldownTicks(45)
+        .d3AlphaDecay(0.105)
+        .d3VelocityDecay(0.58);
+
+      Graph.d3Force("link")
+        .distance((link) => link.type === "embedding" ? 52 + (1 - link.weight) * 82 : 148)
+        .strength((link) => link.type === "embedding" ? 0.01 + link.weight * 0.028 : 0.05 + link.normalizedStrength * 0.24);
+      Graph.d3Force("charge").strength((node) => node.type === "tag" ? -620 : -62);
+      Graph.d3Force("center").strength(0.035);
+      Graph.d3Force("collision", d3.forceCollide((node) => Math.max(7, (node.radius || 4) + (node.type === "tag" ? 14 : 5))).iterations(1));
+
+      showOverview(false);
+      updateLegend(graph.counts);
+    }
+
+    function drawNode(node, ctx, globalScale) {
+      if (!node.visible && node.type === "item") {
+        if (node.opacity <= 0) return;
+      }
+
+      const radius = node.radius || 4;
+      ctx.save();
+      ctx.globalAlpha = node.opacity ?? 1;
+
+      if (node.type === "tag") {
+        ctx.beginPath();
+        ctx.fillStyle = node.selected || node.connected ? "#f97316" : "#f59e0b";
+        ctx.strokeStyle = "rgba(255,255,255,0.78)";
+        ctx.lineWidth = node.selected || node.connected ? 2.2 : 1.25;
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        const fontSize = Math.max(9, Math.min(13, radius / 2.4)) / globalScale;
+        ctx.font = `800 ${fontSize}px Inter, system-ui, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 3 / globalScale;
+        ctx.strokeStyle = "rgba(0,0,0,0.45)";
+        ctx.fillStyle = "#fff7ed";
+        ctx.strokeText(node.label, node.x, node.y);
+        ctx.fillText(node.label, node.x, node.y);
+      } else {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.clip();
+
+        const image = getImage(node.imageUrl);
+        if (image && image.complete && image.naturalWidth) {
+          ctx.drawImage(image, node.x - radius, node.y - radius, radius * 2, radius * 2);
+        } else {
+          ctx.fillStyle = "#767d89";
+          ctx.fillRect(node.x - radius, node.y - radius, radius * 2, radius * 2);
+        }
+
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = node.selected ? "#ffffff" : "rgba(255,255,255,0.72)";
+        ctx.lineWidth = node.selected ? 3 : 1.2;
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function tagId(tag) {
+      return `tag:${tag}`;
+    }
+
+    function linkSourceId(link) {
+      return typeof link.source === "object" ? link.source.id : link.source;
+    }
+
+    function linkTargetId(link) {
+      return typeof link.target === "object" ? link.target.id : link.target;
+    }
+
+    function visibleItemSetForTag(tag) {
+      const entries = graphState.tagItems.get(tag) || [];
+      return new Set(entries.map((entry) => entry.productNodeId));
+    }
+
+    function resetVisualState() {
+      for (const node of graphState.nodes) {
+        node.selected = false;
+        node.connected = false;
+        node.highlighted = false;
+      }
+      for (const link of graphState.forceLinks) {
+        link.highlighted = false;
+        link.visible = link.type === "tag";
+        link.opacity = link.type === "tag" ? 0.34 : 0;
+      }
+    }
+
+    function showOverview(animate = true) {
+      if (!graphState) return;
+      selectedTag = null;
+      selectedProductNodeId = null;
+      expandedTagItems = false;
+      resetViewButton.disabled = true;
+      morePanel.classList.remove("visible");
+      productPanel.classList.remove("visible");
+      productPanel.innerHTML = "";
+      resetVisualState();
+
+      for (const node of graphState.nodes) {
+        if (node.type === "tag") {
+          node.visible = true;
+          node.opacity = 1;
+          node.radius = node.radius || MIN_TAG_RADIUS;
+        } else {
+          node.visible = true;
+          node.opacity = ITEM_COLLAPSED_OPACITY;
+          node.radius = ITEM_COLLAPSED_RADIUS;
+        }
+      }
+
+      Graph.nodeVal((node) => Math.max(1, node.radius || 4));
+      if (animate) reheatBriefly();
+      fitOverview(animate ? 650 : 0);
+    }
+
+    function reheatBriefly() {
+      Graph.d3ReheatSimulation();
+    }
+
+    function redrawBriefly() {
+      if (!Graph) return;
+      Graph.d3ReheatSimulation();
+    }
+
+    function fitOverview(duration = 0) {
+      const includeNode = (node) => node.type === "tag" || node.type === "item";
+      if (!initialFitDone) {
+        initialFitDone = true;
+        window.setTimeout(() => {
+          if (!Graph || selectedTag || selectedProductNodeId) return;
+          Graph.zoomToFit(0, 90, includeNode);
+          window.requestAnimationFrame(() => {
+            graphEl.style.opacity = "1";
+            if (initialFitCallback) {
+              initialFitCallback();
+              initialFitCallback = null;
+            }
+          });
+        }, 180);
+        return;
+      }
+      Graph.zoomToFit(duration, 90, includeNode);
+    }
+
+    function showTagDetail(tag, expanded) {
+      if (!graphState) return;
+      selectedTag = tag;
+      selectedProductNodeId = null;
+      expandedTagItems = expanded;
+      resetViewButton.disabled = false;
+      productPanel.classList.remove("visible");
+      productPanel.innerHTML = "";
+      resetVisualState();
+
+      const selectedTagId = tagId(tag);
+      const visibleItems = visibleItemSetForTag(tag);
+
+      for (const node of graphState.nodes) {
+        if (node.id === selectedTagId) {
+          node.visible = true;
+          node.opacity = 1;
+          node.selected = true;
+        } else if (node.type === "tag") {
+          node.visible = true;
+          node.opacity = 0.18;
+        } else if (visibleItems.has(node.id)) {
+          node.visible = true;
+          node.opacity = 1;
+          node.radius = ITEM_DETAIL_RADIUS;
+        } else {
+          node.visible = true;
+          node.opacity = ITEM_COLLAPSED_OPACITY;
+          node.radius = ITEM_COLLAPSED_RADIUS;
+        }
+      }
+
+      for (const link of graphState.forceLinks) {
+        if (link.type === "tag") {
+          const sourceId = linkSourceId(link);
+          link.visible = link.tag === tag && visibleItems.has(sourceId);
+          link.opacity = link.visible ? 0.68 : 0;
+        }
+      }
+
+      morePanel.classList.remove("visible");
+
+      Graph.nodeVal((node) => Math.max(1, node.radius || 4));
+      reheatBriefly();
+      Graph.zoomToFit(700, 80, (node) => node.id === selectedTagId || visibleItems.has(node.id));
+    }
+
+    function showProductInsight(productNodeId) {
+      if (!graphState) return;
+      const product = graphState.productByNodeId.get(productNodeId);
+      if (!product) return;
+
+      selectedProductNodeId = productNodeId;
+      const assignments = product.tagAssignments || [];
+      const connectedTagIds = new Set(assignments.map((assignment) => tagId(assignment.tag)));
+      const connectedLinkKeys = new Set(assignments.map((assignment) => `${productNodeId}|${assignment.tag}`));
+
+      for (const node of graphState.nodes) {
+        node.selected = node.id === productNodeId;
+        node.connected = connectedTagIds.has(node.id);
+        if (node.id === productNodeId || connectedTagIds.has(node.id)) {
+          node.visible = true;
+          node.opacity = 1;
+          if (node.type === "item") node.radius = ITEM_DETAIL_RADIUS;
+        } else if (node.type === "tag") {
+          node.opacity = 0.16;
+        } else {
+          node.opacity = ITEM_COLLAPSED_OPACITY;
+        }
+      }
+
+      for (const link of graphState.forceLinks) {
+        if (link.type !== "tag") continue;
+        const key = `${linkSourceId(link)}|${link.tag}`;
+        link.highlighted = connectedLinkKeys.has(key);
+        link.visible = link.highlighted;
+        link.opacity = link.highlighted ? 0.9 : 0;
+      }
+
+      renderProductPanel(product, assignments);
+      redrawBriefly();
+    }
+
+    function clearProductInsight() {
+      if (!graphState || !selectedProductNodeId) return;
+      selectedProductNodeId = null;
+      productPanel.classList.remove("visible");
+      productPanel.innerHTML = "";
+      if (selectedTag) showTagDetail(selectedTag, expandedTagItems);
+      else showOverview(true);
+    }
+
+    function renderProductPanel(product, assignments) {
+      const rows = assignments.length
+        ? assignments.map((assignment) => {
+          const percent = Math.round(assignment.score * 100);
+          return `
+            <div class="product-tag-row">
+              <span class="product-tag-name">${escapeHtml(assignment.tag)}</span>
+              <span class="product-tag-bar"><span class="product-tag-fill" style="width: ${percent}%"></span></span>
+              <span>${assignment.score.toFixed(2)}</span>
+            </div>
+          `;
+        }).join("")
+        : `<div class="product-tag-row"><span class="product-tag-name">태그 없음</span><span></span><span></span></div>`;
+
+      productPanel.innerHTML = `
+        <h2 class="product-title">${escapeHtml(product.label)}</h2>
+        <div class="product-tags">${rows}</div>
+        <p class="product-note">이 상품의 위치는 위 태그 score와 보이지 않는 이미지 유사도 배치 보정을 함께 반영합니다.</p>
+      `;
+      productPanel.classList.add("visible");
+    }
+
+    function updateLegend(counts) {
+      legendStatsEl.textContent = `상품 ${counts.items} · 태그 ${counts.tags} · 태그링크 ${counts.tagLinks} · 배치보정 ${counts.embeddingLinks}`;
+    }
+
+    function summarizeWarnings(graph) {
+      const lines = [`카테고리 ${CATEGORY}: 상품 ${graph.counts.items}개, 태그 ${graph.counts.tags}개, 태그링크 ${graph.counts.tagLinks}개, 배치보정 ${graph.counts.embeddingLinks}개`];
+      if (graph.warnings.missingStyleTags) lines.push(`style_tags 누락 상품 ${graph.warnings.missingStyleTags}개`);
+      if (graph.warnings.missingEmbedding) lines.push(`image_embedding 누락 상품 ${graph.warnings.missingEmbedding}개`);
+      if (graph.warnings.invalidEmbedding) lines.push(`image_embedding 파싱 실패 상품 ${graph.warnings.invalidEmbedding}개`);
+      if (graph.warnings.missingImagePath) lines.push(`image_path 누락 상품 ${graph.warnings.missingImagePath}개`);
+      if (!graph.counts.embeddingLinks) lines.push("임베딩 배치 보정 없음: 태그 force만 적용했습니다.");
+      return lines;
+    }
+
+    async function init() {
+      try {
+        const rows = await loadProducts();
+        if (!rows) return;
+        if (!rows.length) {
+          setStatus("데이터 없음", `category = ${CATEGORY} 조건에 해당하는 상품이 없습니다.`, "warning");
+          updateLegend({ items: 0, tags: TAGS.length, tagLinks: 0, embeddingLinks: 0 });
+          return;
+        }
+
+        const graph = createGraph(rows);
+        const hasWarning = Object.values(graph.warnings).some(Boolean) || !graph.counts.embeddingLinks;
+        initGraph(graph, () => {
+          setStatus(hasWarning ? "로드 완료, 일부 누락 있음" : "로드 완료", summarizeWarnings(graph), hasWarning ? "warning" : "info");
+        });
+      } catch (error) {
+        console.error(error);
+        setStatus("데이터 로딩 실패", error && error.message ? error.message : String(error), "error");
+      }
+    }
+
+    resetViewButton.addEventListener("click", () => showOverview(true));
+    moreButton.addEventListener("click", () => {
+      if (selectedTag) showTagDetail(selectedTag, true);
+    });
+
+    window.addEventListener("resize", () => {
+      if (!Graph) return;
+      Graph.width(window.innerWidth).height(window.innerHeight);
+      Graph.zoomToFit(350, 90, (node) => selectedTag ? (node.id === tagId(selectedTag) || node.visible) : (node.type === "tag" || node.type === "item"));
+    });
+
+    window.__tasteGraph = {
+      showTagDetail,
+      showProductInsight,
+      showOverview,
+      getState: () => graphState
+    };
+
+    init();
+  </script>
+</body>
+</html>
