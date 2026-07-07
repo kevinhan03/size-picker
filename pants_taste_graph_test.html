@@ -261,6 +261,41 @@
       line-height: 1.4;
     }
 
+    .product-similar-title {
+      margin: 14px 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .product-similar-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .product-similar-row {
+      display: grid;
+      grid-template-columns: 1fr 40px;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .product-similar-name {
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .product-similar-score {
+      color: #38bdf8;
+      font-weight: 750;
+      text-align: right;
+    }
+
     @media (max-width: 760px) {
       .topbar {
         flex-direction: column;
@@ -307,7 +342,7 @@
         <span class="legend-item"><span class="legend-dot item"></span>상품 노드</span>
         <span class="legend-item"><span class="legend-line"></span>태그 연결선</span>
       </div>
-      <div id="legendStats" class="legend-stats">상품 0 · 태그 0 · 태그링크 0 · 배치보정 0</div>
+      <div id="legendStats" class="legend-stats">상품 0 · 태그 0 · 태그링크 0</div>
     </div>
   </div>
 
@@ -319,6 +354,7 @@
     const TAG_TOP_N = 2;
     const SECOND_TAG_MIN_CONFIDENCE = 0.15;
     const EMBEDDING_TOP_K = 2;
+    const SIMILAR_TOP_K = 5;
     const TAG_DETAIL_INITIAL_LIMIT = 15;
     const ITEM_COLLAPSED_OPACITY = 0.82;
     const ITEM_COLLAPSED_RADIUS = 14;
@@ -660,8 +696,8 @@
         .d3VelocityDecay(0.58);
 
       Graph.d3Force("link")
-        .distance((link) => link.type === "embedding" ? 52 + (1 - link.weight) * 82 : 148)
-        .strength((link) => link.type === "embedding" ? 0.01 + link.weight * 0.028 : 0.05 + link.normalizedStrength * 0.24);
+        .distance(148)
+        .strength((link) => link.type === "tag" ? 0.05 + link.normalizedStrength * 0.24 : 0);
       Graph.d3Force("charge").strength((node) => node.type === "tag" ? -620 : -62);
       Graph.d3Force("center").strength(0.035);
       Graph.d3Force("collision", d3.forceCollide((node) => Math.max(7, (node.radius || 4) + (node.type === "tag" ? 14 : 5))).iterations(1));
@@ -714,8 +750,8 @@
         ctx.restore();
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = node.selected ? "#ffffff" : "rgba(255,255,255,0.72)";
-        ctx.lineWidth = node.selected ? 3 : 1.2;
+        ctx.strokeStyle = node.selected ? "#ffffff" : node.similar ? "#38bdf8" : "rgba(255,255,255,0.72)";
+        ctx.lineWidth = node.selected ? 3 : node.similar ? 2.5 : 1.2;
         ctx.stroke();
       }
 
@@ -739,11 +775,22 @@
       return new Set(entries.map((entry) => entry.productNodeId));
     }
 
+    function getSimilarProducts(product) {
+      if (!product.embedding) return [];
+      return graphState.products
+        .filter((p) => p.id !== product.id && p.embedding)
+        .map((p) => ({ product: p, similarity: cosineSimilarity(product.embedding, p.embedding) }))
+        .filter((e) => Number.isFinite(e.similarity))
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, SIMILAR_TOP_K);
+    }
+
     function resetVisualState() {
       for (const node of graphState.nodes) {
         node.selected = false;
         node.connected = false;
         node.highlighted = false;
+        node.similar = false;
       }
       for (const link of graphState.forceLinks) {
         link.highlighted = false;
@@ -865,14 +912,21 @@
       const assignments = product.tagAssignments || [];
       const connectedTagIds = new Set(assignments.map((assignment) => tagId(assignment.tag)));
       const connectedLinkKeys = new Set(assignments.map((assignment) => `${productNodeId}|${assignment.tag}`));
+      const similarProducts = getSimilarProducts(product);
+      const similarNodeIds = new Set(similarProducts.map((e) => e.product.nodeId));
 
       for (const node of graphState.nodes) {
         node.selected = node.id === productNodeId;
         node.connected = connectedTagIds.has(node.id);
+        node.similar = similarNodeIds.has(node.id);
         if (node.id === productNodeId || connectedTagIds.has(node.id)) {
           node.visible = true;
           node.opacity = 1;
           if (node.type === "item") node.radius = ITEM_DETAIL_RADIUS;
+        } else if (similarNodeIds.has(node.id)) {
+          node.visible = true;
+          node.opacity = 1;
+          node.radius = ITEM_DETAIL_RADIUS;
         } else if (node.type === "tag") {
           node.opacity = 0.16;
         } else {
@@ -888,7 +942,7 @@
         link.opacity = link.highlighted ? 0.9 : 0;
       }
 
-      renderProductPanel(product, assignments);
+      renderProductPanel(product, assignments, similarProducts);
       redrawBriefly();
     }
 
@@ -901,8 +955,8 @@
       else showOverview(true);
     }
 
-    function renderProductPanel(product, assignments) {
-      const rows = assignments.length
+    function renderProductPanel(product, assignments, similarProducts = []) {
+      const tagRows = assignments.length
         ? assignments.map((assignment) => {
           const percent = Math.round(assignment.score * 100);
           return `
@@ -915,25 +969,39 @@
         }).join("")
         : `<div class="product-tag-row"><span class="product-tag-name">태그 없음</span><span></span><span></span></div>`;
 
+      const similarSection = similarProducts.length
+        ? `
+          <p class="product-similar-title">비슷한 상품</p>
+          <div class="product-similar-list">
+            ${similarProducts.map((e) => `
+              <div class="product-similar-row">
+                <span class="product-similar-name">${escapeHtml(e.product.label)}</span>
+                <span class="product-similar-score">${(e.similarity * 100).toFixed(0)}%</span>
+              </div>
+            `).join("")}
+          </div>
+        `
+        : `<p class="product-note">임베딩 데이터 없음</p>`;
+
       productPanel.innerHTML = `
         <h2 class="product-title">${escapeHtml(product.label)}</h2>
-        <div class="product-tags">${rows}</div>
-        <p class="product-note">이 상품의 위치는 위 태그 score와 보이지 않는 이미지 유사도 배치 보정을 함께 반영합니다.</p>
+        <div class="product-tags">${tagRows}</div>
+        ${similarSection}
       `;
       productPanel.classList.add("visible");
     }
 
     function updateLegend(counts) {
-      legendStatsEl.textContent = `상품 ${counts.items} · 태그 ${counts.tags} · 태그링크 ${counts.tagLinks} · 배치보정 ${counts.embeddingLinks}`;
+      legendStatsEl.textContent = `상품 ${counts.items} · 태그 ${counts.tags} · 태그링크 ${counts.tagLinks}`;
     }
 
     function summarizeWarnings(graph) {
-      const lines = [`카테고리 ${CATEGORY}: 상품 ${graph.counts.items}개, 태그 ${graph.counts.tags}개, 태그링크 ${graph.counts.tagLinks}개, 배치보정 ${graph.counts.embeddingLinks}개`];
+      const embeddableCount = graph.products.filter((p) => p.embedding).length;
+      const lines = [`카테고리 ${CATEGORY}: 상품 ${graph.counts.items}개, 태그 ${graph.counts.tags}개, 태그링크 ${graph.counts.tagLinks}개, 임베딩 ${embeddableCount}개`];
       if (graph.warnings.missingStyleTags) lines.push(`style_tags 누락 상품 ${graph.warnings.missingStyleTags}개`);
       if (graph.warnings.missingEmbedding) lines.push(`image_embedding 누락 상품 ${graph.warnings.missingEmbedding}개`);
       if (graph.warnings.invalidEmbedding) lines.push(`image_embedding 파싱 실패 상품 ${graph.warnings.invalidEmbedding}개`);
       if (graph.warnings.missingImagePath) lines.push(`image_path 누락 상품 ${graph.warnings.missingImagePath}개`);
-      if (!graph.counts.embeddingLinks) lines.push("임베딩 배치 보정 없음: 태그 force만 적용했습니다.");
       return lines;
     }
 
