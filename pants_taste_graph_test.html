@@ -696,8 +696,8 @@
         .d3VelocityDecay(0.58);
 
       Graph.d3Force("link")
-        .distance(148)
-        .strength((link) => link.type === "tag" ? 0.05 + link.normalizedStrength * 0.24 : 0);
+        .distance((link) => link.type === "embedding" ? 40 + (1 - link.weight) * 60 : 148)
+        .strength((link) => link.type === "embedding" ? 0.02 + link.weight * 0.08 : 0.05 + link.normalizedStrength * 0.24);
       Graph.d3Force("charge").strength((node) => node.type === "tag" ? -620 : -62);
       Graph.d3Force("center").strength(0.035);
       Graph.d3Force("collision", d3.forceCollide((node) => Math.max(7, (node.radius || 4) + (node.type === "tag" ? 14 : 5))).iterations(1));
