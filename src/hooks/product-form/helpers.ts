@@ -4,6 +4,7 @@ import {
 import type {
   AddProductFormData,
   ProductMetadataPayload,
+  ProductTaggingMetadata,
   SizeTable,
   SubmitProductForm,
 } from '../../types';
@@ -103,7 +104,8 @@ export const getSubmitValidationError = ({
 export const buildSubmitProductPayload = (
   formData: AddProductFormData,
   productPhotoFile: File | null,
-  autofilledProductImageUrl: string | null
+  autofilledProductImageUrl: string | null,
+  productMetadata: ProductTaggingMetadata | null = null
 ): SubmitProductForm => ({
   brand: formData.brand,
   name: formData.name,
@@ -115,6 +117,7 @@ export const buildSubmitProductPayload = (
   normalizedSizeTable: formData.extractedTable,
   productPhoto: productPhotoFile,
   productImageUrl: autofilledProductImageUrl,
+  productMetadata,
 });
 
 interface FormFlagsInput {

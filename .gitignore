@@ -27,6 +27,8 @@ localhost-key.pem
 supabase/.temp/
 
 # Python
+.venv/
+.venv*/
 __pycache__/
 *.pyc
 

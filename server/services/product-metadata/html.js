@@ -107,6 +107,9 @@ export const extractProductJsonLd = (html) => {
   return {
     name: normalizeCellText(bestNode?.name || ""),
     brand: normalizeBrandName(rawBrand),
+    description: normalizeCellText(bestNode?.description || ""),
+    category: normalizeCellText(bestNode?.category || ""),
+    type: normalizeCellText(bestNode?.additionalType || bestNode?.["@type"] || ""),
     images: rawImages.map((value) => normalizeCellText(value)).filter(Boolean),
   };
 };
@@ -171,4 +174,51 @@ export const extractJsonObjectsFromApplicationScripts = (html) => {
 export const extractBrandFromDescription = (description) => {
   const brandMatch = String(description || "").match(/(?:brand|\uBE0C\uB79C\uB4DC)\s*[:\-]?\s*([^,|]+)/i);
   return normalizeBrandName(brandMatch?.[1] || "");
+};
+
+const TAGGING_TEXT_KEYWORDS =
+  /(description|product|goods|detail|material|fabric|composition|care|fit|silhouette|color|colour|wash|washed|pocket|pleat|tuck|drawstring|waist|hem|denim|cotton|wool|nylon|polyester|corduroy|linen|leather|spandex|elastane|소재|혼용|상세|설명|상품|제품|핏|실루엣|와이드|스트레이트|테이퍼드|부츠컷|밴딩|스트링|포켓|카고|턱|주름|워싱|데님|면|울|나일론|코듀로이|컬러|색상)/i;
+
+const normalizeTaggingTextBlock = (value) => {
+  const normalized = stripHtml(value);
+  if (normalized.length < 12) return "";
+  if (normalized.length > 1200) return normalized.slice(0, 1200).trim();
+  return normalized;
+};
+
+export const extractTaggingTextCandidatesFromHtml = ({ html, seedTexts = [] } = {}) => {
+  const candidates = [];
+  for (const text of seedTexts) {
+    const normalized = normalizeTaggingTextBlock(text);
+    if (normalized) candidates.push(normalized);
+  }
+
+  const source = String(html || "");
+  const metaNames = [
+    ["description", "name"],
+    ["og:description", "property"],
+    ["twitter:description", "name"],
+    ["keywords", "name"],
+  ];
+  for (const [key, attrName] of metaNames) {
+    const normalized = normalizeTaggingTextBlock(extractMetaContent(source, key, attrName));
+    if (normalized) candidates.push(normalized);
+  }
+
+  const attrPattern =
+    /<(?:section|article|div|p|li|span|td|th|dd|dt)[^>]*(?:class|id|data-[^=]+)=["'][^"']*(?:description|desc|detail|info|spec|material|fabric|fit|size|product|goods|prd|상품|상세|설명|소재|혼용|핏)[^"']*["'][^>]*>([\s\S]{0,5000}?)<\/(?:section|article|div|p|li|span|td|th|dd|dt)>/gi;
+  let attrMatch = null;
+  while ((attrMatch = attrPattern.exec(source)) !== null) {
+    const normalized = normalizeTaggingTextBlock(attrMatch[1] || "");
+    if (normalized && TAGGING_TEXT_KEYWORDS.test(normalized)) candidates.push(normalized);
+  }
+
+  const plainText = stripHtml(source);
+  const sentences = plainText
+    .split(/(?<=[.!?。！？])\s+|\n+/)
+    .map((value) => normalizeCellText(value))
+    .filter((value) => value.length >= 18 && value.length <= 500 && TAGGING_TEXT_KEYWORDS.test(value));
+  candidates.push(...sentences.slice(0, 60));
+
+  return uniqValues(candidates).slice(0, 40);
 };

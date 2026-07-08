@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react";
-import type { AddProductFormData, SizeTable } from "../../types";
+import type { AddProductFormData, ProductMetadataPayload, ProductTaggingMetadata, SizeTable } from "../../types";
 import {
   cropImageByBoundingBox,
   dataUrlToFile,
@@ -36,6 +36,7 @@ interface ProductFormAutofillState {
   autofilledProductImageUrl: string | null;
   setAutofilledProductImageUrl: (value: string | null) => void;
   setAutofilledProductImageCandidates: (value: string[]) => void;
+  setProductTaggingMetadata: (value: ProductTaggingMetadata | null) => void;
   setProductImageNotice: (value: string | null) => void;
   setAutoFillError: (value: string | null) => void;
   setIsProcessingImage: (value: boolean) => void;
@@ -51,6 +52,17 @@ interface ProductFormAutofillState {
   clearSelectedProductImage: () => void;
   clearAutoFillFeedback: () => void;
 }
+
+const buildProductTaggingMetadata = (
+  extracted: ProductMetadataPayload,
+  candidateUrls: string[]
+): ProductTaggingMetadata => ({
+  image_candidates: candidateUrls,
+  tagging_text_candidates: Array.isArray(extracted.taggingTextCandidates)
+    ? extracted.taggingTextCandidates
+    : [],
+  metadata_source: "product_page",
+});
 
 interface UseProductFormAutofillOptions {
   state: ProductFormAutofillState;
@@ -212,6 +224,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
 
       const candidateUrls = getAutofillCandidateUrls(extracted);
       const selectedCandidateUrl = candidateUrls[0] || "";
+      state.setProductTaggingMetadata(buildProductTaggingMetadata(extracted, candidateUrls));
 
       state.setProductPhotoFile(null);
       if (selectedCandidateUrl) {
@@ -256,6 +269,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         const sizeChartBox = normalizeCaptureBoundingBox(extracted.size_chart_bbox ?? null);
         const candidateUrls = getAutofillCandidateUrls(extracted);
         const selectedCandidateUrl = candidateUrls[0] || "";
+        state.setProductTaggingMetadata(buildProductTaggingMetadata(extracted, candidateUrls));
         let normalizedTable: SizeTable | null = normalizeSizeTable(extracted.sizeTable ?? null);
         const croppedProductImage =
           !selectedCandidateUrl && productImageBox ? await cropImageByBoundingBox(optimizedDataUrl, productImageBox) : "";

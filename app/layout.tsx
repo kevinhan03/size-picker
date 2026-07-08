@@ -41,8 +41,8 @@ export default async function RootLayout({
   modal: ReactNode;
 }>) {
   return (
-    <html lang="ko">
-      <body>
+    <html lang="ko" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <ClientProviders>
           {children}
           {modal}

@@ -26,6 +26,45 @@ export interface Product {
   closetSelectedSizeLabel?: string | null;
   closetSelectedSizeRowIndex?: number | null;
   closetSelectedSizeSnapshot?: ClosetSizeSnapshot | null;
+  styleTags?: StyleTags | null;
+  styleAttributes?: StyleAttributes | null;
+  styleTagsEvidence?: StyleTagsEvidence | null;
+  styleTagsConfidence?: number | null;
+  taggingStatus?: string | null;
+  taggingError?: string | null;
+  taggedAt?: string | null;
+  humanStyleTags?: StyleTags | null;
+  humanStyleAttributes?: StyleAttributes | null;
+  humanStyleTagsEvidence?: StyleTagsEvidence | null;
+  tagReviewStatus?: TagReviewStatus | null;
+  tagReviewNote?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+}
+
+export type StyleTagName =
+  | 'casual'
+  | 'minimal'
+  | 'street'
+  | 'classic'
+  | 'vintage'
+  | 'lovely_romantic'
+  | 'sporty'
+  | 'workwear_gorpcore'
+  | 'chic_modern'
+  | 'glam_sexy';
+
+export type StyleTags = Record<StyleTagName, number>;
+export type StyleAttributes = Record<string, unknown>;
+export type StyleTagsEvidence = Partial<Record<StyleTagName, string[]>>;
+export type TagReviewStatus = 'needs_review' | 'approved' | 'edited' | 'rejected';
+
+export interface ProductStyleReviewInput {
+  tagReviewStatus?: TagReviewStatus;
+  humanStyleTags?: StyleTags | null;
+  humanStyleAttributes?: StyleAttributes | null;
+  humanStyleTagsEvidence?: StyleTagsEvidence | null;
+  tagReviewNote?: string | null;
 }
 
 export interface ClosetSizeSnapshot {
@@ -80,6 +119,20 @@ export interface ProductRow {
   is_instagram?: boolean | null;
   instagram_order?: number | null;
   registered_by?: string | null;
+  style_tags?: unknown;
+  style_attributes?: unknown;
+  style_tags_evidence?: unknown;
+  style_tags_confidence?: number | null;
+  tagging_status?: string | null;
+  tagging_error?: string | null;
+  tagged_at?: string | null;
+  human_style_tags?: unknown;
+  human_style_attributes?: unknown;
+  human_style_tags_evidence?: unknown;
+  tag_review_status?: string | null;
+  tag_review_note?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
 }
 
 export interface SubmitProductForm {
@@ -91,6 +144,7 @@ export interface SubmitProductForm {
   normalizedSizeTable?: SizeTable | null;
   productPhoto?: File | null;
   productImageUrl?: string | null;
+  productMetadata?: ProductTaggingMetadata | null;
 }
 
 export interface AddProductFormData {
@@ -127,7 +181,14 @@ export interface ProductMetadataPayload {
   size_chart_bbox?: CaptureBoundingBox | null;
   productImage: ProductMetadataImagePayload | null;
   productImageCandidates?: string[];
+  taggingTextCandidates?: string[];
   sizeTable?: unknown;
+}
+
+export interface ProductTaggingMetadata {
+  image_candidates?: string[];
+  tagging_text_candidates?: string[];
+  metadata_source?: string;
 }
 
 export interface AdminEditForm {

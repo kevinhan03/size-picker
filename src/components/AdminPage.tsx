@@ -6,7 +6,7 @@ import { BrandRulesPanel } from "./admin/BrandRulesPanel";
 import { BrandUnifyPanel } from "./admin/BrandUnifyPanel";
 import { AdminProductsList } from "./admin/AdminProductsList";
 import { InstagramProductsPanel } from "./admin/InstagramProductsPanel";
-import type { AdminEditForm, BrandBackfillResult, BrandRule, Product, SizeTable } from "../types";
+import type { AdminEditForm, BrandBackfillResult, BrandRule, Product, ProductStyleReviewInput, SizeTable } from "../types";
 
 
 
@@ -67,6 +67,7 @@ interface AdminPageProps {
   onFeaturedHeadingChange: (heading: string) => void;
   onInstagramProfileUrlSave: () => void;
   onImageLoadError: (event: SyntheticEvent<HTMLImageElement>) => void;
+  onSaveStyleReview: (id: string, review: ProductStyleReviewInput) => void;
 }
 
 export const AdminPage = ({
@@ -119,6 +120,7 @@ export const AdminPage = ({
   onFeaturedHeadingChange,
   onInstagramProfileUrlSave,
   onImageLoadError,
+  onSaveStyleReview,
 }: AdminPageProps) => {
   const [tableEditingCell, setTableEditingCell] = useState<TableEditingCell>(null);
   const [activeSection, setActiveSection] = useState<AdminSection>(null);
@@ -260,6 +262,7 @@ export const AdminPage = ({
                   onExtractedTableChange={onExtractedTableChange}
                   onFileUpload={onFileUpload}
                   onImageLoadError={onImageLoadError}
+                  onSaveStyleReview={onSaveStyleReview}
                   onStartEdit={onStartEdit}
                   onUpdateProduct={onUpdateProduct}
                   setTableEditingCell={setTableEditingCell}

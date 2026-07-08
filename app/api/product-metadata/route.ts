@@ -39,6 +39,9 @@ export async function POST(request: Request) {
         productImageCandidates: Array.isArray(metadata.productImageCandidates)
           ? metadata.productImageCandidates
           : [],
+        taggingTextCandidates: Array.isArray(metadata.taggingTextCandidates)
+          ? metadata.taggingTextCandidates
+          : [],
       },
     });
   } catch (error: unknown) {

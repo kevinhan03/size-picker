@@ -17,6 +17,7 @@ export function createProductMetadataResponseService({
     image_path: imagePath || "",
     productImage: productImage || null,
     productImageCandidates: uniqValues(productImageCandidates || []),
+    taggingTextCandidates: uniqValues(extracted.taggingTextCandidates || []),
   });
 
   const hasAnyResolvedProductMetadata = ({ extracted, productImage, productImageCandidates }) =>
