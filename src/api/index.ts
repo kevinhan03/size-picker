@@ -22,7 +22,9 @@ export const fetchAllProducts = async (): Promise<Product[]> => {
   assertSupabaseClient();
   const { data, error } = await supabase!
     .from('products')
-    .select('id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by')
+    .select(
+      'id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,tagged_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at'
+    )
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   const rows = Array.isArray(data) ? (data as ProductRow[]) : [];
@@ -87,6 +89,7 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
       image_path: imagePath,
       sizeTable: form.sizeTable ?? null,
       normalizedSizeTable: form.normalizedSizeTable ?? null,
+      productMetadata: form.productMetadata ?? null,
       isInstagram,
     },
     { Authorization: `Bearer ${token}` }

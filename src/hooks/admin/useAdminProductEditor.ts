@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { ChangeEvent } from "react";
-import type { AdminEditForm, Product, SizeTable } from "../../types";
+import type { AdminEditForm, Product, ProductStyleReviewInput, SizeTable } from "../../types";
 import { extractSizeTableFromImage, uploadSubmissionImage } from "../../api";
+import { saveProductStyleReview } from "../../api/admin";
 import { readFileAsDataUrl, resizeImage } from "../../utils/image";
 
 interface UseAdminProductEditorOptions {
@@ -158,6 +159,20 @@ export function useAdminProductEditor({
     }
   };
 
+  const handleSaveProductStyleReview = async (id: string, review: ProductStyleReviewInput) => {
+    setIsAdminActionLoading(true);
+    try {
+      await saveProductStyleReview(id, review);
+      onProductMutated();
+      setAdminActionError(null);
+    } catch (reviewError: unknown) {
+      const message = reviewError instanceof Error ? reviewError.message : "태그 검수 저장에 실패했습니다.";
+      setAdminActionError(message);
+    } finally {
+      setIsAdminActionLoading(false);
+    }
+  };
+
   const resetEditorState = () => {
     setEditingProductId(null);
     setAdminProductPhotoFile(null);
@@ -180,6 +195,7 @@ export function useAdminProductEditor({
     handleAdminFileUpload,
     handleAdminUpdateProduct,
     handleAdminDeleteProduct,
+    handleSaveProductStyleReview,
     resetEditorState,
   };
 }

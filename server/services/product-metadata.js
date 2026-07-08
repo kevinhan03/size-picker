@@ -20,6 +20,7 @@ export function createProductMetadataService({
   extractProductImageCandidatesFromHtml,
   extractProductJsonLd,
   extractProductNameFromTitle,
+  extractTaggingTextCandidatesFromHtml,
   extractSearchResultUrls,
   extractSizeChartPageCandidatesFromHtml,
   extractSizeChartPageCandidatesFromJsonData,
@@ -115,6 +116,7 @@ export function createProductMetadataService({
     const musinsaData = extractMusinsaPageData(nextDataPayload);
     const combinedJsonData = [nextDataPayload, ...appJsonObjects].filter(Boolean);
     const jsonImageData = extractImageCandidatesFromJsonData({ jsonData: combinedJsonData, pageUrl });
+    const jsonTextBlocks = collectTextBlocksFromJsonData(combinedJsonData);
 
     const storeBrandFromTitle = normalizeBrandName(String(title || "").split("|").slice(1).join("|"));
     const rawBrand = response.pickFirstNonEmpty([
@@ -141,6 +143,16 @@ export function createProductMetadataService({
       description,
       name
     );
+    const taggingTextCandidates = extractTaggingTextCandidatesFromHtml({
+      html,
+      seedTexts: [
+        description,
+        extractMetaContent(html, "og:description", "property"),
+        schemaProduct?.description || "",
+        ...(musinsaData?.textBlocks || []),
+        ...jsonTextBlocks,
+      ],
+    });
 
     const candidateGroups = [
       {
@@ -199,6 +211,7 @@ export function createProductMetadataService({
       name,
       category,
       productImageCandidates,
+      taggingTextCandidates,
     };
   };
 

@@ -1,12 +1,13 @@
 import { isDuplicateProductErrorMessage, isOptionalMetadataCategory } from "../../utils/product";
 import { submitProduct } from "../../api";
 import { buildSubmitProductPayload, getProductFormFlags, getSubmitValidationError } from "./helpers";
-import type { AddProductFormData, ClosetSizeSelection } from "../../types";
+import type { AddProductFormData, ClosetSizeSelection, ProductTaggingMetadata } from "../../types";
 
 interface ProductFormSubmitState {
   formData: AddProductFormData;
   productPhotoFile: File | null;
   autofilledProductImageUrl: string | null;
+  productTaggingMetadata: ProductTaggingMetadata | null;
   isAutofillingFromUrl: boolean;
   isAutofillingFromImage: boolean;
   isProcessingImage: boolean;
@@ -81,7 +82,12 @@ export function useProductFormSubmit({
     state.setIsSaving(true);
     try {
       const product = await submitProduct(
-        buildSubmitProductPayload(state.formData, state.productPhotoFile, state.autofilledProductImageUrl),
+        buildSubmitProductPayload(
+          state.formData,
+          state.productPhotoFile,
+          state.autofilledProductImageUrl,
+          state.productTaggingMetadata
+        ),
         state.isInstagramMode
       );
 

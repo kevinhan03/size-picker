@@ -106,6 +106,20 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
     registeredBy: row.registered_by ? String(row.registered_by) : null,
     isInstagram: Boolean(row.is_instagram),
     instagramOrder: typeof row.instagram_order === 'number' ? row.instagram_order : null,
+    styleTags: (row.style_tags ?? null) as Product['styleTags'],
+    styleAttributes: (row.style_attributes ?? null) as Product['styleAttributes'],
+    styleTagsEvidence: (row.style_tags_evidence ?? null) as Product['styleTagsEvidence'],
+    styleTagsConfidence: typeof row.style_tags_confidence === 'number' ? row.style_tags_confidence : null,
+    taggingStatus: row.tagging_status ? String(row.tagging_status) : null,
+    taggingError: row.tagging_error ? String(row.tagging_error) : null,
+    taggedAt: row.tagged_at || null,
+    humanStyleTags: (row.human_style_tags ?? null) as Product['humanStyleTags'],
+    humanStyleAttributes: (row.human_style_attributes ?? null) as Product['humanStyleAttributes'],
+    humanStyleTagsEvidence: (row.human_style_tags_evidence ?? null) as Product['humanStyleTagsEvidence'],
+    tagReviewStatus: row.tag_review_status ? String(row.tag_review_status) as Product['tagReviewStatus'] : null,
+    tagReviewNote: row.tag_review_note ? String(row.tag_review_note) : null,
+    reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
+    reviewedAt: row.reviewed_at || null,
   };
 };
 

@@ -81,6 +81,21 @@ export const normalizeProductRow = (row) => {
     registeredBy: row.registered_by ? String(row.registered_by) : null,
     isInstagram: Boolean(row.is_instagram),
     instagramOrder: typeof row.instagram_order === "number" ? row.instagram_order : null,
+    styleTags: row.style_tags ?? null,
+    styleAttributes: row.style_attributes ?? null,
+    styleTagsEvidence: row.style_tags_evidence ?? null,
+    styleTagsConfidence:
+      typeof row.style_tags_confidence === "number" ? row.style_tags_confidence : null,
+    taggingStatus: row.tagging_status ? String(row.tagging_status) : null,
+    taggingError: row.tagging_error ? String(row.tagging_error) : null,
+    taggedAt: row.tagged_at || null,
+    humanStyleTags: row.human_style_tags ?? null,
+    humanStyleAttributes: row.human_style_attributes ?? null,
+    humanStyleTagsEvidence: row.human_style_tags_evidence ?? null,
+    tagReviewStatus: row.tag_review_status ? String(row.tag_review_status) : null,
+    tagReviewNote: row.tag_review_note ? String(row.tag_review_note) : null,
+    reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
+    reviewedAt: row.reviewed_at || null,
   };
 };
 
@@ -154,6 +169,7 @@ export const insertProductRow = async (input) => {
     isInstagram = false,
     instagramOrder = null,
     registeredBy = null,
+    productMetadata = null,
   } = input || {};
   assertSupabaseConfig();
   const normalizedImagePath = String(imagePath || "").trim();
@@ -161,6 +177,10 @@ export const insertProductRow = async (input) => {
   const effectiveImagePath = normalizedImagePath || normalizedImage || null;
   const effectiveImage = normalizedImage || normalizedImagePath || "";
   const normalizedSlug = String(slug || "").trim() || null;
+  const effectiveProductMetadata =
+    productMetadata && typeof productMetadata === "object" && !Array.isArray(productMetadata)
+      ? productMetadata
+      : null;
   let effectiveInstagramOrder =
     typeof instagramOrder === "number" && Number.isFinite(instagramOrder) ? instagramOrder : null;
 
@@ -197,6 +217,7 @@ export const insertProductRow = async (input) => {
       is_instagram: isInstagram,
       instagram_order: isInstagram ? effectiveInstagramOrder : null,
       registered_by: registeredBy || null,
+      product_metadata: effectiveProductMetadata,
     })
     .select("*")
     .single();

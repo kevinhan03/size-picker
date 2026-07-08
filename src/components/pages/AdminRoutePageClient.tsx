@@ -71,6 +71,7 @@ export function AdminRoutePageClient() {
       onFeaturedHeadingChange={admin.setFeaturedHeading}
       onInstagramProfileUrlSave={() => void admin.handleInstagramProfileUrlSave()}
       onImageLoadError={handleImageLoadError}
+      onSaveStyleReview={(id, review) => void admin.handleSaveProductStyleReview(id, review)}
     />
   );
 }

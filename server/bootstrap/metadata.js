@@ -10,6 +10,7 @@ import {
   extractMusinsaPageData,
   extractNextDataPayload,
   extractProductJsonLd,
+  extractTaggingTextCandidatesFromHtml,
 } from "../services/product-metadata/html.js";
 import {
   addImageResolutionVariants,
@@ -101,6 +102,7 @@ const service = createProductMetadataService({
     extractNextDataPayload,
     extractProductImageCandidatesFromHtml,
     extractProductJsonLd,
+    extractTaggingTextCandidatesFromHtml,
     extractProductMetadataFromImageWithGemini,
     extractProductNameFromTitle,
     extractSearchResultUrls,

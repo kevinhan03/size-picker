@@ -80,6 +80,19 @@ export async function POST(request: Request) {
     const normalizedSizeTable = isBottomCategory(category)
       ? normalizeSizeTableForCategory(category, submittedNormalizedSizeTable || sizeTable)
       : null;
+    const rawProductMetadata = body?.productMetadata;
+    const productMetadata =
+      rawProductMetadata && typeof rawProductMetadata === "object" && !Array.isArray(rawProductMetadata)
+        ? {
+            image_candidates: Array.isArray(rawProductMetadata.image_candidates)
+              ? rawProductMetadata.image_candidates.map((value: unknown) => String(value || "").trim()).filter(Boolean).slice(0, 24)
+              : [],
+            tagging_text_candidates: Array.isArray(rawProductMetadata.tagging_text_candidates)
+              ? rawProductMetadata.tagging_text_candidates.map((value: unknown) => String(value || "").trim()).filter(Boolean).slice(0, 40)
+              : [],
+            metadata_source: String(rawProductMetadata.metadata_source || "product_page").trim() || "product_page",
+          }
+        : null;
     const isInstagram = false;
     const createdAt = new Date().toISOString();
 
@@ -107,6 +120,7 @@ export async function POST(request: Request) {
       createdAt,
       slug,
       registeredBy,
+      productMetadata,
     });
     const product = normalizeProductRow(insertedRow);
 

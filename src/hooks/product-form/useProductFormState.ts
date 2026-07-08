@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AddProductFormData, AddProductMode, ClosetSizeSelection } from "../../types";
+import type { AddProductFormData, AddProductMode, ClosetSizeSelection, ProductTaggingMetadata } from "../../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER, EMPTY_FORM_DATA } from "../../constants";
 
 export function useProductFormState() {
@@ -15,6 +15,7 @@ export function useProductFormState() {
   const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null);
   const [autofilledProductImageUrl, setAutofilledProductImageUrl] = useState<string | null>(null);
   const [autofilledProductImageCandidates, setAutofilledProductImageCandidates] = useState<string[]>([]);
+  const [productTaggingMetadata, setProductTaggingMetadata] = useState<ProductTaggingMetadata | null>(null);
 
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isAnalyzingTable, setIsAnalyzingTable] = useState(false);
@@ -52,6 +53,7 @@ export function useProductFormState() {
   const clearSelectedProductImage = () => {
     setAutofilledProductImageUrl(null);
     setAutofilledProductImageCandidates([]);
+    setProductTaggingMetadata(null);
     setProductPhotoFile(null);
   };
 
@@ -147,6 +149,8 @@ export function useProductFormState() {
     setAutofilledProductImageUrl,
     autofilledProductImageCandidates,
     setAutofilledProductImageCandidates,
+    productTaggingMetadata,
+    setProductTaggingMetadata,
     isProcessingImage,
     setIsProcessingImage,
     isAnalyzingTable,

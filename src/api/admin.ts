@@ -1,4 +1,4 @@
-import type { BrandBackfillResult, BrandInfo, BrandRule } from "../types";
+import type { BrandBackfillResult, BrandInfo, BrandRule, ProductStyleReviewInput } from "../types";
 import { parseApiJson } from "./shared";
 
 export const fetchBrands = async (): Promise<BrandInfo[]> => {
@@ -62,4 +62,40 @@ export const backfillBrandRules = async (): Promise<BrandBackfillResult> => {
     throw new Error(payload?.error || "Failed to backfill brand rules");
   }
   return payload.data;
+};
+
+export const fetchProductStyleReview = async (productId: string): Promise<unknown> => {
+  const response = await fetch(`/api/admin/products/${encodeURIComponent(productId)}/style-review`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: { product?: unknown } }>(
+    response,
+    `/api/admin/products/${productId}/style-review`
+  );
+  if (!response.ok || !payload?.ok || !payload?.data?.product) {
+    throw new Error(payload?.error || "Failed to fetch product style review");
+  }
+  return payload.data.product;
+};
+
+export const saveProductStyleReview = async (
+  productId: string,
+  review: ProductStyleReviewInput
+): Promise<unknown> => {
+  const response = await fetch(`/api/admin/products/${encodeURIComponent(productId)}/style-review`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(review),
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string; data?: { product?: unknown } }>(
+    response,
+    `/api/admin/products/${productId}/style-review`
+  );
+  if (!response.ok || !payload?.ok || !payload?.data?.product) {
+    throw new Error(payload?.error || "Failed to save product style review");
+  }
+  return payload.data.product;
 };
