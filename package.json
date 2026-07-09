@@ -13,7 +13,8 @@
     "backfill:brands:dry": "node scripts/backfill-brand-names.mjs --dry-run",
     "backfill:brands:report": "node scripts/backfill-brand-names.mjs --dry-run --report",
     "backfill:slugs": "node scripts/backfill-slugs.mjs",
-    "backfill:slugs:dry": "node scripts/backfill-slugs.mjs --dry-run"
+    "backfill:slugs:dry": "node scripts/backfill-slugs.mjs --dry-run",
+    "analyze:style-reviews": "node scripts/analyze-style-review-feedback.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

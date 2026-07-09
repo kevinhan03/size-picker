@@ -174,7 +174,9 @@ export async function PATCH(
     if (status === "approved" && !humanStyleTags) {
       const { data: existingProduct, error: existingProductError } = await supabase!
         .from(SUPABASE_PRODUCTS_TABLE)
-        .select("style_tags,style_attributes,style_tags_evidence")
+        .select(
+          "style_tags,style_attributes,style_tags_evidence,human_style_tags,human_style_attributes,human_style_tags_evidence"
+        )
         .eq("id", productId)
         .maybeSingle();
 
@@ -182,15 +184,15 @@ export async function PATCH(
       if (!existingProduct) {
         return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
       }
-      payload.human_style_tags = normalizeStyleTags(existingProduct.style_tags);
-      payload.human_style_attributes = normalizeJsonObject(
-        existingProduct.style_attributes,
-        "style_attributes"
-      );
-      payload.human_style_tags_evidence = normalizeJsonObject(
-        existingProduct.style_tags_evidence,
-        "style_tags_evidence"
-      );
+      payload.human_style_tags = existingProduct.human_style_tags
+        ? normalizeStyleTags(existingProduct.human_style_tags)
+        : normalizeStyleTags(existingProduct.style_tags);
+      payload.human_style_attributes = existingProduct.human_style_attributes
+        ? normalizeJsonObject(existingProduct.human_style_attributes, "human_style_attributes")
+        : normalizeJsonObject(existingProduct.style_attributes, "style_attributes");
+      payload.human_style_tags_evidence = existingProduct.human_style_tags_evidence
+        ? normalizeJsonObject(existingProduct.human_style_tags_evidence, "human_style_tags_evidence")
+        : normalizeJsonObject(existingProduct.style_tags_evidence, "style_tags_evidence");
     }
 
     if (Object.keys(payload).length === 0) {

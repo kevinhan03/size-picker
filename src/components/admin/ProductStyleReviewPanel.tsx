@@ -33,6 +33,12 @@ const emptyStyleTags = (): StyleTags =>
     return acc;
   }, {} as StyleTags);
 
+const styleTagsToInputValues = (tags: StyleTags): Record<StyleTagName, string> =>
+  STYLE_TAGS.reduce((acc, tag) => {
+    acc[tag] = tags[tag].toFixed(2);
+    return acc;
+  }, {} as Record<StyleTagName, string>);
+
 const normalizeStyleTags = (value: unknown): StyleTags => {
   const output = emptyStyleTags();
   if (!value || typeof value !== 'object' || Array.isArray(value)) return output;
@@ -88,6 +94,9 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
     [product.humanStyleTags, product.styleTags]
   );
   const [humanTags, setHumanTags] = useState<StyleTags>(initialHumanTags);
+  const [scoreInputs, setScoreInputs] = useState<Record<StyleTagName, string>>(
+    styleTagsToInputValues(initialHumanTags)
+  );
   const [reviewNote, setReviewNote] = useState(product.tagReviewNote ?? '');
 
   const hasAiTags = Boolean(product.styleTags);
@@ -104,17 +113,38 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
 
   useEffect(() => {
     setHumanTags(initialHumanTags);
+    setScoreInputs(styleTagsToInputValues(initialHumanTags));
   }, [initialHumanTags]);
 
   useEffect(() => {
     setReviewNote(product.tagReviewNote ?? '');
   }, [product.tagReviewNote]);
 
-  const updateScore = (tag: StyleTagName, value: string) => {
-    const score = Number(value);
+  const setTagScore = (tag: StyleTagName, score: number) => {
     setHumanTags((prev) => ({
       ...prev,
-      [tag]: Number.isFinite(score) ? Math.min(1, Math.max(0, score)) : prev[tag],
+      [tag]: Math.min(1, Math.max(0, score)),
+    }));
+  };
+
+  const updateScoreFromRange = (tag: StyleTagName, value: string) => {
+    const score = Number(value);
+    if (!Number.isFinite(score)) return;
+    setTagScore(tag, score);
+    setScoreInputs((prev) => ({ ...prev, [tag]: score.toFixed(2) }));
+  };
+
+  const updateScoreInput = (tag: StyleTagName, value: string) => {
+    if (!/^\d*(?:\.\d*)?$/.test(value)) return;
+    setScoreInputs((prev) => ({ ...prev, [tag]: value }));
+    const score = Number(value);
+    if (value.trim() !== '' && Number.isFinite(score)) setTagScore(tag, score);
+  };
+
+  const normalizeScoreInput = (tag: StyleTagName) => {
+    setScoreInputs((prev) => ({
+      ...prev,
+      [tag]: humanTags[tag].toFixed(2),
     }));
   };
 
@@ -157,6 +187,9 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
             onClick={() =>
               onSave(product.id, {
                 tagReviewStatus: 'approved',
+                humanStyleTags: humanTags,
+                humanStyleAttributes: product.humanStyleAttributes ?? product.styleAttributes ?? null,
+                humanStyleTagsEvidence: product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null,
                 tagReviewNote: reviewNote,
               })
             }
@@ -195,7 +228,7 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
       {hasAiTags ? (
         <div className="mt-4 grid gap-2 md:grid-cols-2">
           {STYLE_TAGS.map((tag) => (
-            <div key={tag} className="grid grid-cols-[64px_1fr_44px] items-center gap-2 text-xs">
+            <div key={tag} className="grid grid-cols-[64px_1fr_64px] items-center gap-2 text-xs">
               <span className="font-medium text-gray-300">{tag}</span>
               <input
                 type="range"
@@ -203,17 +236,16 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
                 max="1"
                 step="0.05"
                 value={humanTags[tag]}
-                onChange={(event) => updateScore(tag, event.target.value)}
+                onChange={(event) => updateScoreFromRange(tag, event.target.value)}
                 className="h-2 w-full accent-orange-500"
               />
               <input
-                type="number"
-                min="0"
-                max="1"
-                step="0.05"
-                value={humanTags[tag].toFixed(2)}
-                onChange={(event) => updateScore(tag, event.target.value)}
-                className="h-8 rounded-md border border-gray-700 bg-gray-950 px-1 text-center text-xs text-white focus:outline-none focus:border-orange-500"
+                type="text"
+                inputMode="decimal"
+                value={scoreInputs[tag]}
+                onChange={(event) => updateScoreInput(tag, event.target.value)}
+                onBlur={() => normalizeScoreInput(tag)}
+                className="h-8 w-16 rounded-md border border-gray-700 bg-gray-950 px-2 text-center text-xs text-white focus:outline-none focus:border-orange-500"
               />
             </div>
           ))}
