@@ -31,6 +31,7 @@ function CollectionCard({
   tone,
   meta,
   emptyCta = false,
+  backgroundImage,
 }: {
   title: string;
   href: string;
@@ -38,13 +39,26 @@ function CollectionCard({
   tone: "yellow" | "orange" | "blue";
   meta: React.ReactNode;
   emptyCta?: boolean;
+  backgroundImage?: string;
 }) {
   const color = tone === "yellow" ? "text-yellow-300" : tone === "orange" ? "text-orange-400" : "text-sky-300";
   const bg = tone === "yellow" ? "bg-yellow-400/12" : tone === "orange" ? "bg-orange-500/12" : "bg-sky-400/12";
 
   return (
-    <section className={`${cardClass} flex min-w-0 flex-col gap-3 p-4 sm:p-5`}>
-      <Link href={href} className="group flex min-w-0 items-center gap-3 no-underline">
+    <section
+      className={`${cardClass} relative flex min-w-0 flex-col gap-3 overflow-hidden p-4 sm:p-5`}
+      style={
+        backgroundImage
+          ? {
+              backgroundImage: `linear-gradient(180deg, rgba(10,11,15,0.35) 0%, rgba(10,11,15,0.55) 55%, rgba(10,11,15,0.88) 100%), url(${backgroundImage})`,
+              backgroundSize: "cover, 170%",
+              backgroundPosition: "center, center",
+              backgroundRepeat: "no-repeat, no-repeat",
+            }
+          : undefined
+      }
+    >
+      <Link href={href} className="group relative z-10 flex min-w-0 items-center gap-3 no-underline">
         <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${bg} ${color}`}>
           {icon}
         </span>
@@ -537,6 +551,7 @@ export function MyPageView({
           icon={<Network className="h-5 w-5" />}
           tone="blue"
           meta="나의 스타일을 확인해보세요"
+          backgroundImage="/images/taste-graph-card-bg.png"
         />
         <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
           <CollectionCard
