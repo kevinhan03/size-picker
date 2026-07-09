@@ -351,3 +351,42 @@ export function createEmbeddingForceLinks(products: TasteGraphProduct[]): TasteG
 
   return Array.from(pairMap.values());
 }
+
+export interface TasteSummaryEntry {
+  tag: StyleTagName;
+  percent: number;
+}
+
+export interface TasteSummary {
+  entries: TasteSummaryEntry[];
+  taggedCount: number;
+  totalCount: number;
+}
+
+// 상품 단위로 그래프의 태그 링크(tagAssignments)와 동일한 top-tag 집계를 재사용해
+// 옷장 전체의 스타일 분포를 계산한다. 원본 10개 태그 점수를 그대로 평균 내지 않고,
+// 그래프에 실제로 표시되는 상위 태그(들)만 집계 대상으로 삼아 그래프와 숫자가 항상 일치하게 한다.
+export function computeTasteSummary(products: Product[]): TasteSummary {
+  const totals = new Map<StyleTagName, number>(TAGS.map((tag) => [tag, 0]));
+  let taggedCount = 0;
+
+  for (const product of products) {
+    const effective = getEffectiveStyleTags(product);
+    const normalized = normalizeStyleTags(effective.tags);
+    const topTags = selectTopTags(normalized);
+    if (!topTags.length) continue;
+
+    taggedCount += 1;
+    const scoreTotal = topTags.reduce((sum, [, score]) => sum + score, 0) || 1;
+    for (const [tag, score] of topTags) {
+      totals.set(tag, (totals.get(tag) || 0) + score / scoreTotal);
+    }
+  }
+
+  const grandTotal = Array.from(totals.values()).reduce((sum, value) => sum + value, 0) || 1;
+  const entries = TAGS.map((tag) => ({ tag, percent: ((totals.get(tag) || 0) / grandTotal) * 100 }))
+    .filter((entry) => entry.percent > 0)
+    .sort((a, b) => b.percent - a.percent);
+
+  return { entries, taggedCount, totalCount: products.length };
+}

@@ -7,6 +7,7 @@ import { Network, Plus } from "lucide-react";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { TasteGraphCanvas } from "../taste-graph/TasteGraphCanvas";
+import { TasteSummaryCard } from "../taste-graph/TasteSummaryCard";
 
 export function TasteGraphPageClient() {
   const router = useRouter();
@@ -53,8 +54,11 @@ export function TasteGraphPageClient() {
   }
 
   return (
-    <main className="fixed inset-0">
-      <TasteGraphCanvas products={closetProducts} />
+    <main className="fixed inset-0 flex flex-col">
+      <TasteSummaryCard products={closetProducts} />
+      <div className="relative min-h-0 flex-1">
+        <TasteGraphCanvas products={closetProducts} />
+      </div>
     </main>
   );
 }

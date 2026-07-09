@@ -22,12 +22,6 @@ import {
 
 type ViewMode = "tag" | "embedding";
 
-interface StatusInfo {
-  title: string;
-  lines: string[];
-  type: "info" | "warning" | "error";
-}
-
 interface ProductPanelData {
   brand: string;
   title: string;
@@ -84,11 +78,6 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const handlersRef = useRef<GraphHandlers | null>(null);
 
-  const [status, setStatus] = useState<StatusInfo>({
-    title: "취향그래프",
-    lines: ["불러오는 중..."],
-    type: "info",
-  });
   const [viewMode, setViewModeState] = useState<ViewMode>("tag");
   const [resetDisabled, setResetDisabled] = useState(true);
   const [controlsReady, setControlsReady] = useState(false);
@@ -121,10 +110,7 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
       setProductPanel(null);
       setGraphOpacity(0);
 
-      if (!products.length) {
-        setStatus({ title: "옷장이 비어있어요", lines: ["옷장에 상품을 담으면 취향그래프가 그려져요."], type: "warning" });
-        return;
-      }
+      if (!products.length) return;
 
       const graph = createGraph(products);
       graphStateRef.current = graph;
@@ -499,17 +485,6 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
       setControlsReady(true);
       showOverview(false);
 
-      const embeddableCount = graph.products.filter((p) => p.embedding).length;
-      const hasWarning = Object.values(graph.warnings).some(Boolean) || !graph.counts.embeddingLinks;
-      const lines = [`옷장 상품 ${graph.counts.items}개, 태그 ${graph.counts.tags}개, 태그링크 ${graph.counts.tagLinks}개, 임베딩 ${embeddableCount}개`];
-      if (graph.warnings.missingStyleTags) lines.push(`스타일 태그 없는 상품 ${graph.warnings.missingStyleTags}개`);
-      if (graph.warnings.missingEmbedding) lines.push(`이미지 임베딩 없는 상품 ${graph.warnings.missingEmbedding}개`);
-      setStatus({
-        title: hasWarning ? "로드 완료, 일부 누락 있음" : "로드 완료",
-        lines,
-        type: hasWarning ? "warning" : "info",
-      });
-
       // 이후 인터랙션(버튼/검색/유사 상품 클릭)에서 재사용할 수 있도록 핸들러 저장
       handlersRef.current = {
         showOverview,
@@ -534,8 +509,8 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
       };
 
       const handleResize = () => {
-        if (!graphRef.current) return;
-        graphRef.current.width(window.innerWidth).height(window.innerHeight);
+        if (!graphRef.current || !containerRef.current) return;
+        graphRef.current.width(containerRef.current.clientWidth).height(containerRef.current.clientHeight);
         const fallbackInclude = (node: TasteGraphNode) => node.type === "item" || (node.type === "tag" && viewModeRef.current === "tag");
         graphRef.current.zoomToFit(350, 90, (node: TasteGraphNode) =>
           selectedTagRef.current ? node.id === tagId(selectedTagRef.current) || node.visible : fallbackInclude(node)
@@ -562,15 +537,6 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
       <div ref={containerRef} className="taste-graph-canvas" style={{ opacity: graphOpacity }} />
 
       <div className="taste-graph-topbar">
-        <div className={`taste-graph-status ${status.type}`}>
-          <p className="status-title">{status.title}</p>
-          {status.lines.map((line, index) => (
-            <p key={index} className="status-line">
-              {line}
-            </p>
-          ))}
-        </div>
-
         <div className="taste-graph-controls" aria-label="그래프 보기 제어">
           <input
             className="search-input"
@@ -660,8 +626,8 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
       <style jsx>{`
         .taste-graph-app {
           position: relative;
-          width: 100vw;
-          height: 100dvh;
+          width: 100%;
+          height: 100%;
           overflow: hidden;
           background:
             radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.045), transparent 44%),
@@ -684,12 +650,11 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
           z-index: 5;
           display: flex;
           align-items: flex-start;
-          justify-content: space-between;
+          justify-content: flex-end;
           gap: 16px;
           pointer-events: none;
         }
 
-        .taste-graph-status,
         .taste-graph-product-panel {
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 8px;
@@ -697,28 +662,6 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
           box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
           backdrop-filter: blur(12px);
         }
-
-        .taste-graph-status {
-          max-width: min(720px, calc(100vw - 32px));
-          padding: 12px 14px;
-          pointer-events: auto;
-        }
-
-        .status-title {
-          margin: 0 0 4px;
-          font-size: 14px;
-          font-weight: 750;
-        }
-
-        .status-line {
-          margin: 0;
-          color: #a5acb8;
-          font-size: 13px;
-          line-height: 1.45;
-        }
-
-        .taste-graph-status.error { border-color: rgba(251, 113, 133, 0.5); }
-        .taste-graph-status.warning { border-color: rgba(250, 204, 21, 0.48); }
 
         .taste-graph-controls {
           display: flex;
