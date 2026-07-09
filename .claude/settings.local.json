@@ -30,7 +30,16 @@
       "Bash(kill %1)",
       "Bash(wait)",
       "Bash(xargs grep:*)",
-      "Bash(gh pr *)"
+      "Bash(gh pr *)",
+      "Bash(node /private/tmp/claude-501/-Users-kevin-han-dev-digbox-size-picker/b0883af7-f651-44d3-a738-04ebd813f36c/scratchpad/check-review.mjs)",
+      "Bash(node tmp/check-review.mjs)",
+      "Skill(dataviz)",
+      "Skill(dataviz:*)",
+      "Bash(node scripts/validate_palette.js --help)",
+      "Bash(node scripts/validate_palette.js \"#3987e5,#199e70,#c98500,#008300,#9085e9,#e66767,#d55181,#d95926\" --mode dark --pairs all)",
+      "Bash(node scripts/validate_palette.js \"#3987e5,#199e70,#c98500,#008300,#b45cd6,#e66767,#d55181,#d95926,#a9713f,#2fb8c4\" --mode dark --pairs all)",
+      "Bash(node scripts/validate_palette.js \"#3987e5,#199e70,#c98500,#008300,#b0651d,#e66767,#d55181,#d95926,#2a9fb0,#7a9c1f\" --mode dark --pairs all)",
+      "Bash(node scripts/validate_palette.js \"#3987e5,#199e70,#c98500,#008300,#9085e9,#e66767,#d55181,#d95926,#2a9fb0,#e0629c\" --mode dark --pairs all)"
     ]
   },
   "enableAllProjectMcpServers": true,

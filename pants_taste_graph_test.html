@@ -65,8 +65,6 @@
     }
 
     .status-panel,
-    .legend,
-    .more-panel,
     .product-panel {
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 8px;
@@ -100,105 +98,78 @@
     .controls {
       display: flex;
       justify-content: flex-end;
+      gap: 10px;
       pointer-events: auto;
     }
 
-    .control-button,
-    .more-button {
+    .control-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
       min-height: 36px;
-      padding: 0 12px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 8px;
-      background: rgba(31, 34, 42, 0.9);
-      color: var(--text);
+      padding: 0 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07));
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      color: #e5e7eb;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
       cursor: pointer;
+      transition: border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .control-button:hover:not(:disabled) {
+      border-color: rgba(249, 115, 22, 0.6);
+      color: #fb923c;
     }
 
     .control-button:disabled {
+      color: rgba(165, 172, 184, 0.55);
+      cursor: default;
+      opacity: 0.55;
+    }
+
+    .control-button.active {
+      border-color: rgba(249, 115, 22, 0.65);
+      color: #fdba74;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 22px rgba(249, 115, 22, 0.18);
+    }
+
+    .search-input {
+      min-height: 36px;
+      width: 220px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      color: var(--text);
+      font-size: 13px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 14px 30px rgba(0, 0, 0, 0.24);
+      outline: none;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .search-input::placeholder { color: rgba(165, 172, 184, 0.75); }
+
+    .search-input:hover:not(:disabled) {
+      border-color: rgba(249, 115, 22, 0.5);
+    }
+
+    .search-input:disabled {
       color: var(--faint);
       cursor: default;
       opacity: 0.55;
     }
 
-    .legend {
-      position: absolute;
-      left: 16px;
-      right: 16px;
-      bottom: 16px;
-      z-index: 5;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 12px 14px;
-      pointer-events: none;
-    }
-
-    .legend-items {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 14px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .legend-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-    }
-
-    .legend-dot {
-      width: 14px;
-      height: 14px;
-      border-radius: 999px;
-      display: inline-block;
-      flex: 0 0 auto;
-    }
-
-    .legend-dot.item {
-      border: 2px solid var(--item-stroke);
-      background: #7a8392;
-    }
-
-    .legend-dot.tag { background: var(--tag); }
-
-    .legend-line {
-      width: 32px;
-      height: 0;
-      border-top: 3px solid var(--tag);
-      display: inline-block;
-      flex: 0 0 auto;
-    }
-
-    .legend-stats {
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 750;
-      white-space: nowrap;
-    }
-
-    .more-panel {
-      position: absolute;
-      left: 50%;
-      bottom: 72px;
-      z-index: 6;
-      display: none;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      transform: translateX(-50%);
-      pointer-events: auto;
-    }
-
-    .more-panel.visible { display: flex; }
-
-    .more-text {
-      color: var(--muted);
-      font-size: 13px;
-      white-space: nowrap;
+    .search-input:focus {
+      border-color: rgba(251, 146, 60, 0.7);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 3px rgba(249, 115, 22, 0.2);
     }
 
     .product-panel {
@@ -215,10 +186,19 @@
     .product-panel.visible { display: block; }
 
     .product-title {
-      margin: 0 0 10px;
+      margin: 2px 0 10px;
       font-size: 14px;
       font-weight: 800;
       line-height: 1.35;
+    }
+
+    .product-brand {
+      margin: 0;
+      color: var(--tag);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .product-tags {
@@ -249,9 +229,17 @@
     }
 
     .product-tag-fill {
+      display: block;
       height: 100%;
       border-radius: inherit;
-      background: var(--tag);
+      background: linear-gradient(90deg, #38bdf8, #7dd3fc);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+    }
+
+    .product-tag-score {
+      color: var(--muted);
+      font-weight: 750;
+      text-align: right;
     }
 
     .product-note {
@@ -259,6 +247,42 @@
       color: var(--faint);
       font-size: 12px;
       line-height: 1.4;
+    }
+
+    .product-review {
+      margin-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 10px;
+    }
+
+    .product-review-toggle {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      list-style: none;
+    }
+
+    .product-review-toggle::-webkit-details-marker { display: none; }
+
+    .product-review-toggle::before {
+      content: "▸";
+      display: inline-block;
+      margin-right: 6px;
+      color: var(--tag);
+      transition: transform 120ms ease;
+    }
+
+    .product-review[open] .product-review-toggle::before {
+      transform: rotate(90deg);
+    }
+
+    .product-review-note {
+      margin: 8px 0 0;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
     }
 
     .product-similar-title {
@@ -280,7 +304,29 @@
       grid-template-columns: 1fr 40px;
       align-items: center;
       gap: 8px;
+      width: 100%;
+      margin: 0;
+      padding: 4px 6px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      font: inherit;
       font-size: 13px;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: background-color 120ms ease;
+    }
+
+    .product-similar-row:hover,
+    .product-similar-row:focus-visible {
+      background: rgba(255, 255, 255, 0.08);
+      outline: none;
+    }
+
+    .product-similar-row:hover .product-similar-name,
+    .product-similar-row:focus-visible .product-similar-name {
+      color: #fb923c;
     }
 
     .product-similar-name {
@@ -288,6 +334,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      transition: color 120ms ease;
     }
 
     .product-similar-score {
@@ -302,14 +349,14 @@
         align-items: stretch;
       }
 
-      .controls { justify-content: flex-start; }
-
-      .legend {
-        align-items: flex-start;
-        flex-direction: column;
+      .controls {
+        justify-content: flex-start;
+        flex-wrap: wrap;
       }
 
-      .legend-stats { white-space: normal; }
+      .search-input { width: 100%; }
+      .control-button { flex: 1 1 auto; }
+
       .product-panel { top: auto; right: 16px; bottom: 126px; }
     }
   </style>
@@ -325,25 +372,13 @@
       </div>
 
       <div class="controls" aria-label="그래프 보기 제어">
+        <input id="searchInput" class="search-input" type="search" placeholder="브랜드/상품명 검색" disabled />
+        <button id="viewModeButton" class="control-button" type="button" disabled>유사도 뷰로 전환</button>
         <button id="resetViewButton" class="control-button" type="button" disabled>전체 보기로 돌아가기</button>
       </div>
     </div>
 
-    <div id="morePanel" class="more-panel">
-      <span id="moreText" class="more-text"></span>
-      <button id="moreButton" class="more-button" type="button">더 보기</button>
-    </div>
-
     <aside id="productPanel" class="product-panel" aria-live="polite"></aside>
-
-    <div class="legend">
-      <div class="legend-items">
-        <span class="legend-item"><span class="legend-dot tag"></span>태그 노드</span>
-        <span class="legend-item"><span class="legend-dot item"></span>상품 노드</span>
-        <span class="legend-item"><span class="legend-line"></span>태그 연결선</span>
-      </div>
-      <div id="legendStats" class="legend-stats">상품 0 · 태그 0 · 태그링크 0</div>
-    </div>
   </div>
 
   <script>
@@ -352,31 +387,73 @@
     const CATEGORY = "Bottom";
     const STORAGE_BUCKET = "product-assets";
     const TAG_TOP_N = 2;
+    const PRODUCT_PANEL_TAG_TOP_N = 5;
     const SECOND_TAG_MIN_CONFIDENCE = 0.15;
     const EMBEDDING_TOP_K = 2;
     const SIMILAR_TOP_K = 5;
-    const TAG_DETAIL_INITIAL_LIMIT = 15;
     const ITEM_COLLAPSED_OPACITY = 0.82;
+    const SEARCH_DIM_OPACITY = 0.06;
     const ITEM_COLLAPSED_RADIUS = 14;
     const ITEM_DETAIL_RADIUS = 20;
     const MIN_TAG_RADIUS = 20;
     const MAX_TAG_RADIUS = 42;
-    const TAGS = ["캐주얼", "미니멀", "스트릿", "클래식", "빈티지", "레트로", "로맨틱", "스포티", "프레피", "워크웨어"];
+    const TAG_LABEL_ZOOM_FADE_START = 2.0;
+    const TAG_LABEL_ZOOM_FADE_END = 2.35;
+    const TAGS = [
+      "casual",
+      "minimal",
+      "street",
+      "classic",
+      "vintage",
+      "lovely_romantic",
+      "sporty",
+      "workwear_gorpcore",
+      "chic_modern",
+      "glam_sexy"
+    ];
+    // 10개 태그 카테고리 색상 - dataviz 스킬 validate_palette.js로 다크 모드/전체쌍 CVD 검증 완료
+    // (worst all-pairs ΔE 8.5, deutan floor-band 통과 — 태그 노드에 항상 라벨 텍스트가 같이 그려지므로
+    // secondary encoding 요건 충족)
+    const TAG_COLORS = {
+      casual: { base: "#3987e5", bright: "#5598e9" },
+      minimal: { base: "#199e70", bright: "#39ac84" },
+      street: { base: "#c98500", bright: "#d19624" },
+      classic: { base: "#008300", bright: "#249424" },
+      vintage: { base: "#8f3fe0", bright: "#9f5ae4" },
+      lovely_romantic: { base: "#e66767", bright: "#ea7c7c" },
+      sporty: { base: "#c94f9e", bright: "#d168ac" },
+      workwear_gorpcore: { base: "#d95926", bright: "#de7044" },
+      chic_modern: { base: "#2a9fb0", bright: "#48acbb" },
+      glam_sexy: { base: "#e0629c", bright: "#e478aa" }
+    };
+    const DEFAULT_TAG_COLOR = { base: "#f59e0b", bright: "#f97316" };
+    const tagColor = (tag) => TAG_COLORS[tag] || DEFAULT_TAG_COLOR;
+
+    const LEGACY_TAG_KEY_MAP = {
+      "캐주얼": "casual",
+      "미니멀": "minimal",
+      "스트릿": "street",
+      "클래식": "classic",
+      "빈티지": "vintage",
+      "레트로": "vintage",
+      "로맨틱": "lovely_romantic",
+      "스포티": "sporty",
+      "워크웨어": "workwear_gorpcore"
+    };
 
     const graphEl = document.querySelector("#graph");
     const statusEl = document.querySelector("#status");
-    const legendStatsEl = document.querySelector("#legendStats");
     const resetViewButton = document.querySelector("#resetViewButton");
-    const morePanel = document.querySelector("#morePanel");
-    const moreText = document.querySelector("#moreText");
-    const moreButton = document.querySelector("#moreButton");
+    const viewModeButton = document.querySelector("#viewModeButton");
+    const searchInput = document.querySelector("#searchInput");
     const productPanel = document.querySelector("#productPanel");
 
     let Graph = null;
     let graphState = null;
+    let viewMode = "tag"; // 'tag' | 'embedding'
+    let searchQuery = "";
     let selectedTag = null;
     let selectedProductNodeId = null;
-    let expandedTagItems = false;
     let initialFitDone = false;
     let initialFitCallback = null;
     const imageCache = new Map();
@@ -466,20 +543,37 @@
     function normalizeStyleTags(styleTags) {
       if (!styleTags || typeof styleTags !== "object" || Array.isArray(styleTags)) return {};
       const normalized = {};
-      for (const tag of TAGS) {
-        const score = Number(styleTags[tag]);
-        if (Number.isFinite(score)) normalized[tag] = Math.max(0, Math.min(1, score));
+      for (const [rawTag, rawScore] of Object.entries(styleTags)) {
+        const tag = TAGS.includes(rawTag) ? rawTag : LEGACY_TAG_KEY_MAP[rawTag];
+        if (!tag) continue;
+        const score = Number(rawScore);
+        if (Number.isFinite(score)) normalized[tag] = Math.max(normalized[tag] || 0, Math.min(1, Math.max(0, score)));
       }
       return normalized;
     }
 
-    function selectTopTags(styleTags) {
-      const sorted = Object.entries(styleTags)
-        .filter(([, score]) => Number.isFinite(score))
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, TAG_TOP_N);
+    function getEffectiveStyleTags(row) {
+      const status = String(row.tag_review_status || "").trim();
+      const hasReviewedTags =
+        row.human_style_tags &&
+        typeof row.human_style_tags === "object" &&
+        !Array.isArray(row.human_style_tags);
 
-      if (sorted.length <= 1) return sorted;
+      if ((status === "approved" || status === "edited") && hasReviewedTags) {
+        return { tags: row.human_style_tags, source: "human" };
+      }
+
+      return { tags: row.style_tags, source: "ai" };
+    }
+
+    function selectTopTags(styleTags, limit = TAG_TOP_N, options = {}) {
+      const enforceSecondThreshold = options.enforceSecondThreshold !== false;
+      const sorted = Object.entries(styleTags)
+        .filter(([, score]) => Number.isFinite(score) && score > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit);
+
+      if (!enforceSecondThreshold || sorted.length <= 1) return sorted;
       if (sorted[1][1] < SECOND_TAG_MIN_CONFIDENCE) return [sorted[0]];
       return sorted;
     }
@@ -506,7 +600,8 @@
 
       const products = rows.map((row) => {
         const embedding = parseEmbedding(row.image_embedding);
-        if (!row.style_tags) warnings.missingStyleTags += 1;
+        const effectiveStyleTags = getEffectiveStyleTags(row);
+        if (!effectiveStyleTags.tags) warnings.missingStyleTags += 1;
         if (!row.image_embedding) warnings.missingEmbedding += 1;
         if (row.image_embedding && !embedding) warnings.invalidEmbedding += 1;
         if (!row.image_path) warnings.missingImagePath += 1;
@@ -515,8 +610,12 @@
           id: String(row.id),
           nodeId: `item:${row.id}`,
           label: String(row.name || `Product ${row.id}`),
+          brand: String(row.brand || "").trim(),
           imageUrl: resolveImageUrl(row.image_path),
-          styleTags: normalizeStyleTags(row.style_tags),
+          styleTags: normalizeStyleTags(effectiveStyleTags.tags),
+          styleTagSource: effectiveStyleTags.source,
+          tagReviewStatus: String(row.tag_review_status || "").trim(),
+          tagReviewNote: String(row.tag_review_note || "").trim(),
           embedding
         };
       });
@@ -524,6 +623,9 @@
       for (const product of products) {
         const topTags = selectTopTags(product.styleTags);
         product.tagAssignments = topTags.map(([tag, score], index) => ({ tag, score, rank: index + 1 }));
+        product.panelTagAssignments = selectTopTags(product.styleTags, PRODUCT_PANEL_TAG_TOP_N, {
+          enforceSecondThreshold: false
+        }).map(([tag, score], index) => ({ tag, score, rank: index + 1 }));
         productByNodeId.set(product.nodeId, product);
 
         nodes.push({
@@ -636,7 +738,7 @@
       const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const { data, error } = await client
         .from("products")
-        .select("id,name,category,image_path,style_tags,image_embedding")
+        .select("id,brand,name,category,image_path,style_tags,human_style_tags,tag_review_status,tag_review_note,image_embedding")
         .eq("category", CATEGORY)
         .order("id", { ascending: true });
 
@@ -644,11 +746,38 @@
       return Array.isArray(data) ? data : [];
     }
 
+    function getLinkStyle(link) {
+      if (link.type === "embedding") {
+        const color = link.highlighted ? "#7dd3fc" : "#38bdf8";
+        const width = link.highlighted ? 2.5 + link.weight * 2 : 0.6 + link.weight * 1.6;
+        return { color, width };
+      }
+      const colors = tagColor(link.tag);
+      const color = link.highlighted ? colors.bright : colors.base;
+      const width = link.highlighted ? 3.2 + link.weight * 3 : 0.8 + link.weight * 2.4;
+      return { color, width };
+    }
+
+    function linkDistance(link) {
+      return link.type === "embedding" ? 40 + (1 - link.weight) * 60 : 148;
+    }
+
+    function linkStrength(link) {
+      if (link.type === "embedding") {
+        return viewMode === "embedding" ? 0.05 + link.weight * 0.35 : 0.02 + link.weight * 0.08;
+      }
+      return viewMode === "embedding" ? 0.01 : 0.05 + link.normalizedStrength * 0.24;
+    }
+
+    function chargeStrength(node) {
+      if (node.type !== "tag") return -62;
+      return viewMode === "embedding" ? -30 : -620;
+    }
+
     function initGraph(graph, onInitialFit) {
       graphState = graph;
       selectedTag = null;
       selectedProductNodeId = null;
-      expandedTagItems = false;
       initialFitDone = false;
       initialFitCallback = typeof onInitialFit === "function" ? onInitialFit : null;
       graphEl.style.opacity = "0";
@@ -659,17 +788,18 @@
         .nodeId("id")
         .nodeRelSize(1)
         .nodeVal((node) => Math.max(1, node.radius || 4))
-        .linkVisibility((link) => link.type === "tag" && link.visible)
-        .linkColor((link) => link.highlighted ? "rgba(249, 115, 22, 0.95)" : "rgba(245, 158, 11, 0.36)")
-        .linkWidth((link) => link.type === "tag" && link.visible ? (link.highlighted ? 3.2 + link.weight * 3 : 0.8 + link.weight * 2.4) : 0)
+        .linkVisibility((link) => Boolean(link.visible))
+        .linkColor((link) => getLinkStyle(link).color)
+        .linkWidth((link) => link.visible ? getLinkStyle(link).width : 0)
         .linkDirectionalParticles(0)
         .linkCanvasObjectMode(() => "replace")
         .linkCanvasObject((link, ctx) => {
-          if (link.type !== "tag" || !link.visible) return;
+          if (!link.visible) return;
+          const { color, width } = getLinkStyle(link);
           ctx.save();
-          ctx.globalAlpha = link.highlighted ? 0.95 : (link.opacity ?? 0.34);
-          ctx.strokeStyle = link.highlighted ? "#f97316" : "#f59e0b";
-          ctx.lineWidth = link.highlighted ? 3.2 + link.weight * 3 : 0.8 + link.weight * 2.4;
+          ctx.globalAlpha = link.highlighted ? 0.95 : (link.opacity ?? 0.3);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
           ctx.beginPath();
           ctx.moveTo(link.source.x, link.source.y);
           ctx.lineTo(link.target.x, link.target.y);
@@ -684,9 +814,9 @@
           ctx.fill();
         })
         .onNodeClick((node) => {
-          if (node.type === "tag") {
-            showTagDetail(node.label, false);
-          } else if (node.visible) {
+          if (viewMode === "tag" && node.type === "tag") {
+            showTagDetail(node.label);
+          } else if (node.type === "item" && node.visible) {
             showProductInsight(node.id);
           }
         })
@@ -695,15 +825,31 @@
         .d3AlphaDecay(0.105)
         .d3VelocityDecay(0.58);
 
-      Graph.d3Force("link")
-        .distance((link) => link.type === "embedding" ? 40 + (1 - link.weight) * 60 : 148)
-        .strength((link) => link.type === "embedding" ? 0.02 + link.weight * 0.08 : 0.05 + link.normalizedStrength * 0.24);
-      Graph.d3Force("charge").strength((node) => node.type === "tag" ? -620 : -62);
+      Graph.d3Force("link").distance(linkDistance).strength(linkStrength);
+      Graph.d3Force("charge").strength(chargeStrength);
       Graph.d3Force("center").strength(0.035);
       Graph.d3Force("collision", d3.forceCollide((node) => Math.max(7, (node.radius || 4) + (node.type === "tag" ? 14 : 5))).iterations(1));
 
+      viewModeButton.disabled = false;
+      searchInput.disabled = false;
       showOverview(false);
-      updateLegend(graph.counts);
+    }
+
+    function setViewMode(mode) {
+      if (!graphState || viewMode === mode) return;
+      viewMode = mode;
+      viewModeButton.textContent = viewMode === "tag" ? "유사도 뷰로 전환" : "태그 뷰로 전환";
+      viewModeButton.classList.toggle("active", viewMode === "embedding");
+      Graph.d3Force("link").strength(linkStrength);
+      Graph.d3Force("charge").strength(chargeStrength);
+
+      if (selectedProductNodeId) {
+        showProductInsight(selectedProductNodeId);
+      } else if (selectedTag && viewMode === "tag") {
+        showTagDetail(selectedTag);
+      } else {
+        showOverview(true);
+      }
     }
 
     function drawNode(node, ctx, globalScale) {
@@ -716,23 +862,32 @@
       ctx.globalAlpha = node.opacity ?? 1;
 
       if (node.type === "tag") {
+        const colors = tagColor(node.label);
         ctx.beginPath();
-        ctx.fillStyle = node.selected || node.connected ? "#f97316" : "#f59e0b";
+        ctx.fillStyle = node.selected || node.connected ? colors.bright : colors.base;
         ctx.strokeStyle = "rgba(255,255,255,0.78)";
         ctx.lineWidth = node.selected || node.connected ? 2.2 : 1.25;
         ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        const fontSize = Math.max(9, Math.min(13, radius / 2.4)) / globalScale;
-        ctx.font = `800 ${fontSize}px Inter, system-ui, sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.lineWidth = 3 / globalScale;
-        ctx.strokeStyle = "rgba(0,0,0,0.45)";
-        ctx.fillStyle = "#fff7ed";
-        ctx.strokeText(node.label, node.x, node.y);
-        ctx.fillText(node.label, node.x, node.y);
+        const emphasized = node.selected || node.connected;
+        const zoomFade = emphasized
+          ? 1
+          : Math.max(0, Math.min(1, (globalScale - TAG_LABEL_ZOOM_FADE_START) / (TAG_LABEL_ZOOM_FADE_END - TAG_LABEL_ZOOM_FADE_START)));
+
+        if (zoomFade > 0) {
+          const fontSize = Math.max(9, Math.min(13, radius / 2.4)) / globalScale;
+          ctx.font = `800 ${fontSize}px Inter, system-ui, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.lineWidth = 3 / globalScale;
+          ctx.globalAlpha = (node.opacity ?? 1) * zoomFade;
+          ctx.strokeStyle = "rgba(0,0,0,0.45)";
+          ctx.fillStyle = "#fff7ed";
+          ctx.strokeText(node.label, node.x, node.y);
+          ctx.fillText(node.label, node.x, node.y);
+        }
       } else {
         ctx.save();
         ctx.beginPath();
@@ -750,8 +905,10 @@
         ctx.restore();
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = node.selected ? "#ffffff" : node.similar ? "#38bdf8" : "rgba(255,255,255,0.72)";
-        ctx.lineWidth = node.selected ? 3 : node.similar ? 2.5 : 1.2;
+        const dominantTag = node.product?.tagAssignments?.[0]?.tag;
+        const dominantColor = dominantTag ? tagColor(dominantTag).base : "rgba(255,255,255,0.72)";
+        ctx.strokeStyle = node.selected ? "#ffffff" : node.similar ? "#38bdf8" : dominantColor;
+        ctx.lineWidth = node.selected ? 3 : node.similar ? 2.5 : 1.6;
         ctx.stroke();
       }
 
@@ -794,26 +951,40 @@
       }
       for (const link of graphState.forceLinks) {
         link.highlighted = false;
-        link.visible = link.type === "tag";
-        link.opacity = link.type === "tag" ? 0.34 : 0;
+        link.visible = viewMode === "tag" ? link.type === "tag" : link.type === "embedding";
+        link.opacity = !link.visible ? 0 : (link.type === "tag" ? 0.34 : 0.28);
       }
+    }
+
+    function applySearchFilter() {
+      if (!graphState) return;
+      const query = searchQuery.trim().toLowerCase();
+      for (const node of graphState.nodes) {
+        if (node.type !== "item") continue;
+        const base = node.baseOpacity ?? node.opacity;
+        if (!query) {
+          node.opacity = base;
+          continue;
+        }
+        const haystack = `${node.product.brand} ${node.product.label}`.toLowerCase();
+        node.opacity = haystack.includes(query) ? base : Math.min(base, SEARCH_DIM_OPACITY);
+      }
+      redrawBriefly();
     }
 
     function showOverview(animate = true) {
       if (!graphState) return;
       selectedTag = null;
       selectedProductNodeId = null;
-      expandedTagItems = false;
       resetViewButton.disabled = true;
-      morePanel.classList.remove("visible");
       productPanel.classList.remove("visible");
       productPanel.innerHTML = "";
       resetVisualState();
 
       for (const node of graphState.nodes) {
         if (node.type === "tag") {
-          node.visible = true;
-          node.opacity = 1;
+          node.visible = viewMode === "tag";
+          node.opacity = viewMode === "tag" ? 1 : 0;
           node.radius = node.radius || MIN_TAG_RADIUS;
         } else {
           node.visible = true;
@@ -821,6 +992,11 @@
           node.radius = ITEM_COLLAPSED_RADIUS;
         }
       }
+
+      for (const node of graphState.nodes) {
+        if (node.type === "item") node.baseOpacity = node.opacity;
+      }
+      applySearchFilter();
 
       Graph.nodeVal((node) => Math.max(1, node.radius || 4));
       if (animate) reheatBriefly();
@@ -837,7 +1013,7 @@
     }
 
     function fitOverview(duration = 0) {
-      const includeNode = (node) => node.type === "tag" || node.type === "item";
+      const includeNode = (node) => node.type === "item" || (node.type === "tag" && viewMode === "tag");
       if (!initialFitDone) {
         initialFitDone = true;
         window.setTimeout(() => {
@@ -856,11 +1032,10 @@
       Graph.zoomToFit(duration, 90, includeNode);
     }
 
-    function showTagDetail(tag, expanded) {
-      if (!graphState) return;
+    function showTagDetail(tag) {
+      if (!graphState || viewMode !== "tag") return;
       selectedTag = tag;
       selectedProductNodeId = null;
-      expandedTagItems = expanded;
       resetViewButton.disabled = false;
       productPanel.classList.remove("visible");
       productPanel.innerHTML = "";
@@ -896,7 +1071,10 @@
         }
       }
 
-      morePanel.classList.remove("visible");
+      for (const node of graphState.nodes) {
+        if (node.type === "item") node.baseOpacity = node.opacity;
+      }
+      applySearchFilter();
 
       Graph.nodeVal((node) => Math.max(1, node.radius || 4));
       reheatBriefly();
@@ -917,9 +1095,9 @@
 
       for (const node of graphState.nodes) {
         node.selected = node.id === productNodeId;
-        node.connected = connectedTagIds.has(node.id);
+        node.connected = viewMode === "tag" && connectedTagIds.has(node.id);
         node.similar = similarNodeIds.has(node.id);
-        if (node.id === productNodeId || connectedTagIds.has(node.id)) {
+        if (node.id === productNodeId || node.connected) {
           node.visible = true;
           node.opacity = 1;
           if (node.type === "item") node.radius = ITEM_DETAIL_RADIUS;
@@ -928,7 +1106,7 @@
           node.opacity = 1;
           node.radius = ITEM_DETAIL_RADIUS;
         } else if (node.type === "tag") {
-          node.opacity = 0.16;
+          node.opacity = viewMode === "tag" ? 0.16 : 0;
         } else {
           node.opacity = ITEM_COLLAPSED_OPACITY;
         }
@@ -937,12 +1115,17 @@
       for (const link of graphState.forceLinks) {
         if (link.type !== "tag") continue;
         const key = `${linkSourceId(link)}|${link.tag}`;
-        link.highlighted = connectedLinkKeys.has(key);
+        link.highlighted = viewMode === "tag" && connectedLinkKeys.has(key);
         link.visible = link.highlighted;
         link.opacity = link.highlighted ? 0.9 : 0;
       }
 
-      renderProductPanel(product, assignments, similarProducts);
+      for (const node of graphState.nodes) {
+        if (node.type === "item") node.baseOpacity = node.opacity;
+      }
+      applySearchFilter();
+
+      renderProductPanel(product, product.panelTagAssignments || assignments, similarProducts);
       redrawBriefly();
     }
 
@@ -951,7 +1134,7 @@
       selectedProductNodeId = null;
       productPanel.classList.remove("visible");
       productPanel.innerHTML = "";
-      if (selectedTag) showTagDetail(selectedTag, expandedTagItems);
+      if (selectedTag) showTagDetail(selectedTag);
       else showOverview(true);
     }
 
@@ -963,7 +1146,7 @@
             <div class="product-tag-row">
               <span class="product-tag-name">${escapeHtml(assignment.tag)}</span>
               <span class="product-tag-bar"><span class="product-tag-fill" style="width: ${percent}%"></span></span>
-              <span>${assignment.score.toFixed(2)}</span>
+              <span class="product-tag-score">${assignment.score.toFixed(2)}</span>
             </div>
           `;
         }).join("")
@@ -974,25 +1157,32 @@
           <p class="product-similar-title">비슷한 상품</p>
           <div class="product-similar-list">
             ${similarProducts.map((e) => `
-              <div class="product-similar-row">
+              <button type="button" class="product-similar-row" data-node-id="${escapeHtml(e.product.nodeId)}">
                 <span class="product-similar-name">${escapeHtml(e.product.label)}</span>
                 <span class="product-similar-score">${(e.similarity * 100).toFixed(0)}%</span>
-              </div>
+              </button>
             `).join("")}
           </div>
         `
         : `<p class="product-note">임베딩 데이터 없음</p>`;
 
+      const reviewNoteSection = product.tagReviewNote
+        ? `
+          <details class="product-review">
+            <summary class="product-review-toggle">태그 수정 근거</summary>
+            <p class="product-review-note">${escapeHtml(product.tagReviewNote)}</p>
+          </details>
+        `
+        : "";
+
       productPanel.innerHTML = `
+        ${product.brand ? `<p class="product-brand">${escapeHtml(product.brand)}</p>` : ""}
         <h2 class="product-title">${escapeHtml(product.label)}</h2>
         <div class="product-tags">${tagRows}</div>
         ${similarSection}
+        ${reviewNoteSection}
       `;
       productPanel.classList.add("visible");
-    }
-
-    function updateLegend(counts) {
-      legendStatsEl.textContent = `상품 ${counts.items} · 태그 ${counts.tags} · 태그링크 ${counts.tagLinks}`;
     }
 
     function summarizeWarnings(graph) {
@@ -1011,7 +1201,6 @@
         if (!rows) return;
         if (!rows.length) {
           setStatus("데이터 없음", `category = ${CATEGORY} 조건에 해당하는 상품이 없습니다.`, "warning");
-          updateLegend({ items: 0, tags: TAGS.length, tagLinks: 0, embeddingLinks: 0 });
           return;
         }
 
@@ -1027,21 +1216,31 @@
     }
 
     resetViewButton.addEventListener("click", () => showOverview(true));
-    moreButton.addEventListener("click", () => {
-      if (selectedTag) showTagDetail(selectedTag, true);
+    viewModeButton.addEventListener("click", () => setViewMode(viewMode === "tag" ? "embedding" : "tag"));
+    searchInput.addEventListener("input", () => {
+      searchQuery = searchInput.value;
+      applySearchFilter();
+    });
+    productPanel.addEventListener("click", (event) => {
+      const row = event.target.closest(".product-similar-row");
+      if (!row) return;
+      const nodeId = row.dataset.nodeId;
+      if (nodeId) showProductInsight(nodeId);
     });
 
     window.addEventListener("resize", () => {
       if (!Graph) return;
       Graph.width(window.innerWidth).height(window.innerHeight);
-      Graph.zoomToFit(350, 90, (node) => selectedTag ? (node.id === tagId(selectedTag) || node.visible) : (node.type === "tag" || node.type === "item"));
+      const fallbackInclude = (node) => node.type === "item" || (node.type === "tag" && viewMode === "tag");
+      Graph.zoomToFit(350, 90, (node) => selectedTag ? (node.id === tagId(selectedTag) || node.visible) : fallbackInclude(node));
     });
 
     window.__tasteGraph = {
       showTagDetail,
       showProductInsight,
       showOverview,
-      getState: () => graphState
+      getState: () => graphState,
+      zoom: () => (Graph ? Graph.zoom() : null)
     };
 
     init();
