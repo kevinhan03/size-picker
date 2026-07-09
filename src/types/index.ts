@@ -40,6 +40,7 @@ export interface Product {
   tagReviewNote?: string | null;
   reviewedBy?: string | null;
   reviewedAt?: string | null;
+  imageEmbedding?: string | number[] | null;
 }
 
 export type StyleTagName =
@@ -133,6 +134,7 @@ export interface ProductRow {
   tag_review_note?: string | null;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
+  image_embedding?: unknown;
 }
 
 export interface SubmitProductForm {

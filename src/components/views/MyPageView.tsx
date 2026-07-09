@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, ChevronRight, Copy, LogOut, Plus, Ruler, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, LogOut, Network, Plus, Ruler, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
 import type { MySizeInput, MySizeProfile, Product } from "../../types";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 
@@ -11,8 +11,6 @@ interface MyPageViewProps {
   digboxHref: string;
   closetCount: number;
   digboxCount: number;
-  closetPreviewProducts: Product[];
-  digboxPreviewProducts: Product[];
   closetProducts: Product[];
   mySizes: MySizeProfile[];
   onCreateMySize: (input: MySizeInput) => Promise<void>;
@@ -26,141 +24,40 @@ interface MyPageViewProps {
 const cardClass =
   "rounded-2xl border border-white/10 bg-white/[0.055] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_18px_46px_rgba(0,0,0,0.42)] backdrop-blur-2xl";
 
-function ProductCardCarousel({ products, icon }: { products: Product[]; icon: React.ReactNode }) {
-  const preview = products.slice(0, 5);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const touchStartXRef = React.useRef<number | null>(null);
-  const touchStartYRef = React.useRef<number | null>(null);
-  const didSwipeRef = React.useRef(false);
-
-  if (preview.length === 0) {
-    return (
-      <div className="flex h-full min-h-[156px] items-center justify-center rounded-2xl border border-white/[0.06] bg-black/20 text-gray-600">
-        {icon}
-      </div>
-    );
-  }
-
-  const getOffset = (index: number) => {
-    if (preview.length === 1) return 0;
-    let offset = index - activeIndex;
-    const half = preview.length / 2;
-    if (offset > half) offset -= preview.length;
-    if (offset < -half) offset += preview.length;
-    return offset;
-  };
-
-  const getCardStyle = (offset: number): React.CSSProperties => ({
-    left: "50%",
-    opacity: Math.abs(offset) <= 1 ? (offset === 0 ? 1 : 0.58) : 0,
-    pointerEvents: Math.abs(offset) <= 1 ? "auto" : "none",
-    transform: `translateX(calc(-50% + ${
-      offset === 0 ? "0%" : offset < 0 ? "var(--mypage-side-card-x-neg)" : "var(--mypage-side-card-x)"
-    })) translateY(-50%) scale(${offset === 0 ? 1 : 0.72})`,
-    zIndex: offset === 0 ? 10 : Math.abs(offset) <= 1 ? 1 : 0,
-  });
-
-  const slideToNext = () => setActiveIndex((current) => (current + 1) % preview.length);
-  const slideToPrevious = () => setActiveIndex((current) => (current - 1 + preview.length) % preview.length);
-
-  const handleTouchStart = (event: React.TouchEvent<HTMLButtonElement>) => {
-    const touch = event.touches[0];
-    touchStartXRef.current = touch.clientX;
-    touchStartYRef.current = touch.clientY;
-    didSwipeRef.current = false;
-  };
-
-  const handleTouchEnd = (event: React.TouchEvent<HTMLButtonElement>) => {
-    const startX = touchStartXRef.current;
-    const startY = touchStartYRef.current;
-    touchStartXRef.current = null;
-    touchStartYRef.current = null;
-    if (startX === null || startY === null || preview.length <= 1) return;
-    const touch = event.changedTouches[0];
-    const deltaX = touch.clientX - startX;
-    const deltaY = touch.clientY - startY;
-    if (Math.abs(deltaX) < 36 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
-    didSwipeRef.current = true;
-    if (deltaX < 0) slideToNext();
-    else slideToPrevious();
-  };
-
-  const handleClick = () => {
-    if (didSwipeRef.current) {
-      didSwipeRef.current = false;
-      return;
-    }
-    slideToNext();
-  };
-
-  return (
-    <div className="min-h-[190px] w-full min-w-0 max-w-full overflow-hidden px-2 pt-3 [--mypage-side-card-x-neg:-40%] [--mypage-side-card-x:40%] sm:min-h-[292px] sm:[--mypage-side-card-x-neg:-50%] sm:[--mypage-side-card-x:50%]">
-      <button
-        type="button"
-        onClick={handleClick}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        className="relative h-[170px] w-full touch-pan-y appearance-none border-0 bg-transparent p-0 shadow-none outline-none sm:h-[276px]"
-        aria-label="다음 상품 보기"
-      >
-        {preview.map((product, index) => (
-          <div
-            key={product.id}
-            className="absolute top-1/2 aspect-[4/5] h-[160px] overflow-hidden rounded-2xl bg-white transition-all duration-300 ease-out sm:h-[260px]"
-            style={getCardStyle(getOffset(index))}
-          >
-            <img
-              src={product.thumbnailImage || product.image}
-              alt={product.name}
-              className="h-full w-full object-contain"
-            />
-          </div>
-        ))}
-      </button>
-    </div>
-  );
-}
-
 function CollectionCard({
   title,
-  count,
   href,
-  products,
   icon,
   tone,
+  meta,
+  emptyCta = false,
 }: {
   title: string;
-  count: number;
   href: string;
-  products: Product[];
   icon: React.ReactNode;
-  tone: "yellow" | "orange";
+  tone: "yellow" | "orange" | "blue";
+  meta: React.ReactNode;
+  emptyCta?: boolean;
 }) {
-  const color = tone === "yellow" ? "text-yellow-300" : "text-orange-400";
-  const bg = tone === "yellow" ? "bg-yellow-400/12" : "bg-orange-500/12";
+  const color = tone === "yellow" ? "text-yellow-300" : tone === "orange" ? "text-orange-400" : "text-sky-300";
+  const bg = tone === "yellow" ? "bg-yellow-400/12" : tone === "orange" ? "bg-orange-500/12" : "bg-sky-400/12";
 
   return (
-    <section className={`${cardClass} flex min-h-[284px] min-w-0 flex-col p-4 sm:min-h-[292px] sm:p-5`}>
-      <div className="mb-3 sm:mb-4">
-        <Link href={href} className="group flex min-w-0 items-start justify-between gap-2 no-underline">
-          <div className="min-w-0">
-            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2">
-              <span className={`flex h-7 w-7 items-center justify-center rounded-lg sm:h-8 sm:w-8 sm:rounded-xl ${bg} ${color}`}>
-                {icon}
-              </span>
-              <h2 className="min-w-0 truncate text-sm font-black text-white transition group-hover:text-orange-300 sm:text-lg">{title}</h2>
-            </div>
-          </div>
-          <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-gray-500 transition group-hover:text-orange-300 sm:h-5 sm:w-5" />
-        </Link>
-      </div>
-      <div className="min-h-0 min-w-0 flex-1">
-        <ProductCardCarousel products={products} icon={icon} />
-      </div>
-      {count === 0 && (
+    <section className={`${cardClass} flex min-w-0 flex-col gap-3 p-4 sm:p-5`}>
+      <Link href={href} className="group flex min-w-0 items-center gap-3 no-underline">
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${bg} ${color}`}>
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="min-w-0 truncate text-sm font-black text-white transition group-hover:text-orange-300 sm:text-base">{title}</h2>
+          <div className="mt-0.5 truncate text-xs font-semibold text-gray-500">{meta}</div>
+        </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-gray-500 transition group-hover:text-orange-300 sm:h-5 sm:w-5" />
+      </Link>
+      {emptyCta && (
         <Link
           href="/"
-          className="mt-3 inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-black transition hover:bg-orange-400 sm:mt-4 sm:h-10 sm:gap-2 sm:px-4 sm:text-sm"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-black transition hover:bg-orange-400 sm:h-10 sm:gap-2 sm:px-4 sm:text-sm"
         >
           <Plus className="h-4 w-4" />
           상품 둘러보기
@@ -560,8 +457,6 @@ export function MyPageView({
   digboxHref,
   closetCount,
   digboxCount,
-  closetPreviewProducts,
-  digboxPreviewProducts,
   closetProducts,
   mySizes,
   onCreateMySize,
@@ -635,23 +530,32 @@ export function MyPageView({
         </div>
       </section>
 
-      <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid min-w-0 grid-cols-2 items-stretch gap-3 sm:gap-4">
         <CollectionCard
-          title="DIGBOX"
-          count={digboxCount}
-          href={digboxHref}
-          products={digboxPreviewProducts}
-          icon={<Star className="h-4 w-4" />}
-          tone="yellow"
+          title="취향그래프"
+          href="/taste-graph"
+          icon={<Network className="h-5 w-5" />}
+          tone="blue"
+          meta="나의 스타일을 확인해보세요"
         />
-        <CollectionCard
-          title="Closet"
-          count={closetCount}
-          href="/closet"
-          products={closetPreviewProducts}
-          icon={<Shirt className="h-4 w-4" />}
-          tone="orange"
-        />
+        <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
+          <CollectionCard
+            title="Closet"
+            href="/closet"
+            icon={<Shirt className="h-5 w-5" />}
+            tone="orange"
+            meta={`${closetCount}개`}
+            emptyCta={closetCount === 0}
+          />
+          <CollectionCard
+            title="DIGBOX"
+            href={digboxHref}
+            icon={<Star className="h-5 w-5" />}
+            tone="yellow"
+            meta={`${digboxCount}개`}
+            emptyCta={digboxCount === 0}
+          />
+        </div>
       </div>
 
       <div className="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-4">

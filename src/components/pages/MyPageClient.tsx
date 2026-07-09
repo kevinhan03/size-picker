@@ -45,8 +45,6 @@ export function MyPageClient() {
         digboxHref={`/u/${encodeURIComponent(username)}`}
         closetCount={closetProducts.length}
         digboxCount={digboxProducts.length}
-        closetPreviewProducts={closetProducts.slice(0, 5)}
-        digboxPreviewProducts={digboxProducts.slice(0, 5)}
         closetProducts={closetProducts}
         mySizes={mySizes}
         onCreateMySize={async (input) => {

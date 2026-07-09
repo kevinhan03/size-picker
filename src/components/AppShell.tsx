@@ -355,17 +355,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const search = useSearchContext();
   const pathname = usePathname();
   const isAdminPage = pathname?.startsWith("/admin");
+  const isTasteGraphPage = pathname?.startsWith("/taste-graph");
+  const hideChrome = isAdminPage || isTasteGraphPage;
 
   return (
     <>
-      {!isAdminPage && <AppHeader />}
+      {!hideChrome && <AppHeader />}
       {children}
       {search.result && <SearchResultOverlay />}
       {productForm.isModalOpen && <AddProductModal form={productForm} />}
-      {!isAdminPage && <ProductSubmitToast />}
-      {!isAdminPage && <SignupVerifiedToast />}
-      {!isAdminPage && <ClosetToast />}
-      {!isAdminPage && <DigboxToast />}
+      {!hideChrome && <ProductSubmitToast />}
+      {!hideChrome && <SignupVerifiedToast />}
+      {!hideChrome && <ClosetToast />}
+      {!hideChrome && <DigboxToast />}
       {auth.needsUsername && (
         <NeedsUsernameModal
           pendingUsername={auth.pendingUsername}
