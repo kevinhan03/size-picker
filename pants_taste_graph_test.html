@@ -215,10 +215,19 @@
     .product-panel.visible { display: block; }
 
     .product-title {
-      margin: 0 0 10px;
+      margin: 2px 0 10px;
       font-size: 14px;
       font-weight: 800;
       line-height: 1.35;
+    }
+
+    .product-brand {
+      margin: 0;
+      color: var(--tag);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .product-tags {
@@ -249,9 +258,17 @@
     }
 
     .product-tag-fill {
+      display: block;
       height: 100%;
       border-radius: inherit;
-      background: var(--tag);
+      background: linear-gradient(90deg, #38bdf8, #7dd3fc);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+    }
+
+    .product-tag-score {
+      color: var(--muted);
+      font-weight: 750;
+      text-align: right;
     }
 
     .product-note {
@@ -259,6 +276,42 @@
       color: var(--faint);
       font-size: 12px;
       line-height: 1.4;
+    }
+
+    .product-review {
+      margin-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 10px;
+    }
+
+    .product-review-toggle {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      list-style: none;
+    }
+
+    .product-review-toggle::-webkit-details-marker { display: none; }
+
+    .product-review-toggle::before {
+      content: "▸";
+      display: inline-block;
+      margin-right: 6px;
+      color: var(--tag);
+      transition: transform 120ms ease;
+    }
+
+    .product-review[open] .product-review-toggle::before {
+      transform: rotate(90deg);
+    }
+
+    .product-review-note {
+      margin: 8px 0 0;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
     }
 
     .product-similar-title {
@@ -352,6 +405,7 @@
     const CATEGORY = "Bottom";
     const STORAGE_BUCKET = "product-assets";
     const TAG_TOP_N = 2;
+    const PRODUCT_PANEL_TAG_TOP_N = 5;
     const SECOND_TAG_MIN_CONFIDENCE = 0.15;
     const EMBEDDING_TOP_K = 2;
     const SIMILAR_TOP_K = 5;
@@ -361,7 +415,29 @@
     const ITEM_DETAIL_RADIUS = 20;
     const MIN_TAG_RADIUS = 20;
     const MAX_TAG_RADIUS = 42;
-    const TAGS = ["캐주얼", "미니멀", "스트릿", "클래식", "빈티지", "레트로", "로맨틱", "스포티", "프레피", "워크웨어"];
+    const TAGS = [
+      "casual",
+      "minimal",
+      "street",
+      "classic",
+      "vintage",
+      "lovely_romantic",
+      "sporty",
+      "workwear_gorpcore",
+      "chic_modern",
+      "glam_sexy"
+    ];
+    const LEGACY_TAG_KEY_MAP = {
+      "캐주얼": "casual",
+      "미니멀": "minimal",
+      "스트릿": "street",
+      "클래식": "classic",
+      "빈티지": "vintage",
+      "레트로": "vintage",
+      "로맨틱": "lovely_romantic",
+      "스포티": "sporty",
+      "워크웨어": "workwear_gorpcore"
+    };
 
     const graphEl = document.querySelector("#graph");
     const statusEl = document.querySelector("#status");
@@ -466,20 +542,37 @@
     function normalizeStyleTags(styleTags) {
       if (!styleTags || typeof styleTags !== "object" || Array.isArray(styleTags)) return {};
       const normalized = {};
-      for (const tag of TAGS) {
-        const score = Number(styleTags[tag]);
-        if (Number.isFinite(score)) normalized[tag] = Math.max(0, Math.min(1, score));
+      for (const [rawTag, rawScore] of Object.entries(styleTags)) {
+        const tag = TAGS.includes(rawTag) ? rawTag : LEGACY_TAG_KEY_MAP[rawTag];
+        if (!tag) continue;
+        const score = Number(rawScore);
+        if (Number.isFinite(score)) normalized[tag] = Math.max(normalized[tag] || 0, Math.min(1, Math.max(0, score)));
       }
       return normalized;
     }
 
-    function selectTopTags(styleTags) {
-      const sorted = Object.entries(styleTags)
-        .filter(([, score]) => Number.isFinite(score))
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, TAG_TOP_N);
+    function getEffectiveStyleTags(row) {
+      const status = String(row.tag_review_status || "").trim();
+      const hasReviewedTags =
+        row.human_style_tags &&
+        typeof row.human_style_tags === "object" &&
+        !Array.isArray(row.human_style_tags);
 
-      if (sorted.length <= 1) return sorted;
+      if ((status === "approved" || status === "edited") && hasReviewedTags) {
+        return { tags: row.human_style_tags, source: "human" };
+      }
+
+      return { tags: row.style_tags, source: "ai" };
+    }
+
+    function selectTopTags(styleTags, limit = TAG_TOP_N, options = {}) {
+      const enforceSecondThreshold = options.enforceSecondThreshold !== false;
+      const sorted = Object.entries(styleTags)
+        .filter(([, score]) => Number.isFinite(score) && score > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit);
+
+      if (!enforceSecondThreshold || sorted.length <= 1) return sorted;
       if (sorted[1][1] < SECOND_TAG_MIN_CONFIDENCE) return [sorted[0]];
       return sorted;
     }
@@ -506,7 +599,8 @@
 
       const products = rows.map((row) => {
         const embedding = parseEmbedding(row.image_embedding);
-        if (!row.style_tags) warnings.missingStyleTags += 1;
+        const effectiveStyleTags = getEffectiveStyleTags(row);
+        if (!effectiveStyleTags.tags) warnings.missingStyleTags += 1;
         if (!row.image_embedding) warnings.missingEmbedding += 1;
         if (row.image_embedding && !embedding) warnings.invalidEmbedding += 1;
         if (!row.image_path) warnings.missingImagePath += 1;
@@ -515,8 +609,12 @@
           id: String(row.id),
           nodeId: `item:${row.id}`,
           label: String(row.name || `Product ${row.id}`),
+          brand: String(row.brand || "").trim(),
           imageUrl: resolveImageUrl(row.image_path),
-          styleTags: normalizeStyleTags(row.style_tags),
+          styleTags: normalizeStyleTags(effectiveStyleTags.tags),
+          styleTagSource: effectiveStyleTags.source,
+          tagReviewStatus: String(row.tag_review_status || "").trim(),
+          tagReviewNote: String(row.tag_review_note || "").trim(),
           embedding
         };
       });
@@ -524,6 +622,9 @@
       for (const product of products) {
         const topTags = selectTopTags(product.styleTags);
         product.tagAssignments = topTags.map(([tag, score], index) => ({ tag, score, rank: index + 1 }));
+        product.panelTagAssignments = selectTopTags(product.styleTags, PRODUCT_PANEL_TAG_TOP_N, {
+          enforceSecondThreshold: false
+        }).map(([tag, score], index) => ({ tag, score, rank: index + 1 }));
         productByNodeId.set(product.nodeId, product);
 
         nodes.push({
@@ -636,7 +737,7 @@
       const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const { data, error } = await client
         .from("products")
-        .select("id,name,category,image_path,style_tags,image_embedding")
+        .select("id,brand,name,category,image_path,style_tags,human_style_tags,tag_review_status,tag_review_note,image_embedding")
         .eq("category", CATEGORY)
         .order("id", { ascending: true });
 
@@ -942,7 +1043,7 @@
         link.opacity = link.highlighted ? 0.9 : 0;
       }
 
-      renderProductPanel(product, assignments, similarProducts);
+      renderProductPanel(product, product.panelTagAssignments || assignments, similarProducts);
       redrawBriefly();
     }
 
@@ -963,7 +1064,7 @@
             <div class="product-tag-row">
               <span class="product-tag-name">${escapeHtml(assignment.tag)}</span>
               <span class="product-tag-bar"><span class="product-tag-fill" style="width: ${percent}%"></span></span>
-              <span>${assignment.score.toFixed(2)}</span>
+              <span class="product-tag-score">${assignment.score.toFixed(2)}</span>
             </div>
           `;
         }).join("")
@@ -983,10 +1084,21 @@
         `
         : `<p class="product-note">임베딩 데이터 없음</p>`;
 
+      const reviewNoteSection = product.tagReviewNote
+        ? `
+          <details class="product-review">
+            <summary class="product-review-toggle">태그 수정 근거</summary>
+            <p class="product-review-note">${escapeHtml(product.tagReviewNote)}</p>
+          </details>
+        `
+        : "";
+
       productPanel.innerHTML = `
+        ${product.brand ? `<p class="product-brand">${escapeHtml(product.brand)}</p>` : ""}
         <h2 class="product-title">${escapeHtml(product.label)}</h2>
         <div class="product-tags">${tagRows}</div>
         ${similarSection}
+        ${reviewNoteSection}
       `;
       productPanel.classList.add("visible");
     }

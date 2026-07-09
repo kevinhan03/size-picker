@@ -1,5 +1,5 @@
 import { Check, Save, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Product, ProductStyleReviewInput, StyleTagName, StyleTags, TagReviewStatus } from '../../types';
 
 const STYLE_TAGS: StyleTagName[] = [
@@ -56,6 +56,16 @@ const getTopTags = (tags: StyleTags) =>
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
 
+const getEffectiveStyleTags = (product: Product): unknown => {
+  if (
+    (product.tagReviewStatus === 'approved' || product.tagReviewStatus === 'edited') &&
+    product.humanStyleTags
+  ) {
+    return product.humanStyleTags;
+  }
+  return product.styleTags;
+};
+
 const statusLabels: Record<TagReviewStatus | 'none', string> = {
   none: '미검수',
   needs_review: '검수 필요',
@@ -72,6 +82,7 @@ interface ProductStyleReviewPanelProps {
 
 export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductStyleReviewPanelProps) {
   const aiTags = useMemo(() => normalizeStyleTags(product.styleTags), [product.styleTags]);
+  const effectiveTags = useMemo(() => normalizeStyleTags(getEffectiveStyleTags(product)), [product]);
   const initialHumanTags = useMemo(
     () => normalizeStyleTags(product.humanStyleTags ?? product.styleTags),
     [product.humanStyleTags, product.styleTags]
@@ -80,7 +91,7 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
   const [reviewNote, setReviewNote] = useState(product.tagReviewNote ?? '');
 
   const hasAiTags = Boolean(product.styleTags);
-  const topAiTags = getTopTags(aiTags);
+  const topTasteTags = getTopTags(effectiveTags);
   const material =
     product.humanStyleAttributes?.material ??
     product.styleAttributes?.material ??
@@ -90,6 +101,14 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
     product.styleAttributes?.fit ??
     null;
   const reviewStatus = product.tagReviewStatus ?? 'none';
+
+  useEffect(() => {
+    setHumanTags(initialHumanTags);
+  }, [initialHumanTags]);
+
+  useEffect(() => {
+    setReviewNote(product.tagReviewNote ?? '');
+  }, [product.tagReviewNote]);
 
   const updateScore = (tag: StyleTagName, value: string) => {
     const score = Number(value);
@@ -120,7 +139,7 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
             </span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {topAiTags.map(({ tag, score }) => (
+            {topTasteTags.map(({ tag, score }) => (
               <span key={tag} className="rounded-md bg-gray-800 px-2 py-1 text-xs text-gray-200">
                 {tag} {score.toFixed(2)}
               </span>
