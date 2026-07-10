@@ -1,11 +1,22 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { Product } from "../../types";
 import { computeTasteSummary, tagColor } from "../../utils/tasteGraph";
 
 const TOP_N = 4;
 
-export function TasteSummaryCard({ products }: { products: Product[] }) {
+export function TasteSummaryCard({
+  controls,
+  products,
+  sourceLabel = "옷장",
+  sourceNoun = "옷장 상품",
+}: {
+  controls?: ReactNode;
+  products: Product[];
+  sourceLabel?: string;
+  sourceNoun?: string;
+}) {
   const summary = computeTasteSummary(products);
 
   if (!summary.entries.length) return null;
@@ -18,10 +29,15 @@ export function TasteSummaryCard({ products }: { products: Product[] }) {
 
   return (
     <section className="taste-summary-card">
-      <p className="taste-summary-eyebrow">나의 취향</p>
-      <h1 className="taste-summary-headline">{headline} 타입</h1>
+      <div className="taste-summary-top">
+        <div className="taste-summary-title">
+          <p className="taste-summary-eyebrow">나의 취향 · {sourceLabel}</p>
+          <h1 className="taste-summary-headline">{headline} 타입</h1>
+        </div>
+        {controls ? <div className="taste-summary-controls">{controls}</div> : null}
+      </div>
       <p className="taste-summary-note">
-        옷장 상품 {summary.totalCount}개 중 태그된 {summary.taggedCount}개 기준
+        {sourceNoun} {summary.totalCount}개 중 태그된 {summary.taggedCount}개 기준
       </p>
 
       <div className="taste-summary-bars">
@@ -50,6 +66,21 @@ export function TasteSummaryCard({ products }: { products: Product[] }) {
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           background: linear-gradient(180deg, #151720 0%, #0e0f13 100%);
+        }
+
+        .taste-summary-top {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .taste-summary-title {
+          min-width: 0;
+        }
+
+        .taste-summary-controls {
+          flex-shrink: 0;
         }
 
         .taste-summary-eyebrow {
@@ -114,6 +145,17 @@ export function TasteSummaryCard({ products }: { products: Product[] }) {
           color: #a5acb8;
           font-weight: 700;
           text-align: right;
+        }
+
+        @media (max-width: 640px) {
+          .taste-summary-top {
+            flex-direction: column;
+            gap: 10px;
+          }
+
+          .taste-summary-controls {
+            width: 100%;
+          }
         }
       `}</style>
     </section>
