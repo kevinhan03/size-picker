@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Network, Plus } from "lucide-react";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { captureEvent } from "../../utils/analytics";
 import { TasteGraphCanvas } from "../taste-graph/TasteGraphCanvas";
 import { TasteSummaryCard } from "../taste-graph/TasteSummaryCard";
 
@@ -15,7 +16,8 @@ type TasteGraphSource = "closet" | "digbox";
 export function TasteGraphPageClient() {
   const router = useRouter();
   const auth = useAuthContext();
-  const [source, setSource] = useState<TasteGraphSource>("closet");
+  const authUserId = auth.authUser?.id;
+  const [selectedSource, setSelectedSource] = useState<TasteGraphSource | null>(null);
   const {
     closetProducts,
     isLoading: isClosetLoading,
@@ -28,56 +30,57 @@ export function TasteGraphPageClient() {
   } = useDigboxContext();
 
   useEffect(() => {
-    if (!auth.isAuthLoading && !auth.authUser) {
-      router.replace("/login");
-    }
-  }, [auth.authUser, auth.isAuthLoading, router]);
+    if (!auth.isAuthLoading && !authUserId) router.replace("/login");
+  }, [auth.isAuthLoading, authUserId, router]);
 
   useEffect(() => {
-    if (!auth.authUser) return;
+    if (!authUserId) return;
     ensureClosetLoaded();
     ensureDigboxLoaded();
-  }, [auth.authUser, ensureClosetLoaded, ensureDigboxLoaded]);
+  }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
 
+  const source = selectedSource ?? (digboxProducts.length > 0 ? "digbox" : "closet");
   const activeProducts = source === "closet" ? closetProducts : digboxProducts;
-  const activeLoading = source === "closet" ? isClosetLoading : isDigboxLoading;
-  const sourceLabel = source === "closet" ? "옷장" : "DIGBOX";
-  const sourceNoun = source === "closet" ? "옷장 상품" : "DIGBOX 상품";
+  const sourceLabel = source === "closet" ? "Closet" : "DIGBOX";
+  const sourceNoun = source === "closet" ? "Closet 상품" : "DIGBOX 상품";
+  const eyebrow = source === "closet" ? "보유 취향" : "관심 취향";
   const emptyCopy = useMemo(
     () =>
       source === "closet"
         ? {
-            title: "옷장이 비어있어요",
-            description: "옷장에 상품을 담으면 나만의 취향그래프가 그려져요.",
+            title: "아직 보유 상품이 없습니다",
+            description: "실제로 가진 상품을 Closet에 담으면 보유 취향이 그려집니다.",
           }
         : {
-            title: "DIGBOX가 비어있어요",
-            description: "마음에 드는 상품을 DIGBOX에 저장하면 관심 취향그래프가 그려져요.",
+            title: "아직 관심 상품이 없습니다",
+            description: "마음에 드는 상품을 DIGBOX에 담으면 관심 취향이 그려집니다.",
           },
     [source]
   );
 
+  useEffect(() => {
+    if (source === "digbox" && activeProducts.length > 0) {
+      captureEvent("interest_taste_viewed", { product_count: activeProducts.length });
+    }
+  }, [activeProducts.length, source]);
+
   const sourceToggle = (
-    <div className="taste-source-toggle" aria-label="취향그래프 상품 기준">
-      {(["closet", "digbox"] as const).map((value) => (
+    <div className="taste-source-toggle" aria-label="취향 분석 기준">
+      {(["digbox", "closet"] as const).map((value) => (
         <button
           key={value}
           type="button"
           className={`taste-source-button ${source === value ? "active" : ""}`}
-          onClick={() => setSource(value)}
+          onClick={() => setSelectedSource(value)}
         >
-          {value === "closet" ? "옷장" : "DIGBOX"}
-          <span>{value === "closet" ? closetProducts.length : digboxProducts.length}</span>
+          {value === "digbox" ? "관심 취향" : "보유 취향"}
+          <span>{value === "digbox" ? digboxProducts.length : closetProducts.length}</span>
         </button>
       ))}
     </div>
   );
 
-  if (auth.isAuthLoading || !auth.authUser) {
-    return <main className="fixed inset-0 bg-black" />;
-  }
-
-  if (activeLoading) {
+  if (auth.isAuthLoading || !auth.authUser || isClosetLoading || isDigboxLoading) {
     return <main className="fixed inset-0 bg-black" />;
   }
 
@@ -111,11 +114,12 @@ export function TasteGraphPageClient() {
       <TasteSummaryCard
         controls={sourceToggle}
         products={activeProducts}
+        eyebrow={eyebrow}
         sourceLabel={sourceLabel}
         sourceNoun={sourceNoun}
       />
       <div className="relative min-h-0 flex-1">
-        <TasteGraphCanvas products={activeProducts} />
+        <TasteGraphCanvas key={source} products={activeProducts} />
       </div>
       <style jsx>{toggleStyles}</style>
     </main>

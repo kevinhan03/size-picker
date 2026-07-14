@@ -79,10 +79,11 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
         smoothScrollTo={smoothScrollTo}
         onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
         isInCloset={isInCloset(normalizedProduct.id)}
-        onToggleDigbox={() => toggleDigbox(normalizedProduct.id)}
+        onToggleDigbox={() => toggleDigbox(normalizedProduct.id, "product_route")}
         isInDigbox={isInDigbox(normalizedProduct.id)}
         hideDigboxButton={hideDigboxButton}
         hideCollectionActions={hideCollectionActions}
+        analyticsSource="product_route"
       />
 
       {isDetailImageZoomed && (

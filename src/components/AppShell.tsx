@@ -7,6 +7,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
 import { GoogleSignupCompleteModal } from "./GoogleSignupCompleteModal";
+import { GuestDigboxExperience } from "./GuestDigboxExperience";
+import { MobileBottomNav } from "./MobileBottomNav";
 import { NeedsUsernameModal } from "./NeedsUsernameModal";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useClosetContext } from "../contexts/ClosetContext";
@@ -90,7 +92,7 @@ function ClosetToast() {
   const isAdded = visibleToast.message === "added";
 
   return (
-    <div className="pointer-events-none fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2">
+    <div className="pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]">
       <div
         className={`pointer-events-auto flex items-center gap-3 rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-all duration-200 ease-out ${
           isVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
@@ -141,7 +143,7 @@ function ClosetToast() {
 }
 
 function DigboxToast() {
-  const { toast, clearToast } = useDigboxContext();
+  const { toast, clearToast, guestCount, retryGuestSync } = useDigboxContext();
   const auth = useAuthContext();
   const router = useRouter();
   const usernameRef = useRef(auth.dbUsername);
@@ -198,10 +200,14 @@ function DigboxToast() {
   if (!visibleToast) return null;
 
   const isLoginRequired = visibleToast.message === "login_required";
-  const isAdded = visibleToast.message === "added";
+  const isAdded = visibleToast.message === "added" || visibleToast.message === "guest_synced";
+  const guestAddedCount = visibleToast.message.startsWith("guest_added_")
+    ? Number(visibleToast.message.replace("guest_added_", ""))
+    : 0;
+  const isGuestSyncPartial = visibleToast.message === "guest_sync_partial";
 
   return (
-    <div className="pointer-events-none fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2">
+    <div className={`pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 ${guestCount > 0 && !auth.authUser ? "sm:bottom-[calc(5rem+env(safe-area-inset-bottom))]" : "sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"}`}>
       <div
         className={`pointer-events-auto flex items-center gap-3 rounded-2xl border border-yellow-400/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-all duration-200 ease-out ${
           isVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
@@ -215,10 +221,30 @@ function DigboxToast() {
 
         <div className="min-w-0 flex-1">
           <p className="font-bold text-white">
-            {isLoginRequired ? "로그인이 필요해요" : isAdded ? "DIGBOX에 담았어요" : "이미 DIGBOX에 있어요"}
+            {guestAddedCount
+              ? `임시 DIGBOX ${guestAddedCount}/3`
+              : isGuestSyncPartial
+              ? "일부 상품을 옮기지 못했어요"
+              : visibleToast.message === "guest_synced"
+              ? "임시 상품을 내 DIGBOX에 저장했어요"
+              : isLoginRequired
+              ? "로그인이 필요해요"
+              : isAdded
+              ? "DIGBOX에 담았어요"
+              : "이미 DIGBOX에 있어요"}
           </p>
           <p className="truncate text-xs text-gray-400">
-            {isLoginRequired
+            {guestAddedCount === 1
+              ? "2개 더 담으면 관심 취향을 볼 수 있어요"
+              : guestAddedCount === 2
+              ? "관심 취향이 만들어지고 있어요"
+              : guestAddedCount === 3
+              ? "가입하면 지금 담은 상품을 그대로 보관할 수 있어요"
+              : isGuestSyncPartial
+              ? "임시 DIGBOX에서 다시 시도할 수 있어요"
+              : visibleToast.message === "guest_synced"
+              ? "원래 보던 상품에서 계속 디깅해보세요"
+              : isLoginRequired
               ? "DIGBOX 기능은 로그인 후 사용할 수 있어요"
               : isAdded
               ? "내 DIGBOX에서 확인할 수 있어요"
@@ -226,7 +252,18 @@ function DigboxToast() {
           </p>
         </div>
 
-        {isLoginRequired ? (
+        {isGuestSyncPartial ? (
+          <button
+            type="button"
+            onClick={() => {
+              clearToast();
+              retryGuestSync();
+            }}
+            className="flex-shrink-0 rounded-lg bg-red-400 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-red-300"
+          >
+            다시 시도
+          </button>
+        ) : guestAddedCount ? null : isLoginRequired ? (
           <Link
             href="/login"
             onClick={clearToast}
@@ -357,6 +394,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAdminPage = pathname?.startsWith("/admin");
   const isTasteGraphPage = pathname?.startsWith("/taste-graph");
   const hideChrome = isAdminPage || isTasteGraphPage;
+  const hideMobileBottomNav = hideChrome || pathname === "/login" || pathname?.startsWith("/auth/");
 
   return (
     <>
@@ -368,6 +406,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!hideChrome && <SignupVerifiedToast />}
       {!hideChrome && <ClosetToast />}
       {!hideChrome && <DigboxToast />}
+      {!hideChrome && <GuestDigboxExperience />}
+      {!hideMobileBottomNav && <MobileBottomNav />}
       {auth.needsUsername && (
         <NeedsUsernameModal
           pendingUsername={auth.pendingUsername}

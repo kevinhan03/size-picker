@@ -111,15 +111,15 @@ export function GridView({
                 <div
                   key={product.id}
                   onClick={(event) => onProductClick(product, getAnchorRect(event))}
-                  className={`ui-product-card relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition ${
+                  className={`ui-product-card relative flex h-full flex-col overflow-hidden rounded-[22px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.045))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl transition ${
                     isInteractionDisabled
                       ? "cursor-default"
-                      : "group cursor-pointer hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
+                      : "group cursor-pointer hover:-translate-y-0.5 hover:border-white/[0.12] hover:shadow-[0_20px_42px_rgba(0,0,0,0.24)]"
                   }`}
                 >
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_32%,transparent_68%,rgba(255,255,255,0.1))]" />
-                  <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(17,24,39,0.72),rgba(0,0,0,0.46))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:m-3 sm:h-48 sm:rounded-[22px]">
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.12),transparent_28%)]" />
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.11),transparent_34%,transparent_72%,rgba(255,255,255,0.04))]" />
+                  <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48 sm:rounded-[18px]">
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
                     <div className="absolute inset-3 z-[1] sm:inset-4">
                       <ProgressiveImage
                         src={product.image}
@@ -131,7 +131,7 @@ export function GridView({
                       />
                     </div>
                   </div>
-                  <div className="flex flex-1 flex-col bg-black/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
+                  <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
                     <div className="mb-1 flex min-w-0 items-center gap-2">
                       <div className="truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
                       {product.isInstagram && (

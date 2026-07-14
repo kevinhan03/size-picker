@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, SyntheticEvent } from "react";
-import { ChevronLeft, ChevronRight, Instagram, RefreshCw, Search, ShieldAlert, Users, X } from "lucide-react";
+import { RefreshCw, Search, ShieldAlert, Star, X } from "lucide-react";
 import { GridView } from "../GridView";
 import { FilterBar } from "../FilterBar";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
+import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
@@ -35,8 +36,6 @@ const shuffleProducts = (items: Product[], seed: number): Product[] => {
     .sort((a, b) => a.weight - b.weight || a.index - b.index)
     .map(({ product }) => product);
 };
-
-const DEFAULT_FEATURED_HEADING = "지금 주목할 상품";
 
 const TUTORIAL_IDS = [
   "search",
@@ -81,9 +80,16 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
 }
 
 export function SearchPageClient() {
-  const { products, featuredProducts, isProductsLoading, productsError, retryProductsLoad } = useProductsContext();
+  const { products, isProductsLoading, productsError, retryProductsLoad } = useProductsContext();
+  const { authUser, isAuthLoading } = useAuthContext();
   const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
-  const { toggleDigbox, isInDigbox, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
+  const {
+    toggleDigbox,
+    isInDigbox,
+    ensureLoaded: ensureDigboxLoaded,
+    guestCount,
+    isGuestHydrated,
+  } = useDigboxContext();
   const {
     clearQuery,
     handleQueryChange,
@@ -104,15 +110,10 @@ export function SearchPageClient() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
-  const [instagramProfileUrl, setInstagramProfileUrl] = useState("");
-  const [digboxUrl, setDigboxUrl] = useState("");
-  const [featuredHeading, setFeaturedHeading] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [showAllBrands, setShowAllBrands] = useState(false);
   const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
-  const [featuredScrollState, setFeaturedScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
-  const featuredScrollRef = useRef<HTMLDivElement>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
   const gridRecommendationsRef = useRef<HTMLDivElement>(null);
   const shuffleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -123,16 +124,20 @@ export function SearchPageClient() {
   }, [ensureClosetLoaded, ensureDigboxLoaded]);
 
   useEffect(() => {
-    fetch("/api/site-settings")
-      .then((r) => r.json())
-      .then((payload) => {
-        if (payload?.ok) {
-          setInstagramProfileUrl(payload.data?.instagramUrl ?? "");
-          setDigboxUrl(payload.data?.digboxUrl ?? "");
-          setFeaturedHeading(payload.data?.featuredHeading ?? "");
-        }
-      })
-      .catch(() => {});
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("focusSearch") !== "1") return;
+
+    const timer = window.setTimeout(() => {
+      const input = document.getElementById("main-product-search") as HTMLInputElement | null;
+      input?.scrollIntoView({ behavior: "smooth", block: "center" });
+      input?.focus();
+
+      params.delete("focusSearch");
+      const nextQuery = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
+    }, 150);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   const normalizedProduct = useMemo<Product | null>(() => {
@@ -200,16 +205,6 @@ export function SearchPageClient() {
     return computeSizeRecommendations(selectedProduct, activeRowIndex, products);
   }, [activeRowIndex, selectedProduct, products]);
 
-  const updateFeaturedScrollState = () => {
-    const container = featuredScrollRef.current;
-    if (!container) return;
-    const maxScrollLeft = container.scrollWidth - container.clientWidth;
-    setFeaturedScrollState({
-      canScrollLeft: container.scrollLeft > 2,
-      canScrollRight: container.scrollLeft < maxScrollLeft - 2,
-    });
-  };
-
   useEffect(() => {
     const handlePopState = () => {
       setSelectedProduct(null);
@@ -219,12 +214,6 @@ export function SearchPageClient() {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
-
-  useEffect(() => {
-    updateFeaturedScrollState();
-    window.addEventListener("resize", updateFeaturedScrollState);
-    return () => window.removeEventListener("resize", updateFeaturedScrollState);
-  }, [featuredProducts.length]);
 
   useEffect(() => {
     return () => {
@@ -364,15 +353,7 @@ export function SearchPageClient() {
     event.currentTarget.style.display = "none";
   };
 
-  const handleFeaturedScroll = (direction: "left" | "right") => {
-    const container = featuredScrollRef.current;
-    if (!container) return;
-    const firstCard = container.querySelector<HTMLButtonElement>("[data-featured-card='true']");
-    const gap = window.matchMedia("(min-width: 640px)").matches ? 20 : 10;
-    const cardWidth = firstCard?.offsetWidth ?? 172;
-    const amount = (cardWidth + gap) * (direction === "left" ? -1 : 1);
-    container.scrollBy({ left: amount, behavior: "smooth" });
-  };
+  const showGuestValueHint = !isAuthLoading && !authUser && isGuestHydrated && guestCount === 0;
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white">
@@ -391,125 +372,13 @@ export function SearchPageClient() {
         </div>
       )}
 
-      {/* Editor's Pick shelf */}
-      {featuredProducts.length > 0 && (
-        <section className="mb-8 w-full max-w-2xl sm:max-w-[980px] lg:max-w-[1120px]">
-          {/* 헤더 */}
-          <div className="mb-3 flex items-end justify-between gap-3 sm:mb-4">
-            <div className="min-w-0">
-              <h2 className="whitespace-pre-line text-xl font-black leading-tight text-white sm:text-2xl">
-                {featuredHeading.trim() || DEFAULT_FEATURED_HEADING}
-              </h2>
-            </div>
-            {(instagramProfileUrl.trim() || digboxUrl.trim()) && (
-              <div className="flex flex-shrink-0 flex-wrap justify-end gap-2">
-                {instagramProfileUrl.trim() && (
-                  <a
-                    href={instagramProfileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-gray-400 transition hover:border-pink-500/40 hover:bg-pink-500/10 hover:text-pink-400 sm:px-3 sm:py-1.5 sm:text-xs"
-                  >
-                    <Instagram className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    Instagram
-                  </a>
-                )}
-                {digboxUrl.trim() && (
-                  <a
-                    href={digboxUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-gray-400 transition hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-300 sm:px-3 sm:py-1.5 sm:text-xs"
-                  >
-                    <Users className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    DIGBOX
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-          {/* Scrollable featured product shelf */}
-          <div className="relative">
-            {featuredProducts.length > 3 && (
-              <>
-                {featuredScrollState.canScrollLeft && (
-                  <button
-                    type="button"
-                    onClick={() => handleFeaturedScroll("left")}
-                    aria-label="Previous featured products"
-                    className="absolute top-[calc((100%-104px)/2)] z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-[0_2px_8px_rgba(0,0,0,0.32)] ring-1 ring-black/10 transition hover:bg-white sm:-left-2 sm:flex"
-                  >
-                    <ChevronLeft className="h-3 w-3" />
-                  </button>
-                )}
-                {featuredScrollState.canScrollRight && (
-                  <button
-                    type="button"
-                    onClick={() => handleFeaturedScroll("right")}
-                    aria-label="Next featured products"
-                    className="absolute top-[calc((100%-104px)/2)] z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-[0_2px_8px_rgba(0,0,0,0.32)] ring-1 ring-black/10 transition hover:bg-white sm:-right-2 sm:flex"
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                  </button>
-                )}
-              </>
-            )}
-          <div
-            ref={featuredScrollRef}
-            onScroll={updateFeaturedScrollState}
-            className="overflow-x-auto py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            <div className="flex snap-x snap-mandatory items-stretch gap-2.5 sm:gap-5 lg:gap-6">
-              {featuredProducts.map((product, index) => {
-                const imgSrc = product.imagePath
-                  ? toPublicUrl(product.imagePath, { width: 480, height: 480, quality: 75 })
-                  : product.image;
-                return (
-                  <button
-                    key={product.id}
-                    data-featured-card="true"
-                    onClick={() => handleProductClick(product)}
-                    className="group flex w-[calc((100%-0.625rem)/2)] flex-none snap-start flex-col text-left shadow-none transition-colors duration-200 sm:w-[calc((100%-2.5rem)/3)] lg:w-[calc((100%-3rem)/3)]"
-                  >
-                    <div className="relative aspect-[4/5] w-full flex-none overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] transition-colors duration-200 group-hover:border-white/[0.18] group-hover:bg-white/[0.05]">
-                      {imgSrc && (
-                        <ProgressiveImage
-                          src={imgSrc}
-                          alt={product.name}
-                          className="object-cover transition duration-200 group-hover:brightness-105"
-                          loading={index < 4 ? "eager" : "lazy"}
-                          onError={handleImageLoadError}
-                        />
-                      )}
-                    </div>
-                    <div className="flex h-[82px] flex-col px-1.5 pt-2 text-left sm:h-[104px] sm:px-2.5 sm:pt-3">
-                      <div className="min-h-0">
-                        <p className="mb-0.5 truncate text-[10px] font-black tracking-wide text-orange-400 transition-colors duration-200 group-hover:text-orange-300 sm:text-[11px]">{product.brand}</p>
-                        <p title={product.name} className="line-clamp-2 break-words text-[12px] font-bold leading-[1.2] text-white [overflow-wrap:anywhere] sm:text-[15px] lg:text-[16px]">
-                          {product.name}
-                        </p>
-                      </div>
-                      {product.category && (
-                        <p className="mx-auto mt-auto max-w-full truncate px-1 pb-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-gray-500 sm:text-[11px]">
-                          {product.category}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          </div>
-        </section>
-      )}
-
       {/* Search bar below navbar */}
       <div className="relative mb-4 w-full max-w-2xl" ref={searchContainerRef}>
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
           <Search className={`h-5 w-5 transition-colors ${showSuggestions ? "text-orange-500" : "text-gray-500"}`} />
         </div>
         <input
+          id="main-product-search"
           type="text"
           className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.06] pl-12 pr-10 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_32px_rgba(0,0,0,0.24)] outline-none transition placeholder:text-gray-600 focus:border-orange-500/60 focus:bg-white/[0.08] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_3px_rgba(249,115,22,0.12)] sm:h-[52px]"
           placeholder="브랜드명 또는 상품명을 검색해보세요"
@@ -634,6 +503,16 @@ export function SearchPageClient() {
         )}
       </div>
 
+      {showGuestValueHint && (
+        <p className="mb-4 flex w-full max-w-2xl flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] font-semibold text-gray-500 sm:text-xs">
+          <span className="flex items-center gap-1.5 text-gray-400">
+            <Star className="h-3.5 w-3.5 text-yellow-400" fill="currentColor" aria-hidden="true" />
+            별을 눌러 상품을 담으면 내 관심 취향이 보여요
+          </span>
+          <span className="text-gray-500">로그인 없이 3개까지</span>
+        </p>
+      )}
+
       <FilterBar
         categoryOptions={categoryFilterOptions}
         categoryValue={grid.gridCategoryFilter}
@@ -682,9 +561,10 @@ export function SearchPageClient() {
           }}
           isInCloset={isInCloset(normalizedProduct.id)}
           onToggleDigbox={() => {
-            toggleDigbox(normalizedProduct.id);
+            toggleDigbox(normalizedProduct.id, "home_product_detail");
           }}
           isInDigbox={isInDigbox(normalizedProduct.id)}
+          analyticsSource="home_grid"
         />
       )}
 

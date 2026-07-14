@@ -50,7 +50,7 @@ export function FilterBar({
             height: rect.height,
           });
         }}
-        className="dig-shuffle flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#00FF00]/70 bg-[#00FF00]/10 text-[#00FF00] shadow-[0_0_22px_rgba(0,255,0,.16),inset_0_1px_0_rgba(255,255,255,.12)] outline-none transition hover:border-[#00FF00] hover:bg-[#00FF00]/18 hover:shadow-[0_0_30px_rgba(0,255,0,.24),inset_0_1px_0_rgba(255,255,255,.16)] focus-visible:ring-2 focus-visible:ring-[#00FF00]/30 sm:h-11 sm:w-11"
+        className="dig-shuffle flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.05] text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] outline-none transition hover:border-orange-500/40 hover:bg-orange-500/[0.08] hover:text-orange-300 focus-visible:ring-2 focus-visible:ring-orange-500/25 sm:h-11 sm:w-11"
       >
         <Shuffle className={`h-4 w-4 ${isShuffling ? "animate-dig-shuffle-spin" : ""}`} />
       </button>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { LoginPageClient } from "../../src/components/pages/LoginPageClient";
 
 export const metadata: Metadata = {
@@ -9,5 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function LoginRoutePage() {
-  return <LoginPageClient />;
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-black" />}>
+      <LoginPageClient />
+    </Suspense>
+  );
 }

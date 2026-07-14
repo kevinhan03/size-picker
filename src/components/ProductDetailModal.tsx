@@ -14,6 +14,7 @@ import {
   getDisplaySizeTable,
   isPrimaryColumnHeader,
 } from "../utils/sizeTable";
+import { captureEvent } from "../utils/analytics";
 
 function HangerIcon({ className = "" }: { className?: string }) {
   return (
@@ -79,6 +80,7 @@ interface ProductDetailModalProps {
   hideCollectionActions?: boolean;
   otherDigboxCount?: number;
   otherDigboxCountLabel?: string;
+  analyticsSource?: string;
 }
 
 function getClosetSizeLabel(product?: Product | null): string {
@@ -123,11 +125,16 @@ export function ProductDetailModal({
   hideCollectionActions,
   otherDigboxCount = 0,
   otherDigboxCountLabel,
+  analyticsSource = "product_modal",
 }: ProductDetailModalProps) {
   useBodyScrollLock(modalRef);
   const sizeTableTouchStartX = useRef<number | null>(null);
   const sizeTableTouchStartY = useRef<number | null>(null);
   const sizeTableIsScrolling = useRef(false);
+
+  useEffect(() => {
+    captureEvent("product_opened", { product_id: product.id, source: analyticsSource });
+  }, [analyticsSource, product.id]);
   const sizeTableSuppressClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerDownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerDownSelectedRowRef = useRef<number | null>(null);
@@ -345,7 +352,7 @@ export function ProductDetailModal({
             <div className="group relative">
               <button
                 type="button"
-                aria-label="DIGBOX에 추가"
+                aria-label={isInDigbox ? "DIGBOX에 담김" : "DIGBOX에 담기"}
                 onClick={(event) => {
                   onCollectionActionStart?.(getAnchorRect(event));
                   onToggleDigbox?.();
@@ -359,6 +366,7 @@ export function ProductDetailModal({
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill={isInDigbox ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                 </svg>
+                <span>{isInDigbox ? "담김" : "DIGBOX에 담기"}</span>
               </button>
               <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />

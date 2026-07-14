@@ -9,11 +9,13 @@ const TOP_N = 4;
 export function TasteSummaryCard({
   controls,
   products,
-  sourceLabel = "옷장",
-  sourceNoun = "옷장 상품",
+  eyebrow = "나의 취향",
+  sourceLabel = "상품",
+  sourceNoun = "상품",
 }: {
   controls?: ReactNode;
   products: Product[];
+  eyebrow?: string;
   sourceLabel?: string;
   sourceNoun?: string;
 }) {
@@ -31,7 +33,7 @@ export function TasteSummaryCard({
     <section className="taste-summary-card">
       <div className="taste-summary-top">
         <div className="taste-summary-title">
-          <p className="taste-summary-eyebrow">나의 취향 · {sourceLabel}</p>
+          <p className="taste-summary-eyebrow">{eyebrow} · {sourceLabel}</p>
           <h1 className="taste-summary-headline">{headline} 타입</h1>
         </div>
         {controls ? <div className="taste-summary-controls">{controls}</div> : null}

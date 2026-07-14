@@ -1,15 +1,17 @@
 "use client";
 
+import { Compass, LogIn, Plus, Search, Shirt, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
-import { LogIn, Plus, UserRound } from "lucide-react";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
+import { buildLoginHref } from "../utils/authNavigation";
 
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const authContext = useAuthContext();
+  const auth = useAuthContext();
   const productForm = useProductFormContext();
   const [scrolled, setScrolled] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -26,21 +28,15 @@ export function AppHeader() {
     const onScroll = () => {
       const nextY = window.scrollY;
       setScrolled(nextY > 8);
-
       if (!media.matches) {
         setHiddenOnMobile(false);
-        lastY = nextY;
-        return;
-      }
-
-      if (nextY <= 8) {
+      } else if (nextY <= 8) {
         setHiddenOnMobile(false);
       } else if (nextY > lastY) {
         setHiddenOnMobile(true);
       } else if (nextY < lastY) {
         setHiddenOnMobile(false);
       }
-
       lastY = nextY;
     };
     updateIsMobile();
@@ -52,88 +48,115 @@ export function AppHeader() {
     };
   }, []);
 
-  const authUser = authContext.authUser;
-
-  const isLogin = pathname === "/login";
-  const isAdmin = pathname === "/admin";
+  const isAdmin = pathname.startsWith("/admin");
   const compactHeader = scrolled && !isMobile;
+  const isDigging = pathname === "/" || pathname === "/grid" || pathname.startsWith("/product/");
+  const isOutfits = pathname.startsWith("/outfits");
+  const isMy = pathname === "/mypage" || pathname.startsWith("/closet") || pathname.startsWith("/u/");
   const headerFrameClass = isMobile
-    ? "mt-0 px-4 h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-none rounded-none bg-black border-0 shadow-none pt-[env(safe-area-inset-top)]"
+    ? "mt-0 h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-none rounded-none border-0 bg-black px-4 pt-[env(safe-area-inset-top)] shadow-none"
     : compactHeader
-    ? "mt-3 px-4 h-12 w-[calc(100%-2rem)] max-w-2xl rounded-2xl bg-[#111114] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-    : "mt-0 px-4 h-16 w-full max-w-6xl rounded-none bg-transparent border-b border-transparent";
+      ? "mt-3 h-12 w-[calc(100%-2rem)] max-w-3xl rounded-2xl border border-white/10 bg-[#111114] px-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+      : "mt-0 h-16 w-full max-w-6xl rounded-none border-b border-transparent bg-transparent px-4";
+
+  function goToOutfits() {
+    router.push(auth.authUser ? "/outfits" : buildLoginHref("login", "/outfits"));
+  }
+
+  function openProductForm() {
+    if (!auth.authUser) {
+      router.push("/login");
+      return;
+    }
+    productForm.openModal();
+  }
+
+  function focusProductSearch() {
+    if (pathname !== "/") {
+      router.push("/?focusSearch=1");
+      return;
+    }
+    const input = document.getElementById("main-product-search") as HTMLInputElement | null;
+    input?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => input?.focus(), 250);
+  }
+
+  const desktopNavClass = (active: boolean) =>
+    `flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black shadow-none transition ${
+      active ? "bg-orange-500/15 text-orange-300" : "text-gray-400 hover:bg-white/[0.06] hover:text-white"
+    }`;
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-300 ease-out ${
-        hiddenOnMobile ? "-translate-y-full" : "translate-y-0"
-      }`}
-    >
-      <div
-        className={`pointer-events-auto transition-all duration-300 ease-out flex items-center justify-between ${headerFrameClass}`}
-      >
-        <div className="flex items-center gap-2">
-          <div
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={() => router.push("/")}
-          >
-            <div className={`flex items-center justify-center transition-all duration-300 ${compactHeader ? "w-7 h-7" : "w-10 h-10"}`}>
-              <img src="/favicon-simple.svg" alt="DIGBOX logo" className="w-full h-full object-contain" />
-            </div>
-            <div className="flex flex-col leading-none">
+    <header className={`pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center transition-transform duration-300 ease-out ${hiddenOnMobile ? "-translate-y-full" : "translate-y-0"}`}>
+      <div className={`pointer-events-auto flex items-center justify-between transition-all duration-300 ease-out ${headerFrameClass}`}>
+        <div className="flex min-w-0 items-center gap-4">
+          <button type="button" onClick={() => router.push("/")} aria-label="DIGBOX 홈" className="flex min-w-0 items-center gap-2 rounded-xl shadow-none">
+            <span className={`flex items-center justify-center transition-all duration-300 ${compactHeader ? "h-7 w-7" : "h-10 w-10"}`}>
+              <Image src="/favicon-simple.svg" alt="" width={40} height={40} className="h-full w-full object-contain" />
+            </span>
+            <span className="flex min-w-0 flex-col text-left leading-none">
               <span className={`font-bold tracking-tight text-orange-500 transition-all duration-300 ${compactHeader ? "text-base" : "text-xl"}`}>DIGBOX</span>
-              {!compactHeader && <span className="text-[10px] text-white/60 tracking-tight">취향은 더 깊게, 발견은 더 쉽게</span>}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
+              {!compactHeader && <span className="hidden text-[10px] tracking-tight text-white/60 lg:block">취향은 더 깊게, 발견은 더 쉽게</span>}
+            </span>
+          </button>
+
           {!isAdmin && (
-            <div className="group relative">
-              <button
-                onClick={() => {
-                  if (!authUser) {
-                    router.push("/login");
-                    return;
-                  }
-                  productForm.openModal();
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] text-[#00FF00] hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] shadow-[0_4px_16px_rgba(0,255,0,0.15)]"
-              >
-                <Plus className="w-4 h-4" />
+            <div className="hidden items-center gap-1 sm:flex">
+              <button type="button" aria-current={isDigging ? "page" : undefined} onClick={() => router.push("/")} className={desktopNavClass(isDigging)}>
+                <Compass className="h-4 w-4" /> 디깅
               </button>
-              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                상품 추가
-              </div>
-            </div>
-          )}
-          {authUser && !isAdmin && (
-            <div className="group relative">
-              <button
-                onClick={() => router.push("/mypage")}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] text-gray-200 hover:border-orange-500/60 hover:text-orange-400 shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
-              >
-                <UserRound className="w-4 h-4" />
+              <button type="button" aria-current={isOutfits ? "page" : undefined} onClick={goToOutfits} className={desktopNavClass(isOutfits)}>
+                <Shirt className="h-4 w-4" /> 코디
               </button>
-              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                마이페이지
-              </div>
             </div>
-          )}
-          {!authUser && !isAdmin && (
-            <button
-              onClick={() => router.push("/login")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition backdrop-blur-xl border shadow-[0_4px_16px_rgba(0,0,0,0.2)] ${
-                isLogin
-                  ? "bg-orange-500 text-black border-orange-500"
-                  : "border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] text-gray-200 hover:border-orange-500/60 hover:text-orange-400"
-              }`}
-            >
-              <LogIn className="w-4 h-4" />
-            </button>
           )}
         </div>
+
+        {!isAdmin && (
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={focusProductSearch}
+              aria-label="상품 검색"
+              title="상품 검색"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-gray-300 shadow-none transition hover:border-orange-500/50 hover:text-orange-400 sm:hidden"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={openProductForm}
+              aria-label="상품 추가"
+              className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] px-2.5 text-xs font-black text-[#00FF00] shadow-[0_4px_16px_rgba(0,255,0,0.15)] transition hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] sm:px-3"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">상품 추가</span>
+            </button>
+            {auth.authUser ? (
+              <button
+                type="button"
+                aria-current={isMy ? "page" : undefined}
+                onClick={() => router.push("/mypage")}
+                className={`hidden h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-black shadow-none transition sm:flex ${
+                  isMy ? "border-orange-500/40 bg-orange-500/15 text-orange-300" : "border-white/15 bg-white/[0.06] text-gray-300 hover:border-orange-500/50 hover:text-orange-400"
+                }`}
+              >
+                <UserRound className="h-4 w-4" /> 마이
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-current={pathname === "/login" ? "page" : undefined}
+                onClick={() => router.push("/login")}
+                className={`hidden h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-black shadow-none transition sm:flex ${
+                  pathname === "/login" ? "border-orange-500 bg-orange-500 text-black" : "border-white/15 bg-white/[0.06] text-gray-300 hover:border-orange-500/50 hover:text-orange-400"
+                }`}
+              >
+                <LogIn className="h-4 w-4" /> 로그인
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

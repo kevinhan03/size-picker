@@ -12,10 +12,10 @@ const supabaseHostname = (() => {
 
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://us-assets.i.posthog.com https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
-  `connect-src 'self' https://${supabaseHostname} https://accounts.google.com https://oauth2.googleapis.com`,
+  `connect-src 'self' https://${supabaseHostname} https://accounts.google.com https://oauth2.googleapis.com https://us.i.posthog.com https://us-assets.i.posthog.com https://vitals.vercel-insights.com`,
   "font-src 'self'",
   "frame-src 'none'",
   "base-uri 'self'",

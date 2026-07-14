@@ -158,7 +158,11 @@ function MySizesManager({
   const toggleCategory = (category: string) => {
     setOpenCategories((prev) => {
       const next = new Set(prev);
-      next.has(category) ? next.delete(category) : next.add(category);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
       return next;
     });
   };
@@ -546,11 +550,11 @@ export function MyPageView({
 
       <div className="grid min-w-0 grid-cols-2 items-stretch gap-3 sm:gap-4">
         <CollectionCard
-          title="취향그래프"
+          title="내 취향"
           href="/taste-graph"
           icon={<Network className="h-5 w-5" />}
           tone="blue"
-          meta="나의 스타일을 확인해보세요"
+          meta="관심 취향과 보유 취향을 비교해보세요"
           backgroundImage="/images/taste-graph-card-bg.png"
         />
         <div className="flex min-w-0 flex-col gap-3 sm:gap-4">

@@ -21,6 +21,7 @@
   --app-page-min-h: 100vh;
   --app-main-min-h: 100vh;
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-bottom-nav-height: 0rem;
   --app-main-pt: 8rem;
   --app-main-pb: calc(5rem + var(--app-safe-bottom));
   --app-main-px: 1rem;
@@ -43,7 +44,8 @@
     --app-page-min-h: 100vh;
     --app-main-min-h: 100vh;
     --app-main-pt: calc(5.5rem + env(safe-area-inset-top, 0px));
-    --app-main-pb: calc(3.5rem + var(--app-safe-bottom));
+    --app-bottom-nav-height: 4rem;
+    --app-main-pb: calc(var(--app-bottom-nav-height) + 2rem + var(--app-safe-bottom));
     --app-main-px: 1.5rem; /* 24px — 좌우 여백 */
     --header-logo-size: 1.05rem;
     --hero-title-size: 2.375rem;

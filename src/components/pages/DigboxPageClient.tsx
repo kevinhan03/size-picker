@@ -564,8 +564,8 @@ export function DigboxPageClient({
 
         {/* 복사 완료 토스트 */}
         {copied && (
-          <div style={{
-            position: "fixed", bottom: "calc(1.5rem + env(safe-area-inset-bottom))", left: "50%",
+          <div className="fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]" style={{
+            left: "50%",
             transform: "translateX(-50%)", zIndex: 90,
             background: "rgba(17,24,39,0.95)", border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: 14, padding: "10px 20px",

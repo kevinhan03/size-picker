@@ -46,8 +46,8 @@ const TUTORIAL_STEPS: Record<TutorialId, TutorialStep> = {
     action: "좋아요",
   },
   collection: {
-    title: "나만의 옷장 만들기",
-    description: "마음에 드는 상품은 옷장이나 DIGBOX에 저장해두고 나중에 다시 확인할 수 있어요.",
+    title: "관심과 보유를 나눠 담기",
+    description: "관심 있는 상품은 DIGBOX에 모아 취향을 확인하고, 실제 가진 상품은 Closet에 담아 사이즈를 관리해보세요.",
     action: "시작할게요",
   },
   sizeSelection: {

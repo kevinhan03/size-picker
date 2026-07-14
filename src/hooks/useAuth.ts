@@ -28,8 +28,11 @@ export function useAuth() {
   }, [router]);
 
   const checkAndSetUser = useCallback(
-    async (user: AuthUser) => {
-      setAuthUser(user);
+    async (user: AuthUser, forceUserUpdate = false) => {
+      setAuthUser((currentUser) => {
+        if (!forceUserUpdate && (currentUser?.id ?? null) === (user?.id ?? null)) return currentUser;
+        return user;
+      });
       if (!user || !supabase) {
         processingUserIdRef.current = null;
         setDbUsername(null);
@@ -112,8 +115,9 @@ export function useAuth() {
     }).catch(() => {
       setIsAuthLoading(false);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      void checkAndSetUser(session?.user ?? null);
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "TOKEN_REFRESHED") return;
+      void checkAndSetUser(session?.user ?? null, event === "USER_UPDATED");
     });
     return () => listener.subscription.unsubscribe();
   }, [checkAndSetUser]);

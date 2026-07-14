@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { fetchInitialProducts } from "../server/utils/products-list";
+import { SUPABASE_PRODUCTS_TABLE } from "../server/config/env.js";
+import { assertSupabaseConfig, supabase } from "../server/lib/supabase.js";
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -14,12 +15,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const products = await fetchInitialProducts();
+  assertSupabaseConfig();
+  if (!supabase) throw new Error("Supabase is not configured");
+  const { data: products, error } = await supabase
+    .from(SUPABASE_PRODUCTS_TABLE)
+    .select("id,slug,created_at")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message || "failed to fetch sitemap products");
+
   const productUrls: MetadataRoute.Sitemap = products.map((p) => ({
     url: `${siteUrl}/product/${p.slug ? `${p.id}-${p.slug}` : p.id}`,
     changeFrequency: "monthly",
     priority: 0.7,
-    lastModified: p.createdAt ? new Date(p.createdAt) : undefined,
+    lastModified: p.created_at ? new Date(p.created_at) : undefined,
   }));
 
   return [...staticUrls, ...productUrls];

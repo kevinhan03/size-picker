@@ -4,6 +4,8 @@ import { LogIn, UserPlus } from 'lucide-react';
 import { completeMyProfile } from '../api';
 import { getAuthErrorMessage } from '../utils/authMessage';
 import { validateUsername } from '../utils/username';
+import { captureEvent } from '../utils/analytics';
+import { readAuthContinuation, saveAuthContinuation } from '../utils/authNavigation';
 
 type AuthTab = 'login' | 'signup';
 
@@ -13,6 +15,7 @@ interface LoginPageProps {
   initialInfo?: string | null;
   googleAuthError?: string | null;
   onClearGoogleAuthError?: () => void;
+  initialTab?: AuthTab;
 }
 
 type PendingSignup = {
@@ -38,8 +41,9 @@ export const LoginPage = ({
   initialInfo = null,
   googleAuthError,
   onClearGoogleAuthError,
+  initialTab = 'login',
 }: LoginPageProps) => {
-  const [tab, setTab] = useState<AuthTab>('login');
+  const [tab, setTab] = useState<AuthTab>(initialTab);
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -103,6 +107,10 @@ export const LoginPage = ({
     if (initialInfo) setInfo(initialInfo);
   }, [initialInfo]);
 
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
+
   const switchTab = (next: AuthTab) => {
     setTab(next);
     reset();
@@ -112,6 +120,9 @@ export const LoginPage = ({
   const handleGoogleLogin = async () => {
     setError(null);
     sessionStorage.setItem('google_oauth_intent', tab);
+    const continuation = readAuthContinuation();
+    if (continuation) saveAuthContinuation({ ...continuation, intent: tab, method: 'google' });
+    captureEvent('auth_started', { mode: tab, method: 'google', source: continuation?.source || 'direct', stage: 'submit' });
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -167,6 +178,10 @@ export const LoginPage = ({
     setIsSubmitting(true);
     setError(null);
     setInfo(null);
+
+    const continuation = readAuthContinuation();
+    if (continuation) saveAuthContinuation({ ...continuation, intent: tab, method: 'email' });
+    captureEvent('auth_started', { mode: tab, method: 'email', source: continuation?.source || 'direct', stage: 'submit' });
 
     try {
       if (tab === 'login') {

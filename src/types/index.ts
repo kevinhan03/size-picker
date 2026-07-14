@@ -235,3 +235,46 @@ export interface SizeRecommendation {
 }
 
 export type AddProductMode = 'menu' | 'capture' | 'url' | 'manual';
+
+export type OutfitRequestStatus = 'open' | 'accepted' | 'closed';
+export type OutfitRequestScope = 'open' | 'completed' | 'mine';
+export type OutfitRequestMineStatus = 'all' | OutfitRequestStatus;
+export type OutfitFocusMatch = 'all' | 'partial' | 'none' | 'not_applicable';
+
+export interface OutfitRequestSummary {
+  id: string;
+  authorId: string;
+  authorUsername: string;
+  description: string;
+  status: OutfitRequestStatus;
+  acceptedProposalId: string | null;
+  createdAt: string;
+  itemCount: number;
+  proposalCount: number;
+  previewProducts: Product[];
+  focusProducts: Product[];
+}
+
+export interface OutfitProposal {
+  id: string;
+  authorId: string;
+  authorUsername: string;
+  explanation: string;
+  createdAt: string;
+  products: Product[];
+  focusMatch: OutfitFocusMatch;
+  matchedFocusItemCount: number;
+}
+
+export interface OutfitRequestDetail {
+  id: string;
+  authorId: string;
+  authorUsername: string;
+  description: string;
+  status: OutfitRequestStatus;
+  acceptedProposalId: string | null;
+  createdAt: string;
+  products: Product[];
+  focusProductIds: string[];
+  proposals: OutfitProposal[];
+}
