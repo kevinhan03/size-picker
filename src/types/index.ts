@@ -41,7 +41,10 @@ export interface Product {
   reviewedBy?: string | null;
   reviewedAt?: string | null;
   imageEmbedding?: string | number[] | null;
+  targetGender?: ProductTargetGender | null;
 }
+
+export type ProductTargetGender = 'menswear' | 'womenswear' | 'unisex' | 'unknown';
 
 export type StyleTagName =
   | 'casual'
@@ -142,6 +145,7 @@ export interface ProductRow {
   reviewed_by?: string | null;
   reviewed_at?: string | null;
   image_embedding?: unknown;
+  target_gender?: string | null;
 }
 
 export interface SubmitProductForm {

@@ -97,6 +97,7 @@ export const normalizeProductRow = (row) => {
     reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
     reviewedAt: row.reviewed_at || null,
     imageEmbedding: row.image_embedding ?? null,
+    targetGender: row.target_gender ? String(row.target_gender) : null,
   };
 };
 

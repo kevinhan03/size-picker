@@ -1,6 +1,6 @@
 "use client";
 
-import { Compass, LogIn, Plus, Search, Shirt, UserRound } from "lucide-react";
+import { Compass, LogIn, Plus, Search, Shirt, Sparkles, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -51,6 +51,7 @@ export function AppHeader() {
   const isAdmin = pathname.startsWith("/admin");
   const compactHeader = scrolled && !isMobile;
   const isDigging = pathname === "/" || pathname === "/grid" || pathname.startsWith("/product/");
+  const isDigMatch = pathname.startsWith("/dig-match");
   const isOutfits = pathname.startsWith("/outfits");
   const isMy = pathname === "/mypage" || pathname.startsWith("/closet") || pathname.startsWith("/u/");
   const headerFrameClass = isMobile
@@ -107,6 +108,9 @@ export function AppHeader() {
               </button>
               <button type="button" aria-current={isOutfits ? "page" : undefined} onClick={goToOutfits} className={desktopNavClass(isOutfits)}>
                 <Shirt className="h-4 w-4" /> 코디
+              </button>
+              <button type="button" aria-current={isDigMatch ? "page" : undefined} onClick={() => router.push("/dig-match")} className={desktopNavClass(isDigMatch)}>
+                <Sparkles className="h-4 w-4" /> 디그매치
               </button>
             </div>
           )}
