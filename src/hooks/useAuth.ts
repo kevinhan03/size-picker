@@ -7,6 +7,16 @@ import { normalizeUsername, validateUsername } from "../utils/username";
 
 type AuthUser = { id?: string; email?: string; user_metadata?: Record<string, unknown> } | null;
 
+const hasInvalidRefreshToken = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+
+  const { code, message } = error as { code?: unknown; message?: unknown };
+  return (
+    code === "refresh_token_not_found" ||
+    (typeof message === "string" && message.toLowerCase().includes("invalid refresh token"))
+  );
+};
+
 export function useAuth() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser>(null);
@@ -110,12 +120,18 @@ export function useAuth() {
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
+    const authClient = supabase;
+    authClient.auth.getSession().then(async ({ data, error }) => {
+      if (hasInvalidRefreshToken(error)) {
+        // A signed-out or expired session can remain in local storage. Remove it
+        // locally so future page loads start as an anonymous user without retrying it.
+        await authClient.auth.signOut({ scope: "local" });
+      }
       void checkAndSetUser(data.session?.user ?? null);
     }).catch(() => {
       setIsAuthLoading(false);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: listener } = authClient.auth.onAuthStateChange((event, session) => {
       if (event === "TOKEN_REFRESHED") return;
       void checkAndSetUser(session?.user ?? null, event === "USER_UPDATED");
     });

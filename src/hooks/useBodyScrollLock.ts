@@ -51,14 +51,23 @@ export function useBodyScrollLock(modalRef: RefObject<HTMLElement | null>, isLoc
     // 이 터치가 가로 스크롤 요소 위에서 시작됐는지 기록
     let touchStartedOnHScrollable = false;
 
+    const getScrollBoundary = (target: EventTarget | null) => {
+      if (target instanceof Element) {
+        const allowedContainer = target.closest<HTMLElement>("[data-scroll-lock-allow]");
+        if (allowedContainer) return allowedContainer;
+      }
+      return modalRef.current;
+    };
+
     const isOutsideModal = (target: EventTarget | null) => {
+      const boundary = getScrollBoundary(target);
       const modal = modalRef.current;
-      return !modal || !(target instanceof Node) || !modal.contains(target);
+      return !modal || !boundary || !(target instanceof Node) || !boundary.contains(target);
     };
 
     const preventIfOutsideOrChaining = (event: TouchEvent | WheelEvent, deltaY: number, deltaX = 0) => {
-      const modal = modalRef.current;
-      if (!modal || isOutsideModal(event.target)) {
+      const boundary = getScrollBoundary(event.target);
+      if (!boundary || isOutsideModal(event.target)) {
         event.preventDefault();
         return;
       }
@@ -67,7 +76,7 @@ export function useBodyScrollLock(modalRef: RefObject<HTMLElement | null>, isLoc
       if (touchStartedOnHScrollable && Math.abs(deltaX) >= Math.abs(deltaY)) return;
 
       // 터치가 시작된 위치의 실제 수직 스크롤 조상을 찾아 경계 체크
-      const scrollable = findScrollableAncestor(touchTarget ?? event.target, modal);
+      const scrollable = findScrollableAncestor(touchTarget ?? event.target, boundary);
       if (shouldPreventScroll(scrollable, deltaY)) {
         event.preventDefault();
       }
@@ -82,9 +91,9 @@ export function useBodyScrollLock(modalRef: RefObject<HTMLElement | null>, isLoc
       lastTouchY = touch?.clientY ?? null;
       lastTouchX = touch?.clientX ?? null;
       touchTarget = event.target;
-      const modal = modalRef.current;
-      touchStartedOnHScrollable = modal
-        ? hasHorizontalScrollableAncestor(event.target, modal)
+      const boundary = getScrollBoundary(event.target);
+      touchStartedOnHScrollable = boundary
+        ? hasHorizontalScrollableAncestor(event.target, boundary)
         : false;
     };
 

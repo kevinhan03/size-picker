@@ -6,6 +6,7 @@ import { getAuthErrorMessage } from '../utils/authMessage';
 import { validateUsername } from '../utils/username';
 import { captureEvent } from '../utils/analytics';
 import { readAuthContinuation, saveAuthContinuation } from '../utils/authNavigation';
+import { readGuestDigbox, requestGuestDigboxImport } from '../utils/guestDigbox';
 
 type AuthTab = 'login' | 'signup';
 
@@ -16,6 +17,7 @@ interface LoginPageProps {
   googleAuthError?: string | null;
   onClearGoogleAuthError?: () => void;
   initialTab?: AuthTab;
+  isGuestDigboxSignup?: boolean;
 }
 
 type PendingSignup = {
@@ -42,6 +44,7 @@ export const LoginPage = ({
   googleAuthError,
   onClearGoogleAuthError,
   initialTab = 'login',
+  isGuestDigboxSignup = false,
 }: LoginPageProps) => {
   const [tab, setTab] = useState<AuthTab>(initialTab);
   const [email, setEmail] = useState('');
@@ -89,6 +92,7 @@ export const LoginPage = ({
         type: 'signup',
       });
       if (verifyError) throw verifyError;
+      if (readGuestDigbox().length) requestGuestDigboxImport();
       await completeMyProfile(pendingSignup.username);
       sessionStorage.setItem(SIGNUP_VERIFIED_TOAST_KEY, '1');
       setPendingSignup(null);
@@ -120,6 +124,7 @@ export const LoginPage = ({
   const handleGoogleLogin = async () => {
     setError(null);
     sessionStorage.setItem('google_oauth_intent', tab);
+    document.cookie = `digbox_oauth_intent=${encodeURIComponent(tab)}; Path=/; Max-Age=600; SameSite=Lax`;
     const continuation = readAuthContinuation();
     if (continuation) saveAuthContinuation({ ...continuation, intent: tab, method: 'google' });
     captureEvent('auth_started', { mode: tab, method: 'google', source: continuation?.source || 'direct', stage: 'submit' });
@@ -129,6 +134,7 @@ export const LoginPage = ({
     });
     if (authError) {
       localStorage.removeItem('google_oauth_intent');
+      document.cookie = 'digbox_oauth_intent=; Path=/; Max-Age=0; SameSite=Lax';
       setError(getAuthErrorMessage(authError, 'Google 로그인에 실패했습니다. 다시 시도해 주세요.'));
     }
   };
@@ -212,6 +218,7 @@ export const LoginPage = ({
         });
         if (authError) throw authError;
         if (signUpData.session?.access_token) {
+          if (readGuestDigbox().length) requestGuestDigboxImport();
           await completeMyProfile(trimmedUsername);
           onSuccess();
           return;
@@ -328,6 +335,14 @@ export const LoginPage = ({
           </div>
 
           <div className="space-y-4">
+            {tab === 'signup' && isGuestDigboxSignup && (
+              <div className="rounded-xl border border-orange-400/25 bg-orange-400/[0.08] px-4 py-3">
+                <p className="text-sm font-black text-orange-300">선택한 아이템을 내 DIGBOX에 저장합니다</p>
+                <p className="mt-1 text-xs leading-relaxed text-gray-300">
+                  가입을 완료하면 관심 취향을 이어서 보고, 더 잘 맞는 아이템을 추천받을 수 있습니다.
+                </p>
+              </div>
+            )}
             <div>
               <label className="mb-1.5 block text-xs text-gray-400">Email</label>
               <input

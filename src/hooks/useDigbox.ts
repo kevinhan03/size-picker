@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchDigboxData, addToDigbox as apiAdd, removeFromDigbox as apiRemove } from "../api";
 import type { Product } from "../types";
 import { captureEvent } from "../utils/analytics";
-import { GUEST_DIGBOX_LIMIT, readGuestDigbox, writeGuestDigbox } from "../utils/guestDigbox";
+import {
+  clearGuestDigboxImportRequest,
+  GUEST_DIGBOX_LIMIT,
+  isGuestDigboxImportRequested,
+  readGuestDigbox,
+  writeGuestDigbox,
+} from "../utils/guestDigbox";
 
 export type DigboxToast = { message: string; type: "success" | "info" | "error" } | null;
 export type GuestSyncStatus = "idle" | "syncing" | "success" | "partial";
@@ -98,7 +104,7 @@ export function useDigbox(isLoggedIn: boolean, products: Product[] = []) {
   }, []);
 
   const syncGuestItems = useCallback(async () => {
-    if (!isLoggedIn || !guestIds.length || syncAttemptedRef.current) return;
+    if (!isLoggedIn || !guestIds.length || syncAttemptedRef.current || !isGuestDigboxImportRequested()) return;
     syncAttemptedRef.current = true;
     setGuestSyncStatus("syncing");
 
@@ -125,6 +131,7 @@ export function useDigbox(isLoggedIn: boolean, products: Product[] = []) {
       setGuestSyncStatus("partial");
       showToast({ message: "guest_sync_partial", type: "error" });
     } else {
+      clearGuestDigboxImportRequest();
       setGuestSyncStatus("success");
       setIsGuestPanelOpen(false);
       setIsGuestPromptOpen(false);
@@ -134,7 +141,7 @@ export function useDigbox(isLoggedIn: boolean, products: Product[] = []) {
   }, [guestIds, isLoggedIn, load, showToast]);
 
   useEffect(() => {
-    if (isLoggedIn && isGuestHydrated && guestIds.length && !syncAttemptedRef.current) {
+    if (isLoggedIn && isGuestHydrated && guestIds.length && !syncAttemptedRef.current && isGuestDigboxImportRequested()) {
       void syncGuestItems();
     }
   }, [guestIds.length, isGuestHydrated, isLoggedIn, syncGuestItems]);

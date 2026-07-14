@@ -393,7 +393,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminPage = pathname?.startsWith("/admin");
   const isTasteGraphPage = pathname?.startsWith("/taste-graph");
-  const hideChrome = isAdminPage || isTasteGraphPage;
+  const isOnboardingPage = pathname?.startsWith("/onboarding");
+  const hideChrome = isAdminPage || isTasteGraphPage || isOnboardingPage;
   const hideMobileBottomNav = hideChrome || pathname === "/login" || pathname?.startsWith("/auth/");
 
   return (
@@ -408,7 +409,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!hideChrome && <DigboxToast />}
       {!hideChrome && <GuestDigboxExperience />}
       {!hideMobileBottomNav && <MobileBottomNav />}
-      {auth.needsUsername && (
+      {auth.needsUsername && !isOnboardingPage && (
         <NeedsUsernameModal
           pendingUsername={auth.pendingUsername}
           onUsernameChange={auth.setPendingUsername}

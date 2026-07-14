@@ -6,6 +6,7 @@ import type { ClosetSizeSelection, MySizeProfile, Product, SizeRecommendation } 
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useMySizesContext } from "../contexts/MySizesContext";
+import { useAuthContext } from "../contexts/AuthContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
 import {
@@ -78,6 +79,7 @@ interface ProductDetailModalProps {
   onCollectionActionStart?: (anchorRect?: TutorialAnchorRect) => void;
   hideDigboxButton?: boolean;
   hideCollectionActions?: boolean;
+  showGuestDigboxHint?: boolean;
   otherDigboxCount?: number;
   otherDigboxCountLabel?: string;
   analyticsSource?: string;
@@ -123,10 +125,13 @@ export function ProductDetailModal({
   onCollectionActionStart,
   hideDigboxButton,
   hideCollectionActions,
+  showGuestDigboxHint = false,
   otherDigboxCount = 0,
   otherDigboxCountLabel,
   analyticsSource = "product_modal",
 }: ProductDetailModalProps) {
+  const { authUser } = useAuthContext();
+  const canUseCloset = Boolean(authUser);
   useBodyScrollLock(modalRef);
   const sizeTableTouchStartX = useRef<number | null>(null);
   const sizeTableTouchStartY = useRef<number | null>(null);
@@ -372,9 +377,14 @@ export function ProductDetailModal({
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
                 DIGBOX
               </div>
+              {showGuestDigboxHint && !isInDigbox && (
+                <p className="pointer-events-none absolute right-0 top-full mt-3 w-52 rounded-xl border border-yellow-300/30 bg-[#17150e]/95 px-3 py-2 text-[11px] font-bold leading-snug text-yellow-100 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                  마음에 드는 상품은 여기 담아 내 취향을 찾아보세요.
+                </p>
+              )}
             </div>
             )}
-            {!hideCollectionActions && !(hideDigboxButton && isInCloset) && (
+            {canUseCloset && !hideCollectionActions && !(hideDigboxButton && isInCloset) && (
             <div className="group relative">
               <button
                 type="button"

@@ -114,10 +114,9 @@ export function GridView({
                   className={`ui-product-card relative flex h-full flex-col overflow-hidden rounded-[22px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.045))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl transition ${
                     isInteractionDisabled
                       ? "cursor-default"
-                      : "group cursor-pointer hover:-translate-y-0.5 hover:border-white/[0.12] hover:shadow-[0_20px_42px_rgba(0,0,0,0.24)]"
+                      : "cursor-pointer"
                   }`}
                 >
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.11),transparent_34%,transparent_72%,rgba(255,255,255,0.04))]" />
                   <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48 sm:rounded-[18px]">
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
                     <div className="absolute inset-3 z-[1] sm:inset-4">

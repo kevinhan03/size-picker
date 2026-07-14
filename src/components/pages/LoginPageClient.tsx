@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoginPage } from "../LoginPage";
 import { useAuthContext } from "../../contexts/AuthContext";
@@ -19,12 +19,14 @@ export function LoginPageClient() {
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
   const completedRef = useRef(false);
+  const [isGuestDigboxSignup, setIsGuestDigboxSignup] = useState(false);
   const queryIntent = searchParams.get("intent") === "signup" ? "signup" : "login";
   const queryReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
 
   useEffect(() => {
     if (authUserId) return;
     const existing = readAuthContinuation();
+    setIsGuestDigboxSignup(queryIntent === "signup" && existing?.source === "guest_digbox");
     saveAuthContinuation({
       intent: queryIntent,
       returnTo: queryReturnTo,
@@ -56,6 +58,7 @@ export function LoginPageClient() {
           googleAuthError={auth.googleAuthError}
           onClearGoogleAuthError={() => auth.setGoogleAuthError(null)}
           initialTab={queryIntent}
+          isGuestDigboxSignup={isGuestDigboxSignup}
         />
       ) : null}
     </main>

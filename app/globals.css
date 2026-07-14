@@ -135,7 +135,6 @@ textarea {
 }
 
 .ui-add-product-modal,
-.ui-product-card,
 .ui-product-detail-modal {
   box-shadow: var(--ui-depth-shadow);
 }
