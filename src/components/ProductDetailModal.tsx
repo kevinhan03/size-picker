@@ -1,13 +1,15 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, PointerEvent, RefObject, SyntheticEvent, TouchEvent } from "react";
-import { ChevronDown, ExternalLink, X } from "lucide-react";
+import { ChevronDown, ExternalLink, Network, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
-import type { ClosetSizeSelection, MySizeProfile, Product, SizeRecommendation } from "../types";
+import type { ClosetSizeSelection, MySizeProfile, Product, RelatedGraphReason, SizeRecommendation } from "../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useMySizesContext } from "../contexts/MySizesContext";
+import { useProductsContext } from "../contexts/ProductsContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
+import { ProductRelatedGraphModal } from "./product-related/ProductRelatedGraphModal";
 import {
   compareMeasurementSnapshots,
   displayTableCell,
@@ -78,6 +80,10 @@ interface ProductDetailModalProps {
   onCollectionActionStart?: (anchorRect?: TutorialAnchorRect) => void;
   hideDigboxButton?: boolean;
   hideCollectionActions?: boolean;
+  hideRelatedGraphButton?: boolean;
+  onRelatedGraphRequest?: () => void;
+  relatedGraphButtonLabel?: string;
+  relatedGraphReason?: RelatedGraphReason | null;
   otherDigboxCount?: number;
   otherDigboxCountLabel?: string;
   analyticsSource?: string;
@@ -123,11 +129,14 @@ export function ProductDetailModal({
   onCollectionActionStart,
   hideDigboxButton,
   hideCollectionActions,
+  hideRelatedGraphButton,
+  onRelatedGraphRequest,
+  relatedGraphButtonLabel = "연관 상품 그래프",
+  relatedGraphReason,
   otherDigboxCount = 0,
   otherDigboxCountLabel,
   analyticsSource = "product_modal",
 }: ProductDetailModalProps) {
-  useBodyScrollLock(modalRef);
   const sizeTableTouchStartX = useRef<number | null>(null);
   const sizeTableTouchStartY = useRef<number | null>(null);
   const sizeTableIsScrolling = useRef(false);
@@ -144,8 +153,11 @@ export function ProductDetailModal({
   const [isMySizePickerOpen, setIsMySizePickerOpen] = useState(false);
   const [mySizeSearchQuery, setMySizeSearchQuery] = useState("");
   const [isSimilarProductsOpen, setIsSimilarProductsOpen] = useState(false);
+  const [isRelatedGraphOpen, setIsRelatedGraphOpen] = useState(false);
+  useBodyScrollLock(modalRef, !isRelatedGraphOpen);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const { mySizes, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
+  const { products } = useProductsContext();
   const [selectedMySizeId, setSelectedMySizeId] = useState<string>("");
   const savedClosetProduct = closetProduct || null;
   const savedSizeLabel = getClosetSizeLabel(savedClosetProduct);
@@ -201,6 +213,7 @@ export function ProductDetailModal({
     setIsMySizePickerOpen(false);
     setMySizeSearchQuery("");
     setIsSimilarProductsOpen(false);
+    setIsRelatedGraphOpen(false);
   }, [product.id]);
 
   useEffect(() => {
@@ -452,12 +465,61 @@ export function ProductDetailModal({
                   href={product.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    captureEvent("product_website_clicked", {
+                      product_id: product.id,
+                      source: analyticsSource,
+                    })
+                  }
                   className="inline-flex items-center text-sm text-gray-300 transition-colors hover:text-orange-400"
                 >
                   공식 홈페이지 <ExternalLink className="ml-1 h-3 w-3" />
                 </a>
               ) : (
                 <span className="text-sm text-gray-600">URL 없음</span>
+              )}
+              {((!hideRelatedGraphButton || onRelatedGraphRequest) || relatedGraphReason) && (
+                <div className="mt-4 flex flex-wrap items-start gap-x-7 gap-y-3">
+                  {(!hideRelatedGraphButton || onRelatedGraphRequest) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onRelatedGraphRequest) {
+                          onRelatedGraphRequest();
+                          return;
+                        }
+                        setIsRelatedGraphOpen(true);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl border border-orange-500/35 bg-orange-500/10 px-3.5 py-2 text-xs font-black text-orange-400 transition hover:border-orange-500/70 hover:bg-orange-500/15"
+                    >
+                      <Network className="h-4 w-4" />
+                      {relatedGraphButtonLabel}
+                    </button>
+                  )}
+                  {relatedGraphReason && (
+                    <section className="min-w-0 border-l-2 border-orange-500/55 pl-4" aria-label="연결 근거">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-gray-300">연결 근거</span>
+                        <span className="text-xs font-bold text-orange-400">
+                          스타일 유사도 {Math.round(relatedGraphReason.similarity * 100)}%
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {relatedGraphReason.sharedTags.map(({ tag, score }) => (
+                          <span key={tag} className="rounded-md bg-white/[0.06] px-2 py-1 text-[11px] font-semibold text-gray-300">
+                            {tag.replaceAll("_", " ")} {Math.round(score * 100)}
+                          </span>
+                        ))}
+                        {relatedGraphReason.sameCategory && (
+                          <span className="rounded-md bg-white/[0.06] px-2 py-1 text-[11px] font-semibold text-gray-400">같은 카테고리</span>
+                        )}
+                        {relatedGraphReason.hasHumanReviewedTags && (
+                          <span className="rounded-md bg-orange-500/10 px-2 py-1 text-[11px] font-semibold text-orange-300">사람 검수 태그 반영</span>
+                        )}
+                      </div>
+                    </section>
+                  )}
+                </div>
               )}
               {savedClosetProduct ? (
                 <div className="mt-3">
@@ -813,6 +875,13 @@ export function ProductDetailModal({
         tutorialId={activeTutorial.id}
         anchorRect={activeTutorial.anchorRect}
         onClose={() => setActiveTutorial(null)}
+      />
+    )}
+    {isRelatedGraphOpen && (
+      <ProductRelatedGraphModal
+        product={product}
+        products={products}
+        onClose={() => setIsRelatedGraphOpen(false)}
       />
     )}
     </>

@@ -244,11 +244,12 @@ casual, minimal, street, classic, vintage, lovely_romantic, sporty, workwear_gor
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Tag Supabase Bottom product images into products.style_tags."
+        description="Tag Supabase product images into products.style_tags."
     )
     parser.add_argument("--category", default=DEFAULT_CATEGORY)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--missing-only", action="store_true", help="Fetch only rows where style_tags is null.")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--bucket", default="")
     parser.add_argument("--signed-url-ttl", type=int, default=DEFAULT_SIGNED_URL_TTL_SECONDS)
@@ -427,12 +428,14 @@ def download_product_image(
 
 
 def fetch_products(client: Any, table: str, category: str, limit: int) -> list[dict[str, Any]]:
+    normalized_category = str(category or "").strip()
     query = (
         client.table(table)
         .select("id,brand,name,category,image_path,style_tags,product_metadata")
-        .eq("category", category)
         .order("id", desc=False)
     )
+    if normalized_category.lower() not in {"", "all", "*"}:
+        query = query.eq("category", normalized_category)
     if limit > 0:
         query = query.limit(limit)
 
@@ -444,17 +447,19 @@ def fetch_review_examples(client: Any, table: str, category: str, limit: int) ->
     if limit <= 0:
         return []
 
+    normalized_category = str(category or "").strip()
     query = (
         client.table(table)
         .select(
             "id,brand,name,category,style_tags,style_attributes,"
             "human_style_tags,human_style_attributes,tag_review_status,tag_review_note,reviewed_at"
         )
-        .eq("category", category)
         .in_("tag_review_status", ["approved", "edited"])
         .order("reviewed_at", desc=True)
         .limit(max(limit * 3, limit))
     )
+    if normalized_category.lower() not in {"", "all", "*"}:
+        query = query.eq("category", normalized_category)
     response = query.execute()
     rows = list(response.data or [])
     examples = []
@@ -815,6 +820,8 @@ def main() -> int:
         max(0, int(args.review_examples or 0)),
     )
     products = fetch_products(client, env["products_table"], args.category, args.limit)
+    if args.missing_only:
+        products = [product for product in products if product.get("style_tags") is None]
     total = len(products)
     if total == 0:
         print(f"No products found for category={args.category!r}.")

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
 import {
@@ -12,6 +13,7 @@ import {
 import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../server/utils/size-table.js";
 import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
+import { tagProductStyleById } from "../../../server/services/style-tagging.js";
 
 interface RegisteredUser {
   id: string;
@@ -123,6 +125,17 @@ export async function POST(request: Request) {
       productMetadata,
     });
     const product = normalizeProductRow(insertedRow);
+
+    after(() => {
+      const productId = String(insertedRow?.id || "").trim();
+      if (!productId) return;
+      tagProductStyleById(productId).catch((error) => {
+        console.error("[style-tagging] async product tagging failed", {
+          productId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    });
 
     revalidatePath("/", "layout");
     return NextResponse.json(

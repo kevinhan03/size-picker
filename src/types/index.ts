@@ -60,6 +60,13 @@ export type StyleAttributes = Record<string, unknown>;
 export type StyleTagsEvidence = Partial<Record<StyleTagName, string[]>>;
 export type TagReviewStatus = 'needs_review' | 'approved' | 'edited' | 'rejected';
 
+export interface RelatedGraphReason {
+  similarity: number;
+  sharedTags: Array<{ tag: StyleTagName; score: number }>;
+  sameCategory: boolean;
+  hasHumanReviewedTags: boolean;
+}
+
 export interface ProductStyleReviewInput {
   tagReviewStatus?: TagReviewStatus;
   humanStyleTags?: StyleTags | null;
