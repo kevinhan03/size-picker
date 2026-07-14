@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, SyntheticEvent } from "react";
-import { RefreshCw, Search, ShieldAlert, Star, X } from "lucide-react";
+import { RefreshCw, Search, ShieldAlert, X } from "lucide-react";
 import { GridView } from "../GridView";
 import { FilterBar } from "../FilterBar";
 import { ProductDetailModal } from "../ProductDetailModal";
@@ -49,6 +49,7 @@ const TUTORIAL_IDS = [
   "digboxShare",
 ] as const satisfies readonly TutorialId[];
 const TUTORIAL_STORAGE_PREFIX = "sizepicker:tutorial:v2:";
+const GUEST_DIGBOX_FIRST_SAVE_STORAGE_KEY = "sizepicker:guest-digbox-first-save:v1";
 
 const getRequestedTutorialId = (value: string | null): TutorialId | null => {
   if (!value) return null;
@@ -113,6 +114,8 @@ export function SearchPageClient() {
   const [brandFilter, setBrandFilter] = useState("");
   const [showAllBrands, setShowAllBrands] = useState(false);
   const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
+  const [showGuestSaveHint, setShowGuestSaveHint] = useState(false);
+  const [showGuestDetailSaveHint, setShowGuestDetailSaveHint] = useState(false);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
   const gridRecommendationsRef = useRef<HTMLDivElement>(null);
@@ -122,6 +125,15 @@ export function SearchPageClient() {
     ensureClosetLoaded();
     ensureDigboxLoaded();
   }, [ensureClosetLoaded, ensureDigboxLoaded]);
+
+  useEffect(() => {
+    const shouldShowHint = !isAuthLoading && !authUser && isGuestHydrated && guestCount === 0 && products.length > 0;
+    if (!shouldShowHint || window.localStorage.getItem(GUEST_DIGBOX_FIRST_SAVE_STORAGE_KEY)) {
+      setShowGuestSaveHint(false);
+      return;
+    }
+    setShowGuestSaveHint(true);
+  }, [authUser, guestCount, isAuthLoading, isGuestHydrated, products.length]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -326,6 +338,9 @@ export function SearchPageClient() {
   };
 
   const handleProductClick = (product: Product, anchorRect?: TutorialAnchorRect) => {
+    if (!isAuthLoading && !authUser && isGuestHydrated && guestCount === 0 && !window.localStorage.getItem(GUEST_DIGBOX_FIRST_SAVE_STORAGE_KEY)) {
+      setShowGuestDetailSaveHint(true);
+    }
     setSelectedProduct(product);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
@@ -337,6 +352,7 @@ export function SearchPageClient() {
     setSelectedProduct(null);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
+    setShowGuestDetailSaveHint(false);
     window.history.back();
   };
 
@@ -352,8 +368,6 @@ export function SearchPageClient() {
     event.currentTarget.onerror = null;
     event.currentTarget.style.display = "none";
   };
-
-  const showGuestValueHint = !isAuthLoading && !authUser && isGuestHydrated && guestCount === 0;
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white">
@@ -503,16 +517,6 @@ export function SearchPageClient() {
         )}
       </div>
 
-      {showGuestValueHint && (
-        <p className="mb-4 flex w-full max-w-2xl flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] font-semibold text-gray-500 sm:text-xs">
-          <span className="flex items-center gap-1.5 text-gray-400">
-            <Star className="h-3.5 w-3.5 text-yellow-400" fill="currentColor" aria-hidden="true" />
-            별을 눌러 상품을 담으면 내 관심 취향이 보여요
-          </span>
-          <span className="text-gray-500">로그인 없이 3개까지</span>
-        </p>
-      )}
-
       <FilterBar
         categoryOptions={categoryFilterOptions}
         categoryValue={grid.gridCategoryFilter}
@@ -526,6 +530,11 @@ export function SearchPageClient() {
       />
 
       <div className={`w-full max-w-7xl ${isShuffling ? "dig-grid is-shuffling" : "dig-grid"}`}>
+        {!isAuthLoading && !authUser && showGuestSaveHint && (
+          <p className="mb-4 rounded-xl border border-yellow-300/20 bg-yellow-400/[0.07] px-4 py-3 text-center text-sm font-semibold text-yellow-100">
+            마음에 드는 상품을 열어 DIGBOX에 저장하면 내 취향을 찾아드려요.
+          </p>
+        )}
         <GridView
           allProducts={products}
           filteredGridProducts={brandFilteredProducts}
@@ -561,9 +570,15 @@ export function SearchPageClient() {
           }}
           isInCloset={isInCloset(normalizedProduct.id)}
           onToggleDigbox={() => {
+            setShowGuestDetailSaveHint(false);
+            if (!authUser && !isInDigbox(normalizedProduct.id)) {
+              window.localStorage.setItem(GUEST_DIGBOX_FIRST_SAVE_STORAGE_KEY, "true");
+              setShowGuestSaveHint(false);
+            }
             toggleDigbox(normalizedProduct.id, "home_product_detail");
           }}
           isInDigbox={isInDigbox(normalizedProduct.id)}
+          showGuestDigboxHint={showGuestDetailSaveHint}
           analyticsSource="home_grid"
         />
       )}

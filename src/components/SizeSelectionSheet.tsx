@@ -91,7 +91,8 @@ export function SizeSelectionSheet({
       .filter(({ label, value }) => label && value);
   }, [headers, selectedRow]);
 
-  const canConfirm = selectedRowIndex !== null || manualSize.trim().length > 0;
+  const hasSizeTable = rows.length > 0;
+  const canConfirm = hasSizeTable ? selectedRowIndex !== null : manualSize.trim().length > 0;
 
   return (
     <div className="fixed inset-0 z-[85] flex items-end justify-center sm:items-center">
@@ -102,10 +103,8 @@ export function SizeSelectionSheet({
       >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wide text-orange-400">{product.brand}</p>
-            <p className="mt-0.5 truncate text-sm font-semibold text-white">{product.name}</p>
-            <h3 className="mt-1 truncate text-lg font-black">옷장에 추가</h3>
-            <p className="mt-1 text-sm text-gray-400">보유한 사이즈를 선택하세요.</p>
+            <h3 className="truncate text-lg font-black">보유 사이즈 선택</h3>
+            <p className="mt-1 truncate text-sm text-gray-400">{product.name}</p>
           </div>
           <button
             type="button"
@@ -117,48 +116,41 @@ export function SizeSelectionSheet({
           </button>
         </div>
 
-        {rows.length > 0 ? (
+        {hasSizeTable ? (
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-            {rows.map((row, index) => {
-              const label = String(row[0] ?? "").trim() || `Size ${index + 1}`;
-              const active = selectedRowIndex === index;
-              return (
-                <button
-                  key={`${label}-${index}`}
-                  type="button"
-                  onClick={() => {
-                    setSelectedRowIndex(index);
-                    setManualSize("");
-                  }}
-                  className={`h-11 rounded-xl border text-sm font-black transition ${
-                    active
-                      ? "border-orange-500 bg-orange-500 text-black shadow-[0_0_18px_rgba(249,115,22,0.35)]"
-                      : "border-white/10 bg-white/[0.06] text-gray-200 hover:border-orange-500/50 hover:text-orange-300"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
+              {rows.map((row, index) => {
+                const label = String(row[0] ?? "").trim() || `Size ${index + 1}`;
+                const active = selectedRowIndex === index;
+                return (
+                  <button
+                    key={`${label}-${index}`}
+                    type="button"
+                    onClick={() => setSelectedRowIndex(index)}
+                    className={`h-12 rounded-xl border text-sm font-black transition ${
+                      active
+                        ? "border-orange-500 bg-orange-500 text-black shadow-[0_0_18px_rgba(249,115,22,0.35)]"
+                        : "border-white/10 bg-white/[0.06] text-gray-200 hover:border-orange-500/50 hover:text-orange-300"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-gray-400">
-            이 상품은 사이즈표가 없어 직접 입력으로 저장할 수 있습니다.
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-sm font-bold text-white">사이즈표가 없는 상품입니다</p>
+            <p className="mt-1 text-sm text-gray-400">보유 사이즈를 직접 입력해주세요.</p>
+            <label className="mb-2 mt-4 block text-xs font-bold uppercase tracking-wide text-gray-500">보유 사이즈</label>
+            <input
+              value={manualSize}
+              onChange={(event) => setManualSize(event.target.value)}
+              placeholder="예: M, 32, 260, Free"
+              autoFocus
+              className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-gray-600 focus:border-orange-500/70"
+            />
           </div>
         )}
-
-        <div className="mt-4">
-          <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500">직접 입력</label>
-          <input
-            value={manualSize}
-            onChange={(event) => {
-              setManualSize(event.target.value);
-              setSelectedRowIndex(null);
-            }}
-            placeholder="예: M, 2, 260"
-            className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-gray-600 focus:border-orange-500/70"
-          />
-        </div>
 
         {measurements.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-white/[0.04] p-3">

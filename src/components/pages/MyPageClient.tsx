@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { MyPageView } from "../views/MyPageView";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
-import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useMySizesContext } from "../../contexts/MySizesContext";
 import { supabase } from "../../lib/supabase";
 import type { Product } from "../../types";
@@ -15,7 +14,6 @@ export function MyPageClient() {
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
   const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
-  const { digboxProducts, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
   const { mySizes, createMySize, deleteMySize, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
   const [discoveredProducts, setDiscoveredProducts] = useState<Product[]>([]);
   const [isDiscoveriesLoading, setIsDiscoveriesLoading] = useState(true);
@@ -29,14 +27,13 @@ export function MyPageClient() {
   useEffect(() => {
     if (authUserId) {
       ensureClosetLoaded();
-      ensureDigboxLoaded();
       ensureMySizesLoaded();
     }
-  }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded, ensureMySizesLoaded]);
+  }, [authUserId, ensureClosetLoaded, ensureMySizesLoaded]);
 
   useEffect(() => {
     if (!authUserId) return;
-    let active = true;
+    let isActive = true;
     void (async () => {
       try {
         const sessionResult = supabase ? await supabase.auth.getSession() : null;
@@ -44,16 +41,16 @@ export function MyPageClient() {
         if (!token) return;
         const response = await fetch("/api/my-discoveries", { headers: { Authorization: `Bearer ${token}` } });
         const payload = await response.json() as { ok?: boolean; data?: { products?: Product[] } };
-        if (active && response.ok && payload.ok && Array.isArray(payload.data?.products)) {
+        if (isActive && response.ok && payload.ok && Array.isArray(payload.data?.products)) {
           setDiscoveredProducts(payload.data.products);
         }
       } catch {
-        // The rest of My Page stays usable when this optional collection cannot load.
+        // This optional list must not block the rest of My Page.
       } finally {
-        if (active) setIsDiscoveriesLoading(false);
+        if (isActive) setIsDiscoveriesLoading(false);
       }
     })();
-    return () => { active = false; };
+    return () => { isActive = false; };
   }, [authUserId]);
 
   if (auth.isAuthLoading || !auth.authUser) {
@@ -68,9 +65,6 @@ export function MyPageClient() {
     >
       <MyPageView
         username={username}
-        digboxHref={`/u/${encodeURIComponent(username)}`}
-        closetCount={closetProducts.length}
-        digboxCount={digboxProducts.length}
         discoveredProducts={discoveredProducts}
         isDiscoveriesLoading={isDiscoveriesLoading}
         closetProducts={closetProducts}

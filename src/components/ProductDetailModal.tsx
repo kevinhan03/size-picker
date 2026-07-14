@@ -6,6 +6,7 @@ import type { ClosetSizeSelection, MySizeProfile, Product, RelatedGraphReason, S
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useMySizesContext } from "../contexts/MySizesContext";
+import { useAuthContext } from "../contexts/AuthContext";
 import { useProductsContext } from "../contexts/ProductsContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
@@ -17,6 +18,7 @@ import {
   isPrimaryColumnHeader,
 } from "../utils/sizeTable";
 import { captureEvent } from "../utils/analytics";
+import { ClosetIcon } from "./icons/ClosetIcon";
 
 function HangerIcon({ className = "" }: { className?: string }) {
   return (
@@ -30,27 +32,6 @@ function HangerIcon({ className = "" }: { className?: string }) {
       />
       <path
         d="M12 11 4.9 16.25c-.9.67-.42 2.1.7 2.1h12.8c1.12 0 1.6-1.43.7-2.1L12 11Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ClosetIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M6 4.75h12c.69 0 1.25.56 1.25 1.25v13.25H4.75V6c0-.69.56-1.25 1.25-1.25Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M12 4.75v14.5M8.75 12h.01M15.25 12h.01M7 19.25v1M17 19.25v1"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
@@ -84,6 +65,7 @@ interface ProductDetailModalProps {
   onRelatedGraphRequest?: () => void;
   relatedGraphButtonLabel?: string;
   relatedGraphReason?: RelatedGraphReason | null;
+  showGuestDigboxHint?: boolean;
   otherDigboxCount?: number;
   otherDigboxCountLabel?: string;
   analyticsSource?: string;
@@ -133,10 +115,15 @@ export function ProductDetailModal({
   onRelatedGraphRequest,
   relatedGraphButtonLabel = "연관 상품 그래프",
   relatedGraphReason,
+  showGuestDigboxHint = false,
   otherDigboxCount = 0,
   otherDigboxCountLabel,
   analyticsSource = "product_modal",
 }: ProductDetailModalProps) {
+  const { authUser } = useAuthContext();
+  const canUseCloset = Boolean(authUser);
+  const [isRelatedGraphOpen, setIsRelatedGraphOpen] = useState(false);
+  useBodyScrollLock(modalRef, !isRelatedGraphOpen);
   const sizeTableTouchStartX = useRef<number | null>(null);
   const sizeTableTouchStartY = useRef<number | null>(null);
   const sizeTableIsScrolling = useRef(false);
@@ -153,8 +140,6 @@ export function ProductDetailModal({
   const [isMySizePickerOpen, setIsMySizePickerOpen] = useState(false);
   const [mySizeSearchQuery, setMySizeSearchQuery] = useState("");
   const [isSimilarProductsOpen, setIsSimilarProductsOpen] = useState(false);
-  const [isRelatedGraphOpen, setIsRelatedGraphOpen] = useState(false);
-  useBodyScrollLock(modalRef, !isRelatedGraphOpen);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const { mySizes, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
   const { products } = useProductsContext();
@@ -358,9 +343,9 @@ export function ProductDetailModal({
       <div
         className="ui-product-detail-modal relative flex flex-col max-h-[90vh] w-full max-w-4xl rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
       >
-        <div className="flex-shrink-0 z-10 flex items-center justify-between px-6 py-4 text-white bg-[#1c1c1f] border-b border-white/10 rounded-t-3xl">
-          <h3 className="text-lg font-bold text-white sm:text-xl">상품 상세</h3>
-          <div className="flex items-center gap-3">
+        <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-3 text-white sm:px-6 sm:py-4">
+          <h3 className="shrink-0 text-base font-bold text-white sm:text-xl">상품 상세</h3>
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
             {!hideCollectionActions && !hideDigboxButton && (
             <div className="group relative">
               <button
@@ -370,7 +355,7 @@ export function ProductDetailModal({
                   onCollectionActionStart?.(getAnchorRect(event));
                   onToggleDigbox?.();
                 }}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold backdrop-blur-xl transition ${
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold backdrop-blur-xl transition sm:px-3 ${
                   isInDigbox
                     ? "border-yellow-400/80 bg-[linear-gradient(180deg,rgba(250,204,21,0.45),rgba(250,204,21,0.28))] text-yellow-300 shadow-[0_4px_16px_rgba(250,204,21,0.35)]"
                     : "border-yellow-400/40 bg-[linear-gradient(180deg,rgba(250,204,21,0.22),rgba(250,204,21,0.09))] text-yellow-400 shadow-[0_4px_16px_rgba(250,204,21,0.15)] hover:border-yellow-400/70 hover:bg-[linear-gradient(180deg,rgba(250,204,21,0.32),rgba(250,204,21,0.15))] hover:text-yellow-300"
@@ -379,27 +364,33 @@ export function ProductDetailModal({
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill={isInDigbox ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                 </svg>
-                <span>{isInDigbox ? "담김" : "DIGBOX에 담기"}</span>
+                <span>{isInDigbox ? "담김" : "DIGBOX 담기"}</span>
               </button>
               <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
                 DIGBOX
               </div>
+              {showGuestDigboxHint && !isInDigbox && (
+                <p className="pointer-events-none absolute right-0 top-full mt-3 w-52 rounded-xl border border-yellow-300/30 bg-[#17150e]/95 px-3 py-2 text-[11px] font-bold leading-snug text-yellow-100 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                  마음에 드는 상품은 여기 담아 내 취향을 찾아보세요.
+                </p>
+              )}
             </div>
             )}
-            {!hideCollectionActions && !(hideDigboxButton && isInCloset) && (
+            {canUseCloset && !hideCollectionActions && !(hideDigboxButton && isInCloset) && (
             <div className="group relative">
               <button
                 type="button"
-                aria-label="내 옷장에 추가"
+                aria-label={isInCloset ? "옷장에 있음" : "옷장에 추가"}
                 onClick={handleClosetClick}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold backdrop-blur-xl transition ${
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold backdrop-blur-xl transition sm:px-3 ${
                   isInCloset
                     ? "border-orange-500/80 bg-[linear-gradient(180deg,rgba(249,115,22,0.45),rgba(249,115,22,0.28))] text-orange-300 shadow-[0_4px_16px_rgba(249,115,22,0.35)]"
                     : "border-orange-500/40 bg-[linear-gradient(180deg,rgba(249,115,22,0.22),rgba(249,115,22,0.09))] text-orange-400 shadow-[0_4px_16px_rgba(249,115,22,0.15)] hover:border-orange-500/70 hover:bg-[linear-gradient(180deg,rgba(249,115,22,0.32),rgba(249,115,22,0.15))] hover:text-orange-300"
                 }`}
               >
                 <ClosetIcon className="h-4 w-4" />
+                <span>{isInCloset ? "옷장에 있음" : "옷장 추가"}</span>
               </button>
               <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
@@ -411,7 +402,7 @@ export function ProductDetailModal({
               type="button"
               aria-label="상품 상세 닫기"
               onClick={onClose}
-              className="flex items-center gap-2 rounded-lg border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] px-3 py-1.5 text-xs font-bold text-gray-200 shadow-[0_4px_16px_rgba(0,0,0,0.2)] backdrop-blur-xl transition hover:border-orange-500/60 hover:text-orange-400"
+              className="flex items-center gap-2 rounded-lg border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] px-2.5 py-1.5 text-xs font-bold text-gray-200 shadow-[0_4px_16px_rgba(0,0,0,0.2)] backdrop-blur-xl transition hover:border-orange-500/60 hover:text-orange-400 sm:px-3"
             >
               <X className="h-4 w-4" />
             </button>
@@ -465,12 +456,6 @@ export function ProductDetailModal({
                   href={product.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() =>
-                    captureEvent("product_website_clicked", {
-                      product_id: product.id,
-                      source: analyticsSource,
-                    })
-                  }
                   className="inline-flex items-center text-sm text-gray-300 transition-colors hover:text-orange-400"
                 >
                   공식 홈페이지 <ExternalLink className="ml-1 h-3 w-3" />
@@ -478,9 +463,9 @@ export function ProductDetailModal({
               ) : (
                 <span className="text-sm text-gray-600">URL 없음</span>
               )}
-              {((!hideRelatedGraphButton || onRelatedGraphRequest) || relatedGraphReason) && (
+              {(!hideRelatedGraphButton || onRelatedGraphRequest || relatedGraphReason) && (
                 <div className="mt-4 flex flex-wrap items-start gap-x-7 gap-y-3">
-                  {(!hideRelatedGraphButton || onRelatedGraphRequest) && (
+                  {!hideRelatedGraphButton || onRelatedGraphRequest ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -495,30 +480,15 @@ export function ProductDetailModal({
                       <Network className="h-4 w-4" />
                       {relatedGraphButtonLabel}
                     </button>
-                  )}
-                  {relatedGraphReason && (
+                  ) : null}
+                  {relatedGraphReason ? (
                     <section className="min-w-0 border-l-2 border-orange-500/55 pl-4" aria-label="연결 근거">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-gray-300">연결 근거</span>
-                        <span className="text-xs font-bold text-orange-400">
-                          스타일 유사도 {Math.round(relatedGraphReason.similarity * 100)}%
-                        </span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {relatedGraphReason.sharedTags.map(({ tag, score }) => (
-                          <span key={tag} className="rounded-md bg-white/[0.06] px-2 py-1 text-[11px] font-semibold text-gray-300">
-                            {tag.replaceAll("_", " ")} {Math.round(score * 100)}
-                          </span>
-                        ))}
-                        {relatedGraphReason.sameCategory && (
-                          <span className="rounded-md bg-white/[0.06] px-2 py-1 text-[11px] font-semibold text-gray-400">같은 카테고리</span>
-                        )}
-                        {relatedGraphReason.hasHumanReviewedTags && (
-                          <span className="rounded-md bg-orange-500/10 px-2 py-1 text-[11px] font-semibold text-orange-300">사람 검수 태그 반영</span>
-                        )}
+                        <span className="text-xs font-bold text-orange-400">스타일 유사도 {Math.round(relatedGraphReason.similarity * 100)}%</span>
                       </div>
                     </section>
-                  )}
+                  ) : null}
                 </div>
               )}
               {savedClosetProduct ? (

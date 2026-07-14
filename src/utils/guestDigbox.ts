@@ -1,5 +1,6 @@
 export const GUEST_DIGBOX_KEY = "digbox_guest_v1";
 export const GUEST_DIGBOX_LIMIT = 3;
+const GUEST_DIGBOX_IMPORT_REQUEST_KEY = "digbox_guest_import_requested_v1";
 const GUEST_DIGBOX_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 type GuestDigboxPayload = {
@@ -50,5 +51,32 @@ export function writeGuestDigbox(ids: string[]) {
     localStorage.setItem(GUEST_DIGBOX_KEY, JSON.stringify(payload));
   } catch {
     // Keep the in-memory guest collection usable when persistence is blocked.
+  }
+}
+
+export function requestGuestDigboxImport() {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(GUEST_DIGBOX_IMPORT_REQUEST_KEY, "1");
+  } catch {
+    // The guest collection remains available even when session storage is unavailable.
+  }
+}
+
+export function isGuestDigboxImportRequested() {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(GUEST_DIGBOX_IMPORT_REQUEST_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function clearGuestDigboxImportRequest() {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(GUEST_DIGBOX_IMPORT_REQUEST_KEY);
+  } catch {
+    // Ignore restricted browser storage environments.
   }
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
+import { ClosetIcon } from "./icons/ClosetIcon";
 import { GoogleSignupCompleteModal } from "./GoogleSignupCompleteModal";
 import { GuestDigboxExperience } from "./GuestDigboxExperience";
 import { MobileBottomNav } from "./MobileBottomNav";
@@ -26,27 +27,6 @@ const SearchResultOverlay = dynamic(
   () => import("./SearchResultOverlay").then((mod) => mod.SearchResultOverlay),
   { ssr: false }
 );
-
-function ClosetIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M6 4.75h12c.69 0 1.25.56 1.25 1.25v13.25H4.75V6c0-.69.56-1.25 1.25-1.25Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M12 4.75v14.5M8.75 12h.01M15.25 12h.01M7 19.25v1M17 19.25v1"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 function ClosetToast() {
   const { toast, clearToast } = useClosetContext();
@@ -392,8 +372,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const search = useSearchContext();
   const pathname = usePathname();
   const isAdminPage = pathname?.startsWith("/admin");
-  const isTasteGraphPage = pathname?.startsWith("/taste-graph");
-  const hideChrome = isAdminPage || isTasteGraphPage;
+  const isOnboardingPage = pathname?.startsWith("/onboarding");
+  const hideChrome = isAdminPage || isOnboardingPage;
   const hideMobileBottomNav = hideChrome || pathname === "/login" || pathname?.startsWith("/auth/");
 
   return (
@@ -408,7 +388,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!hideChrome && <DigboxToast />}
       {!hideChrome && <GuestDigboxExperience />}
       {!hideMobileBottomNav && <MobileBottomNav />}
-      {auth.needsUsername && (
+      {auth.needsUsername && !isOnboardingPage && (
         <NeedsUsernameModal
           pendingUsername={auth.pendingUsername}
           onUsernameChange={auth.setPendingUsername}

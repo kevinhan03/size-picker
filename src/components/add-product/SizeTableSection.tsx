@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Camera, ChevronDown, Upload } from 'lucide-react';
+import { AlertTriangle, Camera, ChevronDown, Expand, Upload, X } from 'lucide-react';
 import { ITEM_LABEL } from '../../constants';
 import type { useProductForm } from '../../hooks/useProductForm';
 import { displayTableCell, normalizeCellText } from '../../utils/sizeTable';
@@ -35,11 +35,13 @@ function commitTableCell(form: ProductForm, value: string) {
 export function SizeTableSection({ form }: SizeTableSectionProps) {
   const [isExtraOpen, setIsExtraOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const isOptional = form.isSizeTableOptionalCategory;
+  const isComparisonMode = Boolean(form.formData.sizeChartImage && form.formData.extractedTable);
 
   return (
     <div className="space-y-2">
-      <div>
+      {!isComparisonMode ? <div>
         <label className="text-sm font-semibold text-gray-300">
           사이즈표 <span className={isOptional ? "text-gray-500" : "text-orange-300"}>{isOptional ? "선택" : "필수"}</span>
         </label>
@@ -52,8 +54,8 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
             {'\uCEA1\uCC98\uBCF8\uC5D0\uC11C \uCD94\uCD9C\uD55C \uC0AC\uC774\uC988\uD45C\uB97C \uD655\uC778\uD558\uC138\uC694.'}
           </p>
         )}
-      </div>
-      <div>
+      </div> : null}
+      {!isComparisonMode ? <div>
         <label
           onDragOver={(event) => {
             event.preventDefault();
@@ -87,12 +89,35 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
           )}
           <input type="file" className="hidden" accept="image/*" onChange={(e) => form.handleFileUpload(e, 'chart')} />
         </label>
-      </div>
+      </div> : null}
       {!form.formData.extractedTable && form.formData.sizeChartImage && !form.isAnalyzingTable ? (
         <div className="text-xs text-amber-300">{'\uC0AC\uC774\uC988\uD45C \uC774\uBBF8\uC9C0\uB294 \uC788\uC9C0\uB9CC \uAC80\uC99D\uB41C \uD45C \uCD94\uCD9C\uC740 \uC544\uC9C1 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.'}</div>
       ) : null}
       {form.formData.extractedTable && !form.isAnalyzingTable ? (
-        <div className="rounded-xl border border-white/10 overflow-hidden">
+        <div className="flex gap-2 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2.5 text-xs leading-5 text-amber-100">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+          <p>AI가 추출한 사이즈표입니다. 원본 이미지와 비교해 다른 값이 있으면 셀을 눌러 수정한 뒤 저장하세요.</p>
+        </div>
+      ) : null}
+      {form.formData.extractedTable && !form.isAnalyzingTable ? (
+        <div className={isComparisonMode ? "space-y-3" : ""}>
+          {isComparisonMode ? (
+            <div className="rounded-xl border border-white/10 overflow-hidden bg-white/[0.03]">
+              <button
+                type="button"
+                onClick={() => setIsImagePreviewOpen(true)}
+                className="group relative block w-full overflow-hidden bg-black/30"
+                aria-label="사이즈표 원본 크게 보기"
+              >
+                <img src={form.formData.sizeChartImage || ""} alt="업로드한 사이즈표 원본" className="block h-auto w-full" />
+                <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-black/70 px-2 py-1 text-[11px] text-white opacity-0 transition group-hover:opacity-100">
+                  <Expand className="h-3.5 w-3.5" /> 크게 보기
+                </span>
+              </button>
+              <div className="border-t border-white/10 px-3 py-2 text-xs text-gray-400">원본 사이즈표 · 클릭하여 확대</div>
+            </div>
+          ) : null}
+          <div className="rounded-xl border border-white/10 overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 bg-white/[0.04] border-b border-white/10">
             <span className="text-xs text-gray-500">{'\uC140\uC744 \uD074\uB9AD\uD558\uBA74 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.'}</span>
             <span className="text-xs font-semibold text-gray-500">{'단위: cm'}</span>
@@ -155,6 +180,15 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
               </tbody>
             </table>
           </div>
+          </div>
+        </div>
+      ) : null}
+      {isImagePreviewOpen && form.formData.sizeChartImage ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label="사이즈표 원본 확대 보기">
+          <button type="button" aria-label="닫기" onClick={() => setIsImagePreviewOpen(false)} className="absolute right-5 top-5 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
+            <X className="h-5 w-5" />
+          </button>
+          <img src={form.formData.sizeChartImage} alt="업로드한 사이즈표 원본 확대" className="max-h-[90vh] max-w-[95vw] object-contain" />
         </div>
       ) : null}
       {form.formData.extractedTable?.extra?.headers?.length && !form.isAnalyzingTable ? (
