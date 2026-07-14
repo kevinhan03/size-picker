@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, ChevronDown } from 'lucide-react';
+import { Camera, ChevronDown, Expand, Upload, X } from 'lucide-react';
 import type { useProductForm } from '../../hooks/useProductForm';
 
 type ProductForm = ReturnType<typeof useProductForm>;
@@ -13,6 +13,7 @@ const UPLOAD_HINT = '클릭하거나 드래그해서 업로드';
 export function ProductImageSection({ form }: ProductImageSectionProps) {
   const [isCandidatesOpen, setIsCandidatesOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [failedCandidateUrls, setFailedCandidateUrls] = useState<Set<string>>(() => new Set());
   const visibleCandidateUrls = useMemo(
     () => form.autofilledProductImageCandidates.filter((candidateUrl) => !failedCandidateUrls.has(candidateUrl)),
@@ -31,7 +32,14 @@ export function ProductImageSection({ form }: ProductImageSectionProps) {
           <label className="text-sm font-semibold text-gray-300">상품 이미지 <span className="text-orange-300">필수</span></label>
           <p className="mt-1 text-xs text-gray-500">직접 업로드하거나 후보 중 선택하세요.</p>
         </div>
-        {candidateCount > 0 ? (
+        <div className="flex shrink-0 items-center gap-2">
+          {form.formData.productImage ? (
+            <label className="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg border border-white/10 bg-white/[0.05] px-2.5 py-1 text-xs font-bold text-gray-300 transition hover:border-orange-500/40 hover:text-orange-300">
+              <Upload className="h-3.5 w-3.5" /> 이미지 변경
+              <input type="file" className="hidden" accept="image/*" onChange={(e) => form.handleFileUpload(e, 'product')} />
+            </label>
+          ) : null}
+          {candidateCount > 0 ? (
           <button
             type="button"
             onClick={() => setIsCandidatesOpen((value) => !value)}
@@ -40,41 +48,57 @@ export function ProductImageSection({ form }: ProductImageSectionProps) {
             후보 보기
             <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isCandidatesOpen ? 'rotate-180' : ''}`} />
           </button>
-        ) : null}
+          ) : null}
+        </div>
       </div>
-      <label
-        onDragOver={(event) => {
-          event.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setIsDragging(false);
-          const file = event.dataTransfer.files?.[0];
-          if (file) form.handleDroppedFile(file, 'product');
-        }}
-        className={`group relative cursor-pointer w-full h-28 border-2 border-dashed rounded-xl flex items-center justify-center overflow-hidden transition backdrop-blur-sm ${
-          isDragging
-            ? 'border-orange-500/70 bg-orange-500/10'
-            : 'border-white/15 bg-white/[0.06] hover:bg-white/[0.09] hover:border-orange-500/45'
-        }`}
-      >
-        {form.formData.productImage ? (
-          <>
-            <img src={form.formData.productImage} className="h-full object-contain" onError={form.handleThumbnailLoadError} />
-            <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-lg bg-black/75 px-2.5 py-1 text-[11px] font-bold text-white opacity-0 transition group-hover:opacity-100">
-              {UPLOAD_HINT}
+      {form.formData.productImage ? (
+        <div className="relative h-[360px] overflow-hidden rounded-xl border border-white/10 bg-black/30">
+          <button
+            type="button"
+            onClick={() => setIsImagePreviewOpen(true)}
+            className="group flex h-full w-full items-center justify-center"
+            aria-label="상품 이미지 크게 보기"
+          >
+            <img src={form.formData.productImage} alt="선택한 상품 이미지" className="h-full w-full object-contain" onError={form.handleThumbnailLoadError} />
+            <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-black/70 px-2 py-1 text-[11px] text-white opacity-0 transition group-hover:opacity-100">
+              <Expand className="h-3.5 w-3.5" /> 크게 보기
             </span>
-          </>
-        ) : (
+          </button>
+        </div>
+      ) : (
+        <label
+          onDragOver={(event) => {
+            event.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setIsDragging(false);
+            const file = event.dataTransfer.files?.[0];
+            if (file) form.handleDroppedFile(file, 'product');
+          }}
+          className={`relative flex h-28 w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition backdrop-blur-sm ${
+            isDragging
+              ? 'border-orange-500/70 bg-orange-500/10'
+              : 'border-white/15 bg-white/[0.06] hover:border-orange-500/45 hover:bg-white/[0.09]'
+          }`}
+        >
           <div className="flex flex-col items-center gap-2 text-gray-500">
             <Camera className="w-8 h-8" />
             <span className="text-xs font-bold">{UPLOAD_HINT}</span>
           </div>
-        )}
-        <input type="file" className="hidden" accept="image/*" onChange={(e) => form.handleFileUpload(e, 'product')} />
-      </label>
+          <input type="file" className="hidden" accept="image/*" onChange={(e) => form.handleFileUpload(e, 'product')} />
+        </label>
+      )}
+      {isImagePreviewOpen && form.formData.productImage ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label="상품 이미지 확대 보기">
+          <button type="button" aria-label="닫기" onClick={() => setIsImagePreviewOpen(false)} className="absolute right-5 top-5 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
+            <X className="h-5 w-5" />
+          </button>
+          <img src={form.formData.productImage} alt="선택한 상품 이미지 확대" className="max-h-[90vh] max-w-[95vw] object-contain" />
+        </div>
+      ) : null}
       {candidateCount > 0 && isCandidatesOpen ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-[11px] text-gray-400">

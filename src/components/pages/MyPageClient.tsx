@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { MyPageView } from "../views/MyPageView";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
-import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useMySizesContext } from "../../contexts/MySizesContext";
 import { supabase } from "../../lib/supabase";
 
@@ -14,7 +13,6 @@ export function MyPageClient() {
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
   const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
-  const { digboxProducts, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
   const { mySizes, createMySize, deleteMySize, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
 
   useEffect(() => {
@@ -26,10 +24,9 @@ export function MyPageClient() {
   useEffect(() => {
     if (authUserId) {
       ensureClosetLoaded();
-      ensureDigboxLoaded();
       ensureMySizesLoaded();
     }
-  }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded, ensureMySizesLoaded]);
+  }, [authUserId, ensureClosetLoaded, ensureMySizesLoaded]);
 
   if (auth.isAuthLoading || !auth.authUser) {
     return <main className="min-h-screen bg-black" />;
@@ -43,9 +40,6 @@ export function MyPageClient() {
     >
       <MyPageView
         username={username}
-        digboxHref={`/u/${encodeURIComponent(username)}`}
-        closetCount={closetProducts.length}
-        digboxCount={digboxProducts.length}
         closetProducts={closetProducts}
         mySizes={mySizes}
         onCreateMySize={async (input) => {

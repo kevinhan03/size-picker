@@ -1,66 +1,85 @@
 "use client";
 
-import { Compass, LogIn, Plus, Search, Shirt, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { LogIn, Plus, UserRound } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
+import { useDigboxContext } from "../contexts/DigboxContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
 import { buildLoginHref } from "../utils/authNavigation";
+import {
+  getPrimaryNavigationDestination,
+  primaryNavigationItems,
+  type PrimaryNavigationDestination,
+} from "./primaryNavigation";
 
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuthContext();
+  const digbox = useDigboxContext();
   const productForm = useProductFormContext();
   const [scrolled, setScrolled] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [hiddenOnMobile, setHiddenOnMobile] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
+  const [hiddenOnCompact, setHiddenOnCompact] = useState(false);
 
   useEffect(() => {
     let lastY = window.scrollY;
-    const media = window.matchMedia("(max-width: 639px)");
-    const updateIsMobile = () => {
-      const nextIsMobile = media.matches;
-      setIsMobile(nextIsMobile);
-      if (!nextIsMobile) setHiddenOnMobile(false);
+    const media = window.matchMedia("(max-width: 1023px)");
+    const updateViewport = () => {
+      setIsCompactViewport(media.matches);
+      if (!media.matches) setHiddenOnCompact(false);
     };
     const onScroll = () => {
       const nextY = window.scrollY;
       setScrolled(nextY > 8);
-      if (!media.matches) {
-        setHiddenOnMobile(false);
-      } else if (nextY <= 8) {
-        setHiddenOnMobile(false);
-      } else if (nextY > lastY) {
-        setHiddenOnMobile(true);
-      } else if (nextY < lastY) {
-        setHiddenOnMobile(false);
-      }
+      if (!media.matches || nextY <= 8) setHiddenOnCompact(false);
+      else if (nextY > lastY) setHiddenOnCompact(true);
+      else if (nextY < lastY) setHiddenOnCompact(false);
       lastY = nextY;
     };
-    updateIsMobile();
+    updateViewport();
     window.addEventListener("scroll", onScroll, { passive: true });
-    media.addEventListener("change", updateIsMobile);
+    media.addEventListener("change", updateViewport);
     return () => {
       window.removeEventListener("scroll", onScroll);
-      media.removeEventListener("change", updateIsMobile);
+      media.removeEventListener("change", updateViewport);
     };
   }, []);
 
   const isAdmin = pathname.startsWith("/admin");
-  const compactHeader = scrolled && !isMobile;
-  const isDigging = pathname === "/" || pathname === "/grid" || pathname.startsWith("/product/");
-  const isOutfits = pathname.startsWith("/outfits");
-  const isMy = pathname === "/mypage" || pathname.startsWith("/closet") || pathname.startsWith("/u/");
-  const headerFrameClass = isMobile
+  const activeDestination = getPrimaryNavigationDestination(pathname);
+  const isMyPage = pathname === "/mypage";
+  const compactHeader = scrolled && !isCompactViewport;
+  const headerFrameClass = isCompactViewport
     ? "mt-0 h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-none rounded-none border-0 bg-black px-4 pt-[env(safe-area-inset-top)] shadow-none"
     : compactHeader
-      ? "mt-3 h-12 w-[calc(100%-2rem)] max-w-3xl rounded-2xl border border-white/10 bg-[#111114] px-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+      ? "mt-3 h-12 w-[calc(100%-12rem)] max-w-[52rem] rounded-2xl border border-white/10 bg-[#111114] px-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
       : "mt-0 h-16 w-full max-w-6xl rounded-none border-b border-transparent bg-transparent px-4";
 
-  function goToOutfits() {
-    router.push(auth.authUser ? "/outfits" : buildLoginHref("login", "/outfits"));
+  function navigate(destination: PrimaryNavigationDestination) {
+    if (destination === "digging") {
+      router.push("/");
+      return;
+    }
+    if (destination === "outfits") {
+      router.push(auth.authUser ? "/outfits" : buildLoginHref("login", "/outfits"));
+      return;
+    }
+    if (destination === "taste") {
+      router.push("/taste-graph");
+      return;
+    }
+    if (destination === "closet") {
+      router.push("/closet");
+      return;
+    }
+    if (!auth.authUser) {
+      digbox.setIsGuestPanelOpen(true);
+      return;
+    }
+    router.push(auth.dbUsername ? `/u/${encodeURIComponent(auth.dbUsername)}` : "/mypage");
   }
 
   function openProductForm() {
@@ -71,89 +90,79 @@ export function AppHeader() {
     productForm.openModal();
   }
 
-  function focusProductSearch() {
-    if (pathname !== "/") {
-      router.push("/?focusSearch=1");
-      return;
-    }
-    const input = document.getElementById("main-product-search") as HTMLInputElement | null;
-    input?.scrollIntoView({ behavior: "smooth", block: "center" });
-    window.setTimeout(() => input?.focus(), 250);
-  }
-
   const desktopNavClass = (active: boolean) =>
-    `flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black shadow-none transition ${
+    `flex h-9 w-9 items-center justify-center rounded-xl shadow-none transition ${
       active ? "bg-orange-500/15 text-orange-300" : "text-gray-400 hover:bg-white/[0.06] hover:text-white"
     }`;
+  const tooltipClass = "pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-[opacity,transform] duration-150 ease-out scale-95 group-hover:delay-300 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:delay-0 group-focus-visible:scale-100 group-focus-visible:opacity-100";
 
   return (
-    <header className={`pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center transition-transform duration-300 ease-out ${hiddenOnMobile ? "-translate-y-full" : "translate-y-0"}`}>
-      <div className={`pointer-events-auto flex items-center justify-between transition-all duration-300 ease-out ${headerFrameClass}`}>
-        <div className="flex min-w-0 items-center gap-4">
-          <button type="button" onClick={() => router.push("/")} aria-label="DIGBOX 홈" className="flex min-w-0 items-center gap-2 rounded-xl shadow-none">
-            <span className={`flex items-center justify-center transition-all duration-300 ${compactHeader ? "h-7 w-7" : "h-10 w-10"}`}>
+    <header className={`pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center transition-transform duration-300 ease-out ${hiddenOnCompact ? "-translate-y-full" : "translate-y-0"}`}>
+      <div className={`pointer-events-auto flex items-center justify-between transition-all duration-300 ease-out lg:grid lg:grid-cols-[1fr_auto_1fr] ${headerFrameClass}`}>
+        <div className="flex min-w-0 items-center">
+          <div aria-label="DIGBOX" className="flex min-w-0 items-center gap-2 rounded-xl">
+            <span className={`flex items-center justify-center transition-all duration-300 ${compactHeader ? "h-7 w-7" : "h-8 w-8 lg:h-9 lg:w-9"}`}>
               <Image src="/favicon-simple.svg" alt="" width={40} height={40} className="h-full w-full object-contain" />
             </span>
             <span className="flex min-w-0 flex-col text-left leading-none">
               <span className={`font-bold tracking-tight text-orange-500 transition-all duration-300 ${compactHeader ? "text-base" : "text-xl"}`}>DIGBOX</span>
-              {!compactHeader && <span className="hidden text-[10px] tracking-tight text-white/60 lg:block">취향은 더 깊게, 발견은 더 쉽게</span>}
             </span>
-          </button>
-
-          {!isAdmin && (
-            <div className="hidden items-center gap-1 sm:flex">
-              <button type="button" aria-current={isDigging ? "page" : undefined} onClick={() => router.push("/")} className={desktopNavClass(isDigging)}>
-                <Compass className="h-4 w-4" /> 디깅
-              </button>
-              <button type="button" aria-current={isOutfits ? "page" : undefined} onClick={goToOutfits} className={desktopNavClass(isOutfits)}>
-                <Shirt className="h-4 w-4" /> 코디
-              </button>
-            </div>
-          )}
+          </div>
         </div>
 
         {!isAdmin && (
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={focusProductSearch}
-              aria-label="상품 검색"
-              title="상품 검색"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-gray-300 shadow-none transition hover:border-orange-500/50 hover:text-orange-400 sm:hidden"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={openProductForm}
-              aria-label="상품 추가"
-              className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] px-2.5 text-xs font-black text-[#00FF00] shadow-[0_4px_16px_rgba(0,255,0,0.15)] transition hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] sm:px-3"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">상품 추가</span>
-            </button>
+          <nav aria-label="주요 메뉴" className="hidden items-center gap-1 lg:flex">
+            {primaryNavigationItems.map(({ destination, label, icon: Icon }) => (
+              <div key={destination} className="group relative">
+                <button
+                  type="button"
+                  aria-current={activeDestination === destination ? "page" : undefined}
+                  aria-label={label}
+                  onClick={() => navigate(destination)}
+                  className={desktopNavClass(activeDestination === destination)}
+                >
+                  <Icon className="h-5 w-5" />
+                </button>
+                <div className={tooltipClass}>
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
+                  {label}
+                </div>
+              </div>
+            ))}
+          </nav>
+        )}
+
+        {!isAdmin && (
+          <div className="flex items-center justify-end gap-2">
+            <div className="group relative">
+              <button type="button" onClick={openProductForm} aria-label="상품 추가" className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] text-[#00FF00] shadow-[0_4px_16px_rgba(0,255,0,0.15)] transition hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF00]/80">
+                <Plus className="h-4 w-4" />
+              </button>
+              <div className={tooltipClass}>
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
+                상품 추가
+              </div>
+            </div>
             {auth.authUser ? (
-              <button
-                type="button"
-                aria-current={isMy ? "page" : undefined}
-                onClick={() => router.push("/mypage")}
-                className={`hidden h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-black shadow-none transition sm:flex ${
-                  isMy ? "border-orange-500/40 bg-orange-500/15 text-orange-300" : "border-white/15 bg-white/[0.06] text-gray-300 hover:border-orange-500/50 hover:text-orange-400"
-                }`}
-              >
-                <UserRound className="h-4 w-4" /> 마이
-              </button>
+              <div className="group relative">
+                <button type="button" aria-label="마이페이지" onClick={() => router.push("/mypage")} className={`flex h-9 w-9 items-center justify-center rounded-xl border text-gray-300 shadow-none transition hover:border-orange-500/50 hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${isMyPage ? "border-orange-500/40 bg-orange-500/15 text-orange-300" : "border-white/15 bg-white/[0.06]"}`}>
+                  <UserRound className="h-4 w-4" />
+                </button>
+                <div className={tooltipClass}>
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
+                  마이페이지
+                </div>
+              </div>
             ) : (
-              <button
-                type="button"
-                aria-current={pathname === "/login" ? "page" : undefined}
-                onClick={() => router.push("/login")}
-                className={`hidden h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-black shadow-none transition sm:flex ${
-                  pathname === "/login" ? "border-orange-500 bg-orange-500 text-black" : "border-white/15 bg-white/[0.06] text-gray-300 hover:border-orange-500/50 hover:text-orange-400"
-                }`}
-              >
-                <LogIn className="h-4 w-4" /> 로그인
-              </button>
+              <div className="group relative">
+                <button type="button" aria-label="로그인" onClick={() => router.push("/login")} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-gray-300 transition hover:border-orange-500/50 hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                  <LogIn className="h-4 w-4" />
+                </button>
+                <div className={tooltipClass}>
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
+                  로그인
+                </div>
+              </div>
             )}
           </div>
         )}

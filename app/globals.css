@@ -39,7 +39,7 @@
   --grid-card-category-size: 0.875rem;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 1023px) {
   :root {
     --app-page-min-h: 100vh;
     --app-main-min-h: 100vh;
@@ -59,28 +59,6 @@
     --grid-heading-size: 1.35rem;
     --grid-card-title-size: 0.95rem;
     --grid-card-category-size: 0.75rem;
-  }
-}
-
-@media (min-width: 640px) and (max-width: 1023px) {
-  :root {
-    --app-page-min-h: 100vh;
-    --app-main-min-h: 100vh;
-    --app-main-pt: 7.5rem;
-    --app-main-pb: calc(4.5rem + var(--app-safe-bottom));
-    --app-main-px: 1.5rem;
-    --header-logo-size: 1.15rem;
-    --hero-title-size: 3rem;
-    --hero-subtitle-size: 1.25rem;
-    --hero-subtitle-mt: 1.5rem;
-    --hero-title-mt: 0.75rem;
-    --hero-title-mb: 1.75rem;
-    --search-input-py: 1.1rem;
-    --search-input-font-size: 1.05rem;
-    --search-result-title-size: 1.35rem;
-    --grid-heading-size: 1.65rem;
-    --grid-card-title-size: 1.05rem;
-    --grid-card-category-size: 0.8rem;
   }
 }
 
@@ -108,6 +86,18 @@
 
 :root {
   --ui-depth-shadow: 0 2px 1px rgba(255, 255, 255, 0.1), 0 -2px 1px rgba(255, 255, 255, 0.3);
+}
+
+.taste-graph-page {
+  position: fixed;
+  inset: 4rem 0 0;
+}
+
+@media (max-width: 1023px) {
+  .taste-graph-page {
+    top: calc(4rem + env(safe-area-inset-top));
+    bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
 }
 
 html,

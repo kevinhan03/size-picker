@@ -136,12 +136,12 @@ export function createProductMetadataService({
     ]);
     const category = inferProductCategory(
       schemaProduct?.category,
-      schemaProduct?.type,
       musinsaData?.category,
+      schemaProduct?.type,
+      name,
       title,
       ogTitle,
-      description,
-      name
+      description
     );
     const taggingTextCandidates = extractTaggingTextCandidatesFromHtml({
       html,

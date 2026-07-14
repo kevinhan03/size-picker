@@ -81,12 +81,12 @@ export function TasteGraphPageClient() {
   );
 
   if (auth.isAuthLoading || !auth.authUser || isClosetLoading || isDigboxLoading) {
-    return <main className="fixed inset-0 bg-black" />;
+    return <main className="taste-graph-page bg-black" />;
   }
 
   if (activeProducts.length === 0) {
     return (
-      <main className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-black px-6 text-center text-white">
+      <main className="taste-graph-page flex flex-col items-center justify-center gap-4 bg-black px-6 text-center text-white">
         <div className="absolute left-4 right-4 top-4 flex justify-end">
           {sourceToggle}
         </div>
@@ -110,7 +110,7 @@ export function TasteGraphPageClient() {
   }
 
   return (
-    <main className="fixed inset-0 flex flex-col">
+    <main className="taste-graph-page flex flex-col">
       <TasteSummaryCard
         controls={sourceToggle}
         products={activeProducts}

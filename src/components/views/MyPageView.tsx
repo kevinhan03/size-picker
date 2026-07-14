@@ -1,16 +1,12 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import Link from "next/link";
-import { Check, ChevronDown, ChevronRight, Copy, LogOut, Network, Plus, Ruler, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
+import { ChevronDown, ChevronRight, LogOut, Plus, Ruler, Trash2, UserRound, X } from "lucide-react";
 import type { MySizeInput, MySizeProfile, Product } from "../../types";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 
 interface MyPageViewProps {
   username: string;
-  digboxHref: string;
-  closetCount: number;
-  digboxCount: number;
   closetProducts: Product[];
   mySizes: MySizeProfile[];
   onCreateMySize: (input: MySizeInput) => Promise<void>;
@@ -23,63 +19,6 @@ interface MyPageViewProps {
 
 const cardClass =
   "rounded-2xl border border-white/10 bg-white/[0.055] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_18px_46px_rgba(0,0,0,0.42)] backdrop-blur-2xl";
-
-function CollectionCard({
-  title,
-  href,
-  icon,
-  tone,
-  meta,
-  emptyCta = false,
-  backgroundImage,
-}: {
-  title: string;
-  href: string;
-  icon: React.ReactNode;
-  tone: "yellow" | "orange" | "blue";
-  meta: React.ReactNode;
-  emptyCta?: boolean;
-  backgroundImage?: string;
-}) {
-  const color = tone === "yellow" ? "text-yellow-300" : tone === "orange" ? "text-orange-400" : "text-sky-300";
-  const bg = tone === "yellow" ? "bg-yellow-400/12" : tone === "orange" ? "bg-orange-500/12" : "bg-sky-400/12";
-
-  return (
-    <section
-      className={`${cardClass} relative flex min-w-0 flex-col gap-3 overflow-hidden p-4 sm:p-5`}
-      style={
-        backgroundImage
-          ? {
-              backgroundImage: `linear-gradient(180deg, rgba(10,11,15,0.35) 0%, rgba(10,11,15,0.55) 55%, rgba(10,11,15,0.88) 100%), url(${backgroundImage})`,
-              backgroundSize: "cover, 170%",
-              backgroundPosition: "center, center",
-              backgroundRepeat: "no-repeat, no-repeat",
-            }
-          : undefined
-      }
-    >
-      <Link href={href} className="group relative z-10 flex min-w-0 items-center gap-3 no-underline">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${bg} ${color}`}>
-          {icon}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="min-w-0 truncate text-sm font-black text-white transition group-hover:text-orange-300 sm:text-base">{title}</h2>
-          <div className="mt-0.5 truncate text-xs font-semibold text-gray-500">{meta}</div>
-        </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-gray-500 transition group-hover:text-orange-300 sm:h-5 sm:w-5" />
-      </Link>
-      {emptyCta && (
-        <Link
-          href="/"
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-black transition hover:bg-orange-400 sm:h-10 sm:gap-2 sm:px-4 sm:text-sm"
-        >
-          <Plus className="h-4 w-4" />
-          상품 둘러보기
-        </Link>
-      )}
-    </section>
-  );
-}
 
 const getSnapshotPreview = (profile: MySizeProfile) =>
   profile.measurementSnapshot.headers
@@ -472,9 +411,6 @@ function MySizesManager({
 
 export function MyPageView({
   username,
-  digboxHref,
-  closetCount,
-  digboxCount,
   closetProducts,
   mySizes,
   onCreateMySize,
@@ -484,7 +420,6 @@ export function MyPageView({
   isDeletingAccount,
   deleteAccountError,
 }: MyPageViewProps) {
-  const [copied, setCopied] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -496,121 +431,63 @@ export function MyPageView({
     setDeleteConfirmText("");
   };
 
-  const copyPublicLink = async () => {
-    const url = `${window.location.origin}${digboxHref}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      const el = document.createElement("input");
-      el.value = url;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
-
   return (
     <>
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:gap-4">
-      <section className={`${cardClass} p-4 sm:p-6`}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-400 shadow-[0_0_24px_rgba(249,115,22,0.12)] sm:h-14 sm:w-14">
-              <UserRound className="h-6 w-6 sm:h-7 sm:w-7" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-xl font-black tracking-tight text-white sm:text-2xl">{username}</p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 sm:w-[340px]">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">DIGBOX</p>
-                <p className="mt-1 text-xl font-black text-yellow-300">{digboxCount}</p>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Closet</p>
-                <p className="mt-1 text-xl font-black text-orange-400">{closetCount}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => void copyPublicLink()}
-              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] text-sm font-bold text-gray-300 transition hover:border-yellow-400/40 hover:text-yellow-300"
-            >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied ? "복사됨" : "DIGBOX 링크 복사"}
-            </button>
-          </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 sm:gap-8">
+      <section className={`${cardClass} flex items-center gap-4 p-4 sm:p-5`} aria-labelledby="settings-title">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-400 shadow-[0_0_24px_rgba(249,115,22,0.12)]">
+          <UserRound className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">마이페이지</p>
+          <h1 id="settings-title" className="mt-1 truncate text-xl font-black tracking-tight text-white sm:text-2xl">{username}</h1>
         </div>
       </section>
 
-      <div className="grid min-w-0 grid-cols-2 items-stretch gap-3 sm:gap-4">
-        <CollectionCard
-          title="내 취향"
-          href="/taste-graph"
-          icon={<Network className="h-5 w-5" />}
-          tone="blue"
-          meta="관심 취향과 보유 취향을 비교해보세요"
-          backgroundImage="/images/taste-graph-card-bg.png"
-        />
-        <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
-          <CollectionCard
-            title="Closet"
-            href="/closet"
-            icon={<Shirt className="h-5 w-5" />}
-            tone="orange"
-            meta={`${closetCount}개`}
-            emptyCta={closetCount === 0}
-          />
-          <CollectionCard
-            title="DIGBOX"
-            href={digboxHref}
-            icon={<Star className="h-5 w-5" />}
-            tone="yellow"
-            meta={`${digboxCount}개`}
-            emptyCta={digboxCount === 0}
-          />
-        </div>
-      </div>
+      <MySizesManager
+        closetProducts={closetProducts}
+        mySizes={mySizes}
+        onCreateMySize={onCreateMySize}
+        onDeleteMySize={onDeleteMySize}
+      />
 
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-4">
-        <MySizesManager
-          closetProducts={closetProducts}
-          mySizes={mySizes}
-          onCreateMySize={onCreateMySize}
-          onDeleteMySize={onDeleteMySize}
-        />
-
-        <section className={`${cardClass} p-5`}>
-          <h2 className="mb-4 text-lg font-black text-white">계정</h2>
-          <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => setIsLogoutConfirmOpen(true)}
-              className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.045] px-4 text-sm font-bold text-gray-300 transition hover:border-orange-500/40 hover:text-orange-400"
-            >
-              <span>로그아웃</span>
+      <section aria-labelledby="account-settings-title">
+        <h2 id="account-settings-title" className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gray-500">계정 관리</h2>
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]">
+          <button
+            type="button"
+            onClick={() => setIsLogoutConfirmOpen(true)}
+            className="flex min-h-16 w-full items-center gap-3 px-4 text-left transition hover:bg-white/[0.045]"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-gray-300">
               <LogOut className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsDeleteConfirmOpen(true)}
-              disabled={isDeletingAccount}
-              className="flex h-11 items-center justify-between rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 text-sm font-bold text-red-300 transition hover:border-red-500/40 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <span>{isDeletingAccount ? "삭제 중..." : "계정 삭제"}</span>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-black text-gray-200">로그아웃</span>
+              <span className="mt-0.5 block text-xs font-semibold text-gray-500">현재 기기에서 로그아웃합니다</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-gray-600" />
+          </button>
+        </div>
+        <div className="mt-3 overflow-hidden rounded-2xl border border-red-500/20 bg-red-500/[0.045]">
+          <button
+            type="button"
+            onClick={() => setIsDeleteConfirmOpen(true)}
+            disabled={isDeletingAccount}
+            className="flex min-h-16 w-full items-center gap-3 px-4 text-left transition hover:bg-red-500/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-300">
               <Trash2 className="h-4 w-4" />
-            </button>
-            {deleteAccountError && (
-              <p className="text-sm font-semibold text-red-300">{deleteAccountError}</p>
-            )}
-          </div>
-        </section>
-      </div>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-black text-red-200">{isDeletingAccount ? "계정 삭제 중..." : "계정 삭제"}</span>
+              <span className="mt-0.5 block text-xs font-semibold text-red-300/65">계정과 저장된 데이터를 영구적으로 삭제합니다</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-red-300/55" />
+          </button>
+        </div>
+        {deleteAccountError && <p className="mt-3 text-sm font-semibold text-red-300">{deleteAccountError}</p>}
+      </section>
     </div>
     {isLogoutConfirmOpen && (
       <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
