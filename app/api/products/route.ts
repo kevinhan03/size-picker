@@ -126,15 +126,20 @@ export async function POST(request: Request) {
     });
     const product = normalizeProductRow(insertedRow);
 
-    after(() => {
+    after(async () => {
       const productId = String(insertedRow?.id || "").trim();
       if (!productId) return;
-      tagProductStyleById(productId).catch((error) => {
+      try {
+        const result = await tagProductStyleById(productId);
+        if (!result.ok) {
+          console.error("[style-tagging] async product tagging did not complete", { productId, result });
+        }
+      } catch (error) {
         console.error("[style-tagging] async product tagging failed", {
           productId,
           error: error instanceof Error ? error.message : String(error),
         });
-      });
+      }
     });
 
     revalidatePath("/", "layout");

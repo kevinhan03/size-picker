@@ -30,7 +30,20 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .maybeSingle();
     if (error) throw error;
-    return NextResponse.json({ ok: true, data: { profile: data?.profile || null } });
+    const { data: sessions, error: sessionsError } = await supabase!
+      .from("user_taste_match_sessions")
+      .select("completed_at,profile_snapshot")
+      .eq("user_id", user.id)
+      .order("completed_at", { ascending: false })
+      .limit(5);
+    if (sessionsError) throw sessionsError;
+    return NextResponse.json({
+      ok: true,
+      data: {
+        profile: data?.profile || null,
+        history: (sessions || []).map((session) => ({ completedAt: session.completed_at, profile: session.profile_snapshot })),
+      },
+    });
   } catch (error: unknown) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "taste profile fetch error" }, { status: 500 });
   }

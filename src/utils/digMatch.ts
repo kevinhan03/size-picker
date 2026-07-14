@@ -42,6 +42,18 @@ export interface DigMatchProfile {
   updatedAt: string;
 }
 
+export interface DigMatchRecommendation {
+  product: Product;
+  score: number;
+  reasons: StyleTagName[];
+}
+
+export interface DigMatchRecommendationGroups {
+  forYou: DigMatchRecommendation[];
+  explore: DigMatchRecommendation[];
+  revisit: DigMatchRecommendation[];
+}
+
 export const DIG_MATCH_AXES: DigMatchAxis[] = [
   {
     id: "polished_vs_utility",
@@ -86,6 +98,7 @@ export const DIG_MATCH_AXES: DigMatchAxis[] = [
 ];
 
 const PRIMARY_CATEGORY_SEQUENCE = ["Top", "Bottom", "Outer", "Top", "Bottom", "Outer", "Top", "Bottom", "Outer", "Top", "Bottom", "Outer"];
+export const DIG_MATCH_OPENING_QUESTION_COUNT = 8;
 
 const tagLabels: Record<StyleTagName, string> = {
   casual: "Casual",
@@ -126,51 +139,104 @@ function eligibleProducts(products: Product[], presentation: DigMatchPresentatio
   });
 }
 
-export function buildDigMatchQuestions(
+function buildQuestion(
+  candidates: Product[],
+  usedProductIds: Set<string>,
+  axis: DigMatchAxis,
+  questionIndex: number,
+  random: () => number
+): DigMatchQuestion | null {
+  const plannedCategory = PRIMARY_CATEGORY_SEQUENCE[questionIndex % PRIMARY_CATEGORY_SEQUENCE.length];
+  const categoryProducts = candidates.filter(
+    (product) => !usedProductIds.has(product.id) && String(product.category || "") === plannedCategory
+  );
+  if (categoryProducts.length < 2) return null;
+
+  const ranked = categoryProducts
+    .map((product) => ({ product, score: scoreAxis(normalizeStyleTags(getEffectiveStyleTags(product).tags), axis) }))
+    .sort((a, b) => b.score - a.score);
+  const high = ranked.slice(0, 5);
+  const low = ranked.slice(-5);
+  if (!high.length || !low.length || high[0].score - low[low.length - 1].score < 0.08) return null;
+
+  const left = high[Math.floor(random() * high.length)].product;
+  const right = low[Math.floor(random() * low.length)].product;
+  if (left.id === right.id) return null;
+  const pair = random() >= 0.5 ? { left, right } : { left: right, right: left };
+  usedProductIds.add(pair.left.id);
+  usedProductIds.add(pair.right.id);
+  return {
+    id: `match-${questionIndex + 1}-${pair.left.id}-${pair.right.id}`,
+    axisId: axis.id,
+    axisTitle: axis.title,
+    ...pair,
+  };
+}
+
+function getFollowUpAxes(questions: DigMatchQuestion[], answers: DigMatchAnswer[]) {
+  const answersByAxis = new Map<string, DigMatchAnswer[]>();
+  for (const answer of answers) {
+    const items = answersByAxis.get(answer.axisId) || [];
+    items.push(answer);
+    answersByAxis.set(answer.axisId, items);
+  }
+  return [...DIG_MATCH_AXES].sort((a, b) => {
+    const uncertainty = (axis: DigMatchAxis) => {
+      const axisAnswers = answersByAxis.get(axis.id) || [];
+      if (!axisAnswers.length) return 3;
+      const uncertain = axisAnswers.filter((answer) => ["both", "neither", "skip"].includes(answer.choice)).length;
+      return uncertain * 2 + 1 / axisAnswers.length;
+    };
+    return uncertainty(b) - uncertainty(a);
+  });
+}
+
+export function buildDigMatchOpeningQuestions(
   products: Product[],
-  count = 12,
+  count = DIG_MATCH_OPENING_QUESTION_COUNT,
   random = Math.random,
   options: { presentation?: DigMatchPresentation } = {}
-): DigMatchQuestion[] {
+) {
   const candidates = eligibleProducts(products, options.presentation || "all");
   const usedProductIds = new Set<string>();
   const questions: DigMatchQuestion[] = [];
-
-  for (let questionIndex = 0; questionIndex < count; questionIndex += 1) {
-    const axis = DIG_MATCH_AXES[questionIndex % DIG_MATCH_AXES.length];
-    const plannedCategory = PRIMARY_CATEGORY_SEQUENCE[questionIndex % PRIMARY_CATEGORY_SEQUENCE.length];
-    const categoryProducts = candidates.filter(
-      (product) => !usedProductIds.has(product.id) && String(product.category || "") === plannedCategory
-    );
-
-    let pair: { left: Product; right: Product } | null = null;
-    if (categoryProducts.length >= 2) {
-      const ranked = categoryProducts
-        .map((product) => ({ product, score: scoreAxis(normalizeStyleTags(getEffectiveStyleTags(product).tags), axis) }))
-        .sort((a, b) => b.score - a.score);
-      // Tag scores are all positive values, so contrast is meaningful by relative distance,
-      // not only when one product's axis score crosses below zero.
-      const high = ranked.slice(0, 5);
-      const low = ranked.slice(-5);
-      if (!high.length || !low.length || high[0].score - low[low.length - 1].score < 0.08) continue;
-      const left = high[Math.floor(random() * high.length)].product;
-      const right = low[Math.floor(random() * low.length)].product;
-      if (left.id !== right.id) {
-        pair = random() >= 0.5 ? { left, right } : { left: right, right: left };
-      }
-    }
-    if (!pair) break;
-    usedProductIds.add(pair.left.id);
-    usedProductIds.add(pair.right.id);
-    questions.push({
-      id: `match-${questionIndex + 1}-${pair.left.id}-${pair.right.id}`,
-      axisId: axis.id,
-      axisTitle: axis.title,
-      left: pair.left,
-      right: pair.right,
-    });
+  for (let index = 0; index < count; index += 1) {
+    const question = buildQuestion(candidates, usedProductIds, DIG_MATCH_AXES[index % DIG_MATCH_AXES.length], index, random);
+    if (!question) break;
+    questions.push(question);
   }
   return questions;
+}
+
+export function buildDigMatchFollowUpQuestions(
+  products: Product[],
+  previousQuestions: DigMatchQuestion[],
+  answers: DigMatchAnswer[],
+  count = 4,
+  random = Math.random,
+  options: { presentation?: DigMatchPresentation } = {}
+) {
+  const candidates = eligibleProducts(products, options.presentation || "all");
+  const usedProductIds = new Set(previousQuestions.flatMap((question) => [question.left.id, question.right.id]));
+  const axes = getFollowUpAxes(previousQuestions, answers);
+  const questions: DigMatchQuestion[] = [];
+  for (let index = 0; index < count; index += 1) {
+    let question: DigMatchQuestion | null = null;
+    for (let offset = 0; offset < axes.length; offset += 1) {
+      question = buildQuestion(candidates, usedProductIds, axes[(index + offset) % axes.length], previousQuestions.length + index, random);
+      if (question) break;
+    }
+    if (!question) break;
+    questions.push(question);
+  }
+  return questions;
+}
+
+export function buildDigMatchQuestions(products: Product[], count = 12, random = Math.random, options: { presentation?: DigMatchPresentation } = {}): DigMatchQuestion[] {
+  const openingCount = Math.min(count, DIG_MATCH_OPENING_QUESTION_COUNT);
+  const opening = buildDigMatchOpeningQuestions(products, openingCount, random, options);
+  if (opening.length < openingCount) return opening;
+  return [...opening, ...buildDigMatchFollowUpQuestions(products, opening, [], Math.max(0, count - opening.length), random, options)];
 }
 
 function productTags(product: Product) {
@@ -235,7 +301,7 @@ export function getDigMatchHighlights(profile: DigMatchProfile) {
   };
 }
 
-export function getDigMatchRecommendations(products: Product[], profile: DigMatchProfile, excludedIds: Set<string>, count = 3, presentation: DigMatchPresentation = "all") {
+export function getDigMatchRecommendations(products: Product[], profile: DigMatchProfile, excludedIds: Set<string>, count = 3, presentation: DigMatchPresentation = "all"): DigMatchRecommendation[] {
   return eligibleProducts(products, presentation)
     .filter((product) => !excludedIds.has(product.id))
     .map((product) => {
@@ -249,6 +315,68 @@ export function getDigMatchRecommendations(products: Product[], profile: DigMatc
     .filter((item) => item.score > 0.05)
     .sort((a, b) => b.score - a.score)
     .slice(0, count);
+}
+
+function choiceProductIds(answer: DigMatchAnswer) {
+  if (answer.choice === "left") return [answer.leftProductId];
+  if (answer.choice === "right") return [answer.rightProductId];
+  if (answer.choice === "both") return [answer.leftProductId, answer.rightProductId];
+  return [];
+}
+
+export function getDigMatchRecommendationGroups(
+  products: Product[],
+  profile: DigMatchProfile,
+  questions: DigMatchQuestion[],
+  answers: DigMatchAnswer[],
+  presentation: DigMatchPresentation = "all"
+): DigMatchRecommendationGroups {
+  const chosenIds = new Set(answers.flatMap(choiceProductIds));
+  const forYou = getDigMatchRecommendations(products, profile, chosenIds, 3, presentation);
+  const forYouIds = new Set(forYou.map((item) => item.product.id));
+  const curiousTags = getDigMatchHighlights(profile).curious.map((item) => item.tag);
+  const explore = eligibleProducts(products, presentation)
+    .filter((product) => !chosenIds.has(product.id) && !forYouIds.has(product.id))
+    .map((product) => {
+      const tags = productTags(product);
+      const reasons = curiousTags.filter((tag) => Number(tags[tag] || 0) >= 0.3).slice(0, 2);
+      const score = reasons.reduce((sum, tag) => sum + Number(tags[tag] || 0), 0);
+      return { product, score, reasons };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  const productById = new Map(questions.flatMap((question) => [question.left, question.right]).map((product) => [product.id, product]));
+  const uncertainIds = answers
+    .filter((answer) => answer.choice === "both" || answer.choice === "skip")
+    .flatMap((answer) => [answer.leftProductId, answer.rightProductId]);
+  const revisit: DigMatchRecommendation[] = [];
+  const seen = new Set<string>();
+  for (const productId of uncertainIds) {
+    const product = productById.get(productId);
+    if (!product || seen.has(product.id)) continue;
+    seen.add(product.id);
+    const reasons = TAGS
+      .filter((tag) => Number(productTags(product)[tag] || 0) >= 0.35)
+      .sort((a, b) => Number(productTags(product)[b] || 0) - Number(productTags(product)[a] || 0))
+      .slice(0, 2);
+    revisit.push({ product, score: 0, reasons });
+    if (revisit.length === 3) break;
+  }
+
+  return { forYou, explore, revisit };
+}
+
+export function getDigMatchProgressInsight(questions: DigMatchQuestion[], answers: DigMatchAnswer[]) {
+  if (answers.length < 4) return null;
+  const profile = calculateDigMatchProfile(null, questions, answers);
+  const top = getDigMatchHighlights(profile).signature[0];
+  if (!top) return "선택이 쌓이며 취향의 중심을 찾고 있어요.";
+  const uncertain = answers.filter((answer) => ["both", "neither", "skip"].includes(answer.choice)).length;
+  return uncertain >= Math.ceil(answers.length / 2)
+    ? `${getDigMatchTagLabel(top.tag)}의 결은 보이지만, 아직 여러 방향을 함께 탐색하고 있어요.`
+    : `지금까지는 ${getDigMatchTagLabel(top.tag)}의 결에 가장 자주 반응하고 있어요.`;
 }
 
 const TAG_INTERPRETATIONS: Record<StyleTagName, string> = {
@@ -284,7 +412,7 @@ function selectedProducts(questions: DigMatchQuestion[], answers: DigMatchAnswer
   return selected;
 }
 
-export function getDigMatchInterpretation(profile: DigMatchProfile, questions: DigMatchQuestion[], answers: DigMatchAnswer[]) {
+export function getDigMatchInterpretation(profile: DigMatchProfile, questions: DigMatchQuestion[], answers: DigMatchAnswer[], previous: DigMatchProfile | null = null) {
   const highlights = getDigMatchHighlights(profile);
   const top = highlights.signature.slice(0, 2);
   const selected = selectedProducts(questions, answers);
@@ -328,7 +456,25 @@ export function getDigMatchInterpretation(profile: DigMatchProfile, questions: D
   const summary = top.length
     ? `이번 선택에서는 ${top.map((item) => TAG_INTERPRETATIONS[item.tag]).join("과 ")}이 반복해서 나타났습니다.`
     : "이번 선택을 바탕으로 다음 매치에서 취향의 중심을 더 또렷하게 잡아갈 수 있습니다.";
-  return { title, summary, axes, details, selectedCount: selected.length };
+  const coreSentence = highlights.core.length
+    ? `${highlights.core.map((item) => getDigMatchTagLabel(item.tag)).join(" · ")}은 여러 매치에서 반복된 당신의 중심 취향입니다.`
+    : "아직은 선택을 더 쌓아 중심 취향을 확인하는 단계입니다.";
+  const curiousSentence = highlights.curious.length
+    ? `${highlights.curious.map((item) => getDigMatchTagLabel(item.tag)).join(" · ")}은 확고한 취향이라기보다, 지금 넓혀 보고 있는 방향입니다.`
+    : "이번에는 중심 취향 주변을 안정적으로 탐색했습니다.";
+  const balancedAxis = [...axes].sort((a, b) => Math.abs(a.score) - Math.abs(b.score))[0];
+  const explorationSentence = balancedAxis
+    ? `${balancedAxis.axis.positiveLabel}과 ${balancedAxis.axis.negativeLabel} 사이에서는 아직 선택이 열려 있습니다.`
+    : "다음 매치에서는 아직 열린 축을 더 자세히 살펴봅니다.";
+  const change = previous
+    ? TAGS
+      .map((tag) => ({ tag, delta: (profile.signals[tag]?.score || 0) - (previous.signals[tag]?.score || 0) }))
+      .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0]
+    : null;
+  const changeSentence = change && Math.abs(change.delta) >= 0.08
+    ? `직전 매치보다 ${getDigMatchTagLabel(change.tag)} 쪽 반응이 ${change.delta > 0 ? "더 뚜렷해졌습니다" : "조금 옅어졌습니다"}.`
+    : null;
+  return { title, summary, axes, details, selectedCount: selected.length, coreSentence, curiousSentence, explorationSentence, changeSentence };
 }
 
 export function parseDigMatchProfile(value: unknown): DigMatchProfile | null {

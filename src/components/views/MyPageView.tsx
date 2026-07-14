@@ -2,15 +2,18 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, ChevronRight, Copy, LogOut, Network, Plus, Ruler, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, LogOut, Network, Plus, Ruler, Search, Shirt, Star, Trash2, UserRound, X } from "lucide-react";
 import type { MySizeInput, MySizeProfile, Product } from "../../types";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
+import { getProductPageUrl } from "../../utils/product";
 
 interface MyPageViewProps {
   username: string;
   digboxHref: string;
   closetCount: number;
   digboxCount: number;
+  discoveredProducts: Product[];
+  isDiscoveriesLoading: boolean;
   closetProducts: Product[];
   mySizes: MySizeProfile[];
   onCreateMySize: (input: MySizeInput) => Promise<void>;
@@ -475,6 +478,8 @@ export function MyPageView({
   digboxHref,
   closetCount,
   digboxCount,
+  discoveredProducts,
+  isDiscoveriesLoading,
   closetProducts,
   mySizes,
   onCreateMySize,
@@ -487,6 +492,7 @@ export function MyPageView({
   const [copied, setCopied] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDiscoveriesOpen, setIsDiscoveriesOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const canConfirmDelete = deleteConfirmText.trim() === "삭제";
 
@@ -557,7 +563,7 @@ export function MyPageView({
           meta="관심 취향과 보유 취향을 비교해보세요"
           backgroundImage="/images/taste-graph-card-bg.png"
         />
-        <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
+        <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4">
           <CollectionCard
             title="Closet"
             href="/closet"
@@ -574,6 +580,15 @@ export function MyPageView({
             meta={`${digboxCount}개`}
             emptyCta={digboxCount === 0}
           />
+          <button
+            type="button"
+            onClick={() => setIsDiscoveriesOpen(true)}
+            className={`${cardClass} col-span-2 flex min-w-0 items-center gap-3 overflow-hidden p-4 text-left transition hover:border-orange-400/55 hover:bg-orange-500/[0.055] sm:p-5`}
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/12 text-orange-400 sm:h-11 sm:w-11"><Search className="h-5 w-5" /></span>
+            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-white sm:text-base">내가 발굴한 아이템</span><span className="mt-0.5 block truncate text-xs font-semibold text-gray-500">{isDiscoveriesLoading ? "발굴한 아이템을 불러오는 중" : `${discoveredProducts.length}개`}</span></span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-gray-500 transition sm:h-5 sm:w-5" />
+          </button>
         </div>
       </div>
 
@@ -640,6 +655,35 @@ export function MyPageView({
             >
               로그아웃
             </button>
+          </div>
+        </div>
+      </div>
+    )}
+    {isDiscoveriesOpen && (
+      <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/75 px-4 py-4 backdrop-blur-sm sm:items-center sm:py-8" role="dialog" aria-modal="true" aria-label="내가 발굴한 아이템">
+        <div className="flex max-h-[min(780px,calc(100vh-2rem))] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#151518] shadow-[0_24px_64px_rgba(0,0,0,0.68)]">
+          <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+            <div>
+              <p className="text-xs font-bold uppercase text-orange-300">MY DISCOVERIES</p>
+              <h2 className="mt-1 text-lg font-black text-white">내가 발굴한 아이템 {discoveredProducts.length}개</h2>
+            </div>
+            <button type="button" onClick={() => setIsDiscoveriesOpen(false)} aria-label="발굴 아이템 목록 닫기" className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-gray-400 transition hover:border-white/30 hover:text-white"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
+            {isDiscoveriesLoading ? (
+              <p className="py-12 text-center text-sm font-semibold text-gray-500">발굴한 아이템을 불러오는 중입니다.</p>
+            ) : discoveredProducts.length ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {discoveredProducts.map((product) => (
+                  <Link key={product.id} href={getProductPageUrl(product)} onClick={() => setIsDiscoveriesOpen(false)} className="group min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] no-underline transition hover:border-orange-400/60">
+                    <div className="aspect-square bg-white/[0.04]"><img src={product.thumbnailImage || product.image} alt={product.name} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]" /></div>
+                    <div className="min-w-0 p-3"><p className="truncate text-[11px] font-bold uppercase text-orange-300">{product.brand}</p><p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{product.name}</p></div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-gray-600" /><p className="mt-3 text-sm font-bold text-gray-300">아직 발굴한 아이템이 없습니다.</p><p className="mt-1 text-sm leading-6 text-gray-500">상품을 직접 등록하면 이곳에 모입니다.</p></div>
+            )}
           </div>
         </div>
       </div>

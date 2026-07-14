@@ -244,10 +244,18 @@ ${metadataText}`;
 }
 
 export async function tagProductStyleById(productId, { force = false } = {}) {
-  if (!GEMINI_API_KEY) return { ok: false, skipped: true, reason: "missing GEMINI_API_KEY" };
   assertSupabaseConfig();
   const id = String(productId || "").trim();
   if (!id) throw new Error("product id is required");
+
+  if (!GEMINI_API_KEY) {
+    const message = "GEMINI_API_KEY is missing in the server environment";
+    await supabase
+      .from(SUPABASE_PRODUCTS_TABLE)
+      .update({ tagging_status: "failed", tagging_error: message })
+      .eq("id", id);
+    throw new Error(message);
+  }
 
   const { data: product, error } = await supabase
     .from(SUPABASE_PRODUCTS_TABLE)

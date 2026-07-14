@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MyPageView } from "../views/MyPageView";
 import { useAuthContext } from "../../contexts/AuthContext";
@@ -8,6 +8,7 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useMySizesContext } from "../../contexts/MySizesContext";
 import { supabase } from "../../lib/supabase";
+import type { Product } from "../../types";
 
 export function MyPageClient() {
   const router = useRouter();
@@ -16,6 +17,8 @@ export function MyPageClient() {
   const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const { digboxProducts, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
   const { mySizes, createMySize, deleteMySize, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
+  const [discoveredProducts, setDiscoveredProducts] = useState<Product[]>([]);
+  const [isDiscoveriesLoading, setIsDiscoveriesLoading] = useState(true);
 
   useEffect(() => {
     if (!auth.isAuthLoading && !authUserId) {
@@ -30,6 +33,28 @@ export function MyPageClient() {
       ensureMySizesLoaded();
     }
   }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded, ensureMySizesLoaded]);
+
+  useEffect(() => {
+    if (!authUserId) return;
+    let active = true;
+    void (async () => {
+      try {
+        const sessionResult = supabase ? await supabase.auth.getSession() : null;
+        const token = String(sessionResult?.data.session?.access_token || "").trim();
+        if (!token) return;
+        const response = await fetch("/api/my-discoveries", { headers: { Authorization: `Bearer ${token}` } });
+        const payload = await response.json() as { ok?: boolean; data?: { products?: Product[] } };
+        if (active && response.ok && payload.ok && Array.isArray(payload.data?.products)) {
+          setDiscoveredProducts(payload.data.products);
+        }
+      } catch {
+        // The rest of My Page stays usable when this optional collection cannot load.
+      } finally {
+        if (active) setIsDiscoveriesLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [authUserId]);
 
   if (auth.isAuthLoading || !auth.authUser) {
     return <main className="min-h-screen bg-black" />;
@@ -46,6 +71,8 @@ export function MyPageClient() {
         digboxHref={`/u/${encodeURIComponent(username)}`}
         closetCount={closetProducts.length}
         digboxCount={digboxProducts.length}
+        discoveredProducts={discoveredProducts}
+        isDiscoveriesLoading={isDiscoveriesLoading}
         closetProducts={closetProducts}
         mySizes={mySizes}
         onCreateMySize={async (input) => {
