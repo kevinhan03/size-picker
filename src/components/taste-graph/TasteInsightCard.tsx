@@ -134,7 +134,7 @@ export function TasteInsightCard({
           padding: 18px 16px;
           color: #f3f4f6;
           background: #111217;
-          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font-family: var(--font-sans);
         }
 
         .taste-insight-top {
@@ -195,18 +195,23 @@ export function TasteInsightCard({
           display: grid;
           gap: 6px;
           padding: 14px;
-          border: 1px solid rgba(249, 115, 22, 0.28);
-          border-radius: 8px;
-          background: rgba(249, 115, 22, 0.08);
+          border: 1px solid rgba(249, 115, 22, 0.25);
+          border-radius: 12px;
+          background: rgba(249, 115, 22, 0.1);
           color: #f7f8fa;
           transition: border-color 150ms ease, background-color 150ms ease;
         }
 
-        .insight-lead:hover,
+        .insight-lead:hover {
+          border-color: rgba(249, 115, 22, 0.5);
+          background: rgba(249, 115, 22, 0.15);
+        }
+
         .insight-lead:focus-visible {
-          border-color: rgba(251, 146, 60, 0.7);
-          background: rgba(249, 115, 22, 0.13);
-          outline: none;
+          border-color: rgba(249, 115, 22, 0.5);
+          background: rgba(249, 115, 22, 0.15);
+          outline: 2px solid rgba(249, 115, 22, 0.55);
+          outline-offset: 2px;
         }
 
         .insight-lead strong,
@@ -220,6 +225,7 @@ export function TasteInsightCard({
           color: #c4cad4;
           font-size: 12px;
           font-weight: 650;
+          font-variant-numeric: tabular-nums;
         }
 
         .insight-section {
@@ -249,19 +255,25 @@ export function TasteInsightCard({
           grid-template-columns: 8px minmax(0, 1fr) auto;
           gap: 9px;
           align-items: center;
-          padding: 8px 5px;
+          padding: 8px;
+          border-radius: 10px;
+          box-shadow: none;
           color: #f3f4f6;
           transition: background-color 150ms ease;
         }
 
         .insight-row:hover,
-        .insight-row:focus-visible,
         .insight-product:hover,
+        .insight-caution:hover {
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        .insight-row:focus-visible,
         .insight-product:focus-visible,
-        .insight-caution:hover,
         .insight-caution:focus-visible {
           background: rgba(255, 255, 255, 0.06);
-          outline: none;
+          outline: 2px solid rgba(249, 115, 22, 0.55);
+          outline-offset: -2px;
         }
 
         .insight-dot {
@@ -300,6 +312,8 @@ export function TasteInsightCard({
           gap: 9px;
           align-items: center;
           padding: 5px;
+          border-radius: 10px;
+          box-shadow: none;
           color: #f3f4f6;
           transition: background-color 150ms ease;
         }
@@ -309,7 +323,7 @@ export function TasteInsightCard({
           display: block;
           width: 38px;
           height: 38px;
-          border-radius: 6px;
+          border-radius: 8px;
           background: #5f6877;
           object-fit: cover;
         }
@@ -344,8 +358,10 @@ export function TasteInsightCard({
         .insight-caution {
           display: grid;
           gap: 5px;
-          padding: 11px 5px 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          padding: 11px 8px 8px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 0 0 10px 10px;
+          box-shadow: none;
           color: #f3f4f6;
           transition: background-color 150ms ease;
         }

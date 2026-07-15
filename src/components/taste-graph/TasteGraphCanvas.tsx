@@ -458,14 +458,6 @@ export function TasteGraphCanvas({
         graphRef.current?.zoomToFit(700, 80, (node: TasteGraphNode) => node.id === selectedTagId || visibleItems.has(node.id));
       };
 
-      const clearProductInsight = () => {
-        if (!graphStateRef.current || !selectedProductNodeIdRef.current) return;
-        selectedProductNodeIdRef.current = null;
-        setProductPanel(null);
-        if (selectedTagRef.current) showTagDetail(selectedTagRef.current);
-        else showOverview(true);
-      };
-
       const showHoverInsight = (node: TasteGraphNode | null) => {
         if (selectedTagRef.current || selectedProductNodeIdRef.current) return;
         if (hoveredNodeIdRef.current === (node?.id || null)) return;
@@ -557,7 +549,9 @@ export function TasteGraphCanvas({
           }
         })
         .onNodeHover((node: TasteGraphNode | null) => showHoverInsight(node))
-        .onBackgroundClick(() => clearProductInsight())
+        .onBackgroundClick(() => {
+          if (selectedTagRef.current || selectedProductNodeIdRef.current) showOverview(true);
+        })
         .cooldownTicks(45)
         .d3AlphaDecay(0.105)
         .d3VelocityDecay(0.58);

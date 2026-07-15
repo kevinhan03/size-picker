@@ -8,12 +8,14 @@ const TOP_N = 4;
 
 export function TasteSummaryCard({
   controls,
+  viewControls,
   products,
   eyebrow = "나의 취향",
   sourceLabel = "상품",
   sourceNoun = "상품",
 }: {
   controls?: ReactNode;
+  viewControls?: ReactNode;
   products: Product[];
   eyebrow?: string;
   sourceLabel?: string;
@@ -34,6 +36,7 @@ export function TasteSummaryCard({
         </div>
         {controls ? <div className="taste-summary-controls">{controls}</div> : null}
       </div>
+      {viewControls ? <div className="taste-summary-view-controls">{viewControls}</div> : null}
       <div className="taste-summary-meta">
         <p className="taste-summary-note">
           {sourceNoun} {summary.totalCount}개 중 태그된 {summary.taggedCount}개 기준
@@ -82,8 +85,8 @@ export function TasteSummaryCard({
           width: 100%;
           padding: 14px 20px 12px;
           color: #f3f4f6;
-          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          font-family: var(--font-sans);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
           background: #111217;
         }
 
@@ -101,6 +104,8 @@ export function TasteSummaryCard({
         .taste-summary-controls {
           flex-shrink: 0;
         }
+
+        .taste-summary-view-controls { margin: 10px 0 2px; }
 
         .taste-summary-eyebrow {
           margin: 0 0 4px;
@@ -180,23 +185,38 @@ export function TasteSummaryCard({
         .taste-summary-percent {
           color: #a5acb8;
           font-weight: 700;
+          font-variant-numeric: tabular-nums;
           text-align: right;
         }
 
         .taste-summary-details {
           max-width: 920px;
           margin-top: 12px;
-          padding-top: 10px;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          padding-top: 6px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .taste-summary-details summary {
           width: fit-content;
+          margin-left: -8px;
+          padding: 6px 10px 6px 8px;
+          border-radius: 8px;
           cursor: pointer;
           color: #a5acb8;
           font-size: 12px;
           font-weight: 700;
           list-style: none;
+          transition: background-color 150ms ease, color 150ms ease;
+        }
+
+        .taste-summary-details summary:hover {
+          background: rgba(255, 255, 255, 0.06);
+          color: #f3f4f6;
+        }
+
+        .taste-summary-details summary:focus-visible {
+          outline: 2px solid rgba(249, 115, 22, 0.55);
+          outline-offset: -2px;
         }
 
         .taste-summary-details summary::-webkit-details-marker {
@@ -260,6 +280,8 @@ export function TasteSummaryCard({
             display: flex;
             justify-content: center;
           }
+
+          .taste-summary-view-controls { width: 100%; }
 
           .taste-summary-meta {
             display: block;

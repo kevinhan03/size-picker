@@ -94,13 +94,34 @@
 }
 
 .taste-source-toggle {
+  position: relative;
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
   min-width: 294px;
   padding: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* 활성 세그먼트 배경 — 버튼 사이를 미끄러지듯 이동하는 썸 */
+.taste-source-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+
+/* 캔버스 위에 떠 있을 때(빈 상태 화면)만 글래스 처리 */
+.taste-source-toggle.is-floating {
+  border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 -1px 0 rgba(0, 0, 0, 0.16);
   -webkit-backdrop-filter: blur(18px) saturate(135%);
@@ -108,6 +129,8 @@
 }
 
 .taste-source-button {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   min-height: 34px;
   align-items: center;
@@ -116,6 +139,7 @@
   border: 0;
   border-radius: 9px;
   background: transparent;
+  box-shadow: none;
   color: rgba(245, 245, 247, 0.66);
   font-size: 11px;
   font-weight: 750;
@@ -142,10 +166,72 @@
 }
 
 .taste-source-button.active {
-  background: rgba(255, 255, 255, 0.82);
   color: #171719;
   font-weight: 800;
+}
+
+.taste-source-toggle.is-floating .taste-source-thumb {
   box-shadow: 0 3px 9px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.taste-view-toggle {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.taste-view-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 2);
+  border-radius: 9px;
+  background: rgba(249, 115, 22, 0.15);
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+
+.taste-view-toggle button {
+  position: relative;
+  z-index: 1;
+  min-height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(245, 245, 247, 0.66);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.taste-view-toggle button:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.taste-view-toggle button:focus-visible {
+  outline: 2px solid rgba(249, 115, 22, 0.55);
+  outline-offset: -2px;
+}
+
+.taste-view-toggle button.active {
+  color: #fdba74;
+  font-weight: 800;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .taste-source-thumb,
+  .taste-view-thumb {
+    transition: none;
+  }
 }
 
 .taste-source-button.active span {

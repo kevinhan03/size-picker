@@ -9,12 +9,17 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { captureEvent } from "../../utils/analytics";
 import { TasteGraphCanvas } from "../taste-graph/TasteGraphCanvas";
+import { BrandClusterCanvas } from "../taste-graph/BrandClusterCanvas";
+import { BrandClusterSummaryCard } from "../taste-graph/BrandClusterSummaryCard";
 import { TasteInsightCard } from "../taste-graph/TasteInsightCard";
 import { TasteSummaryCard } from "../taste-graph/TasteSummaryCard";
 import type { StyleTagName } from "../../types";
 import { TAGS } from "../../utils/tasteGraph";
 
 type TasteGraphSource = "closet" | "digbox" | "insight";
+
+const SOURCE_ORDER: readonly TasteGraphSource[] = ["digbox", "insight", "closet"];
+type TasteGraphView = "products" | "brands";
 type InsightFocus = { source: "closet" | "digbox"; tag: StyleTagName } | null;
 
 export function TasteGraphPageClient() {
@@ -22,6 +27,8 @@ export function TasteGraphPageClient() {
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
   const [selectedSource, setSelectedSource] = useState<TasteGraphSource | null>(null);
+  const [selectedView, setSelectedView] = useState<TasteGraphView>("products");
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [insightFocus, setInsightFocus] = useState<InsightFocus>(null);
   const [urlFocus, setUrlFocus] = useState<{ source: TasteGraphSource | null; tag?: StyleTagName }>({ source: null });
   const {
@@ -80,9 +87,14 @@ export function TasteGraphPageClient() {
     }
   }, [activeProducts.length, source]);
 
-  const sourceToggle = (
-    <div className="taste-source-toggle" aria-label="취향 분석 기준">
-      {(["digbox", "insight", "closet"] as const).map((value) => (
+  const renderSourceToggle = (floating = false) => (
+    <div className={`taste-source-toggle${floating ? " is-floating" : ""}`} aria-label="취향 분석 기준">
+      <span
+        className="taste-source-thumb"
+        style={{ transform: `translateX(${SOURCE_ORDER.indexOf(source) * 100}%)` }}
+        aria-hidden="true"
+      />
+      {SOURCE_ORDER.map((value) => (
         <button
           key={value}
           type="button"
@@ -90,6 +102,8 @@ export function TasteGraphPageClient() {
           onClick={() => {
             setSelectedSource(value);
             if (value !== "insight") setInsightFocus(null);
+            if (value === "insight") setSelectedView("products");
+            setSelectedBrand(null);
           }}
         >
           {value === "digbox" ? "DIGBOX" : value === "closet" ? "CLOSET" : "INSIGHT"}
@@ -98,6 +112,23 @@ export function TasteGraphPageClient() {
       ))}
     </div>
   );
+  const sourceToggle = renderSourceToggle();
+
+  const viewToggle = source !== "insight" ? (
+    <div className="taste-view-toggle" aria-label="그래프 보기 방식">
+      <span
+        className="taste-view-thumb"
+        style={{ transform: `translateX(${selectedView === "brands" ? 100 : 0}%)` }}
+        aria-hidden="true"
+      />
+      <button type="button" className={selectedView === "products" ? "active" : ""} onClick={() => { setSelectedView("products"); setSelectedBrand(null); }}>
+        상품 그래프
+      </button>
+      <button type="button" className={selectedView === "brands" ? "active" : ""} onClick={() => setSelectedView("brands")}>
+        브랜드 클러스터
+      </button>
+    </div>
+  ) : null;
 
   if (auth.isAuthLoading || !auth.authUser || isClosetLoading || isDigboxLoading) {
     return <main className="taste-graph-page bg-black" />;
@@ -107,7 +138,7 @@ export function TasteGraphPageClient() {
     return (
       <main className="taste-graph-page flex flex-col items-center justify-center gap-4 bg-black px-6 text-center text-white">
         <div className="absolute left-4 right-4 top-4 flex justify-end">
-          {sourceToggle}
+          {renderSourceToggle(true)}
         </div>
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-300">
           <Network className="h-7 w-7" />
@@ -129,7 +160,7 @@ export function TasteGraphPageClient() {
 
   return (
     <main className="taste-graph-page taste-graph-layout">
-      <aside className="taste-summary-pane">
+      <aside className={`taste-summary-pane ${source === "insight" ? "taste-insight-pane" : ""}`}>
         {source === "insight" ? (
           <TasteInsightCard
             controls={sourceToggle}
@@ -141,21 +172,41 @@ export function TasteGraphPageClient() {
             }}
           />
         ) : (
-          <TasteSummaryCard
-            controls={sourceToggle}
-            products={activeProducts}
-            eyebrow={eyebrow}
-            sourceLabel={sourceLabel}
-            sourceNoun={sourceNoun}
-          />
+          selectedView === "brands" ? (
+            <BrandClusterSummaryCard
+              controls={sourceToggle}
+              viewControls={viewToggle}
+              products={activeProducts}
+              source={graphSource}
+              selectedBrand={selectedBrand}
+            />
+          ) : (
+            <TasteSummaryCard
+              controls={sourceToggle}
+              viewControls={viewToggle}
+              products={activeProducts}
+              eyebrow={eyebrow}
+              sourceLabel={sourceLabel}
+              sourceNoun={sourceNoun}
+            />
+          )
         )}
       </aside>
       <div className="taste-canvas-pane">
-        <TasteGraphCanvas
-          key={`${graphSource}-${source === "insight" ? insightFocus?.tag || "overview" : "overview"}`}
-          products={activeProducts}
-          initialTag={source === "insight" ? insightFocus?.tag : urlFocus.tag}
-        />
+        {selectedView === "brands" && source !== "insight" ? (
+          <BrandClusterCanvas
+            key={`brands-${graphSource}`}
+            products={activeProducts}
+            selectedBrand={selectedBrand}
+            onSelectBrand={setSelectedBrand}
+          />
+        ) : (
+          <TasteGraphCanvas
+            key={`${graphSource}-${source === "insight" ? insightFocus?.tag || "overview" : "overview"}`}
+            products={activeProducts}
+            initialTag={source === "insight" ? insightFocus?.tag : urlFocus.tag}
+          />
+        )}
       </div>
       <style jsx>{layoutStyles}</style>
     </main>
@@ -177,6 +228,14 @@ const layoutStyles = `
     overscroll-behavior: contain;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
     background: #111217;
+  }
+
+  .taste-insight-pane {
+    scrollbar-width: none;
+  }
+
+  .taste-insight-pane::-webkit-scrollbar {
+    display: none;
   }
 
   .taste-canvas-pane {
