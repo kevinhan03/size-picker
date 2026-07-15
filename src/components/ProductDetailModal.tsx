@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, PointerEvent, RefObject, SyntheticEvent, TouchEvent } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ExternalLink, Network, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { ClosetSizeSelection, MySizeProfile, Product, RelatedGraphReason, SizeRecommendation } from "../types";
@@ -7,6 +8,7 @@ import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useMySizesContext } from "../contexts/MySizesContext";
 import { useAuthContext } from "../contexts/AuthContext";
+import { useClosetContext } from "../contexts/ClosetContext";
 import { useProductsContext } from "../contexts/ProductsContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
@@ -19,6 +21,8 @@ import {
 } from "../utils/sizeTable";
 import { captureEvent } from "../utils/analytics";
 import { ClosetIcon } from "./icons/ClosetIcon";
+import { ProductTasteDecisionPanel } from "./taste-graph/ProductTasteDecision";
+import { getProductTasteDecision } from "../utils/tasteGraph";
 
 function HangerIcon({ className = "" }: { className?: string }) {
   return (
@@ -120,7 +124,9 @@ export function ProductDetailModal({
   otherDigboxCountLabel,
   analyticsSource = "product_modal",
 }: ProductDetailModalProps) {
+  const router = useRouter();
   const { authUser } = useAuthContext();
+  const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const canUseCloset = Boolean(authUser);
   const [isRelatedGraphOpen, setIsRelatedGraphOpen] = useState(false);
   useBodyScrollLock(modalRef, !isRelatedGraphOpen);
@@ -156,6 +162,15 @@ export function ProductDetailModal({
   useEffect(() => {
     ensureMySizesLoaded();
   }, [ensureMySizesLoaded]);
+
+  useEffect(() => {
+    if (authUser) ensureClosetLoaded();
+  }, [authUser, ensureClosetLoaded]);
+
+  const tasteDecision = useMemo(
+    () => (authUser ? getProductTasteDecision(product, closetProducts) : null),
+    [authUser, closetProducts, product]
+  );
 
   useEffect(() => {
     return () => {
@@ -491,6 +506,12 @@ export function ProductDetailModal({
                   ) : null}
                 </div>
               )}
+              {tasteDecision ? (
+                <ProductTasteDecisionPanel
+                  decision={tasteDecision}
+                  onViewMap={() => router.push(`/taste-graph?source=closet&tag=${tasteDecision.primaryTag}`)}
+                />
+              ) : null}
               {savedClosetProduct ? (
                 <div className="mt-3">
                   <SavedSizeSummary product={savedClosetProduct} />

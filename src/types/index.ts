@@ -42,6 +42,9 @@ export interface Product {
   reviewedAt?: string | null;
   imageEmbedding?: string | number[] | null;
   targetGender?: ProductTargetGender | null;
+  humanTargetGender?: ProductTargetGender | null;
+  targetGenderReviewedBy?: string | null;
+  targetGenderReviewedAt?: string | null;
 }
 
 export type ProductTargetGender = 'menswear' | 'womenswear' | 'unisex' | 'unknown';
@@ -76,6 +79,7 @@ export interface ProductStyleReviewInput {
   humanStyleAttributes?: StyleAttributes | null;
   humanStyleTagsEvidence?: StyleTagsEvidence | null;
   tagReviewNote?: string | null;
+  targetGender?: ProductTargetGender;
 }
 
 export interface ClosetSizeSnapshot {
@@ -146,6 +150,9 @@ export interface ProductRow {
   reviewed_at?: string | null;
   image_embedding?: unknown;
   target_gender?: string | null;
+  human_target_gender?: string | null;
+  target_gender_reviewed_by?: string | null;
+  target_gender_reviewed_at?: string | null;
 }
 
 export interface SubmitProductForm {

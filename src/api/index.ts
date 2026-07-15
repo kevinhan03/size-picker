@@ -20,19 +20,20 @@ import { parseApiJson, postJson } from './shared';
 
 const PRODUCT_SELECT_COLUMNS =
   'id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,tagged_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at';
+const TARGET_GENDER_COLUMNS = ',target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at';
 
 export const fetchAllProducts = async (): Promise<Product[]> => {
   assertSupabaseClient();
   const queryProducts = (includeTargetGender: boolean) => supabase!
     .from('products')
-    .select(`${PRODUCT_SELECT_COLUMNS}${includeTargetGender ? ',target_gender' : ''}`)
+    .select(`${PRODUCT_SELECT_COLUMNS}${includeTargetGender ? TARGET_GENDER_COLUMNS : ''}`)
     .order('created_at', { ascending: false });
 
   let { data, error } = await queryProducts(true);
 
   // Keep the existing product views usable while a deployment is connected to a
   // database where the optional Dig Match migration has not been applied yet.
-  if (error && /target_gender|column .* does not exist/i.test(error.message)) {
+  if (error && /target_gender|human_target_gender|column .* does not exist/i.test(error.message)) {
     ({ data, error } = await queryProducts(false));
   }
 

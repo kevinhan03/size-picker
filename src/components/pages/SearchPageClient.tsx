@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, SyntheticEvent } from "react";
-import { RefreshCw, Search, ShieldAlert, X } from "lucide-react";
+import { ArrowUp, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
 import { GridView } from "../GridView";
 import { FilterBar } from "../FilterBar";
 import { ProductDetailModal } from "../ProductDetailModal";
@@ -116,6 +116,7 @@ export function SearchPageClient() {
   const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
   const [showGuestSaveHint, setShowGuestSaveHint] = useState(false);
   const [showGuestDetailSaveHint, setShowGuestDetailSaveHint] = useState(false);
+  const [isScrollTopVisible, setIsScrollTopVisible] = useState(false);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
   const gridRecommendationsRef = useRef<HTMLDivElement>(null);
@@ -125,6 +126,14 @@ export function SearchPageClient() {
     ensureClosetLoaded();
     ensureDigboxLoaded();
   }, [ensureClosetLoaded, ensureDigboxLoaded]);
+
+  useEffect(() => {
+    const updateScrollTopVisibility = () => setIsScrollTopVisible(window.scrollY > 160);
+
+    updateScrollTopVisibility();
+    window.addEventListener("scroll", updateScrollTopVisibility, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrollTopVisibility);
+  }, []);
 
   useEffect(() => {
     const shouldShowHint = !isAuthLoading && !authUser && isGuestHydrated && guestCount === 0 && products.length > 0;
@@ -550,6 +559,17 @@ export function SearchPageClient() {
         />
       </div>
 
+      {isScrollTopVisible && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="맨 위로 이동"
+          title="맨 위로 이동"
+          className="fixed bottom-5 right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/[0.1] text-white shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-orange-300/55 hover:bg-white/[0.16] hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#11131a] md:bottom-7 md:right-7"
+        >
+          <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
+        </button>
+      )}
 
       {normalizedProduct && (
         <ProductDetailModal

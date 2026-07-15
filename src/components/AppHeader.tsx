@@ -100,7 +100,19 @@ export function AppHeader() {
     <header className={`pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center transition-transform duration-300 ease-out ${hiddenOnCompact ? "-translate-y-full" : "translate-y-0"}`}>
       <div className={`pointer-events-auto flex items-center justify-between transition-all duration-300 ease-out lg:grid lg:grid-cols-[1fr_auto_1fr] ${headerFrameClass}`}>
         <div className="flex min-w-0 items-center">
-          <div aria-label="DIGBOX" className="flex min-w-0 items-center gap-2 rounded-xl">
+          <div
+            role="link"
+            tabIndex={0}
+            aria-label="DIGBOX 디깅으로 이동"
+            onClick={() => router.push("/")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                router.push("/");
+              }
+            }}
+            className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl"
+          >
             <span className={`flex items-center justify-center transition-all duration-300 ${compactHeader ? "h-7 w-7" : "h-8 w-8 lg:h-9 lg:w-9"}`}>
               <Image src="/favicon-simple.svg" alt="" width={40} height={40} className="h-full w-full object-contain" />
             </span>

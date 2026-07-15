@@ -9,15 +9,21 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { captureEvent } from "../../utils/analytics";
 import { TasteGraphCanvas } from "../taste-graph/TasteGraphCanvas";
+import { TasteInsightCard } from "../taste-graph/TasteInsightCard";
 import { TasteSummaryCard } from "../taste-graph/TasteSummaryCard";
+import type { StyleTagName } from "../../types";
+import { TAGS } from "../../utils/tasteGraph";
 
-type TasteGraphSource = "closet" | "digbox";
+type TasteGraphSource = "closet" | "digbox" | "insight";
+type InsightFocus = { source: "closet" | "digbox"; tag: StyleTagName } | null;
 
 export function TasteGraphPageClient() {
   const router = useRouter();
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
   const [selectedSource, setSelectedSource] = useState<TasteGraphSource | null>(null);
+  const [insightFocus, setInsightFocus] = useState<InsightFocus>(null);
+  const [urlFocus, setUrlFocus] = useState<{ source: TasteGraphSource | null; tag?: StyleTagName }>({ source: null });
   const {
     closetProducts,
     isLoading: isClosetLoading,
@@ -39,14 +45,24 @@ export function TasteGraphPageClient() {
     ensureDigboxLoaded();
   }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
 
-  const source = selectedSource ?? (digboxProducts.length > 0 ? "digbox" : "closet");
-  const activeProducts = source === "closet" ? closetProducts : digboxProducts;
-  const sourceLabel = source === "closet" ? "Closet" : "DIGBOX";
-  const sourceNoun = source === "closet" ? "Closet 상품" : "DIGBOX 상품";
-  const eyebrow = source === "closet" ? "보유 취향" : "관심 취향";
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedSource = params.get("source");
+    const source = requestedSource === "closet" || requestedSource === "digbox" || requestedSource === "insight" ? requestedSource : null;
+    const requestedTag = params.get("tag");
+    const tag = requestedTag && (TAGS as string[]).includes(requestedTag) ? (requestedTag as StyleTagName) : undefined;
+    setUrlFocus({ source, tag });
+  }, []);
+
+  const source = selectedSource ?? urlFocus.source ?? (closetProducts.length > 0 ? "closet" : "digbox");
+  const graphSource = source === "insight" ? insightFocus?.source ?? (closetProducts.length > 0 ? "closet" : "digbox") : source;
+  const activeProducts = graphSource === "closet" ? closetProducts : digboxProducts;
+  const sourceLabel = graphSource === "closet" ? "Closet" : "DIGBOX";
+  const sourceNoun = graphSource === "closet" ? "Closet 상품" : "DIGBOX 상품";
+  const eyebrow = graphSource === "closet" ? "보유 취향" : "관심 취향";
   const emptyCopy = useMemo(
     () =>
-      source === "closet"
+      graphSource === "closet"
         ? {
             title: "아직 보유 상품이 없습니다",
             description: "실제로 가진 상품을 Closet에 담으면 보유 취향이 그려집니다.",
@@ -55,7 +71,7 @@ export function TasteGraphPageClient() {
             title: "아직 관심 상품이 없습니다",
             description: "마음에 드는 상품을 DIGBOX에 담으면 관심 취향이 그려집니다.",
           },
-    [source]
+    [graphSource]
   );
 
   useEffect(() => {
@@ -66,15 +82,18 @@ export function TasteGraphPageClient() {
 
   const sourceToggle = (
     <div className="taste-source-toggle" aria-label="취향 분석 기준">
-      {(["digbox", "closet"] as const).map((value) => (
+      {(["digbox", "insight", "closet"] as const).map((value) => (
         <button
           key={value}
           type="button"
           className={`taste-source-button ${source === value ? "active" : ""}`}
-          onClick={() => setSelectedSource(value)}
+          onClick={() => {
+            setSelectedSource(value);
+            if (value !== "insight") setInsightFocus(null);
+          }}
         >
-          {value === "digbox" ? "관심 취향" : "보유 취향"}
-          <span>{value === "digbox" ? digboxProducts.length : closetProducts.length}</span>
+          {value === "digbox" ? "DIGBOX" : value === "closet" ? "CLOSET" : "INSIGHT"}
+          <span>{value === "digbox" ? digboxProducts.length : value === "closet" ? closetProducts.length : ""}</span>
         </button>
       ))}
     </div>
@@ -104,84 +123,80 @@ export function TasteGraphPageClient() {
           <Plus className="h-4 w-4" />
           상품 둘러보기
         </Link>
-        <style jsx>{toggleStyles}</style>
       </main>
     );
   }
 
   return (
-    <main className="taste-graph-page flex flex-col">
-      <TasteSummaryCard
-        controls={sourceToggle}
-        products={activeProducts}
-        eyebrow={eyebrow}
-        sourceLabel={sourceLabel}
-        sourceNoun={sourceNoun}
-      />
-      <div className="relative min-h-0 flex-1">
-        <TasteGraphCanvas key={source} products={activeProducts} />
+    <main className="taste-graph-page taste-graph-layout">
+      <aside className="taste-summary-pane">
+        {source === "insight" ? (
+          <TasteInsightCard
+            controls={sourceToggle}
+            closetProducts={closetProducts}
+            digboxProducts={digboxProducts}
+            onExplore={(target) => {
+              setInsightFocus(target);
+              setSelectedSource("insight");
+            }}
+          />
+        ) : (
+          <TasteSummaryCard
+            controls={sourceToggle}
+            products={activeProducts}
+            eyebrow={eyebrow}
+            sourceLabel={sourceLabel}
+            sourceNoun={sourceNoun}
+          />
+        )}
+      </aside>
+      <div className="taste-canvas-pane">
+        <TasteGraphCanvas
+          key={`${graphSource}-${source === "insight" ? insightFocus?.tag || "overview" : "overview"}`}
+          products={activeProducts}
+          initialTag={source === "insight" ? insightFocus?.tag : urlFocus.tag}
+        />
       </div>
-      <style jsx>{toggleStyles}</style>
+      <style jsx>{layoutStyles}</style>
     </main>
   );
 }
 
-const toggleStyles = `
-  .taste-source-toggle {
-    display: inline-grid;
-    grid-template-columns: repeat(2, minmax(86px, 1fr));
-    gap: 4px;
-    padding: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.06);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(18px);
+const layoutStyles = `
+  .taste-graph-layout {
+    display: flex;
+    flex-direction: row;
+    min-height: 0;
   }
 
-  .taste-source-button {
-    display: inline-flex;
-    min-height: 34px;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    border: 0;
-    border-radius: 9px;
-    background: transparent;
-    color: #a5acb8;
-    font-size: 12px;
-    font-weight: 850;
-    cursor: pointer;
-    transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+  .taste-summary-pane {
+    width: clamp(292px, 23vw, 340px);
+    flex-shrink: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    background: #111217;
   }
 
-  .taste-source-button span {
-    min-width: 20px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.09);
-    padding: 2px 6px;
-    color: inherit;
-    font-size: 11px;
-    line-height: 1.1;
+  .taste-canvas-pane {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
   }
 
-  .taste-source-button:hover {
-    color: #f3f4f6;
-  }
+  @media (max-width: 1023px) {
+    .taste-graph-layout {
+      flex-direction: column;
+    }
 
-  .taste-source-button.active {
-    background: #f97316;
-    color: #111114;
-    box-shadow: 0 8px 20px rgba(249, 115, 22, 0.22);
-  }
-
-  .taste-source-button.active span {
-    background: rgba(0, 0, 0, 0.13);
-  }
-
-  @media (max-width: 640px) {
-    .taste-source-toggle {
+    .taste-summary-pane {
       width: 100%;
+      max-height: 40%;
+      border-right: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
   }
+
 `;

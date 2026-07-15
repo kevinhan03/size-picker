@@ -20,6 +20,19 @@ const STYLE_TAGS = [
 
 const STYLE_TAG_SET = new Set<string>(STYLE_TAGS);
 const REVIEW_STATUSES = new Set(["needs_review", "approved", "edited", "rejected"]);
+const TARGET_GENDERS = new Set(["menswear", "womenswear", "unisex", "unknown"]);
+const STYLE_ATTRIBUTE_KEYS = [
+  "fit",
+  "silhouette",
+  "formality",
+  "utility_level",
+  "material",
+  "color",
+  "wash_texture",
+  "decoration_level",
+  "era_signal",
+  "sportiness",
+] as const;
 const LEGACY_STYLE_TAG_MAP: Record<string, typeof STYLE_TAGS[number]> = {
   "캐주얼": "casual",
   "미니멀": "minimal",
@@ -93,6 +106,36 @@ const normalizeJsonObject = (value: unknown, fieldName: string): Record<string, 
   return value;
 };
 
+const normalizeStyleAttributes = (value: unknown, fieldName: string): Record<string, unknown> | null => {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) {
+    throw new Error(`${fieldName} must be an object`);
+  }
+
+  const normalized: Record<string, unknown> = {};
+  for (const attribute of STYLE_ATTRIBUTE_KEYS) {
+    const normalizedValue = String(value[attribute] ?? "unknown").trim().toLowerCase() || "unknown";
+    if (normalizedValue.length > 64) {
+      throw new Error(`${fieldName}.${attribute} must be at most 64 characters`);
+    }
+    normalized[attribute] = normalizedValue;
+  }
+
+  if (value.details !== undefined) {
+    if (!Array.isArray(value.details)) {
+      throw new Error(`${fieldName}.details must be an array`);
+    }
+    if (value.details.length > 12) {
+      throw new Error(`${fieldName}.details must contain at most 12 values`);
+    }
+    normalized.details = value.details.map((detail) => String(detail || "").trim()).filter(Boolean).map((detail) => detail.slice(0, 80));
+  } else {
+    normalized.details = [];
+  }
+
+  return normalized;
+};
+
 const normalizeReviewStatus = (value: unknown): string | null => {
   if (value === null || value === undefined) return null;
   const status = String(value || "").trim();
@@ -100,6 +143,15 @@ const normalizeReviewStatus = (value: unknown): string | null => {
     throw new Error(`tagReviewStatus must be one of: ${[...REVIEW_STATUSES].join(", ")}`);
   }
   return status;
+};
+
+const normalizeTargetGender = (value: unknown): string | undefined => {
+  if (value === undefined) return undefined;
+  const targetGender = String(value || "").trim();
+  if (!TARGET_GENDERS.has(targetGender)) {
+    throw new Error(`targetGender must be one of: ${[...TARGET_GENDERS].join(", ")}`);
+  }
+  return targetGender;
 };
 
 export async function GET(
@@ -120,7 +172,7 @@ export async function GET(
     const { data, error } = await supabase!
       .from(SUPABASE_PRODUCTS_TABLE)
       .select(
-        "id,brand,name,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
+        "id,brand,name,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
       )
       .eq("id", productId)
       .maybeSingle();
@@ -155,8 +207,9 @@ export async function PATCH(
     const rawBody = await request.json();
     const body = isRecord(rawBody) ? rawBody : {};
     const status = normalizeReviewStatus(body?.tagReviewStatus);
+    const targetGender = normalizeTargetGender(body?.targetGender);
     const humanStyleTags = normalizeStyleTags(body?.humanStyleTags);
-    const humanStyleAttributes = normalizeJsonObject(body?.humanStyleAttributes, "humanStyleAttributes");
+    const humanStyleAttributes = normalizeStyleAttributes(body?.humanStyleAttributes, "humanStyleAttributes");
     const humanStyleTagsEvidence = normalizeJsonObject(body?.humanStyleTagsEvidence, "humanStyleTagsEvidence");
     const note =
       "tagReviewNote" in body
@@ -170,6 +223,11 @@ export async function PATCH(
     if (humanStyleAttributes) payload.human_style_attributes = humanStyleAttributes;
     if (humanStyleTagsEvidence) payload.human_style_tags_evidence = humanStyleTagsEvidence;
     if (note !== undefined) payload.tag_review_note = note || null;
+    if (targetGender !== undefined) {
+      payload.human_target_gender = targetGender;
+      payload.target_gender_reviewed_by = "admin";
+      payload.target_gender_reviewed_at = new Date().toISOString();
+    }
 
     if (status === "approved" && !humanStyleTags) {
       const { data: existingProduct, error: existingProductError } = await supabase!
@@ -188,8 +246,8 @@ export async function PATCH(
         ? normalizeStyleTags(existingProduct.human_style_tags)
         : normalizeStyleTags(existingProduct.style_tags);
       payload.human_style_attributes = existingProduct.human_style_attributes
-        ? normalizeJsonObject(existingProduct.human_style_attributes, "human_style_attributes")
-        : normalizeJsonObject(existingProduct.style_attributes, "style_attributes");
+        ? normalizeStyleAttributes(existingProduct.human_style_attributes, "human_style_attributes")
+        : normalizeStyleAttributes(existingProduct.style_attributes, "style_attributes");
       payload.human_style_tags_evidence = existingProduct.human_style_tags_evidence
         ? normalizeJsonObject(existingProduct.human_style_tags_evidence, "human_style_tags_evidence")
         : normalizeJsonObject(existingProduct.style_tags_evidence, "style_tags_evidence");
@@ -212,7 +270,7 @@ export async function PATCH(
       .update(payload)
       .eq("id", productId)
       .select(
-        "id,brand,name,style_tags,style_attributes,style_tags_evidence,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
+        "id,brand,name,style_tags,style_attributes,style_tags_evidence,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
       )
       .maybeSingle();
 

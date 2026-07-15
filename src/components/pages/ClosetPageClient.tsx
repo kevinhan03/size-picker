@@ -116,7 +116,7 @@ function GridCard({
                     if (!value) return null;
                     return (
                       <div
-                        key={header}
+                        key={`${header}-${i}`}
                         style={{
                           display: "flex",
                           flexDirection: "column",
@@ -317,7 +317,7 @@ function ListRow({
                 const value = product.closetSelectedSizeSnapshot!.row[i + 1];
                 if (!value) return null;
                 return (
-                  <div key={header} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "3px 6px", minWidth: 36 }}>
+                  <div key={`${header}-${i}`} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "3px 6px", minWidth: 36 }}>
                     <span style={{ fontSize: 8, color: "#6b7280", fontWeight: 600, whiteSpace: "nowrap" }}>{header}</span>
                     <span style={{ fontSize: 11, color: "#e5e7eb", fontWeight: 700, marginTop: 1, whiteSpace: "nowrap" }}>{value}</span>
                   </div>
@@ -984,4 +984,3 @@ export function ClosetPageClient() {
     </main>
   );
 }
-

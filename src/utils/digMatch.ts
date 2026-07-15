@@ -132,7 +132,7 @@ function normalizeTargetGender(value: unknown): ProductTargetGender {
 function eligibleProducts(products: Product[], presentation: DigMatchPresentation) {
   return products.filter((product) => {
     const tags = normalizeStyleTags(getEffectiveStyleTags(product).tags);
-    const targetGender = normalizeTargetGender(product.targetGender);
+    const targetGender = normalizeTargetGender(product.humanTargetGender ?? product.targetGender);
     const matchesPresentation =
       presentation === "all" || targetGender === presentation || targetGender === "unisex";
     return matchesPresentation && Boolean(product.image || product.thumbnailImage) && Object.values(tags).some((score) => score >= 0.2);

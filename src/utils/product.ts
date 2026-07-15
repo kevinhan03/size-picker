@@ -121,6 +121,9 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
     reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
     reviewedAt: row.reviewed_at || null,
     targetGender: row.target_gender ? String(row.target_gender) as Product['targetGender'] : null,
+    humanTargetGender: row.human_target_gender ? String(row.human_target_gender) as Product['humanTargetGender'] : null,
+    targetGenderReviewedBy: row.target_gender_reviewed_by ? String(row.target_gender_reviewed_by) : null,
+    targetGenderReviewedAt: row.target_gender_reviewed_at || null,
   };
 };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Orbit, RotateCcw, Search } from "lucide-react";
 import type { Product, StyleTagName } from "../../types";
 import {
   ITEM_COLLAPSED_OPACITY,
@@ -50,15 +51,29 @@ function linkSourceId(link: TasteGraphLink): string {
   return typeof source === "object" && source ? (source as { id: string }).id : String(link.source);
 }
 
+function linkTargetId(link: TasteGraphLink): string {
+  const target = link.target as unknown;
+  return typeof target === "object" && target ? (target as { id: string }).id : String(link.target);
+}
+
+function isProductLink(link: TasteGraphLink, productNodeId: string) {
+  return linkSourceId(link) === productNodeId || linkTargetId(link) === productNodeId;
+}
+
+function baseLinkOpacity(link: TasteGraphLink, viewMode: ViewMode) {
+  if (link.type === "tag") return viewMode === "tag" ? 0.2 : 0.09;
+  return viewMode === "embedding" ? 0.17 : 0.08;
+}
+
 function getLinkStyle(link: TasteGraphLink) {
   if (link.type === "embedding") {
-    const color = link.highlighted ? "#7dd3fc" : "#38bdf8";
-    const width = link.highlighted ? 2.5 + link.weight * 2 : 0.6 + link.weight * 1.6;
+    const color = link.highlighted ? "#7dd3fc" : "rgba(184, 199, 216, 0.72)";
+    const width = link.highlighted ? 2.2 + link.weight * 1.6 : 0.55 + link.weight * 0.45;
     return { color, width };
   }
   const colors = tagColor(link.tag || "");
-  const color = link.highlighted ? colors.bright : colors.base;
-  const width = link.highlighted ? 3.2 + link.weight * 3 : 0.8 + link.weight * 2.4;
+  const color = link.highlighted ? colors.bright : "rgba(218, 223, 232, 0.72)";
+  const width = link.highlighted ? 2.8 + link.weight * 2.2 : 0.55 + link.weight * 0.55;
   return { color, width };
 }
 
@@ -66,7 +81,13 @@ function linkDistance(link: TasteGraphLink) {
   return link.type === "embedding" ? 40 + (1 - link.weight) * 60 : 148;
 }
 
-export function TasteGraphCanvas({ products }: { products: Product[] }) {
+export function TasteGraphCanvas({
+  products,
+  initialTag,
+}: {
+  products: Product[];
+  initialTag?: StyleTagName;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const graphRef = useRef<ForceGraphInstance>(null);
   const graphStateRef = useRef<TasteGraphState | null>(null);
@@ -74,6 +95,7 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
   const searchQueryRef = useRef("");
   const selectedTagRef = useRef<string | null>(null);
   const selectedProductNodeIdRef = useRef<string | null>(null);
+  const hoveredNodeIdRef = useRef<string | null>(null);
   const initialFitDoneRef = useRef(false);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const handlersRef = useRef<GraphHandlers | null>(null);
@@ -102,6 +124,7 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
       searchQueryRef.current = "";
       selectedTagRef.current = null;
       selectedProductNodeIdRef.current = null;
+      hoveredNodeIdRef.current = null;
       initialFitDoneRef.current = false;
       imageCacheRef.current = new Map();
       setViewModeState("tag");
@@ -158,29 +181,30 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
 
         if (node.type === "tag") {
           const colors = tagColor(node.label);
+          const emphasized = node.selected || node.connected || node.highlighted;
           ctx.beginPath();
-          ctx.fillStyle = node.selected || node.connected ? colors.bright : colors.base;
-          ctx.strokeStyle = "rgba(255,255,255,0.78)";
-          ctx.lineWidth = node.selected || node.connected ? 2.2 : 1.25;
+          ctx.fillStyle = "rgba(20, 22, 28, 0.94)";
+          ctx.strokeStyle = emphasized ? colors.bright : colors.base;
+          ctx.lineWidth = emphasized ? 2.5 : 1.45;
+          if (emphasized) {
+            ctx.shadowColor = colors.bright;
+            ctx.shadowBlur = 13 / globalScale;
+          }
           ctx.arc(node.x || 0, node.y || 0, radius, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
 
-          const emphasized = node.selected || node.connected;
           const zoomFade = emphasized
             ? 1
-            : Math.max(0, Math.min(1, (globalScale - TAG_LABEL_ZOOM_FADE_START) / (TAG_LABEL_ZOOM_FADE_END - TAG_LABEL_ZOOM_FADE_START)));
+            : Math.max(0.48, Math.min(1, (globalScale - TAG_LABEL_ZOOM_FADE_START) / (TAG_LABEL_ZOOM_FADE_END - TAG_LABEL_ZOOM_FADE_START)));
 
           if (zoomFade > 0) {
-            const fontSize = Math.max(9, Math.min(13, radius / 2.4)) / globalScale;
-            ctx.font = `800 ${fontSize}px Inter, system-ui, sans-serif`;
+            const fontSize = Math.max(8, Math.min(11, radius / 2.7)) / globalScale;
+            ctx.font = `650 ${fontSize}px Inter, system-ui, sans-serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.lineWidth = 3 / globalScale;
             ctx.globalAlpha = (node.opacity ?? 1) * zoomFade;
-            ctx.strokeStyle = "rgba(0,0,0,0.45)";
-            ctx.fillStyle = "#fff7ed";
-            ctx.strokeText(node.label, node.x || 0, node.y || 0);
+            ctx.fillStyle = "rgba(245, 247, 250, 0.9)";
             ctx.fillText(node.label, node.x || 0, node.y || 0);
           }
         } else {
@@ -202,8 +226,8 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
           ctx.arc(node.x || 0, node.y || 0, radius, 0, Math.PI * 2);
           const dominantTag = node.product?.tagAssignments?.[0]?.tag;
           const dominantColor = dominantTag ? tagColor(dominantTag).base : "rgba(255,255,255,0.72)";
-          ctx.strokeStyle = node.selected ? "#ffffff" : node.similar ? "#38bdf8" : dominantColor;
-          ctx.lineWidth = node.selected ? 3 : node.similar ? 2.5 : 1.6;
+          ctx.strokeStyle = node.selected ? "#ffffff" : node.highlighted ? "#fdba74" : node.similar ? "#7dd3fc" : dominantColor;
+          ctx.lineWidth = node.selected ? 3 : node.highlighted ? 2.6 : node.similar ? 2.2 : 1.3;
           ctx.stroke();
         }
 
@@ -236,8 +260,8 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
         }
         for (const link of state.forceLinks) {
           link.highlighted = false;
-          link.visible = viewModeRef.current === "tag" ? link.type === "tag" : link.type === "embedding";
-          link.opacity = !link.visible ? 0 : link.type === "tag" ? 0.34 : 0.28;
+          link.visible = true;
+          link.opacity = baseLinkOpacity(link, viewModeRef.current);
         }
       };
 
@@ -274,19 +298,20 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
         graphRef.current?.zoomToFit(duration, 90, includeNode);
       };
 
-      const showOverview = (animate = true) => {
+      const showOverview = (animate = true, shouldFit = true) => {
         const state = graphStateRef.current;
         if (!state) return;
         selectedTagRef.current = null;
         selectedProductNodeIdRef.current = null;
+        hoveredNodeIdRef.current = null;
         setResetDisabled(true);
         setProductPanel(null);
         resetVisualState();
 
         for (const node of state.nodes) {
           if (node.type === "tag") {
-            node.visible = viewModeRef.current === "tag";
-            node.opacity = viewModeRef.current === "tag" ? 1 : 0;
+            node.visible = true;
+            node.opacity = viewModeRef.current === "tag" ? 1 : 0.48;
             node.radius = node.radius || MIN_TAG_RADIUS;
           } else {
             node.visible = true;
@@ -302,7 +327,7 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
 
         graphRef.current?.nodeVal((node: TasteGraphNode) => Math.max(1, node.radius || 4));
         if (animate) reheatBriefly();
-        fitOverview(animate ? 650 : 0);
+        if (shouldFit) fitOverview(animate ? 650 : 0);
       };
 
       const renderProductPanel = (
@@ -329,6 +354,8 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
         const product = state.productByNodeId.get(productNodeId);
         if (!product) return;
 
+        hoveredNodeIdRef.current = null;
+        resetVisualState();
         selectedProductNodeIdRef.current = productNodeId;
         const assignments = product.tagAssignments || [];
         const connectedTagIds = new Set(assignments.map((assignment) => tagId(assignment.tag)));
@@ -349,18 +376,22 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
             node.opacity = 1;
             node.radius = ITEM_DETAIL_RADIUS;
           } else if (node.type === "tag") {
-            node.opacity = viewModeRef.current === "tag" ? 0.16 : 0;
+            node.visible = true;
+            node.opacity = 0.2;
           } else {
-            node.opacity = ITEM_COLLAPSED_OPACITY;
+            node.opacity = 0.22;
+            node.radius = ITEM_COLLAPSED_RADIUS;
           }
         }
 
         for (const link of state.forceLinks) {
-          if (link.type !== "tag") continue;
-          const key = `${linkSourceId(link)}|${link.tag}`;
-          link.highlighted = viewModeRef.current === "tag" && connectedLinkKeys.has(key);
-          link.visible = Boolean(link.highlighted);
-          link.opacity = link.highlighted ? 0.9 : 0;
+          const isDirectTagLink = link.type === "tag" && connectedLinkKeys.has(`${linkSourceId(link)}|${link.tag}`);
+          const isDirectEmbeddingLink = link.type === "embedding" && isProductLink(link, productNodeId);
+          link.highlighted = isDirectTagLink || isDirectEmbeddingLink;
+          link.visible = true;
+          link.opacity = link.highlighted
+            ? (link.type === viewModeRef.current ? 0.98 : 0.76)
+            : baseLinkOpacity(link, viewModeRef.current) * 0.22;
         }
 
         for (const node of state.nodes) {
@@ -377,6 +408,7 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
         if (!state || viewModeRef.current !== "tag") return;
         selectedTagRef.current = tag;
         selectedProductNodeIdRef.current = null;
+        hoveredNodeIdRef.current = null;
         setResetDisabled(false);
         setProductPanel(null);
         resetVisualState();
@@ -391,14 +423,14 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
             node.selected = true;
           } else if (node.type === "tag") {
             node.visible = true;
-            node.opacity = 0.18;
+            node.opacity = 0.22;
           } else if (visibleItems.has(node.id)) {
             node.visible = true;
             node.opacity = 1;
             node.radius = ITEM_DETAIL_RADIUS;
           } else {
             node.visible = true;
-            node.opacity = ITEM_COLLAPSED_OPACITY;
+            node.opacity = 0.22;
             node.radius = ITEM_COLLAPSED_RADIUS;
           }
         }
@@ -407,7 +439,12 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
           if (link.type === "tag") {
             const sourceId = linkSourceId(link);
             link.visible = link.tag === tag && visibleItems.has(sourceId);
-            link.opacity = link.visible ? 0.68 : 0;
+            link.highlighted = link.visible;
+            link.opacity = link.visible ? 0.94 : 0;
+          } else {
+            link.visible = true;
+            link.highlighted = false;
+            link.opacity = baseLinkOpacity(link, viewModeRef.current) * 0.2;
           }
         }
 
@@ -427,6 +464,50 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
         setProductPanel(null);
         if (selectedTagRef.current) showTagDetail(selectedTagRef.current);
         else showOverview(true);
+      };
+
+      const showHoverInsight = (node: TasteGraphNode | null) => {
+        if (selectedTagRef.current || selectedProductNodeIdRef.current) return;
+        if (hoveredNodeIdRef.current === (node?.id || null)) return;
+
+        showOverview(false, false);
+        if (!node) return;
+
+        const state = graphStateRef.current;
+        if (!state) return;
+        hoveredNodeIdRef.current = node.id;
+        const relatedLinks = state.forceLinks.filter((link) => {
+          if (node.type === "tag") return link.type === "tag" && linkTargetId(link) === node.id;
+          return isProductLink(link, node.id);
+        });
+        const relatedNodeIds = new Set<string>([node.id]);
+        for (const link of relatedLinks) {
+          relatedNodeIds.add(linkSourceId(link));
+          relatedNodeIds.add(linkTargetId(link));
+        }
+
+        for (const candidate of state.nodes) {
+          const related = relatedNodeIds.has(candidate.id);
+          candidate.highlighted = candidate.id === node.id;
+          candidate.connected = related && candidate.id !== node.id;
+          if (related) {
+            candidate.opacity = 1;
+            if (candidate.type === "item") candidate.radius = candidate.id === node.id ? ITEM_DETAIL_RADIUS : ITEM_COLLAPSED_RADIUS + 3;
+          } else if (candidate.type === "tag") {
+            candidate.opacity = 0.28;
+          } else {
+            candidate.opacity = 0.22;
+          }
+        }
+
+        const relatedLinkSet = new Set(relatedLinks);
+        for (const link of state.forceLinks) {
+          const related = relatedLinkSet.has(link);
+          link.highlighted = related;
+          link.visible = true;
+          link.opacity = related ? 0.88 : baseLinkOpacity(link, viewModeRef.current) * 0.22;
+        }
+        redrawBriefly();
       };
 
       graphRef.current = new ForceGraph<TasteGraphNode, TasteGraphLink>(containerRef.current)
@@ -449,6 +530,12 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
           ctx.globalAlpha = link.highlighted ? 0.95 : link.opacity ?? 0.3;
           ctx.strokeStyle = color;
           ctx.lineWidth = width;
+          ctx.lineCap = "round";
+          if (link.type === "embedding") ctx.setLineDash(link.highlighted ? [7, 3] : [3, 5]);
+          if (link.highlighted) {
+            ctx.shadowColor = color;
+            ctx.shadowBlur = link.type === "tag" ? 7 : 5;
+          }
           ctx.beginPath();
           ctx.moveTo(source.x || 0, source.y || 0);
           ctx.lineTo(target.x || 0, target.y || 0);
@@ -469,6 +556,7 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
             showProductInsight(node.id);
           }
         })
+        .onNodeHover((node: TasteGraphNode | null) => showHoverInsight(node))
         .onBackgroundClick(() => clearProductInsight())
         .cooldownTicks(45)
         .d3AlphaDecay(0.105)
@@ -508,6 +596,12 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
         applySearchFilter,
       };
 
+      if (initialTag) {
+        window.setTimeout(() => {
+          if (!cancelled) showTagDetail(initialTag);
+        }, 240);
+      }
+
       const handleResize = () => {
         if (!graphRef.current || !containerRef.current) return;
         graphRef.current.width(containerRef.current.clientWidth).height(containerRef.current.clientHeight);
@@ -530,7 +624,7 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
       handlersRef.current = null;
       void cleanupPromise.then((cleanup) => cleanup?.());
     };
-  }, [products]);
+  }, [products, initialTag]);
 
   return (
     <div className="taste-graph-app">
@@ -538,35 +632,54 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
 
       <div className="taste-graph-topbar">
         <div className="taste-graph-controls" aria-label="그래프 보기 제어">
-          <input
-            className="search-input"
-            type="search"
-            placeholder="브랜드/상품명 검색"
-            disabled={!controlsReady}
-            value={searchValue}
-            onChange={(event) => {
-              setSearchValue(event.target.value);
-              searchQueryRef.current = event.target.value;
-              handlersRef.current?.applySearchFilter();
-            }}
-          />
+          <label className="search-shell">
+            <Search className="h-3.5 w-3.5" aria-hidden="true" />
+            <input
+              className="search-input"
+              type="search"
+              placeholder="브랜드/상품명 검색"
+              aria-label="브랜드 또는 상품명 검색"
+              disabled={!controlsReady}
+              value={searchValue}
+              onChange={(event) => {
+                setSearchValue(event.target.value);
+                searchQueryRef.current = event.target.value;
+                handlersRef.current?.applySearchFilter();
+              }}
+            />
+          </label>
           <button
             type="button"
-            className={`control-button ${viewMode === "embedding" ? "active" : ""}`}
+            className={`control-button icon-button ${viewMode === "embedding" ? "active" : ""}`}
             disabled={!controlsReady}
             onClick={() => handlersRef.current?.setViewMode(viewMode === "tag" ? "embedding" : "tag")}
+            aria-label={viewMode === "tag" ? "유사도 뷰로 전환" : "태그 뷰로 전환"}
+            title={viewMode === "tag" ? "유사도 뷰로 전환" : "태그 뷰로 전환"}
           >
-            {viewMode === "tag" ? "유사도 뷰로 전환" : "태그 뷰로 전환"}
+            <Orbit className="h-4 w-4" aria-hidden="true" />
           </button>
           <button
             type="button"
-            className="control-button"
+            className="control-button icon-button"
             disabled={!controlsReady || resetDisabled}
             onClick={() => handlersRef.current?.showOverview(true)}
+            aria-label="전체 보기로 돌아가기"
+            title="전체 보기로 돌아가기"
           >
-            전체 보기로 돌아가기
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
+      </div>
+
+      <div className="taste-graph-legend" aria-label="그래프 연결 범례">
+        <span className={`legend-item ${viewMode === "tag" ? "primary" : ""}`}>
+          <i className="legend-line tag-line" aria-hidden="true" />
+          STYLE TAG
+        </span>
+        <span className={`legend-item ${viewMode === "embedding" ? "primary" : ""}`}>
+          <i className="legend-line embedding-line" aria-hidden="true" />
+          VISUAL SIMILARITY
+        </span>
       </div>
 
       {productPanel && (
@@ -629,9 +742,7 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
           width: 100%;
           height: 100%;
           overflow: hidden;
-          background:
-            radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.045), transparent 44%),
-            linear-gradient(180deg, #151720 0%, #0e0f13 100%);
+          background: #111217;
           color: #f3f4f6;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
@@ -666,25 +777,67 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
         .taste-graph-controls {
           display: flex;
           justify-content: flex-end;
-          gap: 10px;
+          gap: 7px;
           pointer-events: auto;
+        }
+
+        .taste-graph-legend {
+          position: absolute;
+          right: 16px;
+          bottom: 16px;
+          z-index: 4;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 8px 10px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          background: rgba(23, 25, 31, 0.68);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(14px);
+          pointer-events: none;
+        }
+
+        .legend-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: rgba(197, 203, 212, 0.62);
+          font-size: 9px;
+          font-weight: 750;
+          letter-spacing: 0.06em;
+          white-space: nowrap;
+          transition: color 160ms ease;
+        }
+
+        .legend-item.primary {
+          color: rgba(245, 247, 250, 0.92);
+        }
+
+        .legend-line {
+          display: block;
+          width: 20px;
+          height: 1px;
+          background: rgba(218, 223, 232, 0.72);
+        }
+
+        .embedding-line {
+          background: repeating-linear-gradient(90deg, rgba(184, 199, 216, 0.76) 0 4px, transparent 4px 8px);
         }
 
         .control-button {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 6px;
-          min-height: 36px;
-          padding: 0 14px;
-          border-radius: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07));
-          backdrop-filter: blur(20px);
+          min-height: 34px;
+          border-radius: 9px;
+          border: 1px solid rgba(255, 255, 255, 0.13);
+          background: rgba(23, 25, 31, 0.76);
+          backdrop-filter: blur(16px);
           color: #e5e7eb;
           font-size: 12px;
           font-weight: 700;
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
           cursor: pointer;
           transition: border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
         }
@@ -703,37 +856,49 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
         .control-button.active {
           border-color: rgba(249, 115, 22, 0.65);
           color: #fdba74;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 22px rgba(249, 115, 22, 0.18);
+          background: rgba(249, 115, 22, 0.13);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 18px rgba(249, 115, 22, 0.13);
+        }
+
+        .icon-button {
+          width: 34px;
+          padding: 0;
+        }
+
+        .search-shell {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 36px;
+          width: 220px;
+          padding: 0 12px;
+          border-radius: 9px;
+          border: 1px solid rgba(255, 255, 255, 0.13);
+          background: rgba(23, 25, 31, 0.76);
+          backdrop-filter: blur(16px);
+          color: #8f99a9;
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
         }
 
         .search-input {
-          min-height: 36px;
-          width: 220px;
-          padding: 0 16px;
-          border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-          backdrop-filter: blur(20px);
+          width: 100%;
+          min-width: 0;
+          padding: 0;
+          border: 0;
+          background: transparent;
           color: #f3f4f6;
           font-size: 13px;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 14px 30px rgba(0, 0, 0, 0.24);
           outline: none;
-          transition: border-color 150ms ease, box-shadow 150ms ease;
         }
 
         .search-input::placeholder { color: rgba(165, 172, 184, 0.75); }
 
-        .search-input:hover:not(:disabled) { border-color: rgba(249, 115, 22, 0.5); }
+        .search-shell:focus-within { border-color: rgba(251, 146, 60, 0.7); box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14); }
 
         .search-input:disabled {
           color: #697283;
           cursor: default;
           opacity: 0.55;
-        }
-
-        .search-input:focus {
-          border-color: rgba(251, 146, 60, 0.7);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 3px rgba(249, 115, 22, 0.2);
         }
 
         .taste-graph-product-panel {
@@ -903,10 +1068,19 @@ export function TasteGraphCanvas({ products }: { products: Product[] }) {
             flex-wrap: wrap;
           }
 
-          .search-input { width: 100%; }
-          .control-button { flex: 1 1 auto; }
+          .search-shell { width: 100%; }
 
           .taste-graph-product-panel { top: auto; right: 16px; bottom: 24px; }
+
+          .taste-graph-legend {
+            right: 12px;
+            bottom: 12px;
+            gap: 8px;
+            padding: 7px 8px;
+          }
+
+          .legend-item { font-size: 8px; }
+          .legend-line { width: 15px; }
         }
       `}</style>
     </div>
