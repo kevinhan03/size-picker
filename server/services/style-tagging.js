@@ -30,6 +30,21 @@ const STYLE_TAG_SCHEMA = {
   required: STYLE_TAGS,
 };
 
+const STYLE_ATTRIBUTE_OPTIONS = {
+  fit: ["unknown", "slim", "regular", "relaxed", "wide", "straight", "tapered", "bootcut", "balloon"],
+  silhouette: ["unknown", "clean", "structured", "loose", "voluminous", "draped"],
+  formality: ["unknown", "casual", "smart-casual", "formal"],
+  utility_level: ["unknown", "none", "light", "strong"],
+  material: ["unknown", "cotton", "denim", "knit", "wool", "leather", "linen", "synthetic", "mixed"],
+  color: ["unknown", "black", "white", "gray", "blue", "brown", "beige", "green", "red", "neutral", "vivid"],
+  wash_texture: ["unknown", "clean", "washed", "faded", "distressed", "textured"],
+  decoration_level: ["unknown", "none", "light", "strong"],
+  sportiness: ["unknown", "none", "light", "strong"],
+  era_signal: ["unknown", "contemporary", "heritage", "90s", "00s"],
+};
+const STYLE_ATTRIBUTE_KEYS = Object.keys(STYLE_ATTRIBUTE_OPTIONS);
+const ATTRIBUTE_EVIDENCE_KEYS = [...STYLE_ATTRIBUTE_KEYS, "details"];
+
 const STYLE_ANALYSIS_SCHEMA = {
   type: "object",
   properties: {
@@ -37,40 +52,24 @@ const STYLE_ANALYSIS_SCHEMA = {
     style_attributes: {
       type: "object",
       properties: {
-        fit: { type: "string" },
-        silhouette: { type: "string" },
-        material: { type: "string" },
-        color: { type: "string" },
-        wash_texture: { type: "string" },
-        formality: { type: "string" },
-        utility_level: { type: "string" },
-        sportiness: { type: "string" },
-        decoration_level: { type: "string" },
-        era_signal: { type: "string" },
+        ...Object.fromEntries(STYLE_ATTRIBUTE_KEYS.map((key) => [key, { type: "string", enum: STYLE_ATTRIBUTE_OPTIONS[key] }])),
         details: { type: "array", items: { type: "string" } },
       },
-      required: [
-        "fit",
-        "silhouette",
-        "material",
-        "color",
-        "wash_texture",
-        "details",
-        "formality",
-        "utility_level",
-        "sportiness",
-        "decoration_level",
-        "era_signal",
-      ],
+      required: [...STYLE_ATTRIBUTE_KEYS, "details"],
     },
     evidence: {
       type: "object",
       properties: Object.fromEntries(STYLE_TAGS.map((tag) => [tag, { type: "array", items: { type: "string" } }])),
     },
+    attribute_evidence: {
+      type: "object",
+      properties: Object.fromEntries(ATTRIBUTE_EVIDENCE_KEYS.map((key) => [key, { type: "array", items: { type: "string" } }])),
+      required: ATTRIBUTE_EVIDENCE_KEYS,
+    },
     confidence: { type: "number" },
     target_gender: { type: "string", enum: ["menswear", "womenswear", "unisex", "unknown"] },
   },
-  required: ["style_tags", "style_attributes", "evidence", "confidence", "target_gender"],
+  required: ["style_tags", "style_attributes", "evidence", "attribute_evidence", "confidence", "target_gender"],
 };
 
 const PROMPT = `당신은 패션 상품 이미지를 분석해서 스타일을 태깅하는 전문가입니다.
@@ -91,14 +90,15 @@ const PROMPT = `당신은 패션 상품 이미지를 분석해서 스타일을 �
 - glam_sexy: 몸선/노출/광택/파티/나이트아웃 무드
 
 중요 규칙:
-1. 먼저 fit, silhouette, material, color, wash_texture, details, formality, utility_level, sportiness, decoration_level, era_signal을 분석하세요.
+1. 먼저 fit, silhouette, material, color, wash_texture, details, formality, utility_level, sportiness, decoration_level, era_signal을 분석하세요. style_attributes의 각 값은 제공된 enum 중 하나만 사용하고, 이미지로 판단할 수 없으면 unknown을 사용하세요.
 2. material은 이미지와 텍스트를 함께 보고 반드시 추론하세요. 정말 판단 불가일 때만 unknown.
 3. 단순 기본 아이템이라는 이유만으로 casual/minimal을 높게 주지 마세요.
 4. 0.75 이상은 주된 스타일, 0.45~0.75는 보조 스타일, 0.30 이하는 그래프 연결 제외 수준입니다.
 5. 0.75 이상 태그는 보통 1~2개만 허용하세요. 매우 명확할 때만 3개.
 6. target_gender는 스타일 태그와 별도입니다. 상세 텍스트/사이즈/판매 페이지에 명시된 상품 타깃만 근거로 menswear, womenswear, unisex, unknown 중 하나를 반환하세요. 이미지 속 모델의 외형이나 브랜드 이미지로 성별을 추정하지 마세요. 명시 근거가 없으면 unknown입니다.
 7. 브랜드 인지도, 가격대, 성별로 스타일 점수를 판단하지 마세요.
-8. JSON만 반환하세요.`;
+8. evidence에는 스타일 태그별 판단 근거를, attribute_evidence에는 각 속성 및 details별로 이미지/텍스트에서 확인한 짧은 근거를 배열로 반환하세요. 근거가 없으면 빈 배열을 반환하세요.
+9. JSON만 반환하세요.`;
 
 function isHttpUrl(value) {
   return /^https?:\/\//i.test(String(value || "").trim());
@@ -185,6 +185,11 @@ function normalizeEvidence(value) {
   return Object.fromEntries(STYLE_TAGS.map((tag) => [tag, normalizeStringList(record[tag])]));
 }
 
+function normalizeAttributeEvidence(value) {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return Object.fromEntries(ATTRIBUTE_EVIDENCE_KEYS.map((key) => [key, normalizeStringList(record[key])]));
+}
+
 function normalizeStyleAnalysis(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("style analysis must be an object");
@@ -199,7 +204,10 @@ function normalizeStyleAnalysis(value) {
       value.style_attributes && typeof value.style_attributes === "object" && !Array.isArray(value.style_attributes)
         ? value.style_attributes
         : {},
-    style_tags_evidence: normalizeEvidence(value.evidence),
+    style_tags_evidence: {
+      ...normalizeEvidence(value.evidence),
+      attributes: normalizeAttributeEvidence(value.attribute_evidence),
+    },
     confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : null,
     target_gender: targetGender,
   };

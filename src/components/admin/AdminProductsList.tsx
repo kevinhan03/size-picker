@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, Search, Sparkles, XCircle } from 'lucide-react';
 import { ProgressiveImage } from '../ProgressiveImage';
 import { AdminProductEditor } from './AdminProductEditor';
-import { ProductStyleReviewPanel } from './ProductStyleReviewPanel';
+import { ProductStyleReviewPanel, type StyleAttributeOption } from './ProductStyleReviewPanel';
 import type { AdminEditForm, Product, ProductStyleReviewInput, SizeTable } from '../../types';
 import type { ChangeEvent, SyntheticEvent } from 'react';
 
@@ -66,6 +66,45 @@ export function AdminProductsList({
   const [searchQuery, setSearchQuery] = useState('');
   const [aiTagFilter, setAiTagFilter] = useState<AiTagFilter>('all');
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
+  const [customAttributeOptions, setCustomAttributeOptions] = useState<StyleAttributeOption[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/admin/style-attribute-options', { credentials: 'include' })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok || !payload?.ok || !Array.isArray(payload?.data?.options)) return;
+        if (!isMounted) return;
+        setCustomAttributeOptions(payload.data.options.map((option: { attribute_key?: unknown; value?: unknown }) => ({
+          attributeKey: String(option.attribute_key ?? ''),
+          value: String(option.value ?? ''),
+        })).filter((option: StyleAttributeOption) => option.attributeKey && option.value));
+      })
+      .catch(() => undefined);
+    return () => { isMounted = false; };
+  }, []);
+
+  const addAttributeOption = async (option: StyleAttributeOption) => {
+    const response = await fetch('/api/admin/style-attribute-options', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ attributeKey: option.attributeKey, value: option.value }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload?.ok || !payload?.data?.option) {
+      throw new Error(payload?.error || '속성 선택지 저장에 실패했습니다.');
+    }
+    const saved = {
+      attributeKey: String(payload.data.option.attribute_key ?? ''),
+      value: String(payload.data.option.value ?? ''),
+    } as StyleAttributeOption;
+    setCustomAttributeOptions((previous) =>
+      previous.some((item) => item.attributeKey === saved.attributeKey && item.value === saved.value)
+        ? previous
+        : [...previous, saved]
+    );
+  };
 
   const aiTaggedCount = allProducts.filter(hasAiTags).length;
   const aiUntaggedCount = allProducts.filter((product) => !hasAiTags(product) && product.taggingStatus !== 'failed').length;
@@ -271,7 +310,9 @@ export function AdminProductsList({
                     </div>
                   </div>
                   <ProductStyleReviewPanel
+                    customAttributeOptions={customAttributeOptions}
                     isSaving={isAdminActionLoading}
+                    onAddAttributeOption={addAttributeOption}
                     onSave={onSaveStyleReview}
                     product={product}
                   />

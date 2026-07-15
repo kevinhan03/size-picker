@@ -63,7 +63,10 @@ export type StyleTagName =
 
 export type StyleTags = Record<StyleTagName, number>;
 export type StyleAttributes = Record<string, unknown>;
-export type StyleTagsEvidence = Partial<Record<StyleTagName, string[]>>;
+export type StyleAttributeEvidence = Partial<Record<string, string[]>>;
+export type StyleTagsEvidence = Partial<Record<StyleTagName, string[]>> & {
+  attributes?: StyleAttributeEvidence;
+};
 export type TagReviewStatus = 'needs_review' | 'approved' | 'edited' | 'rejected';
 
 export interface RelatedGraphReason {

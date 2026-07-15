@@ -1,6 +1,6 @@
-import { Check, Save, X } from 'lucide-react';
+import { Check, Plus, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { Product, ProductStyleReviewInput, ProductTargetGender, StyleAttributes, StyleTagName, StyleTags, TagReviewStatus } from '../../types';
+import type { Product, ProductStyleReviewInput, ProductTargetGender, StyleAttributes, StyleTagName, StyleTags, StyleTagsEvidence, TagReviewStatus } from '../../types';
 
 const STYLE_TAGS: StyleTagName[] = [
   'casual',
@@ -47,32 +47,42 @@ const ATTRIBUTE_FIELDS = [
 ] as const;
 
 type AttributeField = typeof ATTRIBUTE_FIELDS[number];
+export type StyleAttributeOption = { attributeKey: AttributeField['key']; value: string };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
 const normalizeAttributeValue = (value: unknown) => String(value ?? '').trim().toLowerCase() || 'unknown';
 
+const optionsForAttribute = (field: AttributeField, customOptions: StyleAttributeOption[]) => {
+  const builtIn = field.options.map(([value, label]) => [value, label] as const);
+  const knownValues = new Set<string>(builtIn.map(([value]) => value));
+  const custom = customOptions
+    .filter((option) => option.attributeKey === field.key && !knownValues.has(option.value))
+    .map((option) => [option.value, option.value] as const);
+  return [...builtIn, ...custom];
+};
+
+const normalizeAttributeForField = (field: AttributeField, value: unknown, customOptions: StyleAttributeOption[]) => {
+  const normalized = normalizeAttributeValue(value);
+  return optionsForAttribute(field, customOptions).some(([option]) => option === normalized) ? normalized : 'unknown';
+};
+
+const attributeLabel = (field: AttributeField, value: unknown, customOptions: StyleAttributeOption[]) =>
+  optionsForAttribute(field, customOptions).find(([option]) => option === normalizeAttributeForField(field, value, customOptions))?.[1] ?? '판단 보류';
+
+const attributeEvidence = (evidence: StyleTagsEvidence | null | undefined, key: string) => {
+  const values = evidence?.attributes?.[key];
+  return Array.isArray(values) ? values.map((value) => String(value).trim()).filter(Boolean).slice(0, 2) : [];
+};
+
 const editableStyleAttributes = (value: unknown): StyleAttributes => {
   const source = isRecord(value) ? value : {};
   return {
     ...source,
     ...Object.fromEntries(ATTRIBUTE_FIELDS.map((field) => [field.key, normalizeAttributeValue(source[field.key])])),
-    details: Array.isArray(source.details)
-      ? source.details.map((detail) => String(detail).trim()).filter(Boolean).slice(0, 12)
-      : [],
+    details: Array.isArray(source.details) ? source.details : [],
   };
-};
-
-const detailsToInput = (attributes: StyleAttributes) =>
-  Array.isArray(attributes.details) ? attributes.details.map((detail) => String(detail).trim()).filter(Boolean).join(', ') : '';
-
-const optionsForAttribute = (field: AttributeField, value: unknown) => {
-  const normalizedValue = normalizeAttributeValue(value);
-  const knownOptions = field.options as readonly (readonly [string, string])[];
-  return knownOptions.some(([option]) => option === normalizedValue)
-    ? knownOptions
-    : [[normalizedValue, normalizedValue], ...knownOptions] as const;
 };
 
 const styleTagsToInputValues = (tags: StyleTags): Record<StyleTagName, string> =>
@@ -130,12 +140,14 @@ const targetGenderLabels: Record<ProductTargetGender, string> = {
 };
 
 interface ProductStyleReviewPanelProps {
+  customAttributeOptions: StyleAttributeOption[];
   isSaving: boolean;
+  onAddAttributeOption: (option: StyleAttributeOption) => Promise<void>;
   onSave: (productId: string, review: ProductStyleReviewInput) => void;
   product: Product;
 }
 
-export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductStyleReviewPanelProps) {
+export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAddAttributeOption, onSave, product }: ProductStyleReviewPanelProps) {
   const effectiveTags = useMemo(() => normalizeStyleTags(getEffectiveStyleTags(product)), [product]);
   const initialHumanTags = useMemo(
     () => normalizeStyleTags(product.humanStyleTags ?? product.styleTags),
@@ -147,7 +159,7 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
   );
   const [humanTags, setHumanTags] = useState<StyleTags>(initialHumanTags);
   const [humanAttributes, setHumanAttributes] = useState<StyleAttributes>(initialHumanAttributes);
-  const [detailsInput, setDetailsInput] = useState(() => detailsToInput(initialHumanAttributes));
+  const [newOptionInputs, setNewOptionInputs] = useState<Record<string, string>>({});
   const [scoreInputs, setScoreInputs] = useState<Record<StyleTagName, string>>(
     styleTagsToInputValues(initialHumanTags)
   );
@@ -157,6 +169,7 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
   );
 
   const hasAiTags = Boolean(product.styleTags);
+  const aiAttributes = useMemo(() => editableStyleAttributes(product.styleAttributes), [product.styleAttributes]);
   const topTasteTags = getTopTags(effectiveTags);
   const material = humanAttributes.material;
   const fit = humanAttributes.fit;
@@ -169,7 +182,6 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
 
   useEffect(() => {
     setHumanAttributes(initialHumanAttributes);
-    setDetailsInput(detailsToInput(initialHumanAttributes));
   }, [initialHumanAttributes]);
 
   useEffect(() => {
@@ -212,12 +224,12 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
     setHumanAttributes((previous) => ({ ...previous, [key]: value }));
   };
 
-  const updateDetails = (value: string) => {
-    setDetailsInput(value);
-    setHumanAttributes((previous) => ({
-      ...previous,
-      details: value.split(',').map((detail) => detail.trim()).filter(Boolean).slice(0, 12),
-    }));
+  const addAttributeOption = async (field: AttributeField) => {
+    const value = String(newOptionInputs[field.key] ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+    if (!value) return;
+    await onAddAttributeOption({ attributeKey: field.key, value });
+    setAttributeValue(field.key, value);
+    setNewOptionInputs((previous) => ({ ...previous, [field.key]: '' }));
   };
 
   const saveEditedReview = () => {
@@ -350,33 +362,52 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductSt
                 {group === 'shape' ? '형태 유사도' : '표현 유사도'}
               </p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {ATTRIBUTE_FIELDS.filter((field) => field.group === group).map((field) => (
-                  <label key={field.key} className="block min-w-0 text-xs text-gray-400">
-                    <span className="mb-1 block">{field.label}</span>
-                    <select
-                      value={normalizeAttributeValue(humanAttributes[field.key])}
-                      onChange={(event) => setAttributeValue(field.key, event.target.value)}
-                      className="h-9 w-full rounded-md border border-gray-700 bg-gray-950 px-2 text-sm text-white focus:border-orange-500 focus:outline-none"
-                    >
-                      {optionsForAttribute(field, humanAttributes[field.key]).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
+                {ATTRIBUTE_FIELDS.filter((field) => field.group === group).map((field) => {
+                  const evidence = attributeEvidence(product.styleTagsEvidence, field.key);
+                  return (
+                    <label key={field.key} className="block min-w-0 text-xs text-gray-400">
+                      <span className="mb-1 block">{field.label}</span>
+                      <select
+                        value={normalizeAttributeForField(field, humanAttributes[field.key], customAttributeOptions)}
+                        onChange={(event) => setAttributeValue(field.key, event.target.value)}
+                        className="h-9 w-full rounded-md border border-gray-700 bg-gray-950 px-2 text-sm text-white focus:border-orange-500 focus:outline-none"
+                      >
+                        {optionsForAttribute(field, customAttributeOptions).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[11px] leading-4 text-gray-500">AI 제안: {attributeLabel(field, aiAttributes[field.key], customAttributeOptions)}</p>
+                      {evidence.map((evidence) => (
+                        <p key={evidence} className="mt-0.5 text-[11px] leading-4 text-gray-600">근거: {evidence}</p>
                       ))}
-                    </select>
-                  </label>
-                ))}
+                      {!evidence.length ? <p className="mt-0.5 text-[11px] leading-4 text-gray-600">근거: AI 근거 없음</p> : null}
+                      <div className="mt-2 flex gap-1.5">
+                        <input
+                          type="text"
+                          value={newOptionInputs[field.key] ?? ''}
+                          onChange={(event) => setNewOptionInputs((previous) => ({ ...previous, [field.key]: event.target.value }))}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            void addAttributeOption(field);
+                          }}
+                          placeholder="새 선택지 추가"
+                          className="h-8 min-w-0 flex-1 rounded-md border border-gray-800 bg-gray-950 px-2 text-xs text-white placeholder:text-gray-600 focus:border-orange-500 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void addAttributeOption(field)}
+                          disabled={isSaving || !String(newOptionInputs[field.key] ?? '').trim()}
+                          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-orange-500/50 px-2 text-xs font-semibold text-orange-200 hover:bg-orange-500/10 disabled:cursor-not-allowed disabled:border-gray-800 disabled:text-gray-600"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          추가
+                        </button>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
-              {group === 'expression' && (
-                <label className="mt-2 block text-xs text-gray-400">
-                  <span className="mb-1 block">디테일</span>
-                  <input
-                    type="text"
-                    value={detailsInput}
-                    onChange={(event) => updateDetails(event.target.value)}
-                    placeholder="예: pleats, cargo pockets"
-                    className="h-9 w-full rounded-md border border-gray-700 bg-gray-950 px-2 text-sm text-white placeholder:text-gray-600 focus:border-orange-500 focus:outline-none"
-                  />
-                </label>
-              )}
             </div>
           ))}
         </div>
