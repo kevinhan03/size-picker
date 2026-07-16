@@ -274,9 +274,9 @@ function DeleteConfirmDialog({ onConfirm, onCancel }: { onConfirm: () => void; o
             <path d="M9,6V4h6v2" />
           </svg>
         </div>
-        <h3 style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 8 }}>DIGBOX에서 삭제할까요?</h3>
+        <h3 style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 8 }}>저장 목록에서 삭제할까요?</h3>
         <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
-          이 상품을 DIGBOX에서 삭제합니다.
+          이 상품을 저장 목록에서 삭제합니다.
           <br />나중에 다시 담을 수 있어요.
         </p>
         <div style={{ display: "flex", gap: 10 }}>
@@ -462,10 +462,10 @@ export function DigboxPageClient({
   };
 
   const getCardDigboxCountLabel = (count: number) =>
-    isOwner ? `${count}명이 담았어요` : `${count}명이 DIGBOX에 담았어요`;
+    isOwner ? `${count}명이 저장했어요` : `${count}명이 저장했어요`;
 
   const getDetailDigboxCountLabel = (count: number) =>
-    isOwner ? `내가 발굴한 상품을 ${count}명이 담았어요` : `이 상품을 ${count}명이 DIGBOX에 담았어요`;
+    isOwner ? `내가 발굴한 상품을 ${count}명이 저장했어요` : `이 상품을 ${count}명이 저장했어요`;
 
   return (
     <main
@@ -483,7 +483,7 @@ export function DigboxPageClient({
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>
-              {username}&apos;s DIGBOX
+              {username}&apos;s Saved items
             </h1>
             {isOwner && (
               <div style={{ position: "relative" }}>
@@ -639,7 +639,7 @@ export function DigboxPageClient({
                   </div>
                   <div style={{ textAlign: "left" }}>
                     <p style={{ color: "#e5e7eb", fontSize: 14, fontWeight: 600, margin: 0 }}>소개 수정</p>
-                    <p style={{ color: "#6b7280", fontSize: 12, margin: "2px 0 0" }}>내 DIGBOX 소개글을 바꿔요</p>
+                    <p style={{ color: "#6b7280", fontSize: 12, margin: "2px 0 0" }}>내 저장 목록 소개글을 바꿔요</p>
                   </div>
                 </button>
               )}
@@ -692,7 +692,7 @@ export function DigboxPageClient({
                 type="button"
                 onClick={() => setSearchQuery("")}
                 className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06] p-0 text-gray-500 shadow-none transition hover:bg-orange-500/[0.14] hover:text-orange-300"
-                aria-label="Clear DIGBOX search"
+                aria-label="Clear saved items search"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -794,7 +794,7 @@ export function DigboxPageClient({
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
             <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6 }}>
-              DIGBOX가 비어있어요.
+              저장한 상품이 없어요.
               <br />
               마음에 드는 상품을 담아보세요.
             </p>

@@ -47,7 +47,7 @@ const TUTORIAL_STEPS: Record<TutorialId, TutorialStep> = {
   },
   collection: {
     title: "관심과 보유를 나눠 담기",
-    description: "관심 있는 상품은 DIGBOX에 모아 취향을 확인하고, 실제 가진 상품은 Closet에 담아 사이즈를 관리해보세요.",
+    description: "관심 있는 상품은 저장해 취향을 확인하고, 실제 가진 상품은 Closet에 담아 사이즈를 관리해보세요.",
     action: "시작할게요",
   },
   sizeSelection: {
@@ -71,8 +71,8 @@ const TUTORIAL_STEPS: Record<TutorialId, TutorialStep> = {
     action: "시작할게요",
   },
   digboxShare: {
-    title: "DIGBOX 공유하기",
-    description: "내 DIGBOX 링크를 복사해서 다른 사람에게 발굴한 상품들을 공유할 수 있어요.",
+    title: "저장 목록 공유하기",
+    description: "내 저장 목록 링크를 복사해서 다른 사람에게 발굴한 상품들을 공유할 수 있어요.",
     action: "공유해볼게요",
   },
 };

@@ -33,8 +33,8 @@ interface UseProductFormSubmitOptions {
 }
 
 function getSuccessMessage(addToDigbox: boolean, addToCloset: boolean) {
-  if (addToDigbox && addToCloset) return "상품이 등록되고 DIGBOX와 옷장에 담겼습니다.";
-  if (addToDigbox) return "상품이 등록되고 DIGBOX에 담겼습니다.";
+  if (addToDigbox && addToCloset) return "상품이 등록되고 저장 목록과 옷장에 담겼습니다.";
+  if (addToDigbox) return "상품이 등록되고 저장 목록에 담겼습니다.";
   if (addToCloset) return "상품이 등록되고 옷장에 담겼습니다.";
   return "상품이 등록되었습니다.";
 }

@@ -93,7 +93,7 @@ export function InstagramProductsPanel({
             type="url"
             value={digboxUrl}
             onChange={(e) => onDigboxUrlChange(e.target.value)}
-            placeholder="DIGBOX 페이지 링크"
+            placeholder="저장 목록 페이지 링크"
             className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-orange-500 focus:outline-none"
           />
           <div className="w-[61px] flex-shrink-0" />

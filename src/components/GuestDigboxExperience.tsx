@@ -110,13 +110,13 @@ export function GuestDigboxExperience() {
             <button
               type="button"
               onClick={close}
-              aria-label="임시 DIGBOX 닫기"
+              aria-label="임시 저장 목록 닫기"
               className="absolute right-4 top-4 rounded-full p-2 text-gray-500 transition hover:bg-white/10 hover:text-white"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-yellow-400">Temporary DIGBOX</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-yellow-400">Temporary saved items</p>
             <h2 id="guest-digbox-title" className="mt-2 pr-10 text-xl font-black">
               {digbox.guestCount === 0
                 ? "마음에 드는 아이템을 3개 골라보세요"
@@ -128,7 +128,7 @@ export function GuestDigboxExperience() {
               {digbox.guestCount === 0
                 ? "상품 카드의 별을 눌러 관심 있는 아이템을 담아보세요."
                 : digbox.guestCount === digbox.guestLimit
-                  ? "선택한 아이템 3개에서 공통된 무드를 찾았습니다. 가입하면 이 취향과 DIGBOX를 저장하고, 더 맞는 아이템을 추천받을 수 있습니다."
+                  ? "선택한 아이템 3개에서 공통된 무드를 찾았습니다. 가입하면 이 취향과 저장한 상품을 보관하고, 더 맞는 아이템을 추천받을 수 있습니다."
                   : "고른 아이템으로 취향을 만들고 있어요. 3개가 되면 공통 무드를 보여드려요."}
             </p>
 
@@ -150,7 +150,7 @@ export function GuestDigboxExperience() {
                   <button
                     type="button"
                     onClick={() => digbox.removeGuestItem(product.id)}
-                    aria-label={`${product.name} 임시 DIGBOX에서 삭제`}
+                    aria-label={`${product.name} 임시 저장 목록에서 삭제`}
                     className="rounded-xl p-2 text-gray-600 transition hover:bg-red-500/10 hover:text-red-300"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -231,7 +231,7 @@ export function GuestDigboxExperience() {
               onClick={digbox.guestCount === digbox.guestLimit ? startSignup : close}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-4 py-3.5 text-sm font-black text-black transition hover:bg-yellow-300"
             >
-              {digbox.guestCount === digbox.guestLimit ? "가입하고 내 DIGBOX에 저장" : "계속 둘러보기"}
+              {digbox.guestCount === digbox.guestLimit ? "가입하고 내 저장 목록에 보관" : "계속 둘러보기"}
               <ArrowRight className="h-4 w-4" />
             </button>
           </section>

@@ -34,14 +34,15 @@ export function MobileBottomNav() {
         {primaryNavigationItems.map(({ destination, label, icon: Icon }) => {
           const active = activeDestination === destination;
           return (
-            <button key={destination} type="button" aria-current={active ? "page" : undefined} aria-label={label} onClick={() => navigate(destination)} className={`relative flex min-h-11 flex-col items-center justify-center rounded-xl px-2 text-[10px] font-black shadow-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${active ? "gap-0.5 text-orange-400" : "text-gray-500 hover:bg-white/[0.04] hover:text-gray-200"}`}>
+            <button key={destination} type="button" aria-current={active ? "page" : undefined} aria-label={label} onClick={() => navigate(destination)} className={`relative flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-black leading-none shadow-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${active ? "text-orange-400" : "text-gray-400 hover:bg-white/[0.04] hover:text-gray-100"}`}>
+              {active && <span className="absolute top-1.5 h-0.5 w-6 rounded-full bg-orange-400" aria-hidden="true" />}
               <span className="relative">
-                <Icon className={`h-5 w-5 ${destination === "digbox" && active ? "fill-current" : ""}`} />
+                <Icon className={`h-6 w-6 ${destination === "digbox" && active ? "fill-current" : ""}`} />
                 {destination === "digbox" && !auth.authUser && digbox.guestCount > 0 && (
                   <span className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-yellow-400 px-1 text-[9px] font-black text-black">{digbox.guestCount}</span>
                 )}
               </span>
-              {active && <span className="leading-none">{label}</span>}
+              <span>{label}</span>
             </button>
           );
         })}

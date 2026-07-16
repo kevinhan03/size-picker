@@ -35,7 +35,7 @@ export function UsernameOnboardingPageClient() {
       <section className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#1a1a1d] p-7 shadow-[0_24px_64px_rgba(0,0,0,0.55)]">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-400">DIGBOX</p>
         <h1 className="mt-3 text-2xl font-black">닉네임을 설정해 주세요</h1>
-        <p className="mt-2 text-sm leading-relaxed text-gray-400">회원가입을 마무리하고 내 DIGBOX를 시작해 보세요.</p>
+        <p className="mt-2 text-sm leading-relaxed text-gray-400">회원가입을 마무리하고 내 저장 목록을 만들어 보세요.</p>
         <input
           type="text"
           value={auth.pendingUsername}

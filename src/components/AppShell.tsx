@@ -202,16 +202,16 @@ function DigboxToast() {
         <div className="min-w-0 flex-1">
           <p className="font-bold text-white">
             {guestAddedCount
-              ? `임시 DIGBOX ${guestAddedCount}/3`
+              ? `임시 저장 ${guestAddedCount}/3`
               : isGuestSyncPartial
               ? "일부 상품을 옮기지 못했어요"
               : visibleToast.message === "guest_synced"
-              ? "임시 상품을 내 DIGBOX에 저장했어요"
+              ? "임시 상품을 내 저장 목록에 저장했어요"
               : isLoginRequired
               ? "로그인이 필요해요"
               : isAdded
-              ? "DIGBOX에 담았어요"
-              : "이미 DIGBOX에 있어요"}
+              ? "저장했어요"
+              : "이미 저장한 상품이에요"}
           </p>
           <p className="truncate text-xs text-gray-400">
             {guestAddedCount === 1
@@ -221,13 +221,13 @@ function DigboxToast() {
               : guestAddedCount === 3
               ? "가입하면 지금 담은 상품을 그대로 보관할 수 있어요"
               : isGuestSyncPartial
-              ? "임시 DIGBOX에서 다시 시도할 수 있어요"
+              ? "임시 저장 목록에서 다시 시도할 수 있어요"
               : visibleToast.message === "guest_synced"
               ? "원래 보던 상품에서 계속 디깅해보세요"
               : isLoginRequired
-              ? "DIGBOX 기능은 로그인 후 사용할 수 있어요"
+              ? "저장 기능은 로그인 후 사용할 수 있어요"
               : isAdded
-              ? "내 DIGBOX에서 확인할 수 있어요"
+              ? "내 저장 목록에서 확인할 수 있어요"
               : "이미 디깅한 상품이에요"}
           </p>
         </div>

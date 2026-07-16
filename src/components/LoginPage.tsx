@@ -337,7 +337,7 @@ export const LoginPage = ({
           <div className="space-y-4">
             {tab === 'signup' && isGuestDigboxSignup && (
               <div className="rounded-xl border border-orange-400/25 bg-orange-400/[0.08] px-4 py-3">
-                <p className="text-sm font-black text-orange-300">선택한 아이템을 내 DIGBOX에 저장합니다</p>
+                <p className="text-sm font-black text-orange-300">선택한 아이템을 내 저장 목록에 보관합니다</p>
                 <p className="mt-1 text-xs leading-relaxed text-gray-300">
                   가입을 완료하면 관심 취향을 이어서 보고, 더 잘 맞는 아이템을 추천받을 수 있습니다.
                 </p>

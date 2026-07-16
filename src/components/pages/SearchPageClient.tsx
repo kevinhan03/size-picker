@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, SyntheticEvent } from "react";
 import { ArrowUp, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
+import { BrandExplorer, type BrandSummary } from "../BrandExplorer";
 import { GridView } from "../GridView";
 import { FilterBar } from "../FilterBar";
 import { ProductDetailModal } from "../ProductDetailModal";
@@ -18,24 +19,6 @@ import { getProductPageUrl, toPublicUrl } from "../../utils/product";
 import { computeSizeRecommendations } from "../../utils/sizeTable";
 import { smoothScrollTo } from "../../utils/scroll";
 import type { Product, SizeRecommendation } from "../../types";
-import { CATEGORY_OPTIONS } from "../../constants";
-
-const mulberry32 = (seed: number) => {
-  return () => {
-    let value = (seed += 0x6d2b79f5);
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-};
-
-const shuffleProducts = (items: Product[], seed: number): Product[] => {
-  const random = mulberry32(seed);
-  return items
-    .map((product, index) => ({ product, index, weight: random() }))
-    .sort((a, b) => a.weight - b.weight || a.index - b.index)
-    .map(({ product }) => product);
-};
 
 const TUTORIAL_IDS = [
   "search",
@@ -50,6 +33,8 @@ const TUTORIAL_IDS = [
 ] as const satisfies readonly TutorialId[];
 const TUTORIAL_STORAGE_PREFIX = "sizepicker:tutorial:v2:";
 const GUEST_DIGBOX_FIRST_SAVE_STORAGE_KEY = "sizepicker:guest-digbox-first-save:v1";
+
+const normalizeBrandKey = (brand: string) => brand.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
 const getRequestedTutorialId = (value: string | null): TutorialId | null => {
   if (!value) return null;
@@ -101,26 +86,18 @@ export function SearchPageClient() {
     showSuggestions,
     suggestions,
   } = useSearchContext();
-  const [shuffleSeed, setShuffleSeed] = useState<number | null>(null);
-  const [isShuffling, setIsShuffling] = useState(false);
-  const displayProducts = useMemo(
-    () => (shuffleSeed === null ? products : shuffleProducts(products, shuffleSeed)),
-    [products, shuffleSeed]
-  );
-  const grid = useGridState(displayProducts);
+  const grid = useGridState(products);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const [brandFilter, setBrandFilter] = useState("");
-  const [showAllBrands, setShowAllBrands] = useState(false);
-  const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
+  const [isBrandExplorerOpen, setIsBrandExplorerOpen] = useState(false);
   const [showGuestSaveHint, setShowGuestSaveHint] = useState(false);
   const [showGuestDetailSaveHint, setShowGuestDetailSaveHint] = useState(false);
   const [isScrollTopVisible, setIsScrollTopVisible] = useState(false);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
   const gridRecommendationsRef = useRef<HTMLDivElement>(null);
-  const shuffleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     ensureClosetLoaded();
@@ -172,53 +149,54 @@ export function SearchPageClient() {
   }, [selectedProduct]);
 
   const brandFilteredProducts = useMemo(
-    () => (brandFilter ? grid.filteredGridProducts.filter((p) => p.brand === brandFilter) : grid.filteredGridProducts),
+    () => (brandFilter ? grid.filteredGridProducts.filter((product) => normalizeBrandKey(product.brand) === normalizeBrandKey(brandFilter)) : grid.filteredGridProducts),
     [brandFilter, grid.filteredGridProducts]
   );
 
-  const categoryFilterOptions = useMemo(
-    () => [
-      { label: "전체", value: "" },
-      ...CATEGORY_OPTIONS.map((category) => ({ label: category, value: category })),
-    ],
-    []
-  );
-
-  const brandSuggestions = useMemo(() => {
-    if (!query) return [];
-    const q = query.toLowerCase();
-    return [...new Set(products.filter((p) => p.brand.toLowerCase().includes(q)).map((p) => p.brand))].sort();
-  }, [query, products]);
-
-  const brandOptions = useMemo(() => {
-    const counts = products.reduce<Record<string, number>>((acc, product) => {
-      const brand = product.brand.trim();
-      if (brand) acc[brand] = (acc[brand] ?? 0) + 1;
-      return acc;
-    }, {});
-    return Object.entries(counts)
-      .map(([brand, count]) => ({ brand, count }))
-      .sort((a, b) => b.count - a.count || a.brand.localeCompare(b.brand));
+  const brandSummaries = useMemo<BrandSummary[]>(() => {
+    const summaries = new Map<string, BrandSummary>();
+    for (const product of products) {
+      const name = product.brand.trim().replace(/\s+/g, " ");
+      if (!name) continue;
+      const key = normalizeBrandKey(name);
+      const createdAt = product.createdAt && Number.isFinite(Date.parse(product.createdAt)) ? product.createdAt : null;
+      const current = summaries.get(key);
+      const currentTime = current?.latestCreatedAt ? Date.parse(current.latestCreatedAt) : 0;
+      const nextTime = createdAt ? Date.parse(createdAt) : 0;
+      if (!current) {
+        summaries.set(key, { name, itemCount: 1, latestCreatedAt: createdAt });
+      } else {
+        current.itemCount += 1;
+        if (nextTime > currentTime) {
+          current.name = name;
+          current.latestCreatedAt = createdAt;
+        }
+      }
+    }
+    return Array.from(summaries.values()).sort((a, b) => {
+      const aTime = a.latestCreatedAt ? Date.parse(a.latestCreatedAt) : 0;
+      const bTime = b.latestCreatedAt ? Date.parse(b.latestCreatedAt) : 0;
+      return bTime - aTime || a.name.localeCompare(b.name, "ko");
+    });
   }, [products]);
 
+  const brandSuggestions = useMemo(() => {
+    const normalizedQuery = normalizeBrandKey(query);
+    if (!normalizedQuery) return [];
+    return brandSummaries
+      .filter((brand) => normalizeBrandKey(brand.name).includes(normalizedQuery))
+      .map((brand) => brand.name)
+      .sort((a, b) => a.localeCompare(b, "ko"));
+  }, [brandSummaries, query]);
+
   const brandCountByName = useMemo(
-    () => new Map(brandOptions.map((option) => [option.brand, option.count])),
-    [brandOptions]
+    () => new Map(brandSummaries.map((brand) => [brand.name, brand.itemCount])),
+    [brandSummaries]
   );
 
-  const popularBrandOptions = useMemo(() => brandOptions.slice(0, 10), [brandOptions]);
-
-  const brandFilterOptions = useMemo(
-    () => {
-      if (!isBrandDropdownOpen) return [{ label: "전체 브랜드", value: "" }];
-      return [
-        { label: "전체 브랜드", value: "" },
-        ...Array.from(new Set(products.map((product) => product.brand.trim()).filter(Boolean)))
-          .sort((a, b) => a.localeCompare(b))
-          .map((brand) => ({ label: brand, value: brand })),
-      ];
-    },
-    [isBrandDropdownOpen, products]
+  const recentBrandOptions = useMemo(
+    () => brandSummaries.slice(0, 6).map(({ name: brand, itemCount: count }) => ({ brand, count })),
+    [brandSummaries]
   );
 
   const gridRecommendations = useMemo<SizeRecommendation[]>(() => {
@@ -234,14 +212,6 @@ export function SearchPageClient() {
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (shuffleTimeoutRef.current) {
-        clearTimeout(shuffleTimeoutRef.current);
-      }
-    };
   }, []);
 
   const getAnchorRect = (element: Element): TutorialAnchorRect => {
@@ -302,26 +272,19 @@ export function SearchPageClient() {
     showTutorialOnce("filters", anchorRect);
     setBrandFilter(brand);
     grid.setGridSearchQuery("");
-    setShowAllBrands(false);
     setShowSuggestions(false);
+    setIsBrandExplorerOpen(false);
     clearQuery();
+  };
+
+  const handleClearBrand = () => {
+    setBrandFilter("");
+    setIsBrandExplorerOpen(false);
   };
 
   const handleCategoryFilterChange = (value: string, anchorRect?: TutorialAnchorRect) => {
     showTutorialOnce("filters", anchorRect);
     grid.setGridCategoryFilter(value);
-  };
-
-  const handleBrandFilterChange = (value: string, anchorRect?: TutorialAnchorRect) => {
-    showTutorialOnce("filters", anchorRect);
-    setBrandFilter(value);
-  };
-
-  const handleBrandDropdownOpenChange = (isOpen: boolean, anchorRect?: TutorialAnchorRect) => {
-    setIsBrandDropdownOpen(isOpen);
-    if (isOpen) {
-      showTutorialOnce("filters", anchorRect);
-    }
   };
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -331,19 +294,6 @@ export function SearchPageClient() {
     const term = query.trim();
     grid.setGridSearchQuery(term);
     setShowSuggestions(false);
-  };
-
-  const handleShuffle = (anchorRect?: TutorialAnchorRect) => {
-    showTutorialOnce("filters", anchorRect);
-    if (shuffleTimeoutRef.current) {
-      clearTimeout(shuffleTimeoutRef.current);
-    }
-    setShuffleSeed(Math.floor(Math.random() * 0xffffffff));
-    setIsShuffling(true);
-    shuffleTimeoutRef.current = setTimeout(() => {
-      setIsShuffling(false);
-      shuffleTimeoutRef.current = null;
-    }, 380);
   };
 
   const handleProductClick = (product: Product, anchorRect?: TutorialAnchorRect) => {
@@ -396,18 +346,17 @@ export function SearchPageClient() {
       )}
 
       {/* Search bar below navbar */}
-      <div className="relative mb-4 w-full max-w-2xl" ref={searchContainerRef}>
+      <div className="relative mb-4 w-full max-w-3xl" ref={searchContainerRef}>
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
           <Search className={`h-5 w-5 transition-colors ${showSuggestions ? "text-orange-500" : "text-gray-500"}`} />
         </div>
         <input
           id="main-product-search"
           type="text"
-          className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.06] pl-12 pr-10 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_32px_rgba(0,0,0,0.24)] outline-none transition placeholder:text-gray-600 focus:border-orange-500/60 focus:bg-white/[0.08] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_3px_rgba(249,115,22,0.12)] sm:h-[52px]"
+          className="h-14 w-full rounded-2xl border border-white/10 bg-white/[0.06] pl-12 pr-10 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_32px_rgba(0,0,0,0.24)] outline-none transition placeholder:text-gray-600 focus:border-orange-500/60 focus:bg-white/[0.08] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_3px_rgba(249,115,22,0.12)]"
           placeholder="브랜드명 또는 상품명을 검색해보세요"
           value={query}
           onChange={(e) => {
-            setShowAllBrands(false);
             handleQueryChange(e.target.value);
           }}
           onKeyDown={handleSearchKeyDown}
@@ -419,7 +368,6 @@ export function SearchPageClient() {
         {query && (
           <button
             onClick={() => {
-              setShowAllBrands(false);
               grid.setGridSearchQuery("");
               clearQuery();
             }}
@@ -432,22 +380,25 @@ export function SearchPageClient() {
         {showSuggestions && (
           <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-[420px] overflow-hidden overflow-y-auto rounded-2xl border border-white/10 bg-[#111114] shadow-[0_20px_48px_rgba(0,0,0,0.42)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {!query ? (
-              brandOptions.length > 0 ? (
+              brandSummaries.length > 0 ? (
                 <div className="p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">인기 브랜드</div>
-                    {brandOptions.length > popularBrandOptions.length && (
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">최근 등록 브랜드</div>
+                    {brandSummaries.length > recentBrandOptions.length && (
                       <button
                         type="button"
-                        onClick={() => setShowAllBrands((value) => !value)}
+                        onClick={() => {
+                          setIsBrandExplorerOpen(true);
+                          setShowSuggestions(false);
+                        }}
                         className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-bold text-gray-300 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
                       >
-                        {showAllBrands ? "접기" : "전체 브랜드 보기"}
+                        전체 브랜드 보기
                       </button>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {(showAllBrands ? brandOptions : popularBrandOptions).map(({ brand, count }) => (
+                    {recentBrandOptions.map(({ brand, count }) => (
                       <button
                         key={brand}
                         type="button"
@@ -527,22 +478,29 @@ export function SearchPageClient() {
       </div>
 
       <FilterBar
-        categoryOptions={categoryFilterOptions}
         categoryValue={grid.gridCategoryFilter}
         onCategoryChange={handleCategoryFilterChange}
-        brandOptions={brandFilterOptions}
-        brandValue={brandFilter}
-        onBrandChange={handleBrandFilterChange}
-        onShuffle={handleShuffle}
-        isShuffling={isShuffling}
-        onBrandDropdownOpenChange={handleBrandDropdownOpenChange}
       />
 
-      <div className={`w-full max-w-7xl ${isShuffling ? "dig-grid is-shuffling" : "dig-grid"}`}>
+      <div className="w-full max-w-7xl dig-grid">
         {!isAuthLoading && !authUser && showGuestSaveHint && (
           <p className="mb-4 rounded-xl border border-yellow-300/20 bg-yellow-400/[0.07] px-4 py-3 text-center text-sm font-semibold text-yellow-100">
-            마음에 드는 상품을 열어 DIGBOX에 저장하면 내 취향을 찾아드려요.
+            마음에 드는 상품을 열어 저장하면 내 취향을 찾아드려요.
           </p>
+        )}
+        {brandFilter && (
+          <div className="mb-4 flex items-center justify-between gap-3 px-0.5 text-sm sm:text-base">
+            <p className="min-w-0 truncate font-semibold text-white">
+              <span className="text-orange-300">{brandFilter}</span> 상품 {brandFilteredProducts.length}개
+            </p>
+            <button
+              type="button"
+              onClick={handleClearBrand}
+              className="flex h-9 flex-shrink-0 items-center rounded-xl border border-white/[0.12] bg-white/[0.055] px-3 text-xs font-bold text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-200 hover:-translate-y-px hover:border-orange-300/45 hover:bg-orange-500/[0.11] hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#11131a]"
+            >
+              선택 해제
+            </button>
+          </div>
         )}
         <GridView
           allProducts={products}
@@ -570,6 +528,15 @@ export function SearchPageClient() {
           <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
         </button>
       )}
+
+      <BrandExplorer
+        open={isBrandExplorerOpen}
+        onClose={() => setIsBrandExplorerOpen(false)}
+        brands={brandSummaries}
+        selectedBrand={brandFilter}
+        onSelectBrand={handleBrandSelect}
+        onClearBrand={handleClearBrand}
+      />
 
       {normalizedProduct && (
         <ProductDetailModal

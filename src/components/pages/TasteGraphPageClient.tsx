@@ -64,8 +64,8 @@ export function TasteGraphPageClient() {
   const source = selectedSource ?? urlFocus.source ?? (closetProducts.length > 0 ? "closet" : "digbox");
   const graphSource = source === "insight" ? insightFocus?.source ?? (closetProducts.length > 0 ? "closet" : "digbox") : source;
   const activeProducts = graphSource === "closet" ? closetProducts : digboxProducts;
-  const sourceLabel = graphSource === "closet" ? "Closet" : "DIGBOX";
-  const sourceNoun = graphSource === "closet" ? "Closet 상품" : "DIGBOX 상품";
+  const sourceLabel = graphSource === "closet" ? "Closet" : "저장";
+  const sourceNoun = graphSource === "closet" ? "Closet 상품" : "저장한 상품";
   const eyebrow = graphSource === "closet" ? "보유 취향" : "관심 취향";
   const emptyCopy = useMemo(
     () =>
@@ -76,7 +76,7 @@ export function TasteGraphPageClient() {
           }
         : {
             title: "아직 관심 상품이 없습니다",
-            description: "마음에 드는 상품을 DIGBOX에 담으면 관심 취향이 그려집니다.",
+            description: "마음에 드는 상품을 저장하면 관심 취향이 그려집니다.",
           },
     [graphSource]
   );
@@ -106,7 +106,7 @@ export function TasteGraphPageClient() {
             setSelectedBrand(null);
           }}
         >
-          {value === "digbox" ? "DIGBOX" : value === "closet" ? "CLOSET" : "INSIGHT"}
+          {value === "digbox" ? "저장" : value === "closet" ? "CLOSET" : "INSIGHT"}
           <span>{value === "digbox" ? digboxProducts.length : value === "closet" ? closetProducts.length : ""}</span>
         </button>
       ))}

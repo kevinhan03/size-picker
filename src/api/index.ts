@@ -314,7 +314,7 @@ export const addToDigbox = async (productId: string): Promise<void> => {
     body: JSON.stringify({ productId }),
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'DIGBOX 추가 실패');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '저장 실패');
 };
 
 export const removeFromDigbox = async (productId: string): Promise<void> => {
@@ -325,7 +325,7 @@ export const removeFromDigbox = async (productId: string): Promise<void> => {
     headers: { Authorization: `Bearer ${token}` },
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox/[productId]');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'DIGBOX 제거 실패');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '저장 해제 실패');
 };
 
 export const deleteMyAccount = async (): Promise<void> => {

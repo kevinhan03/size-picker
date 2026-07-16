@@ -52,6 +52,7 @@ export function AppHeader() {
   const activeDestination = getPrimaryNavigationDestination(pathname);
   const isMyPage = pathname === "/mypage";
   const compactHeader = scrolled && !isCompactViewport;
+  const compactActions = compactHeader || isCompactViewport;
   const headerFrameClass = isCompactViewport
     ? "mt-0 h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-none rounded-none border-0 bg-black px-4 pt-[env(safe-area-inset-top)] shadow-none"
     : compactHeader
@@ -91,8 +92,10 @@ export function AppHeader() {
   }
 
   const desktopNavClass = (active: boolean) =>
-    `flex h-9 w-9 items-center justify-center rounded-xl shadow-none transition ${
-      active ? "bg-orange-500/15 text-orange-300" : "text-gray-400 hover:bg-white/[0.06] hover:text-white"
+    `flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 shadow-none transition ${
+      active
+        ? "bg-orange-500/15 text-orange-300"
+        : "text-gray-400 hover:bg-white/[0.06] hover:text-white"
     }`;
   const tooltipClass = "pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-[opacity,transform] duration-150 ease-out scale-95 group-hover:delay-300 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:delay-0 group-focus-visible:scale-100 group-focus-visible:opacity-100";
 
@@ -134,6 +137,7 @@ export function AppHeader() {
                   className={desktopNavClass(activeDestination === destination)}
                 >
                   <Icon className="h-5 w-5" />
+                  <span className="text-xs font-bold">{label}</span>
                 </button>
                 <div className={tooltipClass}>
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
@@ -141,7 +145,7 @@ export function AppHeader() {
                 </div>
               </div>
             ))}
-            <div className="group relative">
+            <div className="group relative hidden">
               <button
                 type="button"
                 aria-current={pathname.startsWith("/dig-match") ? "page" : undefined}
@@ -162,12 +166,33 @@ export function AppHeader() {
         {!isAdmin && (
           <div className="flex items-center justify-end gap-2">
             <div className="group relative">
-              <button type="button" onClick={openProductForm} aria-label="상품 추가" className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#00FF00]/40 bg-[linear-gradient(180deg,rgba(0,255,0,0.22),rgba(0,255,0,0.09))] text-[#00FF00] shadow-[0_4px_16px_rgba(0,255,0,0.15)] transition hover:border-[#00FF00]/70 hover:bg-[linear-gradient(180deg,rgba(0,255,0,0.32),rgba(0,255,0,0.15))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF00]/80">
+              <button type="button" onClick={openProductForm} aria-label="상품 추가" className={`flex h-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#00FF00]/30 bg-[#00FF00]/[0.08] text-[#00FF00] transition-[width,background-color,border-color] duration-300 ease-out hover:border-[#00FF00]/55 hover:bg-[#00FF00]/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF00]/80 ${compactActions ? "w-9" : "w-[4.25rem]"}`}>
                 <Plus className="h-4 w-4" />
+                <span className={`overflow-hidden whitespace-nowrap text-xs font-bold transition-[max-width,margin,opacity] duration-200 ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-10 opacity-100"}`}>상품</span>
               </button>
               <div className={tooltipClass}>
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
                 상품 추가
+              </div>
+            </div>
+            <div className="group relative">
+              <button
+                type="button"
+                aria-current={pathname.startsWith("/dig-match") ? "page" : undefined}
+                aria-label="디그매치"
+                onClick={() => router.push(auth.authUser ? "/dig-match" : buildLoginHref("login", "/dig-match"))}
+                className={`flex h-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border text-xs font-bold transition-[width,background-color,border-color,color,box-shadow] duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "w-9" : "w-[6.5rem]"} ${
+                  pathname.startsWith("/dig-match")
+                    ? "border-orange-300 bg-orange-400 text-black shadow-[0_4px_16px_rgba(251,146,60,0.22)]"
+                    : "border-orange-400/70 bg-orange-500/85 text-black shadow-[0_4px_16px_rgba(249,115,22,0.18)] hover:border-orange-300 hover:bg-orange-400"
+                }`}
+              >
+                <Sparkles className="h-4 w-4" />
+                <span className={`overflow-hidden whitespace-nowrap transition-[max-width,margin,opacity] duration-200 ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1.5 max-w-16 opacity-100"}`}>디그매치</span>
+              </button>
+              <div className={tooltipClass}>
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
+                디그매치
               </div>
             </div>
             {auth.authUser ? (

@@ -40,7 +40,7 @@ export function TasteInsightCard({
 
       {!canCompare ? (
         <p className="taste-insight-empty">
-          Closet과 DIGBOX에 태그된 상품이 쌓이면, 두 컬렉션 사이의 취향 차이를 읽어드릴게요.
+          Closet과 저장한 상품이 쌓이면, 두 컬렉션 사이의 취향 차이를 읽어드릴게요.
         </p>
       ) : (
         <div className="taste-insight-content">
@@ -52,7 +52,7 @@ export function TasteInsightCard({
             >
               <span className="insight-kicker">YOUR CORE</span>
               <strong>{styleTagLabel(comparison.shared.tag)}은 이미 좋아하고, 실제로 입는 취향이에요.</strong>
-              <span>Closet {Math.round(comparison.shared.closetPercent)}% · DIGBOX {Math.round(comparison.shared.digboxPercent)}%</span>
+              <span>Closet {Math.round(comparison.shared.closetPercent)}% · 저장 {Math.round(comparison.shared.digboxPercent)}%</span>
             </button>
           )}
 
@@ -75,7 +75,7 @@ export function TasteInsightCard({
                       <span className="insight-dot" style={{ background: color }} />
                       <span className="insight-row-copy">
                         <strong>{styleTagLabel(entry.tag)}</strong>
-                        <small>DIGBOX가 CLOSET보다 {Math.round(entry.difference)}%p 높음</small>
+                        <small>저장이 CLOSET보다 {Math.round(entry.difference)}%p 높음</small>
                       </span>
                       <span className="insight-row-arrow" aria-hidden="true">↗</span>
                     </button>

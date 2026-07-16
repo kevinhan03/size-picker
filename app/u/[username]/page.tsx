@@ -101,8 +101,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
   const decodedUsername = decodeURIComponent(username).trim();
   return {
-    title: `${decodedUsername}'s DIGBOX`,
-    description: `${decodedUsername}'s DIGBOX`,
+    title: `${decodedUsername}'s saved items | DIGBOX`,
+    description: `${decodedUsername}'s saved items`,
   };
 }
 

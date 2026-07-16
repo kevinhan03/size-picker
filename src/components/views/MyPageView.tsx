@@ -517,7 +517,7 @@ export function MyPageView({
           </div>
           <h2 className="mt-4 text-lg font-black text-white">로그아웃할까요?</h2>
           <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-400">
-            현재 계정에서 로그아웃됩니다. 저장된 옷장과 DIGBOX는 계정에 그대로 유지됩니다.
+            현재 계정에서 로그아웃됩니다. 저장된 옷장과 저장 목록은 계정에 그대로 유지됩니다.
           </p>
           <div className="mt-6 grid grid-cols-2 gap-2">
             <button
@@ -549,7 +549,7 @@ export function MyPageView({
           </div>
           <h2 className="mt-4 text-lg font-black text-white">계정을 삭제할까요?</h2>
           <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-400">
-            계정을 삭제하면 프로필, 옷장, DIGBOX, 내 사이즈 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+            계정을 삭제하면 프로필, 옷장, 저장 목록, 내 사이즈 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
           </p>
           <label className="mt-5 block text-left">
             <span className="mb-2 block text-xs font-black text-gray-500">

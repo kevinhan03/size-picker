@@ -63,7 +63,7 @@ export default async function ProductPage({ params }: Props) {
             href="/"
             className="mb-8 inline-flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-white"
           >
-            DIGBOX로 돌아가기
+            저장한 상품으로 돌아가기
           </Link>
 
           <div className="mb-8 flex flex-col items-start gap-6 sm:flex-row">

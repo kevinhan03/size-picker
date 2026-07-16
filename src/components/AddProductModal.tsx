@@ -40,7 +40,7 @@ export function AddProductModal({ form }: AddProductModalProps) {
   if (!form.isModalOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/75" onClick={form.closeModal} />
       <div className="ui-add-product-modal bg-[linear-gradient(180deg,#1b1b1f,#121214)] rounded-3xl w-full max-w-lg shadow-[0_24px_70px_rgba(0,0,0,0.68)] overflow-hidden relative flex flex-col max-h-[90vh] border border-white/15">
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#17171a] sticky top-0 z-10 text-white">

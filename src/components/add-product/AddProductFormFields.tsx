@@ -176,7 +176,7 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
                   : 'border-white/10 bg-white/[0.04] text-gray-500'
               }`}
             >
-              DIGBOX
+              저장
             </button>
             <button
               type="button"
