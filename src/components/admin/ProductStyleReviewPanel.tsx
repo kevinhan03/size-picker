@@ -1,6 +1,6 @@
 import { Check, Plus, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { Product, ProductStyleReviewInput, ProductTargetGender, StyleAttributes, StyleTagName, StyleTags, StyleTagsEvidence, TagReviewStatus } from '../../types';
+import type { Product, ProductStyleReviewInput, ProductTargetGender, StyleAttributes, StyleTagName, StyleTags, TagReviewStatus } from '../../types';
 
 const STYLE_TAGS: StyleTagName[] = [
   'casual',
@@ -70,11 +70,6 @@ const normalizeAttributeForField = (field: AttributeField, value: unknown, custo
 
 const attributeLabel = (field: AttributeField, value: unknown, customOptions: StyleAttributeOption[]) =>
   optionsForAttribute(field, customOptions).find(([option]) => option === normalizeAttributeForField(field, value, customOptions))?.[1] ?? '판단 보류';
-
-const attributeEvidence = (evidence: StyleTagsEvidence | null | undefined, key: string) => {
-  const values = evidence?.attributes?.[key];
-  return Array.isArray(values) ? values.map((value) => String(value).trim()).filter(Boolean).slice(0, 2) : [];
-};
 
 const editableStyleAttributes = (value: unknown): StyleAttributes => {
   const source = isRecord(value) ? value : {};
@@ -356,7 +351,6 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
               </p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {ATTRIBUTE_FIELDS.filter((field) => field.group === group && isFieldApplicable(field, product.category)).map((field) => {
-                  const evidence = attributeEvidence(product.styleTagsEvidence, field.key);
                   const selectedValues = attributeValues(humanAttributes[field.key])
                     .map((value) => normalizeAttributeForField(field, value, customAttributeOptions))
                     .filter((value) => value !== 'unknown');
@@ -391,10 +385,6 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
                         </div>
                       </details>
                       <p className="mt-1 text-[11px] leading-4 text-gray-500">AI 제안: {attributeValues(aiAttributes[field.key]).map((value) => attributeLabel(field, value, customAttributeOptions)).join(', ') || '판단 보류'}</p>
-                      {evidence.map((evidence) => (
-                        <p key={evidence} className="mt-0.5 text-[11px] leading-4 text-gray-600">근거: {evidence}</p>
-                      ))}
-                      {!evidence.length ? <p className="mt-0.5 text-[11px] leading-4 text-gray-600">근거: AI 근거 없음</p> : null}
                       <div className="mt-2 flex gap-1.5">
                         <input
                           type="text"
