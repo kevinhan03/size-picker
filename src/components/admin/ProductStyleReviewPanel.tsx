@@ -34,16 +34,12 @@ const emptyStyleTags = (): StyleTags =>
   }, {} as StyleTags);
 
 const ATTRIBUTE_FIELDS = [
-  { key: 'fit', label: '핏', group: 'shape', options: [['unknown', '판단 보류'], ['slim', '슬림'], ['regular', '레귤러'], ['relaxed', '릴랙스드'], ['wide', '와이드'], ['straight', '스트레이트'], ['tapered', '테이퍼드'], ['bootcut', '부츠컷'], ['balloon', '벌룬']] },
-  { key: 'silhouette', label: '실루엣', group: 'shape', options: [['unknown', '판단 보류'], ['clean', '클린'], ['structured', '구조적'], ['loose', '루즈'], ['voluminous', '볼륨감'], ['draped', '드레이프']] },
-  { key: 'formality', label: '격식', group: 'shape', options: [['unknown', '판단 보류'], ['casual', '캐주얼'], ['smart-casual', '스마트 캐주얼'], ['formal', '포멀']] },
-  { key: 'utility_level', label: '기능 디테일', group: 'shape', options: [['unknown', '판단 보류'], ['none', '없음'], ['light', '가벼움'], ['strong', '강함']] },
+  { key: 'bottom_silhouette', label: '하의 실루엣', group: 'shape', categories: ['Bottom'], options: [['unknown', '판단 보류'], ['straight', '스트레이트'], ['wide', '와이드'], ['tapered', '테이퍼드'], ['bootcut', '부츠컷'], ['flare', '플레어'], ['balloon', '벌룬']] },
+  { key: 'top_length', label: '상의 기장', group: 'shape', categories: ['Top', 'Outer'], options: [['unknown', '판단 보류'], ['cropped', '크롭'], ['regular', '레귤러'], ['long', '롱']] },
   { key: 'material', label: '소재', group: 'expression', options: [['unknown', '판단 보류'], ['cotton', '코튼'], ['denim', '데님'], ['knit', '니트'], ['wool', '울'], ['leather', '레더'], ['linen', '린넨'], ['synthetic', '합성 소재'], ['mixed', '혼방']] },
-  { key: 'color', label: '색상', group: 'expression', options: [['unknown', '판단 보류'], ['black', '블랙'], ['white', '화이트'], ['gray', '그레이'], ['blue', '블루'], ['brown', '브라운'], ['beige', '베이지'], ['green', '그린'], ['red', '레드'], ['neutral', '뉴트럴'], ['vivid', '비비드']] },
+  { key: 'color', label: '색상', group: 'expression', options: [['unknown', '판단 보류'], ['black', '블랙'], ['white', '화이트'], ['gray', '그레이'], ['blue', '블루'], ['brown', '브라운'], ['beige', '베이지'], ['green', '그린'], ['red', '레드']] },
   { key: 'wash_texture', label: '표면 질감', group: 'expression', options: [['unknown', '판단 보류'], ['clean', '클린'], ['washed', '워싱'], ['faded', '페이디드'], ['distressed', '디스트레스드'], ['textured', '텍스처드']] },
-  { key: 'decoration_level', label: '장식성', group: 'expression', options: [['unknown', '판단 보류'], ['none', '없음'], ['light', '가벼움'], ['strong', '강함']] },
-  { key: 'sportiness', label: '스포티함', group: 'expression', options: [['unknown', '판단 보류'], ['none', '없음'], ['light', '가벼움'], ['strong', '강함']] },
-  { key: 'era_signal', label: '시대감', group: 'expression', options: [['unknown', '판단 보류'], ['contemporary', '컨템포러리'], ['heritage', '헤리티지'], ['90s', '90s'], ['00s', '00s']] },
+  { key: 'details', label: '디테일', group: 'expression', options: [['unknown', '판단 보류'], ['pleats', '플리츠'], ['cargo-pockets', '카고 포켓']] },
 ] as const;
 
 type AttributeField = typeof ATTRIBUTE_FIELDS[number];
@@ -52,7 +48,11 @@ export type StyleAttributeOption = { attributeKey: AttributeField['key']; value:
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
+const isFieldApplicable = (field: AttributeField, category: string) =>
+  !('categories' in field) || field.categories.includes(category as never);
+
 const normalizeAttributeValue = (value: unknown) => String(value ?? '').trim().toLowerCase() || 'unknown';
+const attributeValues = (value: unknown) => (Array.isArray(value) ? value : [value]).map(normalizeAttributeValue).filter((value) => value !== 'unknown');
 
 const optionsForAttribute = (field: AttributeField, customOptions: StyleAttributeOption[]) => {
   const builtIn = field.options.map(([value, label]) => [value, label] as const);
@@ -80,8 +80,7 @@ const editableStyleAttributes = (value: unknown): StyleAttributes => {
   const source = isRecord(value) ? value : {};
   return {
     ...source,
-    ...Object.fromEntries(ATTRIBUTE_FIELDS.map((field) => [field.key, normalizeAttributeValue(source[field.key])])),
-    details: Array.isArray(source.details) ? source.details : [],
+    ...Object.fromEntries(ATTRIBUTE_FIELDS.map((field) => [field.key, Array.isArray(source[field.key]) ? source[field.key] : [normalizeAttributeValue(source[field.key])]])),
   };
 };
 
@@ -171,8 +170,6 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
   const hasAiTags = Boolean(product.styleTags);
   const aiAttributes = useMemo(() => editableStyleAttributes(product.styleAttributes), [product.styleAttributes]);
   const topTasteTags = getTopTags(effectiveTags);
-  const material = humanAttributes.material;
-  const fit = humanAttributes.fit;
   const reviewStatus = product.tagReviewStatus ?? 'none';
 
   useEffect(() => {
@@ -220,7 +217,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
     }));
   };
 
-  const setAttributeValue = (key: string, value: string) => {
+  const setAttributeValue = (key: string, value: string[]) => {
     setHumanAttributes((previous) => ({ ...previous, [key]: value }));
   };
 
@@ -228,7 +225,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
     const value = String(newOptionInputs[field.key] ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
     if (!value) return;
     await onAddAttributeOption({ attributeKey: field.key, value });
-    setAttributeValue(field.key, value);
+    setAttributeValue(field.key, [value]);
     setNewOptionInputs((previous) => ({ ...previous, [field.key]: '' }));
   };
 
@@ -263,10 +260,6 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
               </span>
             ))}
             {!hasAiTags ? <span className="text-xs text-gray-500">AI 태그 없음</span> : null}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
-            {material ? <span>material: {String(material)}</span> : null}
-            {fit ? <span>fit: {String(fit)}</span> : null}
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -362,21 +355,42 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
                 {group === 'shape' ? '형태 유사도' : '표현 유사도'}
               </p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {ATTRIBUTE_FIELDS.filter((field) => field.group === group).map((field) => {
+                {ATTRIBUTE_FIELDS.filter((field) => field.group === group && isFieldApplicable(field, product.category)).map((field) => {
                   const evidence = attributeEvidence(product.styleTagsEvidence, field.key);
+                  const selectedValues = attributeValues(humanAttributes[field.key])
+                    .map((value) => normalizeAttributeForField(field, value, customAttributeOptions))
+                    .filter((value) => value !== 'unknown');
+                  const selectedLabels = optionsForAttribute(field, customAttributeOptions)
+                    .filter(([value]) => selectedValues.includes(value))
+                    .map(([, label]) => label);
                   return (
-                    <label key={field.key} className="block min-w-0 text-xs text-gray-400">
+                    <div key={field.key} className="block min-w-0 text-xs text-gray-400">
                       <span className="mb-1 block">{field.label}</span>
-                      <select
-                        value={normalizeAttributeForField(field, humanAttributes[field.key], customAttributeOptions)}
-                        onChange={(event) => setAttributeValue(field.key, event.target.value)}
-                        className="h-9 w-full rounded-md border border-gray-700 bg-gray-950 px-2 text-sm text-white focus:border-orange-500 focus:outline-none"
-                      >
-                        {optionsForAttribute(field, customAttributeOptions).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
-                      <p className="mt-1 text-[11px] leading-4 text-gray-500">AI 제안: {attributeLabel(field, aiAttributes[field.key], customAttributeOptions)}</p>
+                      <details className="group relative">
+                        <summary className="flex h-9 cursor-pointer list-none items-center justify-between rounded-md border border-gray-700 bg-gray-950 px-2 text-sm text-white marker:content-none focus:border-orange-500 focus:outline-none">
+                          <span className="truncate">{selectedLabels.join(', ') || '판단 보류'}</span>
+                          <span className="ml-2 text-gray-500 transition group-open:rotate-180">⌄</span>
+                        </summary>
+                        <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-gray-700 bg-gray-950 p-1.5 shadow-xl">
+                          {optionsForAttribute(field, customAttributeOptions).filter(([value]) => value !== 'unknown').map(([value, optionLabel]) => (
+                            <label key={value} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800">
+                              <input
+                                type="checkbox"
+                                checked={selectedValues.includes(value)}
+                                onChange={(event) => setAttributeValue(
+                                  field.key,
+                                  event.target.checked
+                                    ? [...selectedValues, value]
+                                    : selectedValues.filter((selected) => selected !== value)
+                                )}
+                                className="h-3.5 w-3.5 accent-orange-500"
+                              />
+                              {optionLabel}
+                            </label>
+                          ))}
+                        </div>
+                      </details>
+                      <p className="mt-1 text-[11px] leading-4 text-gray-500">AI 제안: {attributeValues(aiAttributes[field.key]).map((value) => attributeLabel(field, value, customAttributeOptions)).join(', ') || '판단 보류'}</p>
                       {evidence.map((evidence) => (
                         <p key={evidence} className="mt-0.5 text-[11px] leading-4 text-gray-600">근거: {evidence}</p>
                       ))}
@@ -404,7 +418,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
                           추가
                         </button>
                       </div>
-                    </label>
+                    </div>
                   );
                 })}
               </div>

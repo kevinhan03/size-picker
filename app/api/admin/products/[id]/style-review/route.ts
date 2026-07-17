@@ -22,16 +22,12 @@ const STYLE_TAG_SET = new Set<string>(STYLE_TAGS);
 const REVIEW_STATUSES = new Set(["needs_review", "approved", "edited", "rejected"]);
 const TARGET_GENDERS = new Set(["menswear", "womenswear", "unisex", "unknown"]);
 const STYLE_ATTRIBUTE_KEYS = [
-  "fit",
-  "silhouette",
-  "formality",
-  "utility_level",
+  "bottom_silhouette",
+  "top_length",
   "material",
   "color",
   "wash_texture",
-  "decoration_level",
-  "era_signal",
-  "sportiness",
+  "details",
 ] as const;
 const LEGACY_STYLE_TAG_MAP: Record<string, typeof STYLE_TAGS[number]> = {
   "캐주얼": "casual",
@@ -114,23 +110,17 @@ const normalizeStyleAttributes = (value: unknown, fieldName: string): Record<str
 
   const normalized: Record<string, unknown> = {};
   for (const attribute of STYLE_ATTRIBUTE_KEYS) {
-    const normalizedValue = String(value[attribute] ?? "unknown").trim().toLowerCase() || "unknown";
-    if (normalizedValue.length > 64) {
-      throw new Error(`${fieldName}.${attribute} must be at most 64 characters`);
+    const rawValues = Array.isArray(value[attribute]) ? value[attribute] : [value[attribute]];
+    if (rawValues.length > 12) {
+      throw new Error(`${fieldName}.${attribute} must contain at most 12 values`);
     }
-    normalized[attribute] = normalizedValue;
-  }
-
-  if (value.details !== undefined) {
-    if (!Array.isArray(value.details)) {
-      throw new Error(`${fieldName}.details must be an array`);
-    }
-    if (value.details.length > 12) {
-      throw new Error(`${fieldName}.details must contain at most 12 values`);
-    }
-    normalized.details = value.details.map((detail) => String(detail || "").trim()).filter(Boolean).map((detail) => detail.slice(0, 80));
-  } else {
-    normalized.details = [];
+    normalized[attribute] = [...new Set(rawValues
+      .map((item) => String(item ?? "").trim().toLowerCase())
+      .filter(Boolean)
+      .map((item) => {
+        if (item.length > 64) throw new Error(`${fieldName}.${attribute} values must be at most 64 characters`);
+        return item;
+      }))];
   }
 
   return normalized;

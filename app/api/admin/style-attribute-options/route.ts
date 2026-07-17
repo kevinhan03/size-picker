@@ -6,16 +6,12 @@ import { verifyAdminRequest } from "../../../../server/utils/admin-request.js";
 const SETTINGS_TABLE = "site_settings";
 const SETTINGS_KEY = "style_attribute_options";
 const ATTRIBUTE_KEYS = new Set([
-  "fit",
-  "silhouette",
-  "formality",
-  "utility_level",
+  "bottom_silhouette",
+  "top_length",
   "material",
   "color",
   "wash_texture",
-  "decoration_level",
-  "era_signal",
-  "sportiness",
+  "details",
 ]);
 
 const normalizeOption = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
