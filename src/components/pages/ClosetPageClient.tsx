@@ -8,13 +8,12 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
-import { useProductsContext } from "../../contexts/ProductsContext";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { ProductDetailModal } from "../ProductDetailModal";
+import { PageState } from "../PageState";
+import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { getProductPageUrl, toPublicUrl } from "../../utils/product";
-import { computeSizeRecommendations } from "../../utils/sizeTable";
-import { smoothScrollTo } from "../../utils/scroll";
-import type { Product, SizeRecommendation } from "../../types";
+import type { Product } from "../../types";
 
 const CATEGORIES = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
 type ViewMode = "grid" | "list";
@@ -24,9 +23,7 @@ function getClosetProductPageUrl(product: Product): string {
 }
 
 const cardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.055)",
-  backdropFilter: "blur(22px)",
-  WebkitBackdropFilter: "blur(22px)",
+  background: "#111114",
   border: "1px solid rgba(255,255,255,0.09)",
   borderRadius: "1.25rem",
   overflow: "hidden",
@@ -57,7 +54,7 @@ function GridCard({
 
   return (
     <div
-      className={`ui-product-card relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition ${
+      className={`ui-card ui-product-card ui-card-lift relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[#151518] shadow-[0_18px_44px_rgba(0,0,0,0.24)] transition-[transform,border-color,box-shadow] ${
         isEditing ? "" : "group hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
       }`}
     >
@@ -219,7 +216,7 @@ function ListRow({
         alignItems: "center",
         gap: 14,
         padding: "12px 16px",
-        transition: "all 0.15s",
+        transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
         transform: hover && !isEditing ? "translateX(4px)" : "none",
         borderColor: hover && !isEditing
           ? "rgba(255,255,255,0.15)"
@@ -245,7 +242,7 @@ function ListRow({
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
-          transition: "all 0.15s",
+          transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
           position: "relative",
           zIndex: 20,
         }}
@@ -347,7 +344,7 @@ function ListRow({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          transition: "all 0.15s",
+          transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
           color: hover ? "#f87171" : "#4b5563",
         }}
       >
@@ -491,7 +488,6 @@ export function ClosetPageClient() {
   const { closetProducts, removeFromCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const digbox = useDigboxContext();
   const ensureDigboxLoaded = digbox.ensureLoaded;
-  const { products } = useProductsContext();
 
   const [catFilter, setCatFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -504,7 +500,6 @@ export function ClosetPageClient() {
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const recommendationsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!auth.isAuthLoading && !authUserId) {
@@ -553,11 +548,6 @@ export function ClosetPageClient() {
     return closetProducts.find((item) => item.id === normalizedProduct.id) || normalizedProduct;
   }, [closetProducts, normalizedProduct]);
 
-  const recommendations = useMemo<SizeRecommendation[]>(() => {
-    if (activeRowIndex === null || !selectedProduct) return [];
-    return computeSizeRecommendations(selectedProduct, activeRowIndex, products);
-  }, [activeRowIndex, selectedProduct, products]);
-
   const handleProductOpen = (product: Product) => {
     setSelectedProduct(product);
     setActiveRowIndex(null);
@@ -576,7 +566,11 @@ export function ClosetPageClient() {
   };
 
   if (auth.isAuthLoading || !auth.authUser) {
-    return <main className="min-h-screen bg-black" />;
+    return (
+      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
+        <PageState kind="loading" title="옷장을 준비하고 있어요" description="계정과 저장한 상품을 확인하는 중입니다." />
+      </main>
+    );
   }
 
   const toggleSelect = (id: string) => {
@@ -642,7 +636,7 @@ export function ClosetPageClient() {
                   key={label}
                   type="button"
                   onClick={() => setCatFilter(catFilter === value ? "" : value === "" ? "" : value)}
-                  className={`flex h-9 min-w-max flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-[11px] font-black transition-all sm:h-10 sm:min-w-0 sm:flex-auto sm:px-2 sm:text-xs ${
+                  className={`flex h-9 min-w-max flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-[11px] font-black transition-[border-color,background-color,color,box-shadow] sm:h-10 sm:min-w-0 sm:flex-auto sm:px-2 sm:text-xs ${
                     isActive
                       ? "border-orange-500/55 bg-orange-500/12 text-orange-400 shadow-[0_8px_20px_rgba(249,115,22,0.12)]"
                       : "border-white/10 bg-white/[0.045] text-gray-400 hover:border-white/18 hover:bg-white/[0.07] hover:text-gray-100"
@@ -766,7 +760,7 @@ export function ClosetPageClient() {
                     background:
                       viewMode === v.id ? "rgba(249,115,22,0.18)" : "transparent",
                     color: viewMode === v.id ? "#F97316" : "#6b7280",
-                    transition: "all 0.15s",
+                    transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -804,7 +798,7 @@ export function ClosetPageClient() {
                 border: "1px solid rgba(255,255,255,0.1)",
                 color: isEditing ? "#F97316" : "#6b7280",
                 cursor: "pointer",
-                transition: "all 0.15s",
+                transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
                 boxShadow: "none",
               }}
               aria-label={isEditing ? "삭제 선택 완료" : "삭제할 상품 선택"}
@@ -830,7 +824,7 @@ export function ClosetPageClient() {
                   border: "none",
                   color: "#6b7280",
                   cursor: "pointer",
-                  transition: "all 0.15s",
+                  transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
                   boxShadow: "none",
                 }}
                 aria-label="삭제 선택 취소"
@@ -951,13 +945,10 @@ export function ClosetPageClient() {
           activeRowIndex={activeRowIndex}
           onClose={handleModalClose}
           onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
-          recommendations={recommendations}
           onRecommendationClick={handleProductOpen}
           onZoomImage={() => setIsDetailImageZoomed(true)}
           onImageError={handleImageLoadError}
           modalRef={modalRef}
-          recommendationsRef={recommendationsRef}
-          smoothScrollTo={smoothScrollTo}
           isInCloset
           onToggleDigbox={() => digbox.toggleDigbox(normalizedProduct.id)}
           isInDigbox={digbox.isInDigbox(normalizedProduct.id)}
@@ -965,22 +956,7 @@ export function ClosetPageClient() {
         />
       )}
 
-      {isDetailImageZoomed && normalizedProduct && (
-        <div
-          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
-          onClick={() => setIsDetailImageZoomed(false)}
-          onTouchStart={() => setIsDetailImageZoomed(false)}
-        >
-          <div className="flex h-[63vh] w-full max-w-6xl items-center justify-center">
-            <img
-              src={normalizedProduct.image}
-              alt={normalizedProduct.name}
-              className="max-h-full max-w-full cursor-pointer object-contain"
-              style={{ borderRadius: "20px" }}
-            />
-          </div>
-        </div>
-      )}
+      {normalizedProduct && <ImageViewerOverlay open={isDetailImageZoomed} src={normalizedProduct.image} alt={normalizedProduct.name} onClose={() => setIsDetailImageZoomed(false)} />}
     </main>
   );
 }

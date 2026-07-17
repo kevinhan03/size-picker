@@ -111,7 +111,7 @@ export function GridView({
                 <div
                   key={product.id}
                   onClick={(event) => onProductClick(product, getAnchorRect(event))}
-                  className={`ui-product-card relative flex h-full flex-col overflow-hidden rounded-[22px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.045))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl transition ${
+                  className={`ui-product-card ui-card-lift relative flex h-full flex-col overflow-hidden rounded-[22px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(25,25,29,0.98),rgba(15,15,18,0.98))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-transform duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.98] ${
                     isInteractionDisabled
                       ? "cursor-default"
                       : "cursor-pointer"

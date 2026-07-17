@@ -9,6 +9,7 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { captureEvent } from "../../utils/analytics";
 import { buildLoginHref } from "../../utils/authNavigation";
 import { OutfitProductTile } from "../outfits/OutfitProductTile";
+import { PageState } from "../PageState";
 
 const FOCUS_ITEMS_PAGE_SIZE = 10;
 
@@ -80,7 +81,7 @@ export function NewOutfitRequestPageClient() {
     }
   }
 
-  if (isAuthLoading || isLoading || !authUser) return <main className="flex min-h-screen items-center justify-center bg-black"><LoaderCircle className="h-7 w-7 animate-spin text-orange-400" /></main>;
+  if (isAuthLoading || isLoading || !authUser) return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="코디 요청을 준비하고 있어요" description="Closet 상품과 계정 정보를 확인하는 중입니다." /></main>;
 
   return (
     <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white">

@@ -7,23 +7,19 @@ import { Search, Trash2, X } from "lucide-react";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
-import { useProductsContext } from "../../contexts/ProductsContext";
 import { supabase } from "../../lib/supabase";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { ProductDetailModal } from "../ProductDetailModal";
+import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 import { getProductPageUrl, toPublicUrl } from "../../utils/product";
-import { computeSizeRecommendations } from "../../utils/sizeTable";
-import { smoothScrollTo } from "../../utils/scroll";
-import type { Product, SizeRecommendation } from "../../types";
+import type { Product } from "../../types";
 
 const CATEGORIES = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
 type ViewMode = "grid" | "list";
 
 const cardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.055)",
-  backdropFilter: "blur(22px)",
-  WebkitBackdropFilter: "blur(22px)",
+  background: "#111114",
   border: "1px solid rgba(255,255,255,0.09)",
   borderRadius: "1.25rem",
   overflow: "hidden",
@@ -56,7 +52,7 @@ function GridCard({
 
   return (
     <div
-      className={`ui-product-card relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_18px_44px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition ${
+      className={`ui-card ui-product-card ui-card-lift relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[#151518] shadow-[0_18px_44px_rgba(0,0,0,0.24)] transition-[transform,border-color,box-shadow] ${
         isEditing ? "" : "group hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
       }`}
     >
@@ -162,7 +158,7 @@ function ListRow({
         alignItems: "center",
         gap: 14,
         padding: "12px 16px",
-        transition: "all 0.15s",
+        transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
         transform: hover && !isEditing ? "translateX(4px)" : "none",
         borderColor: hover && !isEditing
           ? "rgba(255,255,255,0.15)"
@@ -187,7 +183,7 @@ function ListRow({
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
-            transition: "all 0.15s",
+            transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
             position: "relative",
             zIndex: 20,
           }}
@@ -307,7 +303,6 @@ export function DigboxPageClient({
   const digbox = useDigboxContext();
   const ensureDigboxLoaded = digbox.ensureLoaded;
   const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
-  const { products: allProducts } = useProductsContext();
 
   const isOwner = Boolean(auth.dbUsername && auth.dbUsername === username);
   const isLoading = auth.isAuthLoading || (isOwner && digbox.isLoading);
@@ -331,7 +326,6 @@ export function DigboxPageClient({
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const recommendationsRef = useRef<HTMLDivElement>(null);
 
   const [bio, setBio] = useState(initialBio);
   const [isBioEditing, setIsBioEditing] = useState(false);
@@ -424,11 +418,6 @@ export function DigboxPageClient({
     return { ...selectedProduct, image, thumbnailImage };
   }, [selectedProduct]);
 
-  const recommendations = useMemo<SizeRecommendation[]>(() => {
-    if (activeRowIndex === null || !selectedProduct) return [];
-    return computeSizeRecommendations(selectedProduct, activeRowIndex, allProducts);
-  }, [activeRowIndex, selectedProduct, allProducts]);
-
   const handleProductOpen = (product: Product) => {
     setSelectedProduct(product);
     setActiveRowIndex(null);
@@ -498,7 +487,7 @@ export function DigboxPageClient({
                     gap: 3, width: 32, height: 32, borderRadius: 9,
                     background: menuOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
                     border: "1px solid rgba(255,255,255,0.08)",
-                    cursor: "pointer", transition: "all 0.15s",
+                    cursor: "pointer", transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
                   }}
                   aria-label="메뉴"
                 >
@@ -658,7 +647,7 @@ export function DigboxPageClient({
                   key={label}
                   type="button"
                   onClick={() => setCatFilter(catFilter === value ? "" : value === "" ? "" : value)}
-                  className={`flex h-9 min-w-max flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-[11px] font-black transition-all sm:h-10 sm:min-w-0 sm:flex-auto sm:px-2 sm:text-xs ${
+                  className={`flex h-9 min-w-max flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-[11px] font-black transition-[border-color,background-color,color,box-shadow] sm:h-10 sm:min-w-0 sm:flex-auto sm:px-2 sm:text-xs ${
                     isActive
                       ? "border-orange-500/55 bg-orange-500/12 text-orange-400 shadow-[0_8px_20px_rgba(249,115,22,0.12)]"
                       : "border-white/10 bg-white/[0.045] text-gray-400 hover:border-white/18 hover:bg-white/[0.07] hover:text-gray-100"
@@ -737,7 +726,7 @@ export function DigboxPageClient({
                       width: 36, height: "100%", padding: 0, border: "none", cursor: "pointer",
                       background: viewMode === v.id ? "rgba(249,115,22,0.18)" : "transparent",
                       color: viewMode === v.id ? "#F97316" : "#6b7280",
-                      transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 0,
+                      transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 0,
                     }}
                   >
                     <span style={{ display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 0 }}>{v.icon}</span>
@@ -760,7 +749,7 @@ export function DigboxPageClient({
                   background: isEditing ? "rgba(249,115,22,0.18)" : "rgba(255,255,255,0.05)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   color: isEditing ? "#F97316" : "#6b7280",
-                  cursor: "pointer", transition: "all 0.15s",
+                  cursor: "pointer", transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
                 }}
                 aria-label={isEditing ? "삭제 선택 완료" : "삭제할 상품 선택"}
               >
@@ -775,7 +764,7 @@ export function DigboxPageClient({
                 style={{
                   height: 34, width: 36, display: "inline-flex", alignItems: "center", justifyContent: "center",
                   padding: 0, borderRadius: 11, background: "rgba(255,255,255,0.05)", border: "none",
-                  color: "#6b7280", cursor: "pointer", transition: "all 0.15s",
+                  color: "#6b7280", cursor: "pointer", transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
                 }}
                 aria-label="삭제 선택 취소"
               >
@@ -851,13 +840,10 @@ export function DigboxPageClient({
           activeRowIndex={activeRowIndex}
           onClose={handleModalClose}
           onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
-          recommendations={recommendations}
           onRecommendationClick={handleProductOpen}
           onZoomImage={() => setIsDetailImageZoomed(true)}
           onImageError={handleImageLoadError}
           modalRef={modalRef}
-          recommendationsRef={recommendationsRef}
-          smoothScrollTo={smoothScrollTo}
           onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
           isInCloset={isInCloset(normalizedProduct.id)}
           onToggleDigbox={() => digbox.toggleDigbox(normalizedProduct.id)}
@@ -872,22 +858,7 @@ export function DigboxPageClient({
         />
       )}
 
-      {isDetailImageZoomed && normalizedProduct && (
-        <div
-          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
-          onClick={() => setIsDetailImageZoomed(false)}
-          onTouchStart={() => setIsDetailImageZoomed(false)}
-        >
-          <div className="flex h-[63vh] w-full max-w-6xl items-center justify-center">
-            <img
-              src={normalizedProduct.image}
-              alt={normalizedProduct.name}
-              className="max-h-full max-w-full cursor-pointer object-contain"
-              style={{ borderRadius: "20px" }}
-            />
-          </div>
-        </div>
-      )}
+      {normalizedProduct && <ImageViewerOverlay open={isDetailImageZoomed} src={normalizedProduct.image} alt={normalizedProduct.name} onClose={() => setIsDetailImageZoomed(false)} />}
       {activeTutorial && (
         <OnboardingTutorial
           tutorialId={activeTutorial.id}

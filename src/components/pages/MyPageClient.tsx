@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MyPageView } from "../views/MyPageView";
+import { PageState } from "../PageState";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useMySizesContext } from "../../contexts/MySizesContext";
@@ -54,7 +55,11 @@ export function MyPageClient() {
   }, [authUserId]);
 
   if (auth.isAuthLoading || !auth.authUser) {
-    return <main className="min-h-screen bg-black" />;
+    return (
+      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
+        <PageState kind="loading" title="내 페이지를 준비하고 있어요" description="계정 정보를 확인하는 중입니다." />
+      </main>
+    );
   }
 
   const username = String(auth.dbUsername ?? auth.authUser.email?.split("@")[0] ?? "");

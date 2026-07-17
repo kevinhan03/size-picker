@@ -1,4 +1,8 @@
-export const smoothScrollTo = (container: HTMLElement, targetY: number, duration = 520) => {
+export const smoothScrollTo = (container: HTMLElement, targetY: number, duration = 300) => {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    container.scrollTop = targetY;
+    return;
+  }
   const start = container.scrollTop;
   const distance = targetY - start;
   if (Math.abs(distance) < 2) return;

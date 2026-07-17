@@ -116,6 +116,11 @@ blur 스케일: `backdrop-blur-sm`(칩) → `blur`/`blur-xl`(패널) → `blur-2
 
 ## 7. 모션
 
+- 공통 토큰: `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`, `--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1)`, `--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1)`.
+- 시간: press 140ms, popover 160ms, layer enter 220ms, layer exit 160ms. `transition-all`은 사용하지 않고 실제로 변하는 속성만 지정한다.
+- 단추 또는 카드는 press 상태에서만 `scale(.97)` 안팎의 짧은 피드백을 사용한다. hover 변형은 정밀 포인터 환경에서만 허용한다.
+- 모달은 `scale(.98) + opacity`, 모바일 시트는 `translateY(18px) + opacity`로 진입하고, 퇴장은 동일한 경로의 반대 방향으로 160ms에 완료한다.
+
 - 기본: `transition` (기본값) + `duration-200`, 강조 전환 `duration-300 ease-out`.
 - 마이크로 인터랙션(토글·hover): 140–150ms ease.
 - 시그니처 이징: `cubic-bezier(0.2, 0.8, 0.2, 1)` 380ms — 셔플 스핀, 그리드 페이드팝.

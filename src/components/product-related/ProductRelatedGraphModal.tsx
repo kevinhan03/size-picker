@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import dynamic from "next/dynamic";
 import { ExternalLink, X } from "lucide-react";
-import type { Product, RelatedGraphReason, SizeRecommendation, StyleTags } from "../../types";
+import type { Product, RelatedGraphReason, StyleTags } from "../../types";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
@@ -15,8 +15,6 @@ import {
   selectTopTags,
   tagColor,
 } from "../../utils/tasteGraph";
-import { computeSizeRecommendations } from "../../utils/sizeTable";
-import { smoothScrollTo } from "../../utils/scroll";
 import { captureEvent } from "../../utils/analytics";
 
 const RELATED_LIMIT = 22;
@@ -198,7 +196,6 @@ export function ProductRelatedGraphModal({
   const graphRef = useRef<any>(null);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const selectedProductModalRef = useRef<HTMLDivElement>(null);
-  const selectedRecommendationsRef = useRef<HTMLDivElement>(null);
   const [isReady, setIsReady] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [graphProduct, setGraphProduct] = useState(product);
@@ -213,10 +210,6 @@ export function ProductRelatedGraphModal({
   const sourceTags = useMemo(() => getProductTagProfile(graphProduct).tags, [graphProduct]);
   const relatedProducts = useMemo(() => buildRelatedProducts(graphProduct, products), [graphProduct, products]);
   const topSourceTags = useMemo(() => selectTopTags(sourceTags, 5, { enforceSecondThreshold: false }), [sourceTags]);
-  const selectedRecommendations = useMemo<SizeRecommendation[]>(() => {
-    if (!selectedProduct || selectedRowIndex === null) return [];
-    return computeSizeRecommendations(selectedProduct, selectedRowIndex, products);
-  }, [products, selectedProduct, selectedRowIndex]);
   const searchedProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return [];
@@ -585,13 +578,10 @@ export function ProductRelatedGraphModal({
           activeRowIndex={selectedRowIndex}
           onClose={closeProductModal}
           onRowClick={(rowIndex) => setSelectedRowIndex(rowIndex)}
-          recommendations={selectedRecommendations}
           onRecommendationClick={(nextProduct) => openProductModal(nextProduct, "size_recommendation")}
           onZoomImage={() => setIsSelectedImageZoomed(true)}
           onImageError={handleSelectedImageError}
           modalRef={selectedProductModalRef}
-          recommendationsRef={selectedRecommendationsRef}
-          smoothScrollTo={smoothScrollTo}
           closetProduct={closetProducts.find((item) => item.id === selectedProduct.id) || null}
           onToggleCloset={(selection) => toggleCloset(selectedProduct.id, selection)}
           isInCloset={isInCloset(selectedProduct.id)}

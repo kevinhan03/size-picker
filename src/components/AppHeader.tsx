@@ -1,7 +1,8 @@
 "use client";
 
-import { LogIn, Plus, Sparkles, UserRound } from "lucide-react";
+import { ArrowLeft, LogIn, Plus, Sparkles, UserRound } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
@@ -14,13 +15,12 @@ import {
   type PrimaryNavigationDestination,
 } from "./primaryNavigation";
 
-export function AppHeader() {
+export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }) {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuthContext();
   const digbox = useDigboxContext();
   const productForm = useProductFormContext();
-  const [scrolled, setScrolled] = useState(false);
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [hiddenOnCompact, setHiddenOnCompact] = useState(false);
 
@@ -33,7 +33,6 @@ export function AppHeader() {
     };
     const onScroll = () => {
       const nextY = window.scrollY;
-      setScrolled(nextY > 8);
       if (!media.matches || nextY <= 8) setHiddenOnCompact(false);
       else if (nextY > lastY) setHiddenOnCompact(true);
       else if (nextY < lastY) setHiddenOnCompact(false);
@@ -51,13 +50,10 @@ export function AppHeader() {
   const isAdmin = pathname.startsWith("/admin");
   const activeDestination = getPrimaryNavigationDestination(pathname);
   const isMyPage = pathname === "/mypage";
-  const compactHeader = scrolled && !isCompactViewport;
-  const compactActions = compactHeader || isCompactViewport;
+  const compactActions = isCompactViewport;
   const headerFrameClass = isCompactViewport
-    ? "mt-0 h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-none rounded-none border-0 bg-black px-4 pt-[env(safe-area-inset-top)] shadow-none"
-    : compactHeader
-      ? "mt-3 h-12 w-[calc(100%-12rem)] max-w-[52rem] rounded-2xl border border-white/10 bg-[#111114] px-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-      : "mt-0 h-16 w-full max-w-6xl rounded-none border-b border-transparent bg-transparent px-4";
+    ? "h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-6xl px-4 pt-[env(safe-area-inset-top)]"
+    : "h-16 w-full max-w-6xl px-4";
 
   function navigate(destination: PrimaryNavigationDestination) {
     if (destination === "digging") {
@@ -99,9 +95,26 @@ export function AppHeader() {
     }`;
   const tooltipClass = "pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-[opacity,transform] duration-150 ease-out scale-95 group-hover:delay-300 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:delay-0 group-focus-visible:scale-100 group-focus-visible:opacity-100";
 
+  if (variant === "minimal") {
+    return (
+      <header className="fixed inset-x-0 top-0 z-50 flex h-[calc(4rem+env(safe-area-inset-top))] items-end border-b border-white/10 bg-black/95 px-4 pb-3 pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
+          <Link href="/" aria-label="DIGBOX 홈으로" className="flex items-center gap-2 rounded-xl text-sm font-bold tracking-tight text-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+            <Image src="/favicon-simple.svg" alt="" width={32} height={32} className="h-8 w-8" />
+            DIGBOX
+          </Link>
+          <Link href="/" className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-semibold text-gray-300 transition-[background-color,color] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            홈으로
+          </Link>
+        </div>
+      </header>
+    );
+  }
+
   return (
-    <header className={`pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center transition-transform duration-300 ease-out ${hiddenOnCompact ? "-translate-y-full" : "translate-y-0"}`}>
-      <div className={`pointer-events-auto flex items-center justify-between transition-all duration-300 ease-out lg:grid lg:grid-cols-[1fr_auto_1fr] ${headerFrameClass}`}>
+    <header className={`app-header-motion pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center border-b border-white/[0.06] bg-black transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] ${hiddenOnCompact ? "-translate-y-full" : "translate-y-0"}`}>
+      <div className={`pointer-events-auto flex items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr] ${headerFrameClass}`}>
         <div className="flex min-w-0 items-center">
           <div
             role="link"
@@ -116,11 +129,11 @@ export function AppHeader() {
             }}
             className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl"
           >
-            <span className={`flex items-center justify-center transition-all duration-300 ${compactHeader ? "h-7 w-7" : "h-8 w-8 lg:h-9 lg:w-9"}`}>
+            <span className="flex h-8 w-8 items-center justify-center lg:h-9 lg:w-9">
               <Image src="/favicon-simple.svg" alt="" width={40} height={40} className="h-full w-full object-contain" />
             </span>
             <span className="flex min-w-0 flex-col text-left leading-none">
-              <span className={`font-bold tracking-tight text-orange-500 transition-all duration-300 ${compactHeader ? "text-base" : "text-xl"}`}>DIGBOX</span>
+              <span className="font-bold tracking-tight text-orange-500">DIGBOX</span>
             </span>
           </div>
         </div>
@@ -175,7 +188,7 @@ export function AppHeader() {
                 상품 추가
               </div>
             </div>
-            <div className="group relative">
+            {!pathname.startsWith("/dig-match") && <div className="group relative">
               <button
                 type="button"
                 aria-current={pathname.startsWith("/dig-match") ? "page" : undefined}
@@ -194,7 +207,7 @@ export function AppHeader() {
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
                 디그매치
               </div>
-            </div>
+            </div>}
             {auth.authUser ? (
               <div className="group relative">
                 <button type="button" aria-label="마이페이지" onClick={() => router.push("/mypage")} className={`flex h-9 w-9 items-center justify-center rounded-xl border text-gray-300 shadow-none transition hover:border-orange-500/50 hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${isMyPage ? "border-orange-500/40 bg-orange-500/15 text-orange-300" : "border-white/15 bg-white/[0.06]"}`}>

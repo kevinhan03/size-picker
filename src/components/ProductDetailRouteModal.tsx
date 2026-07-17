@@ -6,22 +6,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ProductDetailModal } from "./ProductDetailModal";
 import { useClosetContext } from "../contexts/ClosetContext";
 import { useDigboxContext } from "../contexts/DigboxContext";
-import { useProductsContext } from "../contexts/ProductsContext";
-import type { Product, SizeRecommendation } from "../types";
+import type { Product } from "../types";
 import { getProductPageUrl, toPublicUrl } from "../utils/product";
-import { computeSizeRecommendations } from "../utils/sizeTable";
-import { smoothScrollTo } from "../utils/scroll";
 
 export function ProductDetailRouteModal({ product }: { product: Product }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { products } = useProductsContext();
   const { closetProducts, toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const { toggleDigbox, isInDigbox, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const recommendationsRef = useRef<HTMLDivElement>(null);
   const source = searchParams.get("source");
   const hideCollectionActions = source === "closet";
 
@@ -29,11 +24,6 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
     ensureClosetLoaded();
     ensureDigboxLoaded();
   }, [ensureClosetLoaded, ensureDigboxLoaded]);
-
-  const recommendations = useMemo<SizeRecommendation[]>(() => {
-    if (activeRowIndex === null) return [];
-    return computeSizeRecommendations(product, activeRowIndex, products);
-  }, [activeRowIndex, product, products]);
 
   const normalizedProduct = useMemo<Product>(() => {
     const imagePath = String(product.imagePath || "").trim();
@@ -66,7 +56,6 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
         activeRowIndex={activeRowIndex}
         onClose={() => router.back()}
         onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
-        recommendations={recommendations}
         onRecommendationClick={(nextProduct) => {
           setActiveRowIndex(null);
           setIsDetailImageZoomed(false);
@@ -75,8 +64,6 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
         onZoomImage={() => setIsDetailImageZoomed(true)}
         onImageError={handleImageLoadError}
         modalRef={modalRef}
-        recommendationsRef={recommendationsRef}
-        smoothScrollTo={smoothScrollTo}
         onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
         isInCloset={isInCloset(normalizedProduct.id)}
         onToggleDigbox={() => toggleDigbox(normalizedProduct.id, "product_route")}

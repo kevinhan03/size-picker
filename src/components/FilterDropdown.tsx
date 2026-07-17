@@ -19,6 +19,7 @@ interface FilterDropdownProps {
 
 export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange }: FilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openedByKeyboard, setOpenedByKeyboard] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
   const selectedOption = options.find((option) => option.value === value) ?? options[0];
@@ -70,10 +71,14 @@ export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={listboxId}
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => {
+          setOpenedByKeyboard(false);
+          setIsOpen((open) => !open);
+        }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
             event.preventDefault();
+            setOpenedByKeyboard(true);
             setIsOpen(true);
           }
         }}
@@ -103,7 +108,7 @@ export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange
           id={listboxId}
           role="listbox"
           tabIndex={-1}
-          className="absolute left-0 right-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-[16px] border border-white/[.12] bg-[#111114]/90 p-1.5 shadow-[0_22px_60px_rgba(0,0,0,.48)] backdrop-blur-[20px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className={`ui-floating-surface absolute left-0 right-0 top-full z-30 mt-2 max-h-72 origin-top overflow-y-auto rounded-[16px] border border-white/[.12] bg-[#111114]/90 p-1.5 shadow-[0_22px_60px_rgba(0,0,0,.48)] backdrop-blur-[20px] ${openedByKeyboard ? "" : "animate-[filter-dropdown-in_var(--duration-popover)_var(--ease-out)]"} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
         >
           {options.map((option) => {
             const selected = option.value === value;

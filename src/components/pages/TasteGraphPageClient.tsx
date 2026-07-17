@@ -13,6 +13,7 @@ import { BrandClusterCanvas } from "../taste-graph/BrandClusterCanvas";
 import { BrandClusterSummaryCard } from "../taste-graph/BrandClusterSummaryCard";
 import { TasteInsightCard } from "../taste-graph/TasteInsightCard";
 import { TasteSummaryCard } from "../taste-graph/TasteSummaryCard";
+import { PageState } from "../PageState";
 import type { StyleTagName } from "../../types";
 import { TAGS } from "../../utils/tasteGraph";
 
@@ -131,7 +132,15 @@ export function TasteGraphPageClient() {
   ) : null;
 
   if (auth.isAuthLoading || !auth.authUser || isClosetLoading || isDigboxLoading) {
-    return <main className="taste-graph-page bg-black" />;
+    return (
+      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
+        <PageState
+          kind="loading"
+          title="취향 지도를 준비하고 있어요"
+          description="저장한 상품을 분석해 나만의 연결을 만드는 중입니다."
+        />
+      </main>
+    );
   }
 
   if (activeProducts.length === 0) {

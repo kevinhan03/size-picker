@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Camera, Loader2, X } from 'lucide-react';
 import type { useProductForm } from '../hooks/useProductForm';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { usePresence } from '../hooks/usePresence';
 import { AddProductFormFields } from './add-product/AddProductFormFields';
 
 type ProductForm = ReturnType<typeof useProductForm>;
@@ -35,23 +36,25 @@ function ModalBody({ form }: AddProductModalProps) {
 
 export function AddProductModal({ form }: AddProductModalProps) {
   const modalScrollRef = useRef<HTMLDivElement | null>(null);
+  const presence = usePresence(form.isModalOpen);
   useBodyScrollLock(modalScrollRef, form.isModalOpen);
 
-  if (!form.isModalOpen) return null;
+  if (!presence.isMounted) return null;
+  const close = () => presence.requestClose(form.closeModal);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/75" onClick={form.closeModal} />
-      <div className="ui-add-product-modal bg-[linear-gradient(180deg,#1b1b1f,#121214)] rounded-3xl w-full max-w-lg shadow-[0_24px_70px_rgba(0,0,0,0.68)] overflow-hidden relative flex flex-col max-h-[90vh] border border-white/15">
+      <div className="ui-layer-scrim absolute inset-0 bg-black/75" data-visible={presence.isVisible} onClick={close} />
+      <div className="ui-add-product-modal ui-layer-modal ui-floating-surface bg-[linear-gradient(180deg,#1b1b1f,#121214)] rounded-3xl w-full max-w-lg shadow-[0_24px_70px_rgba(0,0,0,0.68)] overflow-hidden relative flex flex-col max-h-[90vh] border border-white/15" data-visible={presence.isVisible}>
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#17171a] sticky top-0 z-10 text-white">
           <h3 className="text-lg font-bold" style={{ color: '#00FF00' }}>{'\uC0C1\uD488 \uCD94\uAC00'}</h3>
-          <button onClick={form.closeModal} className="p-2 hover:bg-white/[0.1] rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+          <button onClick={close} className="p-2 hover:bg-white/[0.1] rounded-full transition text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
         <div ref={modalScrollRef} className="p-6 overflow-y-auto overscroll-contain text-white space-y-4">
           <ModalBody form={form} />
         </div>
         <div className="p-6 border-t border-white/10 bg-[#17171a] flex justify-end gap-3 sticky bottom-0">
-          <button onClick={form.closeModal} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 bg-white/[0.06] border border-white/10 hover:bg-white/[0.12] hover:text-white transition">{'\uCDE8\uC18C'}</button>
+          <button onClick={close} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 bg-white/[0.06] border border-white/10 hover:bg-white/[0.12] hover:text-white transition">{'\uCDE8\uC18C'}</button>
           <button onClick={form.handleSubmitProduct} disabled={!form.isFormValid} className={`px-5 py-2.5 rounded-xl text-sm font-bold text-black transition flex items-center gap-2 ${!form.isFormValid ? 'bg-gray-700 cursor-not-allowed text-gray-500' : 'hover:bg-orange-400'}`} style={!form.isFormValid ? {} : { backgroundColor: '#F97316' }}>
             {form.isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {form.isSaving ? '\uC81C\uCD9C \uC911...' : '\uC0C1\uD488 \uB4F1\uB85D\uD558\uAE30'}

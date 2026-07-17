@@ -17,6 +17,8 @@ import { captureEvent } from "../../utils/analytics";
 import { buildLoginHref } from "../../utils/authNavigation";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { OutfitProductTile } from "../outfits/OutfitProductTile";
+import { PageState } from "../PageState";
+import { usePresence } from "../../hooks/usePresence";
 
 const SHARED_CLOSET_PAGE_SIZE = 10;
 
@@ -59,18 +61,21 @@ function OutfitRequestConfirmDialog({
 }) {
   const isDelete = action === "delete";
   const titleId = `outfit-request-${action}-title`;
+  const presence = usePresence(true);
+  const close = () => presence.requestClose(onCancel);
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[120] flex items-center justify-center px-4"
     >
-      <button type="button" aria-label="확인창 닫기" disabled={working} onClick={onCancel} className="absolute inset-0 cursor-default" />
+      <button type="button" aria-label="확인창 닫기" disabled={working} onClick={close} className="ui-layer-scrim absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm" data-visible={presence.isVisible} />
       <section
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onKeyDown={(event) => { if (event.key === "Escape" && !working) onCancel(); }}
-        className={`relative z-10 w-full max-w-sm rounded-2xl border bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)] ${isDelete ? "border-red-500/20" : "border-orange-500/20"}`}
+        onKeyDown={(event) => { if (event.key === "Escape" && !working) close(); }}
+        className={`ui-layer-modal ui-floating-surface relative z-10 w-full max-w-sm rounded-2xl border bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)] ${isDelete ? "border-red-500/20" : "border-orange-500/20"}`}
+        data-visible={presence.isVisible}
       >
         <div className={`mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border ${isDelete ? "border-red-500/25 bg-red-500/10 text-red-300" : "border-orange-500/25 bg-orange-500/10 text-orange-300"}`}>
           {isDelete ? <Trash2 className="h-5 w-5" /> : <LockKeyhole className="h-5 w-5" />}
@@ -88,7 +93,7 @@ function OutfitRequestConfirmDialog({
             type="button"
             autoFocus
             disabled={working}
-            onClick={onCancel}
+            onClick={close}
             className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-gray-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDelete ? "취소" : "계속 받기"}
@@ -124,15 +129,18 @@ function OutfitProposalConfirmDialog({
 }) {
   const isAlternative = matchedCount === 0;
   const actionLabel = isEditing ? "수정" : "제안";
+  const presence = usePresence(true);
+  const close = () => presence.requestClose(onCancel);
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-      <button type="button" aria-label="확인창 닫기" disabled={working} onClick={onCancel} className="absolute inset-0 cursor-default" />
+    <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
+      <button type="button" aria-label="확인창 닫기" disabled={working} onClick={close} className="ui-layer-scrim absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm" data-visible={presence.isVisible} />
       <section
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="outfit-proposal-confirm-title"
-        onKeyDown={(event) => { if (event.key === "Escape" && !working) onCancel(); }}
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-orange-500/20 bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)]"
+        onKeyDown={(event) => { if (event.key === "Escape" && !working) close(); }}
+        className="ui-layer-modal ui-floating-surface relative z-10 w-full max-w-sm rounded-2xl border border-orange-500/20 bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)]"
+        data-visible={presence.isVisible}
       >
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-orange-500/25 bg-orange-500/10 text-orange-300">
           <Shirt className="h-5 w-5" />
@@ -146,7 +154,7 @@ function OutfitProposalConfirmDialog({
             : `요청자가 선택한 옷 ${totalCount}개 중 ${matchedCount}개만 포함되었습니다.`}
         </p>
         <div className="mt-6 grid grid-cols-2 gap-2">
-          <button type="button" autoFocus disabled={working} onClick={onCancel} className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-gray-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60">다시 고르기</button>
+          <button type="button" autoFocus disabled={working} onClick={close} className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-gray-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60">다시 고르기</button>
           <button type="button" disabled={working} onClick={onConfirm} className="flex h-11 items-center justify-center rounded-xl bg-orange-500 text-sm font-black text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-60">
             {working ? <LoaderCircle className="h-4 w-4 animate-spin" /> : isAlternative ? `대안으로 ${actionLabel}` : `이대로 ${actionLabel}`}
           </button>
@@ -169,16 +177,19 @@ function OutfitProposalActionDialog({
 }) {
   const isDelete = action.type === "delete";
   const titleId = `outfit-proposal-${action.type}-title`;
+  const presence = usePresence(true);
+  const close = () => presence.requestClose(onCancel);
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-      <button type="button" aria-label="확인창 닫기" disabled={working} onClick={onCancel} className="absolute inset-0 cursor-default" />
+    <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
+      <button type="button" aria-label="확인창 닫기" disabled={working} onClick={close} className="ui-layer-scrim absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm" data-visible={presence.isVisible} />
       <section
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onKeyDown={(event) => { if (event.key === "Escape" && !working) onCancel(); }}
-        className={`relative z-10 w-full max-w-sm rounded-2xl border bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)] ${isDelete ? "border-red-500/20" : "border-orange-500/20"}`}
+        onKeyDown={(event) => { if (event.key === "Escape" && !working) close(); }}
+        className={`ui-layer-modal ui-floating-surface relative z-10 w-full max-w-sm rounded-2xl border bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)] ${isDelete ? "border-red-500/20" : "border-orange-500/20"}`}
+        data-visible={presence.isVisible}
       >
         <div className={`mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border ${isDelete ? "border-red-500/25 bg-red-500/10 text-red-300" : "border-orange-500/25 bg-orange-500/10 text-orange-300"}`}>
           {isDelete ? <Trash2 className="h-5 w-5" /> : <Check className="h-5 w-5" />}
@@ -192,7 +203,7 @@ function OutfitProposalActionDialog({
             : "이 코디를 채택하면 요청이 완료되며 더 이상 새로운 코디 제안을 받을 수 없습니다."}
         </p>
         <div className="mt-6 grid grid-cols-2 gap-2">
-          <button type="button" autoFocus disabled={working} onClick={onCancel} className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-gray-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" autoFocus disabled={working} onClick={close} className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-gray-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60">
             {isDelete ? "취소" : "다시 보기"}
           </button>
           <button type="button" disabled={working} onClick={onConfirm} className={`flex h-11 items-center justify-center rounded-xl text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${isDelete ? "bg-red-500 text-white hover:bg-red-400" : "bg-orange-500 text-black hover:bg-orange-400"}`}>
@@ -421,8 +432,8 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
     finally { setWorking(false); }
   }
 
-  if (isAuthLoading || loading || (!authUser && !error)) return <main className="flex min-h-screen items-center justify-center bg-black"><LoaderCircle className="h-7 w-7 animate-spin text-orange-400" /></main>;
-  if (!outfitRequest) return <main className="min-h-screen bg-black px-5 pt-32 text-center text-white"><p>{error || "코디 요청을 찾을 수 없습니다."}</p><button onClick={() => router.push("/outfits")} className="mt-5 text-sm font-bold text-orange-400">목록으로 돌아가기</button></main>;
+  if (isAuthLoading || loading || (!authUser && !error)) return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="코디 요청을 준비하고 있어요" description="요청과 제안 내용을 불러오는 중입니다." /></main>;
+  if (!outfitRequest) return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="error" title="코디 요청을 찾을 수 없어요" description={error || "요청이 삭제되었거나 더 이상 볼 수 없습니다."} action={<button type="button" onClick={() => router.push("/outfits")} className="rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-bold text-black">목록으로 돌아가기</button>} /></main>;
 
   const orderedProposals = acceptedProposal
     ? [acceptedProposal, ...outfitRequest.proposals.filter((proposal) => proposal.id !== acceptedProposal.id)]

@@ -1,15 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ProductDetailModal } from "./ProductDetailModal";
 import { useSearchContext } from "../contexts/SearchContext";
 import { useProductsContext } from "../contexts/ProductsContext";
 import { getProductPageUrl } from "../utils/product";
-import { computeSizeRecommendations } from "../utils/sizeTable";
-import { smoothScrollTo } from "../utils/scroll";
-import type { SizeRecommendation } from "../types";
 
 export function SearchResultOverlay() {
   const router = useRouter();
@@ -18,14 +15,8 @@ export function SearchResultOverlay() {
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isImageZoomed, setIsImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const recommendationsRef = useRef<HTMLDivElement>(null);
 
   const showModal = Boolean(search.result && !products.some((p) => p.id === search.result?.id));
-
-  const recommendations = useMemo<SizeRecommendation[]>(() => {
-    if (activeRowIndex === null || !search.result) return [];
-    return computeSizeRecommendations(search.result, activeRowIndex, products);
-  }, [activeRowIndex, search.result, products]);
 
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.onerror = null;
@@ -45,7 +36,6 @@ export function SearchResultOverlay() {
           search.setResult(null);
         }}
         onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
-        recommendations={recommendations}
         onRecommendationClick={(product) => {
           setActiveRowIndex(null);
           setIsImageZoomed(false);
@@ -59,8 +49,6 @@ export function SearchResultOverlay() {
         onZoomImage={() => setIsImageZoomed(true)}
         onImageError={handleImageLoadError}
         modalRef={modalRef}
-        recommendationsRef={recommendationsRef}
-        smoothScrollTo={smoothScrollTo}
       />
       {isImageZoomed && search.result && (
         <div

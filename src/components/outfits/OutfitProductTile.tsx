@@ -23,7 +23,7 @@ export function OutfitProductTile({
       onClick={onClick}
       disabled={!selectable}
       aria-pressed={selectable ? selected : undefined}
-      className={`group min-w-0 overflow-hidden rounded-2xl border-2 text-left transition-all duration-200 ${
+      className={`group min-w-0 overflow-hidden rounded-2xl border-2 text-left transition-[border-color,background-color,transform] duration-200 ${
         selected
           ? "border-orange-500 bg-orange-500/[0.06]"
           : "border-white/10 bg-[#111114]"

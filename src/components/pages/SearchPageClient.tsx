@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, SyntheticEvent } from "react";
-import { ArrowUp, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
+import { ArrowUp, ArrowUpRight, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
 import { BrandExplorer, type BrandSummary } from "../BrandExplorer";
 import { GridView } from "../GridView";
 import { FilterBar } from "../FilterBar";
 import { ProductDetailModal } from "../ProductDetailModal";
+import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 import { useAuthContext } from "../../contexts/AuthContext";
@@ -16,9 +17,7 @@ import { useProductsContext } from "../../contexts/ProductsContext";
 import { useSearchContext } from "../../contexts/SearchContext";
 import { useGridState } from "../../hooks/useGridState";
 import { getProductPageUrl, toPublicUrl } from "../../utils/product";
-import { computeSizeRecommendations } from "../../utils/sizeTable";
-import { smoothScrollTo } from "../../utils/scroll";
-import type { Product, SizeRecommendation } from "../../types";
+import type { Product } from "../../types";
 
 const TUTORIAL_IDS = [
   "search",
@@ -97,7 +96,6 @@ export function SearchPageClient() {
   const [isScrollTopVisible, setIsScrollTopVisible] = useState(false);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
-  const gridRecommendationsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     ensureClosetLoaded();
@@ -198,11 +196,6 @@ export function SearchPageClient() {
     () => brandSummaries.slice(0, 6).map(({ name: brand, itemCount: count }) => ({ brand, count })),
     [brandSummaries]
   );
-
-  const gridRecommendations = useMemo<SizeRecommendation[]>(() => {
-    if (activeRowIndex === null || !selectedProduct) return [];
-    return computeSizeRecommendations(selectedProduct, activeRowIndex, products);
-  }, [activeRowIndex, selectedProduct, products]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -378,42 +371,41 @@ export function SearchPageClient() {
         )}
 
         {showSuggestions && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-[420px] overflow-hidden overflow-y-auto rounded-2xl border border-white/10 bg-[#111114] shadow-[0_20px_48px_rgba(0,0,0,0.42)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="search-discovery-popover ui-floating-surface absolute left-0 right-0 top-full z-20 mt-2 max-h-[420px] origin-top overflow-hidden overflow-y-auto rounded-2xl border border-white/[0.12] bg-[#111114]/95 shadow-[0_20px_48px_rgba(0,0,0,0.42)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {!query ? (
               brandSummaries.length > 0 ? (
                 <div className="p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">최근 등록 브랜드</div>
-                    {brandSummaries.length > recentBrandOptions.length && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsBrandExplorerOpen(true);
-                          setShowSuggestions(false);
-                        }}
-                        className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-bold text-gray-300 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-                      >
-                        전체 브랜드 보기
-                      </button>
-                    )}
+                  <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
+                    <div className="text-xs font-semibold text-gray-300">최근 등록 브랜드</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsBrandExplorerOpen(true);
+                        setShowSuggestions(false);
+                      }}
+                      className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-semibold text-gray-400 transition-[color,background-color,transform] hover:bg-white/[0.06] hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80"
+                    >
+                      전체 보기 <ArrowUpRight className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {recentBrandOptions.map(({ brand, count }) => (
                       <button
                         key={brand}
                         type="button"
                         onClick={() => handleBrandSelect(brand)}
-                        className="flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 text-left text-[11px] font-bold text-gray-300 transition hover:border-orange-500/40 hover:bg-orange-500/[0.1] hover:text-orange-300 sm:text-xs"
+                        className="recent-brand-card ui-card flex min-w-0 flex-col items-start rounded-xl px-3 py-3 text-left transition-[background-color,border-color,color,transform] hover:border-orange-400/45 hover:bg-orange-500/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80"
                       >
-                        <span className="truncate">{brand}</span>
-                        <span className="text-[10px] text-gray-500">{count}</span>
+                        <span className="w-full truncate text-xs font-bold text-gray-200">{brand}</span>
+                        <span className="mt-1 text-[11px] font-medium text-gray-500">등록 상품 {count}개</span>
                       </button>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="p-4 text-center text-sm text-gray-500">
-                  등록된 브랜드가 없습니다.
+                <div className="p-6 text-center">
+                  <p className="text-sm font-semibold text-gray-300">아직 등록된 브랜드가 없어요.</p>
+                  <p className="mt-1 text-xs text-gray-500">상품을 추가하면 여기에서 브랜드를 바로 찾을 수 있어요.</p>
                 </div>
               )
             ) : brandSuggestions.length > 0 || suggestions.length > 0 ? (
@@ -423,16 +415,18 @@ export function SearchPageClient() {
                     <div className="px-5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">브랜드</div>
                     <ul>
                       {brandSuggestions.map((brand) => (
-                        <li
-                          key={brand}
-                          onClick={() => handleBrandSelect(brand)}
-                          className="flex cursor-pointer items-center justify-between gap-3 border-b border-white/10 px-5 py-3 transition-colors last:border-0 hover:bg-white/[0.06]"
-                        >
-                          <span className="flex min-w-0 items-center gap-3">
+                        <li key={brand} className="border-b border-white/10 last:border-0">
+                          <button
+                            type="button"
+                            onClick={() => handleBrandSelect(brand)}
+                            className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition-[background-color,color] hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400/80"
+                          >
+                            <span className="flex min-w-0 items-center gap-3">
                             <Search className="h-4 w-4 flex-shrink-0 text-gray-500" />
                             <span className="truncate text-sm"><HighlightMatch text={brand} query={query} /></span>
                           </span>
                           <span className="text-xs font-bold text-gray-500">{brandCountByName.get(brand) ?? 0}</span>
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -444,12 +438,13 @@ export function SearchPageClient() {
                     <div className="px-5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">상품</div>
                     <ul>
                       {suggestions.map((item) => (
-                        <li
-                          key={item.id}
-                          onClick={() => handleSearchSubmit(item)}
-                          className="flex cursor-pointer items-center gap-4 border-b border-white/10 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.06]"
-                        >
-                          <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-white/10">
+                        <li key={item.id} className="border-b border-white/10 last:border-0">
+                          <button
+                            type="button"
+                            onClick={() => handleSearchSubmit(item)}
+                            className="flex w-full items-center gap-4 px-5 py-4 text-left transition-[background-color,color] hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400/80"
+                          >
+                            <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-white/10">
                             <ProgressiveImage
                               src={item.image}
                               thumbnailSrc={item.thumbnailImage}
@@ -457,11 +452,12 @@ export function SearchPageClient() {
                               className="h-full w-full object-cover"
                               onError={handleImageLoadError}
                             />
-                          </div>
-                          <div>
+                            </div>
+                            <div>
                             <div className="font-medium"><HighlightMatch text={item.name} query={query} /></div>
                             <div className="text-sm text-gray-400">{item.brand} · {item.category}</div>
-                          </div>
+                            </div>
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -529,14 +525,15 @@ export function SearchPageClient() {
         </button>
       )}
 
-      <BrandExplorer
-        open={isBrandExplorerOpen}
-        onClose={() => setIsBrandExplorerOpen(false)}
-        brands={brandSummaries}
-        selectedBrand={brandFilter}
-        onSelectBrand={handleBrandSelect}
-        onClearBrand={handleClearBrand}
-      />
+      {isBrandExplorerOpen && (
+        <BrandExplorer
+          onClose={() => setIsBrandExplorerOpen(false)}
+          brands={brandSummaries}
+          selectedBrand={brandFilter}
+          onSelectBrand={handleBrandSelect}
+          onClearBrand={handleClearBrand}
+        />
+      )}
 
       {normalizedProduct && (
         <ProductDetailModal
@@ -544,13 +541,10 @@ export function SearchPageClient() {
           activeRowIndex={activeRowIndex}
           onClose={handleGridClose}
           onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
-          recommendations={gridRecommendations}
           onRecommendationClick={handleGridRecommendationClick}
           onZoomImage={() => setIsDetailImageZoomed(true)}
           onImageError={handleImageLoadError}
           modalRef={gridModalRef}
-          recommendationsRef={gridRecommendationsRef}
-          smoothScrollTo={smoothScrollTo}
           onCollectionActionStart={(anchorRect) => showTutorialOnce("collection", anchorRect)}
           onToggleCloset={(selection) => {
             toggleCloset(normalizedProduct.id, selection);
@@ -570,22 +564,7 @@ export function SearchPageClient() {
         />
       )}
 
-      {isDetailImageZoomed && normalizedProduct && (
-        <div
-          className="fixed inset-0 z-[75] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
-          onClick={() => setIsDetailImageZoomed(false)}
-          onTouchStart={() => setIsDetailImageZoomed(false)}
-        >
-          <div className="flex h-[63vh] w-full max-w-6xl items-center justify-center">
-            <img
-              src={normalizedProduct.image}
-              alt={normalizedProduct.name}
-              className="max-h-full max-w-full cursor-pointer object-contain"
-              style={{ borderRadius: "20px" }}
-            />
-          </div>
-        </div>
-      )}
+      {normalizedProduct && <ImageViewerOverlay open={isDetailImageZoomed} src={normalizedProduct.image} alt={normalizedProduct.name} onClose={() => setIsDetailImageZoomed(false)} />}
 
       {activeTutorial && (
         <OnboardingTutorial

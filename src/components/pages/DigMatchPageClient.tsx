@@ -55,10 +55,10 @@ function ProductChoice({ product, side, onChoose }: { product: DigMatchQuestion[
     <button
       type="button"
       onClick={onChoose}
-      className="group relative min-h-[360px] overflow-hidden rounded-lg border border-white/10 bg-[#151518] text-left shadow-[0_18px_40px_rgba(0,0,0,0.28)] transition hover:-translate-y-1 hover:border-orange-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:min-h-[460px]"
+      className="dig-match-choice group relative min-h-[360px] overflow-hidden rounded-lg border border-white/10 bg-[#151518] text-left shadow-[0_18px_40px_rgba(0,0,0,0.28)] transition-[transform,border-color] duration-160 [transition-timing-function:var(--ease-out)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:min-h-[460px]"
       aria-label={`${product.brand} ${product.name} 선택`}
     >
-      <img src={product.image || product.thumbnailImage || DEFAULT_PRODUCT_PLACEHOLDER} alt={product.name} onError={handleImageFallback} className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+      <img src={product.image || product.thumbnailImage || DEFAULT_PRODUCT_PLACEHOLDER} alt={product.name} onError={handleImageFallback} className="dig-match-choice-image absolute inset-0 h-full w-full object-cover transition-transform duration-200 [transition-timing-function:var(--ease-out)]" />
       <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-4 pb-4 pt-16 sm:px-5 sm:pb-5">
         <span className="block text-[11px] font-bold uppercase text-orange-300">{product.brand}</span>
         <span className="mt-1 block line-clamp-2 text-sm font-bold text-white sm:text-base">{product.name}</span>
@@ -311,7 +311,7 @@ export function DigMatchPageClient() {
               <button type="button" onClick={() => setScreen("ready")} className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-400 transition hover:text-white"><ArrowLeft className="h-4 w-4" /> 나가기</button>
               <span className="text-sm font-bold text-gray-400">{questionIndex + 1} / {Math.max(12, questions.length)}</span>
             </div>
-            <div className="mb-8 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-orange-500 transition-all" style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }} /></div>
+            <div className="mb-8 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full origin-left bg-orange-500 transition-transform duration-200 [transition-timing-function:var(--ease-out)]" style={{ transform: `scaleX(${(questionIndex + 1) / questions.length})` }} /></div>
             <p className="text-center text-xs font-bold uppercase text-orange-300">{currentQuestion.axisTitle}</p>
             <h1 className="mt-2 text-center text-2xl font-bold sm:text-3xl">지금 더 입고 싶은 쪽은?</h1>
             {progressInsight && <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-2 rounded-md border border-orange-400/20 bg-orange-400/[0.06] px-4 py-3 text-center text-sm leading-6 text-orange-100"><Compass className="h-4 w-4 shrink-0 text-orange-300" />{progressInsight}</div>}

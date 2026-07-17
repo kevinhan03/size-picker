@@ -136,7 +136,7 @@ export function BrandRulesPanel({
           <button
             onClick={onSave}
             disabled={isDisabled}
-            className={`rounded-lg px-4 py-2 text-sm font-bold text-black hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 ${hasUnsavedChanges ? "animate-pulse bg-orange-400" : "bg-orange-500"}`}
+            className={`rounded-lg border px-4 py-2 text-sm font-bold text-black hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 ${hasUnsavedChanges ? "border-orange-200 bg-orange-400 shadow-[0_0_0_3px_rgba(251,146,60,0.18)]" : "border-transparent bg-orange-500"}`}
           >
             {isBrandRulesSaving ? "저장 중..." : hasUnsavedChanges ? "저장 필요!" : "규칙 저장"}
           </button>

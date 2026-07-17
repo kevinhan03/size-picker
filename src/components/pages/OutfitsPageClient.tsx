@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, LoaderCircle, MessageCircleMore, Plus, Shirt } from "lucide-react";
+import { ArrowRight, MessageCircleMore, Plus, Shirt } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { fetchOutfitRequests } from "../../api/outfits";
 import { useAuthContext } from "../../contexts/AuthContext";
@@ -9,6 +9,7 @@ import type { OutfitRequestMineStatus, OutfitRequestScope, OutfitRequestSummary 
 import { captureEvent } from "../../utils/analytics";
 import { buildLoginHref } from "../../utils/authNavigation";
 import { ProgressiveImage } from "../ProgressiveImage";
+import { PageState } from "../PageState";
 
 type HubScope = Extract<OutfitRequestScope, "open" | "mine">;
 type CachedRequestList = { requests: OutfitRequestSummary[]; total: number };
@@ -136,7 +137,7 @@ export function OutfitsPageClient() {
   }, [authUserId, isAuthLoading, load, mineStatus, router, scope]);
 
   if (isAuthLoading || (!authUser && !error)) {
-    return <main className="flex min-h-screen items-center justify-center bg-black text-orange-400"><LoaderCircle className="h-7 w-7 animate-spin" /></main>;
+    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="코디 요청을 준비하고 있어요" description="요청과 제안 상태를 불러오는 중입니다." /></main>;
   }
 
   const emptyState = scope === "open"

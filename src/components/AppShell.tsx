@@ -74,7 +74,7 @@ function ClosetToast() {
   return (
     <div className="pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]">
       <div
-        className={`pointer-events-auto flex items-center gap-3 rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-all duration-200 ease-out ${
+        className={`ui-floating-surface pointer-events-auto flex items-center gap-3 rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] duration-200 [transition-timing-function:var(--ease-out)] ${
           isVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
         }`}
       >
@@ -189,7 +189,7 @@ function DigboxToast() {
   return (
     <div className={`pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 ${guestCount > 0 && !auth.authUser ? "sm:bottom-[calc(5rem+env(safe-area-inset-bottom))]" : "sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"}`}>
       <div
-        className={`pointer-events-auto flex items-center gap-3 rounded-2xl border border-yellow-400/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-all duration-200 ease-out ${
+        className={`ui-floating-surface pointer-events-auto flex items-center gap-3 rounded-2xl border border-yellow-400/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] duration-200 [transition-timing-function:var(--ease-out)] ${
           isVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
         }`}
       >
@@ -309,7 +309,7 @@ function ProductSubmitToast() {
   return (
     <div className="pointer-events-none fixed left-1/2 top-1/2 z-[95] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2">
       <div
-        className={`pointer-events-auto flex items-center gap-3 rounded-2xl border bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-all duration-200 ease-out ${
+        className={`ui-floating-surface pointer-events-auto flex items-center gap-3 rounded-2xl border bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] duration-200 [transition-timing-function:var(--ease-out)] ${
           isError ? "border-red-500/30" : "border-orange-500/25"
         } ${isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
       >
@@ -354,7 +354,7 @@ function SignupVerifiedToast() {
   return (
     <div className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center px-4">
       <div
-        className={`pointer-events-auto w-full max-w-sm rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-6 py-5 text-center text-white shadow-[0_24px_64px_rgba(0,0,0,0.62)] backdrop-blur-2xl transition-all duration-200 ease-out ${
+        className={`ui-floating-surface pointer-events-auto w-full max-w-sm rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-6 py-5 text-center text-white shadow-[0_24px_64px_rgba(0,0,0,0.62)] backdrop-blur-2xl transition-[transform,opacity] duration-200 [transition-timing-function:var(--ease-out)] ${
           isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"
         }`}
       >
@@ -373,20 +373,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminPage = pathname?.startsWith("/admin");
   const isOnboardingPage = pathname?.startsWith("/onboarding");
-  const hideChrome = isAdminPage || isOnboardingPage;
-  const hideMobileBottomNav = hideChrome || pathname === "/login" || pathname?.startsWith("/auth/");
+  const isAuthPage = pathname === "/login" || pathname?.startsWith("/auth/");
+  const usesMinimalChrome = isAuthPage || isOnboardingPage;
+  const showFullChrome = !isAdminPage && !usesMinimalChrome;
+  const hideMobileBottomNav = isAdminPage || usesMinimalChrome;
 
   return (
     <>
-      {!hideChrome && <AppHeader />}
+      {showFullChrome && <AppHeader />}
+      {usesMinimalChrome && <AppHeader variant="minimal" />}
       {children}
-      {search.result && <SearchResultOverlay />}
-      {productForm.isModalOpen && <AddProductModal form={productForm} />}
-      {!hideChrome && <ProductSubmitToast />}
-      {!hideChrome && <SignupVerifiedToast />}
-      {!hideChrome && <ClosetToast />}
-      {!hideChrome && <DigboxToast />}
-      {!hideChrome && <GuestDigboxExperience />}
+      {showFullChrome && search.result && <SearchResultOverlay />}
+      {showFullChrome && <AddProductModal form={productForm} />}
+      {showFullChrome && <ProductSubmitToast />}
+      {showFullChrome && <SignupVerifiedToast />}
+      {showFullChrome && <ClosetToast />}
+      {showFullChrome && <DigboxToast />}
+      {showFullChrome && <GuestDigboxExperience />}
       {!hideMobileBottomNav && <MobileBottomNav />}
       {auth.needsUsername && !isOnboardingPage && (
         <NeedsUsernameModal

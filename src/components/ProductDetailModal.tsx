@@ -3,7 +3,7 @@ import type { MouseEvent, PointerEvent, RefObject, SyntheticEvent, TouchEvent } 
 import { useRouter } from "next/navigation";
 import { ChevronDown, ExternalLink, Network, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
-import type { ClosetSizeSelection, MySizeProfile, Product, RelatedGraphReason, SizeRecommendation } from "../types";
+import type { ClosetSizeSelection, MySizeProfile, Product, RelatedGraphReason } from "../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useMySizesContext } from "../contexts/MySizesContext";
@@ -11,6 +11,7 @@ import { useAuthContext } from "../contexts/AuthContext";
 import { useClosetContext } from "../contexts/ClosetContext";
 import { useProductsContext } from "../contexts/ProductsContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
+import { usePresence } from "../hooks/usePresence";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
 import { ProductRelatedGraphModal } from "./product-related/ProductRelatedGraphModal";
 import {
@@ -23,27 +24,7 @@ import { captureEvent } from "../utils/analytics";
 import { ClosetIcon } from "./icons/ClosetIcon";
 import { ProductTasteDecisionPanel } from "./taste-graph/ProductTasteDecision";
 import { getProductTasteDecision } from "../utils/tasteGraph";
-
-function HangerIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 7.25c0-1.45 1.05-2.5 2.45-2.5 1.25 0 2.3.92 2.3 2.15 0 1.1-.6 1.75-1.85 2.45L12 11"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M12 11 4.9 16.25c-.9.67-.42 2.1.7 2.1h12.8c1.12 0 1.6-1.43.7-2.1L12 11Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+import { cosineSimilarity, parseEmbedding } from "../utils/tasteGraph";
 
 interface ProductDetailModalProps {
   product: Product;
@@ -51,13 +32,10 @@ interface ProductDetailModalProps {
   activeRowIndex: number | null;
   onClose: () => void;
   onRowClick: (rowIndex: number) => void;
-  recommendations: SizeRecommendation[];
   onRecommendationClick: (product: Product) => void;
   onZoomImage: () => void;
   onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
   modalRef: RefObject<HTMLDivElement | null>;
-  recommendationsRef: RefObject<HTMLDivElement | null>;
-  smoothScrollTo: (container: HTMLElement, targetY: number, duration?: number) => void;
   onToggleCloset?: (selection?: ClosetSizeSelection | null) => void;
   isInCloset?: boolean;
   onToggleDigbox?: () => void;
@@ -95,19 +73,103 @@ function SavedSizeSummary({ product }: { product?: Product | null }) {
   );
 }
 
+function MySizePickerOverlay({
+  open,
+  profiles,
+  selectedId,
+  query,
+  onQueryChange,
+  onSelect,
+  onClose,
+}: {
+  open: boolean;
+  profiles: MySizeProfile[];
+  selectedId: string;
+  query: string;
+  onQueryChange: (query: string) => void;
+  onSelect: (profileId: string) => void;
+  onClose: () => void;
+}) {
+  const presence = usePresence(open);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open]);
+
+  if (!presence.isMounted) return null;
+
+  return (
+    <div className="fixed inset-0 z-[75] flex items-end justify-center p-4 sm:items-center" role="presentation">
+      <div className="ui-layer-scrim absolute inset-0 bg-black/72" data-visible={presence.isVisible} onClick={onClose} />
+      <section
+        aria-label="비교할 내 상품 선택"
+        aria-modal="true"
+        role="dialog"
+        className="ui-layer-modal ui-panel relative w-full max-w-md rounded-3xl p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)] sm:p-6"
+        data-visible={presence.isVisible}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-white">비교할 내 상품</p>
+            <p className="mt-1 text-xs font-semibold text-gray-500">같은 카테고리에 저장한 상품을 골라보세요.</p>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-[background-color,color] hover:bg-white/[0.07] hover:text-white" aria-label="비교할 내 상품 선택 닫기">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="상품명 또는 메모 검색"
+          autoFocus
+          className="mt-5 h-11 w-full rounded-xl border border-white/[0.1] bg-black/25 px-3 text-sm font-semibold text-white outline-none transition-[border-color,background-color] placeholder:text-gray-600 focus:border-orange-400/70 focus:bg-black/35"
+        />
+        <div className="mt-3 grid max-h-[min(48dvh,22rem)] gap-1 overflow-y-auto pr-1">
+          {profiles.length > 0 ? profiles.map((profile) => {
+            const selected = selectedId === profile.id;
+            const sizeLabel = String(profile.sizeLabel || profile.measurementSnapshot.row?.[0] || "").trim();
+            return (
+              <button
+                key={profile.id}
+                type="button"
+                onClick={() => onSelect(profile.id)}
+                className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-[background-color,border-color,color] ${
+                  selected
+                    ? "border-orange-400/55 bg-orange-500/[0.12]"
+                    : "border-transparent bg-transparent hover:border-white/[0.1] hover:bg-white/[0.045]"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-white">{profile.title || "저장한 상품"}</p>
+                  <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">{profile.fitNote || "착용감 메모 없음"}</p>
+                </div>
+                {sizeLabel ? <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold ${selected ? "bg-orange-400 text-black" : "bg-white/[0.08] text-gray-300"}`}>{sizeLabel}</span> : null}
+              </button>
+            );
+          }) : (
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] px-3 py-6 text-center text-sm font-semibold text-gray-500">검색 결과가 없습니다.</div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function ProductDetailModal({
   product,
   closetProduct,
   activeRowIndex,
   onClose,
   onRowClick,
-  recommendations,
   onRecommendationClick,
   onZoomImage,
   onImageError,
   modalRef,
-  recommendationsRef,
-  smoothScrollTo,
   onToggleCloset,
   isInCloset,
   onToggleDigbox,
@@ -124,6 +186,7 @@ export function ProductDetailModal({
   otherDigboxCountLabel,
   analyticsSource = "product_modal",
 }: ProductDetailModalProps) {
+  const presence = usePresence(true);
   const router = useRouter();
   const { authUser } = useAuthContext();
   const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
@@ -142,16 +205,13 @@ export function ProductDetailModal({
   const pointerDownSelectedRowRef = useRef<number | null>(null);
   const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
   const [isExtraMeasurementsOpen, setIsExtraMeasurementsOpen] = useState(false);
-  const [isMySizeDetailsOpen, setIsMySizeDetailsOpen] = useState(false);
   const [isMySizePickerOpen, setIsMySizePickerOpen] = useState(false);
   const [mySizeSearchQuery, setMySizeSearchQuery] = useState("");
-  const [isSimilarProductsOpen, setIsSimilarProductsOpen] = useState(false);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const { mySizes, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
   const { products } = useProductsContext();
   const [selectedMySizeId, setSelectedMySizeId] = useState<string>("");
   const savedClosetProduct = closetProduct || null;
-  const savedSizeLabel = getClosetSizeLabel(savedClosetProduct);
   const savedSizeRowIndex = getClosetSizeRowIndex(savedClosetProduct);
   const displaySizeTable = useMemo(() => getDisplaySizeTable(product), [product]);
   const displayProduct = useMemo(
@@ -205,14 +265,34 @@ export function ProductDetailModal({
     () => compareMeasurementSnapshots(activeProductSnapshot, selectedMySize?.measurementSnapshot),
     [activeProductSnapshot, selectedMySize]
   );
+  const comparisonSummary = useMemo(() => {
+    const firstDifference = mySizeComparisons.find((item) => item.diff !== 0);
+    if (!firstDifference) return mySizeComparisons.length > 0 ? "주요 실측이 내 상품과 같아요." : null;
+    const difference = Math.abs(firstDifference.diff).toFixed(1).replace(/\.0$/, "");
+    return `${firstDifference.displayLabel}이(가) 내 상품보다 ${difference}cm ${firstDifference.diff > 0 ? "넓어요" : "작아요"}.`;
+  }, [mySizeComparisons]);
+  const imageSimilarProducts = useMemo(() => {
+    const sourceEmbedding = parseEmbedding(product.imageEmbedding);
+    const sourceCategory = String(product.category || "").trim().toLowerCase();
+    if (!sourceEmbedding || !sourceCategory) return [];
+
+    return products
+      .filter((candidate) => candidate.id !== product.id && String(candidate.category || "").trim().toLowerCase() === sourceCategory)
+      .map((candidate) => {
+        const candidateEmbedding = parseEmbedding(candidate.imageEmbedding);
+        const similarity = candidateEmbedding ? cosineSimilarity(sourceEmbedding, candidateEmbedding) : null;
+        return similarity === null ? null : { product: candidate, similarity };
+      })
+      .filter((entry): entry is { product: Product; similarity: number } => entry !== null)
+      .sort((left, right) => right.similarity - left.similarity)
+      .slice(0, 3);
+  }, [product, products]);
   const isSelectedMySizeSourceProduct = selectedMySize?.sourceProductId === product.id;
 
   useEffect(() => {
     setIsExtraMeasurementsOpen(false);
-    setIsMySizeDetailsOpen(false);
     setIsMySizePickerOpen(false);
     setMySizeSearchQuery("");
-    setIsSimilarProductsOpen(false);
     setIsRelatedGraphOpen(false);
   }, [product.id]);
 
@@ -231,17 +311,7 @@ export function ProductDetailModal({
 
   const handleRowClick = (rowIndex: number, anchorRect?: TutorialAnchorRect) => {
     onRowClick(rowIndex);
-    setIsSimilarProductsOpen(false);
     showTutorialOnce("sizeRecommendations", anchorRect);
-    setTimeout(() => {
-      const modal = modalRef.current;
-      const target = recommendationsRef.current;
-      if (!modal || !target) return;
-      const modalRect = modal.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const targetY = modal.scrollTop + (targetRect.top - modalRect.top) - 16;
-      smoothScrollTo(modal, targetY);
-    }, 50);
   };
 
   const clearSizeTableClickSuppressionSoon = () => {
@@ -351,29 +421,33 @@ export function ProductDetailModal({
     onToggleCloset?.(selection);
   };
 
+  const closeModal = () => presence.requestClose(onClose);
+
   return (
     <>
     <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="ui-layer-scrim absolute inset-0 bg-black/70 backdrop-blur-sm" data-visible={presence.isVisible} onClick={closeModal} />
       <div
-        className="ui-product-detail-modal relative flex flex-col max-h-[90vh] w-full max-w-4xl rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
+        className="ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex flex-col max-h-[90vh] w-full max-w-4xl rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
+        data-visible={presence.isVisible}
       >
         <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-3 text-white sm:px-6 sm:py-4">
           <h3 className="shrink-0 text-base font-bold text-white sm:text-xl">상품 상세</h3>
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
+          <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
             {!hideCollectionActions && !hideDigboxButton && (
             <div className="group relative">
               <button
                 type="button"
                 aria-label={isInDigbox ? "저장됨" : "저장하기"}
+                aria-pressed={isInDigbox}
                 onClick={(event) => {
                   onCollectionActionStart?.(getAnchorRect(event));
                   onToggleDigbox?.();
                 }}
-                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold backdrop-blur-xl transition sm:px-3 ${
+                className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
                   isInDigbox
-                    ? "border-yellow-400/80 bg-[linear-gradient(180deg,rgba(250,204,21,0.45),rgba(250,204,21,0.28))] text-yellow-300 shadow-[0_4px_16px_rgba(250,204,21,0.35)]"
-                    : "border-yellow-400/40 bg-[linear-gradient(180deg,rgba(250,204,21,0.22),rgba(250,204,21,0.09))] text-yellow-400 shadow-[0_4px_16px_rgba(250,204,21,0.15)] hover:border-yellow-400/70 hover:bg-[linear-gradient(180deg,rgba(250,204,21,0.32),rgba(250,204,21,0.15))] hover:text-yellow-300"
+                    ? "border-yellow-300/45 bg-yellow-400/[0.11] text-yellow-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                    : "border-white/[0.12] bg-white/[0.045] text-gray-300 hover:border-yellow-300/45 hover:bg-yellow-400/[0.1] hover:text-yellow-100"
                 }`}
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill={isInDigbox ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
@@ -381,10 +455,6 @@ export function ProductDetailModal({
                 </svg>
                 <span>{isInDigbox ? "저장됨" : "저장"}</span>
               </button>
-              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                저장
-              </div>
               {showGuestDigboxHint && !isInDigbox && (
                 <p className="pointer-events-none absolute right-0 top-full mt-3 w-52 rounded-xl border border-yellow-300/30 bg-[#17150e]/95 px-3 py-2 text-[11px] font-bold leading-snug text-yellow-100 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl">
                   마음에 드는 상품은 여기 담아 내 취향을 찾아보세요.
@@ -396,28 +466,25 @@ export function ProductDetailModal({
             <div className="group relative">
               <button
                 type="button"
-                aria-label={isInCloset ? "옷장에 있음" : "옷장에 추가"}
+                aria-label={isInCloset ? "옷장에 있음" : "옷장"}
+                aria-pressed={isInCloset}
                 onClick={handleClosetClick}
-                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold backdrop-blur-xl transition sm:px-3 ${
+                className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
                   isInCloset
-                    ? "border-orange-500/80 bg-[linear-gradient(180deg,rgba(249,115,22,0.45),rgba(249,115,22,0.28))] text-orange-300 shadow-[0_4px_16px_rgba(249,115,22,0.35)]"
-                    : "border-orange-500/40 bg-[linear-gradient(180deg,rgba(249,115,22,0.22),rgba(249,115,22,0.09))] text-orange-400 shadow-[0_4px_16px_rgba(249,115,22,0.15)] hover:border-orange-500/70 hover:bg-[linear-gradient(180deg,rgba(249,115,22,0.32),rgba(249,115,22,0.15))] hover:text-orange-300"
+                    ? "border-orange-300/50 bg-orange-500/[0.14] text-orange-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                    : "border-white/[0.12] bg-white/[0.045] text-gray-300 hover:border-orange-300/50 hover:bg-orange-500/[0.1] hover:text-orange-100"
                 }`}
               >
                 <ClosetIcon className="h-4 w-4" />
-                <span>{isInCloset ? "옷장에 있음" : "옷장 추가"}</span>
+                <span>{isInCloset ? "옷장에 있음" : "옷장"}</span>
               </button>
-              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111114] px-2.5 py-1 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-all duration-150 ease-out scale-95 group-hover:opacity-100 group-hover:scale-100">
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                옷장
-              </div>
             </div>
             )}
             <button
               type="button"
               aria-label="상품 상세 닫기"
-              onClick={onClose}
-              className="flex items-center gap-2 rounded-lg border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07))] px-2.5 py-1.5 text-xs font-bold text-gray-200 shadow-[0_4px_16px_rgba(0,0,0,0.2)] backdrop-blur-xl transition hover:border-orange-500/60 hover:text-orange-400 sm:px-3"
+              onClick={closeModal}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.045] text-gray-300 transition-[background-color,border-color,color] hover:border-white/[0.2] hover:bg-white/[0.075] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
             >
               <X className="h-4 w-4" />
             </button>
@@ -454,18 +521,6 @@ export function ProductDetailModal({
                 <span className="text-gray-500">{product.category}</span>
               </div>
               <h4 className="mb-2 text-2xl font-bold text-white">{product.name}</h4>
-              {product.registeredBy && (
-                <div className="mb-2">
-                  <span className="inline-flex rounded-md bg-white/[0.05] px-2 py-1 text-xs font-semibold text-gray-400">
-                    발굴한 사람: <span className="ml-1 text-gray-200">{product.registeredBy}</span>
-                  </span>
-                </div>
-              )}
-              {otherDigboxCount > 0 && (
-                <p className="mb-2 text-xs font-semibold text-gray-500">
-                  {otherDigboxCountLabel || `이 발굴 상품을 ${otherDigboxCount}명이 저장했어요`}
-                </p>
-              )}
               {product.url ? (
                 <a
                   href={product.url}
@@ -478,60 +533,22 @@ export function ProductDetailModal({
               ) : (
                 <span className="text-sm text-gray-600">URL 없음</span>
               )}
-              {(!hideRelatedGraphButton || onRelatedGraphRequest || relatedGraphReason) && (
-                <div className="mt-4 flex flex-wrap items-start gap-x-7 gap-y-3">
-                  {!hideRelatedGraphButton || onRelatedGraphRequest ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onRelatedGraphRequest) {
-                          onRelatedGraphRequest();
-                          return;
-                        }
-                        setIsRelatedGraphOpen(true);
-                      }}
-                      className="inline-flex items-center gap-2 rounded-xl border border-orange-500/35 bg-orange-500/10 px-3.5 py-2 text-xs font-black text-orange-400 transition hover:border-orange-500/70 hover:bg-orange-500/15"
-                    >
-                      <Network className="h-4 w-4" />
-                      {relatedGraphButtonLabel}
-                    </button>
-                  ) : null}
-                  {relatedGraphReason ? (
-                    <section className="min-w-0 border-l-2 border-orange-500/55 pl-4" aria-label="연결 근거">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-gray-300">연결 근거</span>
-                        <span className="text-xs font-bold text-orange-400">스타일 유사도 {Math.round(relatedGraphReason.similarity * 100)}%</span>
-                      </div>
-                    </section>
-                  ) : null}
-                </div>
-              )}
-              {tasteDecision ? (
-                <ProductTasteDecisionPanel
-                  decision={tasteDecision}
-                  onViewMap={() => router.push(`/taste-graph?source=closet&tag=${tasteDecision.primaryTag}`)}
-                />
-              ) : null}
-              {savedClosetProduct ? (
-                <div className="mt-3">
-                  <SavedSizeSummary product={savedClosetProduct} />
-                </div>
-              ) : hideDigboxButton && isInCloset ? (
-                <div className="mt-3">
-                  <span className="inline-flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-300">
-                    <ClosetIcon className="h-3.5 w-3.5" />
-                    이미 옷장에 있어요
-                  </span>
-                </div>
-              ) : null}
+              {savedClosetProduct ? <div className="mt-3"><SavedSizeSummary product={savedClosetProduct} /></div> : null}
             </div>
           </div>
 
-          {displaySizeTable?.headers?.length ? (
-            <div className="mt-8 flex justify-start text-[11px] font-semibold text-gray-500">{"단위: cm"}</div>
-          ) : null}
+          <section className="mt-8" aria-labelledby="size-selection-title">
+            <div className="mb-3 flex items-end justify-between gap-4">
+              <div>
+                <h5 id="size-selection-title" className="text-sm font-bold text-white">사이즈 선택</h5>
+                <p className="mt-1 text-xs font-semibold text-gray-500">행을 선택하면 내 사이즈와 바로 비교할 수 있어요.</p>
+              </div>
+              {displaySizeTable?.headers?.length ? (
+                <span className="shrink-0 text-[11px] font-semibold text-gray-500">단위: cm</span>
+              ) : null}
+            </div>
           <div
-            className={`${displaySizeTable?.headers?.length ? "mt-1" : "mt-8"} relative touch-manipulation overflow-x-auto overscroll-x-contain rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+            className="relative touch-manipulation overflow-x-auto overscroll-x-contain rounded-[22px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             onTouchStart={handleSizeTableTouchStart}
             onTouchMove={handleSizeTableTouchMove}
             onTouchEnd={handleSizeTableTouchEnd}
@@ -562,21 +579,24 @@ export function ProductDetailModal({
                         key={rowIndex}
                         onPointerDown={(event) => handleSizeTableRowPointerDown(event, rowIndex)}
                         onClick={(event) => handleSizeTableRowClick(event, rowIndex)}
-                        className="group cursor-pointer transition-transform duration-200 active:scale-95"
+                        className="group cursor-pointer"
                       >
                         {row.map((cell, cellIndex) => {
                           return (
                             <td
                               key={cellIndex}
-                              className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-all duration-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""} ${
-                                isActiveRow
-                                  ? "bg-white text-black first:rounded-l-lg last:rounded-r-lg"
+                          className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-[background-color,color] duration-150 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""} ${
+                            isActiveRow
+                                  ? "bg-orange-500/[0.15] text-orange-50 first:rounded-l-lg first:border-l first:border-orange-400/70 last:rounded-r-lg last:border-r last:border-orange-400/70"
                                   : isSavedRow
-                                  ? "bg-[#F97316]/40 text-orange-50 first:rounded-l-lg last:rounded-r-lg group-hover:bg-[#F97316]/50"
-                                  : "bg-transparent text-gray-200 group-hover:bg-white/[0.92] group-hover:text-black group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg"
+                                  ? "bg-white/[0.045] text-gray-200 first:rounded-l-lg last:rounded-r-lg"
+                                  : "bg-transparent text-gray-300 group-hover:bg-white/[0.065] group-hover:text-white group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg"
                               }`}
                             >
-                              {displayTableCell(cell)}
+                              <span className="inline-flex items-center gap-1.5">
+                                {displayTableCell(cell)}
+                                {cellIndex === 0 && isSavedRow ? <span className="rounded bg-orange-400/[0.14] px-1 py-0.5 text-[9px] font-bold text-orange-200">내 저장</span> : null}
+                              </span>
                             </td>
                           );
                         })}
@@ -589,6 +609,7 @@ export function ProductDetailModal({
               <div className="px-6 py-8 text-center text-gray-300">표시할 사이즈표 데이터가 없습니다.</div>
             )}
           </div>
+          </section>
 
           {categoryMySizes.length > 0 && (
             <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
@@ -624,65 +645,15 @@ export function ProductDetailModal({
                       type="button"
                       onClick={(event) => {
                         showTutorialOnce("mySizeCompare", getAnchorRect(event));
-                        setIsMySizePickerOpen((value) => !value);
+                        setIsMySizePickerOpen(true);
                       }}
                       aria-expanded={isMySizePickerOpen}
-                      className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-black text-gray-300 transition hover:border-orange-500/40 hover:text-orange-300"
+                      className="shrink-0 rounded-lg border border-white/[0.12] bg-white/[0.045] px-2.5 py-1.5 text-xs font-bold text-gray-300 transition-[background-color,border-color,color] hover:border-orange-400/45 hover:bg-orange-500/[0.07] hover:text-orange-200"
                     >
                       변경
                     </button>
                   </div>
 
-                  {isMySizePickerOpen && (
-                    <div className="mt-3 rounded-xl border border-white/[0.08] bg-[#111114] p-2">
-                      <input
-                        value={mySizeSearchQuery}
-                        onChange={(event) => setMySizeSearchQuery(event.target.value)}
-                        placeholder="상품명 또는 메모 검색"
-                        className="mb-2 h-10 w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-500/70"
-                      />
-                      <div className="grid max-h-[236px] gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                        {filteredMySizes.length > 0 ? (
-                          filteredMySizes.map((profile) => {
-                            const selected = selectedMySize?.id === profile.id;
-                            const sizeLabel = String(profile.sizeLabel || profile.measurementSnapshot.row?.[0] || "").trim();
-                            return (
-                              <button
-                                key={profile.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedMySizeId(profile.id);
-                                  setIsMySizePickerOpen(false);
-                                  setMySizeSearchQuery("");
-                                }}
-                                className={`flex min-w-0 items-center justify-between gap-3 rounded-lg border px-2.5 py-2 text-left transition ${
-                                  selected
-                                    ? "border-orange-500/60 bg-orange-500/12"
-                                    : "border-transparent bg-transparent hover:border-white/[0.08] hover:bg-white/[0.045]"
-                                }`}
-                              >
-                                <div className="min-w-0">
-                                  <p className="truncate text-xs font-bold text-white">{profile.title || "저장한 상품"}</p>
-                                  <p className="mt-0.5 truncate text-[11px] font-semibold text-gray-600">{profile.fitNote || "메모 없음"}</p>
-                                </div>
-                                {sizeLabel && (
-                                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-black ${
-                                    selected ? "bg-orange-500 text-black" : "bg-white/[0.08] text-gray-400"
-                                  }`}>
-                                    {sizeLabel}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })
-                        ) : (
-                          <div className="rounded-lg border border-white/[0.06] bg-white/[0.035] px-3 py-4 text-center text-xs font-semibold text-gray-500">
-                            검색 결과가 없습니다.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -691,6 +662,8 @@ export function ProductDetailModal({
                   동일한 상품입니다.
                 </div>
               ) : activeRowIndex === null ? null : mySizeComparisons.length > 0 ? (
+                <>
+                {comparisonSummary ? <p className="mt-3 rounded-xl border border-orange-400/20 bg-orange-500/[0.07] px-3 py-2.5 text-sm font-bold text-orange-100">{comparisonSummary}</p> : null}
                 <div className="mt-3 touch-manipulation overflow-x-auto overscroll-x-contain rounded-xl border border-white/[0.06] bg-black/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <table className="min-w-[420px] table-fixed text-left text-xs sm:min-w-full sm:text-sm">
                     <colgroup>
@@ -721,6 +694,7 @@ export function ProductDetailModal({
                     </tbody>
                   </table>
                 </div>
+                </>
               ) : (
                 <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-sm font-semibold text-gray-500">
                   비교 가능한 공통 실측이 없습니다.
@@ -729,17 +703,45 @@ export function ProductDetailModal({
             </div>
           )}
 
+          {imageSimilarProducts.length > 0 && (
+            <section className="mt-6" aria-labelledby="similar-products-title">
+              <div className="mb-3">
+                <h5 id="similar-products-title" className="text-xs font-bold uppercase tracking-widest text-gray-400">이 상품과 비슷한 상품</h5>
+                <p className="mt-1 text-xs font-semibold text-gray-500">같은 카테고리에서 이미지 스타일이 가까운 상품이에요.</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                {imageSimilarProducts.map(({ product: similarProduct, similarity }) => (
+                  <button
+                    key={similarProduct.id}
+                    type="button"
+                    onClick={() => onRecommendationClick(similarProduct)}
+                    className="ui-card flex items-start gap-3 rounded-2xl px-4 py-3 text-left transition-[background-color,border-color] hover:border-white/[0.16] hover:bg-[#1a1a1d] active:scale-[0.98]"
+                  >
+                    <img
+                      src={similarProduct.thumbnailImage || similarProduct.image || DEFAULT_PRODUCT_PLACEHOLDER}
+                      alt={similarProduct.name}
+                      className="mt-0.5 h-12 w-12 flex-shrink-0 rounded-xl bg-white/[0.06] object-contain"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold uppercase text-orange-400">{similarProduct.brand}</p>
+                      <p className="truncate text-sm font-medium text-white">{similarProduct.name}</p>
+                    </div>
+                    <span className="shrink-0 rounded-md bg-white/[0.07] px-2 py-1 text-[10px] font-bold text-gray-400">유사도 {Math.round(similarity * 100)}%</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           {displaySizeTable?.extra?.headers?.length ? (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+            <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
               <button
                 type="button"
                 onClick={() => setIsExtraMeasurementsOpen((value) => !value)}
                 className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/[0.05] hover:text-white"
               >
                 <span>추가 실측 정보</span>
-                <ChevronDown
-                  className={`h-4 w-4 text-gray-400 transition-transform ${isExtraMeasurementsOpen ? "rotate-180" : ""}`}
-                />
+                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isExtraMeasurementsOpen ? "rotate-180" : ""}`} />
               </button>
               {isExtraMeasurementsOpen ? (
                 <div className="overflow-x-auto border-t border-white/[0.06]">
@@ -777,77 +779,53 @@ export function ProductDetailModal({
             </div>
           ) : null}
 
-          {activeRowIndex !== null && recommendations.length > 0 && (
-            <div ref={recommendationsRef} className="mt-4 [&>h5]:hidden">
-              <button
-                type="button"
-                onClick={() => setIsSimilarProductsOpen((value) => !value)}
-                className="flex w-full items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-left transition hover:border-white/[0.14] hover:bg-white/[0.055]"
-              >
-                <div>
-                  <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400">선택한 사이즈와 비슷한 상품</h5>
-                </div>
-                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isSimilarProductsOpen ? "rotate-180" : ""}`} />
-              </button>
-              {isSimilarProductsOpen && (
-              <>
-              <h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">유사한 추천 상품</h5>
-              <div className="flex flex-col gap-2">
-                {recommendations.map(({ product: recProduct, rowIndex }) => {
-                  const recSizeTable = getDisplaySizeTable(recProduct)!;
-                  const matchedRow = recSizeTable.rows[rowIndex];
-                  const sizeLabel = matchedRow[0] || "";
-                  const measurementDiffs = compareMeasurementSnapshots(
-                    activeProductSnapshot,
-                    { headers: recSizeTable.headers, row: matchedRow }
-                  ).slice(0, 4);
-                  return (
-                    <button
-                      key={recProduct.id}
-                      type="button"
-                      onClick={() => onRecommendationClick(recProduct)}
-                      className="flex items-start gap-3 rounded-2xl bg-white/[0.05] px-4 py-3 text-left transition hover:bg-white/[0.1] active:scale-[0.98]"
-                    >
-                      <img
-                        src={recProduct.thumbnailImage || recProduct.image || DEFAULT_PRODUCT_PLACEHOLDER}
-                        alt={recProduct.name}
-                        className="mt-0.5 h-12 w-12 flex-shrink-0 rounded-xl bg-white/[0.06] object-contain"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-bold uppercase text-orange-400">{recProduct.brand}</p>
-                        <p className="truncate text-sm font-medium text-white">{recProduct.name}</p>
-                        {measurementDiffs.length > 0 && (
-                          <div className="mt-1.5 flex flex-wrap gap-1">
-                            {measurementDiffs.map((item) => {
-                              const diffText =
-                                item.diff === 0
-                                  ? "같음"
-                                  : `${item.diff > 0 ? "+" : ""}${item.diff.toFixed(1).replace(/\.0$/, "")}cm`;
-                              const tone =
-                                item.diff === 0
-                                  ? "text-gray-300"
-                                  : item.diff > 0
-                                  ? "text-orange-300"
-                                  : "text-sky-300";
-                              return (
-                                <span key={item.label} className={`rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}>
-                                  {item.displayLabel} {diffText}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-shrink-0 text-right">
-                        <p className="text-sm font-bold text-white">{sizeLabel}</p>
-                      </div>
-                    </button>
-                  );
-                })}
+          {(product.registeredBy || otherDigboxCount > 0 || !hideRelatedGraphButton || onRelatedGraphRequest || relatedGraphReason || tasteDecision || savedClosetProduct || (hideDigboxButton && isInCloset)) && (
+            <section className="mt-6 border-t border-white/[0.08] pt-5" aria-labelledby="product-insights-title">
+              <h5 id="product-insights-title" className="text-xs font-bold uppercase tracking-widest text-gray-400">더 알아보기</h5>
+              <div className="mt-3 space-y-3">
+                {(product.registeredBy || otherDigboxCount > 0) && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-gray-500">
+                    {product.registeredBy && <span>발굴한 사람: <span className="text-gray-200">{product.registeredBy}</span></span>}
+                    {otherDigboxCount > 0 && <span>{otherDigboxCountLabel || `이 발굴 상품을 ${otherDigboxCount}명이 저장했어요`}</span>}
+                  </div>
+                )}
+                {(!hideRelatedGraphButton || onRelatedGraphRequest || relatedGraphReason) && (
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                    {!hideRelatedGraphButton || onRelatedGraphRequest ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onRelatedGraphRequest) {
+                            onRelatedGraphRequest();
+                            return;
+                          }
+                          setIsRelatedGraphOpen(true);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.04] px-3.5 py-2 text-xs font-bold text-gray-200 transition-[background-color,border-color,color] hover:border-orange-500/45 hover:bg-orange-500/[0.08] hover:text-orange-200"
+                      >
+                        <Network className="h-4 w-4 text-orange-300" />
+                        {relatedGraphButtonLabel}
+                      </button>
+                    ) : null}
+                    {relatedGraphReason ? (
+                      <span className="text-xs font-semibold text-gray-500">스타일 유사도 <span className="text-gray-300">{Math.round(relatedGraphReason.similarity * 100)}%</span></span>
+                    ) : null}
+                  </div>
+                )}
+                {tasteDecision ? (
+                  <ProductTasteDecisionPanel
+                    decision={tasteDecision}
+                    onViewMap={() => router.push(`/taste-graph?source=closet&tag=${tasteDecision.primaryTag}`)}
+                  />
+                ) : null}
+                {hideDigboxButton && isInCloset && !savedClosetProduct ? (
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-300">
+                    <ClosetIcon className="h-3.5 w-3.5" />
+                    이미 옷장에 있어요
+                  </span>
+                ) : null}
               </div>
-              </>
-              )}
-            </div>
+            </section>
           )}
         </div>
         </div>
@@ -861,6 +839,22 @@ export function ProductDetailModal({
         onConfirm={handleConfirmClosetSize}
       />
     )}
+    <MySizePickerOverlay
+      open={isMySizePickerOpen}
+      profiles={filteredMySizes}
+      selectedId={selectedMySizeId}
+      query={mySizeSearchQuery}
+      onQueryChange={setMySizeSearchQuery}
+      onSelect={(profileId) => {
+        setSelectedMySizeId(profileId);
+        setIsMySizePickerOpen(false);
+        setMySizeSearchQuery("");
+      }}
+      onClose={() => {
+        setIsMySizePickerOpen(false);
+        setMySizeSearchQuery("");
+      }}
+    />
     {activeTutorial && (
       <OnboardingTutorial
         tutorialId={activeTutorial.id}
