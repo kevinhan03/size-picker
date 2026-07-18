@@ -58,6 +58,26 @@ npm run start
 
 Some dynamic product pages need a real browser session for metadata extraction. `playwright` is installed as a dev dependency for that path.
 
+## Automatic image embeddings
+
+Product registration starts style tagging and image embedding after the product has been saved, so the registration response is never blocked by model inference. Image embeddings use the existing `Marqo/marqo-fashionSigLIP` model and retain its 768-dimension vector format.
+
+Run the private Python worker in an environment that can keep the Torch model warm (not a Vercel function):
+
+```bash
+pip install -r requirements.txt
+uvicorn scripts.image_embedding_worker:app --host 127.0.0.1 --port 8001
+```
+
+Set these server-only variables in both the Next.js app and the worker. The secret must match; the worker also needs the Supabase service-role variables already listed above.
+
+```env
+IMAGE_EMBEDDING_WORKER_URL=http://127.0.0.1:8001
+IMAGE_EMBEDDING_WORKER_SECRET=a_long_random_shared_secret
+```
+
+For production, deploy the worker behind a private HTTPS URL and set the same values in the production environment. Do not use `NEXT_PUBLIC_` for either value.
+
 ## Brand rules
 
 Brand canonicalization rules are managed in `/admin`.

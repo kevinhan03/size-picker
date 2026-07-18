@@ -74,6 +74,7 @@ export interface RelatedGraphReason {
   sharedTags: Array<{ tag: StyleTagName; score: number }>;
   sameCategory: boolean;
   hasHumanReviewedTags: boolean;
+  recommendationType?: 'image' | 'mood';
 }
 
 export interface ProductStyleReviewInput {

@@ -120,6 +120,10 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
     tagReviewNote: row.tag_review_note ? String(row.tag_review_note) : null,
     reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
     reviewedAt: row.reviewed_at || null,
+    imageEmbedding:
+      typeof row.image_embedding === 'string' || Array.isArray(row.image_embedding)
+        ? row.image_embedding
+        : null,
     targetGender: row.target_gender ? String(row.target_gender) as Product['targetGender'] : null,
     humanTargetGender: row.human_target_gender ? String(row.human_target_gender) as Product['humanTargetGender'] : null,
     targetGenderReviewedBy: row.target_gender_reviewed_by ? String(row.target_gender_reviewed_by) : null,

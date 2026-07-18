@@ -19,7 +19,7 @@ import { normalizeProduct } from '../utils/product';
 import { parseApiJson, postJson } from './shared';
 
 const PRODUCT_SELECT_COLUMNS =
-  'id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,tagged_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at';
+  'id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,tagged_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at,image_embedding';
 const TARGET_GENDER_COLUMNS = ',target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at';
 
 export const fetchAllProducts = async (): Promise<Product[]> => {

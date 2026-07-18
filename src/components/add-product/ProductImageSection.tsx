@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, ChevronDown, Expand, Upload, X } from 'lucide-react';
 import type { useProductForm } from '../../hooks/useProductForm';
 
@@ -24,6 +25,15 @@ export function ProductImageSection({ form }: ProductImageSectionProps) {
   useEffect(() => {
     setFailedCandidateUrls(new Set());
   }, [form.autofilledProductImageCandidates]);
+
+  useEffect(() => {
+    if (!isImagePreviewOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsImagePreviewOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isImagePreviewOpen]);
 
   return (
     <div className="space-y-2">
@@ -91,14 +101,31 @@ export function ProductImageSection({ form }: ProductImageSectionProps) {
           <input type="file" className="hidden" accept="image/*" onChange={(e) => form.handleFileUpload(e, 'product')} />
         </label>
       )}
-      {isImagePreviewOpen && form.formData.productImage ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label="상품 이미지 확대 보기">
-          <button type="button" aria-label="닫기" onClick={() => setIsImagePreviewOpen(false)} className="absolute right-5 top-5 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
-            <X className="h-5 w-5" />
-          </button>
-          <img src={form.formData.productImage} alt="선택한 상품 이미지 확대" className="max-h-[90vh] max-w-[95vw] object-contain" />
-        </div>
-      ) : null}
+      {isImagePreviewOpen && form.formData.productImage && typeof document !== 'undefined'
+        ? createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label="상품 이미지 확대 보기"
+            onClick={() => setIsImagePreviewOpen(false)}
+          >
+            <div className="relative flex max-h-full max-w-full items-center justify-center" onClick={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                autoFocus
+                aria-label="닫기"
+                onClick={() => setIsImagePreviewOpen(false)}
+                className="absolute right-2 top-2 z-10 rounded-full bg-black/60 p-2 text-white transition hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <img src={form.formData.productImage} alt="선택한 상품 이미지 확대" className="max-h-[90vh] max-w-[95vw] object-contain" />
+            </div>
+          </div>,
+          document.body
+        )
+        : null}
       {candidateCount > 0 && isCandidatesOpen ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-[11px] text-gray-400">

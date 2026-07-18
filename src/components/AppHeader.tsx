@@ -88,7 +88,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
   }
 
   const desktopNavClass = (active: boolean) =>
-    `flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 shadow-none transition ${
+    `flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 transition ${
       active
         ? "bg-orange-500/15 text-orange-300"
         : "text-gray-400 hover:bg-white/[0.06] hover:text-white"
@@ -210,7 +210,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
             </div>}
             {auth.authUser ? (
               <div className="group relative">
-                <button type="button" aria-label="마이페이지" onClick={() => router.push("/mypage")} className={`flex h-9 w-9 items-center justify-center rounded-xl border text-gray-300 shadow-none transition hover:border-orange-500/50 hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${isMyPage ? "border-orange-500/40 bg-orange-500/15 text-orange-300" : "border-white/15 bg-white/[0.06]"}`}>
+                <button type="button" aria-label="마이페이지" onClick={() => router.push("/mypage")} className={`flex h-9 w-9 items-center justify-center rounded-xl border text-gray-300 transition hover:border-orange-500/50 hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${isMyPage ? "border-orange-500/40 bg-orange-500/15 text-orange-300" : "border-white/15 bg-white/[0.06]"}`}>
                   <UserRound className="h-4 w-4" />
                 </button>
                 <div className={tooltipClass}>

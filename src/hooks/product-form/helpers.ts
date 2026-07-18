@@ -81,6 +81,8 @@ export const hasEmptyCaptureAutofillResult = (
   !normalizedTable;
 
 interface SubmitValidationInput {
+  hasBrand: boolean;
+  hasName: boolean;
   hasProductImageCheck: boolean;
   hasCategory: boolean;
   hasValidatedSizeTable: boolean;
@@ -88,11 +90,15 @@ interface SubmitValidationInput {
 }
 
 export const getSubmitValidationError = ({
+  hasBrand,
+  hasName,
   hasProductImageCheck,
   hasCategory,
   hasValidatedSizeTable,
   isSizeTableOptionalCategory,
 }: SubmitValidationInput): string | null => {
+  if (!hasBrand) return '브랜드명을 입력해 주세요.';
+  if (!hasName) return '상품명을 입력해 주세요.';
   if (!hasProductImageCheck) return '상품 사진은 필수입니다.';
   if (!hasCategory) return '카테고리는 필수입니다.';
   if (!isSizeTableOptionalCategory && !hasValidatedSizeTable) {
@@ -165,6 +171,14 @@ export const getProductFormFlags = ({
     Boolean(formData.url.trim()) ||
     Boolean(formData.productImage) ||
     Boolean(formData.extractedTable);
+  const incompleteMessage = getSubmitValidationError({
+    hasBrand: Boolean(formData.brand.trim()),
+    hasName: Boolean(formData.name.trim()),
+    hasProductImageCheck: hasProductImage,
+    hasCategory: Boolean(formData.category.trim()),
+    hasValidatedSizeTable: hasSizeData,
+    isSizeTableOptionalCategory,
+  });
 
   return {
     hasSizeData,
@@ -172,5 +186,6 @@ export const getProductFormFlags = ({
     isPreviewOnlyProductImage,
     isFormValid,
     isCaptureReviewReady,
+    incompleteMessage,
   };
 };

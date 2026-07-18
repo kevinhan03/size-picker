@@ -13,6 +13,7 @@ import {
 import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../server/utils/size-table.js";
 import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
+import { embedProductImageById } from "../../../server/services/image-embedding.js";
 import { tagProductStyleById } from "../../../server/services/style-tagging.js";
 
 interface RegisteredUser {
@@ -129,17 +130,27 @@ export async function POST(request: Request) {
     after(async () => {
       const productId = String(insertedRow?.id || "").trim();
       if (!productId) return;
-      try {
-        const result = await tagProductStyleById(productId);
-        if (!result.ok) {
-          console.error("[style-tagging] async product tagging did not complete", { productId, result });
-        }
-      } catch (error) {
-        console.error("[style-tagging] async product tagging failed", {
-          productId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+      await Promise.all([
+        (async () => {
+          try {
+            const result = await tagProductStyleById(productId);
+            if (!result.ok) {
+              console.error("[style-tagging] async product tagging did not complete", { productId, result });
+            }
+          } catch (error) {
+            console.error("[style-tagging] async product tagging failed", {
+              productId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        })(),
+        (async () => {
+          const result = await embedProductImageById(productId);
+          if (!result.ok && !result.skipped) {
+            console.error("[image-embedding] async product embedding did not complete", { productId, result });
+          }
+        })(),
+      ]);
     });
 
     revalidatePath("/", "layout");

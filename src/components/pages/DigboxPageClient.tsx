@@ -112,7 +112,7 @@ function GridCard({
           type="button"
           aria-label="?곹뭹 ?좏깮"
           onClick={onSelect}
-          className={`absolute left-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-md border-2 p-0 shadow-none backdrop-blur transition ${
+          className={`absolute left-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-md border-2 p-0 backdrop-blur transition ${
             selected ? "border-orange-500 bg-orange-500" : "border-white/30 bg-black/50 hover:border-orange-500/70 hover:bg-orange-500/10"
           }`}
         >
@@ -680,7 +680,7 @@ export function DigboxPageClient({
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06] p-0 text-gray-500 shadow-none transition hover:bg-orange-500/[0.14] hover:text-orange-300"
+                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06] p-0 text-gray-500 transition hover:bg-orange-500/[0.14] hover:text-orange-300"
                 aria-label="Clear saved items search"
               >
                 <X className="h-3.5 w-3.5" />

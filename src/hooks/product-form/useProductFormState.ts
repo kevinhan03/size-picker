@@ -20,6 +20,8 @@ export function useProductFormState() {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isAnalyzingTable, setIsAnalyzingTable] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaveComplete, setIsSaveComplete] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isAutofillingFromUrl, setIsAutofillingFromUrl] = useState(false);
   const [isAutofillingFromImage, setIsAutofillingFromImage] = useState(false);
 
@@ -85,6 +87,8 @@ export function useProductFormState() {
     setIsAutofillingFromUrl(false);
     setIsAutofillingFromImage(false);
     setIsSaving(false);
+    setIsSaveComplete(false);
+    setSubmitError(null);
     setShowDuplicateProductModal(false);
     setAddProductMode("url");
     setTableEditingCell(null);
@@ -157,6 +161,10 @@ export function useProductFormState() {
     setIsAnalyzingTable,
     isSaving,
     setIsSaving,
+    isSaveComplete,
+    setIsSaveComplete,
+    submitError,
+    setSubmitError,
     isAutofillingFromUrl,
     setIsAutofillingFromUrl,
     isAutofillingFromImage,

@@ -124,7 +124,7 @@
 }
 
 :root {
-  --ui-depth-shadow: 0 2px 1px rgba(255, 255, 255, 0.1), 0 -2px 1px rgba(255, 255, 255, 0.3);
+  --ui-modal-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
 }
 
 .taste-graph-page {
@@ -308,19 +308,22 @@ body {
   }
 }
 
-button,
-select,
-textarea {
-  box-shadow: var(--ui-depth-shadow);
-}
-
 button:not(:disabled):active,
 [data-pressable="true"]:not([aria-disabled="true"]):active {
   transform: scale(0.97);
 }
 
-button:not(:disabled) {
+/* Full-width setting rows stay anchored to their dividers; color, not scale, confirms the tap. */
+button.ui-save-location-row:not(:disabled):active {
+  transform: none;
+  filter: brightness(1.12);
+}
+
+button,
+[data-pressable="true"] {
+  transition-property: transform, background-color, border-color, color, opacity;
   transition-duration: var(--duration-press);
+  transition-timing-function: var(--ease-out);
 }
 
 /* Floating chrome keeps the glass language; content surfaces deliberately stay solid. */
@@ -408,7 +411,7 @@ button:not(:disabled) {
 
 .ui-add-product-modal,
 .ui-product-detail-modal {
-  box-shadow: var(--ui-depth-shadow);
+  box-shadow: var(--ui-modal-shadow);
 }
 
 .ui-add-product-modal .overflow-y-auto,
@@ -422,6 +425,58 @@ button:not(:disabled) {
 .ui-product-detail-modal .overflow-y-auto::-webkit-scrollbar,
 .ui-brand-dropdown::-webkit-scrollbar {
   display: none;
+}
+
+@keyframes ui-size-comparison-result-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ui-size-comparison-result {
+  animation: ui-size-comparison-result-in 170ms ease-out;
+}
+
+.ui-related-graph-tool {
+  display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem;
+  border: 1px solid rgba(255,255,255,.1); border-radius: .8rem; background: rgba(20,21,25,.56);
+  color: rgba(229,231,235,.86); backdrop-filter: blur(18px) saturate(135%);
+}
+.ui-related-graph-sheet {
+  position: absolute; z-index: 10; left: 50%; bottom: max(1rem, env(safe-area-inset-bottom)); width: min(27rem, calc(100vw - 2rem));
+  padding: .4rem .45rem; border: 1px solid rgba(255,255,255,.1); border-radius: .95rem;
+  background: rgba(17,19,24,.84); box-shadow: 0 18px 52px rgba(0,0,0,.36); backdrop-filter: blur(22px) saturate(140%);
+  transform: translateX(-50%); transition: transform 200ms var(--ease-out), background-color 160ms ease; touch-action: pan-y;
+}
+.ui-related-graph-sheet.is-expanded { bottom: max(.75rem, env(safe-area-inset-bottom)); max-height: min(48vh, 31rem); overflow: auto; }
+.ui-related-graph-sheet-grab-area { display:flex; height:.55rem; align-items:center; justify-content:center; touch-action:none; cursor:grab; }
+.ui-related-graph-sheet-grab-area:active { cursor:grabbing; }
+.ui-related-graph-sheet-grab-area span { width:2rem; height:.16rem; border-radius:999px; background:rgba(255,255,255,.22); }
+.ui-related-graph-sheet-actions { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:stretch; }
+.ui-related-similar-action,.ui-related-outfit-action { display:inline-flex; min-height:2.4rem; align-items:center; justify-content:center; gap:.42rem; border:0; background:transparent; color:rgba(243,244,246,.84); font-size:.76rem; font-weight:800; }
+.ui-related-similar-action { min-width:0; justify-content:flex-start; padding:.45rem .55rem; border-radius:.6rem; }
+@media (hover: hover) and (pointer: fine) { .ui-related-similar-action:hover { background:rgba(255,255,255,.045); } }
+.ui-related-similar-action span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ui-related-summary-label { color:rgba(243,244,246,.9); }
+.ui-related-summary-count { color:rgba(209,213,219,.54); font-variant-numeric:tabular-nums; }
+.ui-related-outfit-action { padding:.45rem .72rem; border:1px solid rgba(251,146,60,.28); border-radius:.62rem; color:#fed7aa; }
+.ui-related-outfit-action.is-active { background:rgba(249,115,22,.14); color:#fff0df; }
+.ui-related-outfit-context { margin:.14rem .55rem .28rem; color:rgba(229,231,235,.76); font-size:.7rem; font-weight:700; letter-spacing:.01em; transition:color 180ms var(--ease-out, ease-out), opacity 180ms var(--ease-out, ease-out); }
+.ui-related-graph-sheet-details { padding:.7rem .25rem .2rem; }
+.ui-related-product-list { display:grid; gap:.2rem; margin-top:.55rem; padding:.15rem; }
+.ui-related-list-section { margin-top:.7rem; padding-top:.6rem; border-top:1px solid rgba(255,255,255,.07); }
+.ui-related-list-section.is-primary { margin-top:0; padding-top:0; border-top:0; }
+.ui-related-list-heading { margin:0 .4rem; color:rgba(229,231,235,.68); font-size:.7rem; font-weight:800; letter-spacing:.04em; }
+.ui-related-list-heading span { margin-left:.24rem; color:rgba(209,213,219,.52); font-size:.66rem; font-weight:700; letter-spacing:0; font-variant-numeric:tabular-nums; }
+.ui-related-list-caption { margin:.16rem .4rem 0; color:rgba(209,213,219,.56); font-size:.68rem; font-weight:650; }
+.ui-related-outfit-empty { margin:.75rem .4rem .3rem; color:rgba(209,213,219,.5); font-size:.72rem; font-weight:600; }
+.ui-related-product-row { display:grid; grid-template-columns:2.5rem minmax(0,1fr) auto; gap:.65rem; width:100%; align-items:center; padding:.45rem; border-radius:.8rem; color:#f9fafb; text-align:left; }
+.ui-related-product-row:hover { background:rgba(255,255,255,.055); }
+.ui-related-product-row.is-selected { background:rgba(249,115,22,.11); box-shadow:inset 0 0 0 1px rgba(249,115,22,.2); }
+.ui-related-product-row img { width:2.5rem; height:2.5rem; border-radius:.6rem; background:rgba(255,255,255,.08); object-fit:contain; }
+.ui-related-product-row span { min-width:0; }.ui-related-product-row strong,.ui-related-product-row em { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.ui-related-product-row strong { color:#fdba74; font-size:.67rem; }.ui-related-product-row em { margin-top:.15rem; color:#e5e7eb; font-size:.75rem; font-style:normal; }.ui-related-product-row b { display:inline-flex; min-width:0; align-items:baseline; gap:.2rem; color:rgba(209,213,219,.72); font-size:.72rem; font-variant-numeric:tabular-nums; white-space:nowrap; }.ui-related-product-row b small { color:rgba(209,213,219,.45); font-size:.62rem; font-weight:700; }
+
+@media (max-width: 640px) {
+  .ui-related-graph-sheet.is-expanded { max-height:min(55dvh, 30rem); }
 }
 
 @media (max-width: 520px) {
@@ -450,6 +505,24 @@ button:not(:disabled) {
 
   .search-discovery-popover {
     animation: none !important;
+  }
+
+  .ui-size-comparison-result {
+    animation-duration: 120ms;
+  }
+
+  .ui-related-graph-sheet {
+    animation: none;
+    transition: opacity 160ms ease, background-color 160ms ease;
+  }
+
+  .ui-size-comparison-action:active {
+    transform: none;
+  }
+
+  button:not(:disabled):active,
+  [data-pressable="true"]:not([aria-disabled="true"]):active {
+    transform: none;
   }
 }
 

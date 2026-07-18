@@ -163,7 +163,7 @@ export function OutfitsPageClient() {
 
         <div className="mt-6 grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-white/[0.035] p-1">
           {tabs.map((tab) => (
-            <button key={tab.value} type="button" aria-pressed={scope === tab.value} onClick={() => selectScope(tab.value)} className={`min-h-11 rounded-xl px-4 py-2 text-sm font-black shadow-none transition ${scope === tab.value ? "bg-white text-black" : "text-white/45 hover:bg-white/[0.05] hover:text-white"}`}>{tab.label}</button>
+            <button key={tab.value} type="button" aria-pressed={scope === tab.value} onClick={() => selectScope(tab.value)} className={`min-h-11 rounded-xl px-4 py-2 text-sm font-black transition ${scope === tab.value ? "bg-white text-black" : "text-white/45 hover:bg-white/[0.05] hover:text-white"}`}>{tab.label}</button>
           ))}
         </div>
 
@@ -176,7 +176,7 @@ export function OutfitsPageClient() {
                   type="button"
                   aria-pressed={mineStatus === tab.value}
                   onClick={() => selectMineStatus(tab.value)}
-                  className={`min-h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-xs font-bold shadow-none transition ${
+                  className={`min-h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-xs font-bold transition ${
                     mineStatus === tab.value
                       ? "border-orange-500/50 bg-orange-500/15 text-orange-300"
                       : "border-white/10 bg-white/[0.035] text-white/45 hover:border-white/20 hover:text-white"

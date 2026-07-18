@@ -1,5 +1,6 @@
 import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, X } from "lucide-react";
 import type { ClosetSizeSelection, Product } from "../types";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { usePresence } from "../hooks/usePresence";
@@ -49,10 +50,11 @@ export function SizeSelectionSheet({
   const [manualSize, setManualSize] = useState("");
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const { isVisible, requestClose } = usePresence(true);
-  const dragStartRef = useRef<{ id: number; y: number; startedAt: number } | null>(null);
+  const dragStartRef = useRef<{ id: number; y: number; samples: Array<{ y: number; at: number }> } | null>(null);
   const springFrameRef = useRef<number | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
+  const [isPortalReady, setIsPortalReady] = useState(false);
 
   useBodyScrollLock(sheetRef);
 
@@ -89,7 +91,9 @@ export function SizeSelectionSheet({
   }, [dragOffset]);
 
   const onDragStart = (event: PointerEvent<HTMLDivElement>) => {
-    dragStartRef.current = { id: event.pointerId, y: event.clientY, startedAt: performance.now() };
+    if (springFrameRef.current) cancelAnimationFrame(springFrameRef.current);
+    const now = performance.now();
+    dragStartRef.current = { id: event.pointerId, y: event.clientY, samples: [{ y: event.clientY, at: now }] };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
@@ -97,8 +101,13 @@ export function SizeSelectionSheet({
     const start = dragStartRef.current;
     if (!start || start.id !== event.pointerId) return;
     const distance = event.clientY - start.y;
+    const now = performance.now();
+    start.samples = [...start.samples, { y: event.clientY, at: now }].slice(-4);
     if (Math.abs(distance) < 10) return;
-    setDragOffset(distance < 0 ? distance * 0.18 : distance);
+    const upwardResistance = distance < 0
+      ? (distance * 92) / (Math.abs(distance) + 92)
+      : distance;
+    setDragOffset(upwardResistance);
   };
 
   const onDragEnd = (event: PointerEvent<HTMLDivElement>) => {
@@ -106,7 +115,10 @@ export function SizeSelectionSheet({
     if (!start || start.id !== event.pointerId) return;
     dragStartRef.current = null;
     const distance = event.clientY - start.y;
-    const velocity = distance / Math.max(performance.now() - start.startedAt, 1);
+    const samples = start.samples;
+    const first = samples[0];
+    const last = samples[samples.length - 1];
+    const velocity = (last.y - first.y) / Math.max(last.at - first.at, 1);
     if (distance > 120 || (velocity > 0.11 && distance > 10)) {
       springTo(window.innerHeight, velocity * 1000, closeSheet);
       return;
@@ -119,11 +131,16 @@ export function SizeSelectionSheet({
   }, []);
 
   useEffect(() => {
+    setIsPortalReady(true);
+  }, []);
+
+  useEffect(() => {
     setSelectedRowIndex(safeInitialIndex);
     setManualSize("");
   }, [safeInitialIndex, product.id]);
 
   useEffect(() => {
+    if (!isPortalReady) return;
     const storageKey = "sizepicker:tutorial:v2:sizeSelection";
     if (window.localStorage.getItem(storageKey)) return;
     window.localStorage.setItem(storageKey, "true");
@@ -141,7 +158,7 @@ export function SizeSelectionSheet({
           }
         : undefined,
     });
-  }, []);
+  }, [isPortalReady]);
 
   const selectedRow = useMemo(
     () => (selectedRowIndex !== null ? rows[selectedRowIndex] : null),
@@ -160,13 +177,27 @@ export function SizeSelectionSheet({
 
   const hasSizeTable = rows.length > 0;
   const canConfirm = hasSizeTable ? selectedRowIndex !== null : manualSize.trim().length > 0;
+  const selectedSizeLabel = selectedRow ? String(selectedRow[0] ?? '').trim() : manualSize.trim();
+  const measurementSummary = measurements
+    .slice(0, 3)
+    .map(({ label, value }) => `${label} ${value}`)
+    .join(' · ');
+  const selectionHint = hasSizeTable
+    ? '사이즈를 선택하면 주요 치수를 확인할 수 있어요.'
+    : '입력한 사이즈는 내 옷장에 함께 저장됩니다.';
+  const confirmLabel = canConfirm
+    ? `${selectedSizeLabel} 선택 완료`
+    : hasSizeTable
+      ? '사이즈를 선택하세요'
+      : '사이즈를 입력하세요';
 
-  return (
+  return isPortalReady ? createPortal(
+    (
     <div className="fixed inset-0 z-[85] flex items-end justify-center sm:items-center">
       <div className="ui-layer-scrim absolute inset-0 bg-black/70 backdrop-blur-sm" data-visible={isVisible} onClick={closeSheet} />
       <div
         ref={sheetRef}
-        className="ui-layer-sheet ui-floating-surface relative max-h-[90dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-3xl border border-white/10 bg-[#111114] p-5 text-white shadow-[0_-24px_60px_rgba(0,0,0,0.55)] sm:rounded-3xl sm:p-6"
+        className="ui-layer-sheet relative max-h-[90dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-3xl bg-[#111114] p-5 text-white shadow-[0_-24px_60px_rgba(0,0,0,0.55)] sm:rounded-3xl sm:p-6"
         data-visible={isVisible}
         style={dragOffset ? { transform: `translateY(${dragOffset}px)`, transition: "none" } : undefined}
       >
@@ -180,7 +211,8 @@ export function SizeSelectionSheet({
         >
           <span className="h-1 w-10 rounded-full bg-white/25" />
         </div>
-        <div className="mb-5 flex items-start justify-between gap-4">
+        <div className="sticky top-0 z-10 -mx-5 mb-5 bg-[#111114] px-5 py-3 sm:-mx-6 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h3 className="truncate text-lg font-bold">보유 사이즈 선택</h3>
             <p className="mt-1 truncate text-sm text-gray-400">{product.name}</p>
@@ -193,6 +225,7 @@ export function SizeSelectionSheet({
           >
             <X className="h-4 w-4" />
           </button>
+          </div>
         </div>
 
         {hasSizeTable ? (
@@ -204,14 +237,16 @@ export function SizeSelectionSheet({
                   <button
                     key={`${label}-${index}`}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => setSelectedRowIndex(index)}
-                    className={`h-12 rounded-xl border text-sm font-bold transition-[background-color,border-color,color,box-shadow] ${
+                    className={`relative h-12 rounded-xl border text-sm font-bold transition-[background-color,border-color,color,box-shadow] ${
                       active
                         ? "border-orange-400/75 bg-orange-500/[0.16] text-orange-100 shadow-[inset_0_0_0_1px_rgba(251,146,60,0.12)]"
                         : "border-white/10 bg-white/[0.06] text-gray-200 hover:border-orange-400/50 hover:text-orange-200"
                     }`}
                   >
                     {label}
+                    {active ? <Check className="absolute right-2 top-2 h-3.5 w-3.5" strokeWidth={2.75} /> : null}
                   </button>
                 );
               })}
@@ -231,23 +266,22 @@ export function SizeSelectionSheet({
           </div>
         )}
 
-        {measurements.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-            {measurements.map(({ label, value }) => (
-              <span key={`${label}-${value}`} className="rounded-lg bg-white/[0.08] px-2 py-1 text-xs font-semibold text-gray-300">
-                {label} {value}
-              </span>
-            ))}
-          </div>
-        )}
+        <div className="mt-4 flex min-h-[4.5rem] items-center">
+          {canConfirm ? (
+            <div>
+              <p className="text-xl font-bold tracking-tight text-orange-100">{selectedSizeLabel}</p>
+              <p className="mt-1 text-xs text-gray-400">{measurementSummary || (hasSizeTable ? '선택한 사이즈로 내 옷장에 저장됩니다.' : '직접 입력한 보유 사이즈입니다.')}</p>
+            </div>
+          ) : <p className="text-xs text-gray-500">{selectionHint}</p>}
+        </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2">
+        <div className="sticky bottom-0 -mx-5 mt-3 grid grid-cols-2 gap-2 bg-[#111114] px-5 pb-[calc(0.25rem+env(safe-area-inset-bottom))] pt-4 sm:-mx-6 sm:px-6">
           <button
             type="button"
             onClick={() => onConfirm(null)}
             className="h-12 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-sm font-bold text-gray-300 transition hover:bg-white/[0.09] hover:text-white"
           >
-            사이즈 선택 안함
+            사이즈 없이 저장
           </button>
           <button
             type="button"
@@ -255,7 +289,7 @@ export function SizeSelectionSheet({
             onClick={() => onConfirm(buildClosetSizeSelection(product, selectedRowIndex, manualSize))}
             className="h-12 rounded-xl bg-orange-500 px-5 text-sm font-bold text-black transition-[background-color,color] hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500"
           >
-            선택
+            {confirmLabel}
           </button>
         </div>
       </div>
@@ -267,5 +301,7 @@ export function SizeSelectionSheet({
         />
       )}
     </div>
-  );
+    ),
+    document.body
+  ) : null;
 }

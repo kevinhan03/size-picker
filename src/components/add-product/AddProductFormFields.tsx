@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import {
+  Check,
   ChevronDown,
   Globe,
   Loader2,
@@ -8,7 +9,7 @@ import {
 import { CATEGORY_OPTIONS } from '../../constants';
 import type { useProductForm } from '../../hooks/useProductForm';
 import type { Product } from '../../types';
-import { normalizeSizeTableForCategory } from '../../utils/sizeTable';
+import { normalizeMeasurementLabel, normalizeMeasurementValueForDisplay, normalizeSizeTableForCategory } from '../../utils/sizeTable';
 import { SizeSelectionSheet } from '../SizeSelectionSheet';
 import { ProductImageSection } from './ProductImageSection';
 import { SizeTableSection } from './SizeTableSection';
@@ -27,6 +28,13 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
   );
 }
 
+function getSizeSummary(selection: ProductForm['closetSizeSelection']) {
+  if (!selection?.snapshot) return '';
+  const label = normalizeMeasurementLabel(selection.snapshot.headers[1] || '');
+  const value = normalizeMeasurementValueForDisplay(selection.snapshot.row[1]);
+  return label && value ? `${label} ${value}` : '';
+}
+
 export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
   const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -42,6 +50,7 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
     normalizedSizeTable: form.formData.extractedTable,
   }), [form.autofilledProductImageUrl, form.formData]);
   const selectedSizeLabel = form.closetSizeSelection?.label || form.closetSizeSelection?.snapshot?.row?.[0] || '';
+  const selectedSizeSummary = getSizeSummary(form.closetSizeSelection);
 
   return (
     <>
@@ -163,52 +172,54 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
       <ProductImageSection form={form} />
       <SizeTableSection form={form} />
 
-      <section className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-bold text-white">등록 후 저장</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => form.setAddToDigboxOnSubmit(!form.addToDigboxOnSubmit)}
-              className={`h-9 rounded-lg border px-3 text-xs font-black transition ${
-                form.addToDigboxOnSubmit
-                  ? 'border-yellow-400/60 bg-yellow-400/20 text-yellow-300'
-                  : 'border-white/10 bg-white/[0.04] text-gray-500'
-              }`}
-            >
-              저장
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const next = !form.addToClosetOnSubmit;
-                form.setAddToClosetOnSubmit(next);
-                if (!next) form.setClosetSizeSelection(null);
-              }}
-              className={`h-9 rounded-lg border px-3 text-xs font-black transition ${
-                form.addToClosetOnSubmit
-                  ? 'border-orange-500/60 bg-orange-500/20 text-orange-300'
-                  : 'border-white/10 bg-white/[0.04] text-gray-500'
-              }`}
-            >
-              Closet
-            </button>
-          </div>
+      <section className="space-y-2">
+        <div>
+          <span className="text-sm font-semibold text-gray-300">저장 위치</span>
+          <p className="mt-1 text-xs text-gray-500">등록한 상품을 저장할 곳을 선택하세요.</p>
         </div>
-        {form.addToClosetOnSubmit ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-3 py-2">
-            <span className="min-w-0 truncate text-xs font-semibold text-orange-100">
-              {selectedSizeLabel ? selectedSizeLabel : '사이즈 선택 안 함'}
+        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-black/10">
+          <button
+            type="button"
+            aria-pressed={form.addToDigboxOnSubmit}
+            onClick={() => form.setAddToDigboxOnSubmit(!form.addToDigboxOnSubmit)}
+            className={`ui-save-location-row flex min-h-14 w-full items-center gap-2 border-r border-white/10 px-3 text-left transition ${form.addToDigboxOnSubmit ? 'bg-yellow-400/[0.07] text-yellow-100' : 'text-gray-300 hover:bg-white/[0.05]'}`}
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${form.addToDigboxOnSubmit ? 'border-yellow-300 bg-yellow-400 text-black' : 'border-white/25 text-transparent'}`}>
+              <Check aria-hidden="true" className={`h-3.5 w-3.5 transition-all duration-150 ${form.addToDigboxOnSubmit ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`} />
+            </span>
+            <span className="min-w-0"><span className="block whitespace-nowrap text-sm font-bold">찜 목록</span><span className="hidden text-xs text-gray-500 sm:block">나중에 살펴볼 상품</span></span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={form.addToClosetOnSubmit}
+            onClick={() => {
+              const next = !form.addToClosetOnSubmit;
+              form.setAddToClosetOnSubmit(next);
+              if (!next) form.setClosetSizeSelection(null);
+            }}
+            className={`ui-save-location-row flex min-h-14 w-full items-center gap-2 px-3 text-left transition ${form.addToClosetOnSubmit ? 'bg-orange-500/[0.07] text-orange-100' : 'text-gray-300 hover:bg-white/[0.05]'}`}
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${form.addToClosetOnSubmit ? 'border-orange-400 bg-orange-500 text-black' : 'border-white/25 text-transparent'}`}>
+              <Check aria-hidden="true" className={`h-3.5 w-3.5 transition-all duration-150 ${form.addToClosetOnSubmit ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`} />
+            </span>
+            <span className="min-w-0"><span className="block whitespace-nowrap text-sm font-bold">내 옷장</span><span className="hidden text-xs text-gray-500 sm:block">보유 사이즈와 함께 저장</span></span>
+          </button>
+          {form.addToClosetOnSubmit ? (
+          <div className="col-span-2 flex items-center justify-between gap-3 border-t border-white/10 bg-white/[0.02] px-3 py-3">
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold text-orange-100">{selectedSizeLabel ? `선택한 사이즈 · ${selectedSizeLabel}` : '사이즈를 선택하세요'}</span>
+              <span className="mt-0.5 block truncate text-xs text-orange-200/70">{selectedSizeLabel ? (selectedSizeSummary || '사이즈표 기준') : '내 옷장에 정확한 보유 사이즈를 남길 수 있어요.'}</span>
             </span>
             <button
               type="button"
               onClick={() => setIsSizeSheetOpen(true)}
-              className="shrink-0 rounded-lg border border-orange-500/40 bg-orange-500/15 px-2.5 py-1.5 text-xs font-bold text-orange-200 transition hover:bg-orange-500/25"
+              className="shrink-0 rounded-lg bg-orange-500/15 px-2.5 py-1.5 text-xs font-bold text-orange-200 transition hover:bg-orange-500/25"
             >
-              사이즈 선택
+              {selectedSizeLabel ? '변경' : '선택'}
             </button>
           </div>
-        ) : null}
+          ) : null}
+        </div>
       </section>
 
       {isSizeSheetOpen ? (

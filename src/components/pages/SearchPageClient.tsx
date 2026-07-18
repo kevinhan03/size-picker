@@ -364,7 +364,7 @@ export function SearchPageClient() {
               grid.setGridSearchQuery("");
               clearQuery();
             }}
-            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center border-none bg-transparent p-0 text-gray-400 shadow-none outline-none transition hover:text-white"
+            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center border-none bg-transparent p-0 text-gray-400 outline-none transition hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>
@@ -560,6 +560,7 @@ export function SearchPageClient() {
           }}
           isInDigbox={isInDigbox(normalizedProduct.id)}
           showGuestDigboxHint={showGuestDetailSaveHint}
+          relatedGraphButtonLabel="비슷한 상품"
           analyticsSource="home_grid"
         />
       )}

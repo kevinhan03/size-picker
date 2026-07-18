@@ -114,7 +114,7 @@ export function NewOutfitRequestPageClient() {
                   type="button"
                   aria-pressed={!focusCategory}
                   onClick={() => selectFocusCategory("")}
-                  className={`min-h-9 shrink-0 rounded-full border px-4 text-xs font-bold shadow-none transition ${
+                  className={`min-h-9 shrink-0 rounded-full border px-4 text-xs font-bold transition ${
                     !focusCategory
                       ? "border-orange-500/50 bg-orange-500/15 text-orange-300"
                       : "border-white/10 bg-white/[0.04] text-white/45 hover:border-white/20 hover:text-white"
@@ -128,7 +128,7 @@ export function NewOutfitRequestPageClient() {
                     type="button"
                     aria-pressed={focusCategory === category}
                     onClick={() => selectFocusCategory(category)}
-                    className={`min-h-9 shrink-0 rounded-full border px-4 text-xs font-bold shadow-none transition ${
+                    className={`min-h-9 shrink-0 rounded-full border px-4 text-xs font-bold transition ${
                       focusCategory === category
                         ? "border-orange-500/50 bg-orange-500/15 text-orange-300"
                         : "border-white/10 bg-white/[0.04] text-white/45 hover:border-white/20 hover:text-white"

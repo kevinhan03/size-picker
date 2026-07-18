@@ -129,7 +129,7 @@ export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange
                     setIsOpen(false);
                   }
                 }}
-                className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-bold leading-none shadow-none outline-none transition focus-visible:bg-white/[.08] ${
+                className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-bold leading-none outline-none transition focus-visible:bg-white/[.08] ${
                   selected
                     ? "bg-orange-500/[.14] text-orange-300"
                     : "text-gray-300 hover:bg-white/[.07] hover:text-white"

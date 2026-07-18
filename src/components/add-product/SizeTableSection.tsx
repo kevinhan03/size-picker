@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Camera, ChevronDown, Expand, Upload, X } from 'lucide-react';
 import { ITEM_LABEL } from '../../constants';
 import type { useProductForm } from '../../hooks/useProductForm';
@@ -38,6 +39,15 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const isOptional = form.isSizeTableOptionalCategory;
   const isComparisonMode = Boolean(form.formData.sizeChartImage && form.formData.extractedTable);
+
+  useEffect(() => {
+    if (!isImagePreviewOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsImagePreviewOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isImagePreviewOpen]);
 
   return (
     <div className="space-y-2">
@@ -117,9 +127,9 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
               <div className="border-t border-white/10 px-3 py-2 text-xs text-gray-400">원본 사이즈표 · 클릭하여 확대</div>
             </div>
           ) : null}
-          <div className="rounded-xl border border-white/10 overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 bg-white/[0.04] border-b border-white/10">
-            <span className="text-xs text-gray-500">{'\uC140\uC744 \uD074\uB9AD\uD558\uBA74 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.'}</span>
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+          <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.04] px-3 py-2">
+            <span className="text-xs text-gray-500">{form.tableEditingCell ? 'Enter 저장 · Esc 취소' : '셀을 눌러 수정할 수 있습니다.'}</span>
             <span className="text-xs font-semibold text-gray-500">{'단위: cm'}</span>
           </div>
           <div className="overflow-x-auto">
@@ -127,54 +137,64 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
               {form.formData.extractedTable.headers.length > 0 ? (
                 <thead className="border-b border-white/10">
                   <tr>
-                    {form.formData.extractedTable.headers.map((header, colIdx) => (
+                    {form.formData.extractedTable.headers.map((header, colIdx) => {
+                      const isEditing = form.tableEditingCell?.kind === 'header' && form.tableEditingCell.colIdx === colIdx;
+                      return (
                       <th
                         key={colIdx}
                         onClick={() => form.setTableEditingCell({ kind: 'header', colIdx })}
-                        className={`px-2 py-1.5 font-semibold whitespace-nowrap cursor-pointer hover:bg-white/[0.06] transition ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${colIdx === 0 ? 'border-r border-white/10' : ''}`}
+                        className={`relative cursor-pointer whitespace-nowrap px-2 py-1.5 font-semibold ${isEditing ? 'bg-orange-500/[0.12]' : 'hover:bg-white/[0.06]'} ${normalizeCellText(header) === ITEM_LABEL ? 'text-gray-200' : 'text-green-400'} ${colIdx === 0 ? 'border-r border-white/10' : ''}`}
                       >
-                        {form.tableEditingCell?.kind === 'header' && form.tableEditingCell.colIdx === colIdx ? (
+                        {isEditing ? (
                           <input
                             autoFocus
                             defaultValue={header}
+                            aria-label={`${header} 수정`}
+                            onFocus={(event) => event.currentTarget.select()}
                             onBlur={(e) => commitTableCell(form, e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') commitTableCell(form, (e.target as HTMLInputElement).value);
                               if (e.key === 'Escape') form.setTableEditingCell(null);
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
+                            className="absolute inset-0 h-full w-full bg-[#1b1b1f] px-2 text-left text-xs font-semibold text-white shadow-[inset_0_0_0_1px_rgba(249,115,22,0.75)] outline-none"
                           />
                         ) : header}
                       </th>
-                    ))}
+                      );
+                    })}
                   </tr>
                 </thead>
               ) : null}
               <tbody>
                 {form.formData.extractedTable.rows.map((row, rowIdx) => (
                   <tr key={rowIdx} className="border-b border-white/[0.06]">
-                    {row.map((cell, colIdx) => (
+                    {row.map((cell, colIdx) => {
+                      const isEditing = form.tableEditingCell?.kind === 'row' && form.tableEditingCell.rowIdx === rowIdx && form.tableEditingCell.colIdx === colIdx;
+                      return (
                       <td
                         key={colIdx}
                         onClick={() => form.setTableEditingCell({ kind: 'row', rowIdx, colIdx })}
-                        className={`px-2 py-1.5 whitespace-nowrap cursor-pointer hover:bg-white/[0.06] transition ${colIdx === 0 ? 'text-gray-300 border-r border-white/10' : 'text-gray-400'}`}
+                        className={`relative cursor-pointer whitespace-nowrap px-2 py-1.5 ${isEditing ? 'bg-orange-500/[0.12]' : 'hover:bg-white/[0.06]'} ${colIdx === 0 ? 'text-gray-300 border-r border-white/10' : 'text-gray-400'}`}
                       >
-                        {form.tableEditingCell?.kind === 'row' && form.tableEditingCell.rowIdx === rowIdx && form.tableEditingCell.colIdx === colIdx ? (
+                        {isEditing ? (
                           <input
                             autoFocus
                             defaultValue={cell}
+                            aria-label={`${displayTableCell(cell)} 수정`}
+                            onFocus={(event) => event.currentTarget.select()}
                             onBlur={(e) => commitTableCell(form, e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') commitTableCell(form, (e.target as HTMLInputElement).value);
                               if (e.key === 'Escape') form.setTableEditingCell(null);
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-transparent border-b border-orange-400 outline-none w-full min-w-[40px] text-white"
+                            className="absolute inset-0 h-full w-full bg-[#1b1b1f] px-2 text-left text-xs font-semibold text-white shadow-[inset_0_0_0_1px_rgba(249,115,22,0.75)] outline-none"
                           />
                         ) : displayTableCell(cell)}
                       </td>
-                    ))}
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -183,14 +203,31 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
           </div>
         </div>
       ) : null}
-      {isImagePreviewOpen && form.formData.sizeChartImage ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" role="dialog" aria-modal="true" aria-label="사이즈표 원본 확대 보기">
-          <button type="button" aria-label="닫기" onClick={() => setIsImagePreviewOpen(false)} className="absolute right-5 top-5 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
-            <X className="h-5 w-5" />
-          </button>
-          <img src={form.formData.sizeChartImage} alt="업로드한 사이즈표 원본 확대" className="max-h-[90vh] max-w-[95vw] object-contain" />
-        </div>
-      ) : null}
+      {isImagePreviewOpen && form.formData.sizeChartImage && typeof document !== 'undefined'
+        ? createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label="사이즈표 원본 확대 보기"
+            onClick={() => setIsImagePreviewOpen(false)}
+          >
+            <div className="relative flex max-h-full max-w-full items-center justify-center" onClick={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                autoFocus
+                aria-label="닫기"
+                onClick={() => setIsImagePreviewOpen(false)}
+                className="absolute right-2 top-2 z-10 rounded-full bg-black/60 p-2 text-white transition hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <img src={form.formData.sizeChartImage} alt="업로드한 사이즈표 원본 확대" className="max-h-[90vh] max-w-[95vw] object-contain" />
+            </div>
+          </div>,
+          document.body
+        )
+        : null}
       {form.formData.extractedTable?.extra?.headers?.length && !form.isAnalyzingTable ? (
         <div className="rounded-xl border border-white/10 overflow-hidden">
           <button

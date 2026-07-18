@@ -13,6 +13,8 @@ interface ProductFormSubmitState {
   isProcessingImage: boolean;
   isAnalyzingTable: boolean;
   isSaving: boolean;
+  setIsSaveComplete: (value: boolean) => void;
+  setSubmitError: (value: string | null) => void;
   isInstagramMode: boolean;
   addToDigboxOnSubmit: boolean;
   addToClosetOnSubmit: boolean;
@@ -68,6 +70,8 @@ export function useProductFormSubmit({
     }
 
     const validationError = getSubmitValidationError({
+      hasBrand: Boolean(state.formData.brand.trim()),
+      hasName: Boolean(state.formData.name.trim()),
       hasProductImageCheck: Boolean(state.productPhotoFile) || Boolean(state.autofilledProductImageUrl),
       hasCategory: Boolean(state.formData.category.trim()),
       hasValidatedSizeTable: Boolean(state.formData.extractedTable),
@@ -75,10 +79,12 @@ export function useProductFormSubmit({
     });
 
     if (validationError) {
-      alert(validationError);
+      state.setSubmitError(validationError);
       return;
     }
 
+    state.setSubmitError(null);
+    state.setIsSaveComplete(false);
     state.setIsSaving(true);
     try {
       const product = await submitProduct(
@@ -109,6 +115,8 @@ export function useProductFormSubmit({
         state.showSubmitToast({ message: "상품은 등록됐지만 담기에 실패했습니다.", type: "error" });
       }
 
+      state.setIsSaveComplete(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
       state.closeModal();
       onSubmitSuccess();
     } catch (submitError: unknown) {
@@ -118,7 +126,7 @@ export function useProductFormSubmit({
         state.setShowDuplicateProductModal(true);
         return;
       }
-      alert(`상품 등록 실패: ${message}`);
+      state.setSubmitError(`상품 등록에 실패했습니다. ${message}`);
     } finally {
       state.setIsSaving(false);
     }
