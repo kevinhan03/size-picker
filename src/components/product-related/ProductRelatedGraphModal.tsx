@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import type { Product, RelatedGraphReason, StyleTagName, StyleTags } from "../../types";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
+import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import {
@@ -876,26 +877,18 @@ export function ProductRelatedGraphModal({
           isInDigbox={isInDigbox(selectedProduct.id)}
           hideRelatedGraphButton
           onRelatedGraphRequest={() => switchGraphProduct(selectedProduct)}
-          relatedGraphButtonLabel="비슷한 상품 더 보기"
+          relatedGraphButtonLabel="비슷한 상품 보기"
           relatedGraphReason={selectedReason}
           analyticsSource="related_product_graph"
         />
       )}
-      {selectedProduct && isSelectedImageZoomed && (
-        <div
-          className="fixed inset-0 z-[90] flex cursor-pointer items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
-          onClick={() => setIsSelectedImageZoomed(false)}
-          onTouchStart={() => setIsSelectedImageZoomed(false)}
-        >
-          <div className="flex h-[63vh] w-full max-w-6xl items-center justify-center">
-            <img
-              src={selectedProduct.image || selectedProduct.thumbnailImage || DEFAULT_PRODUCT_PLACEHOLDER}
-              alt={selectedProduct.name}
-              className="max-h-full max-w-full cursor-pointer object-contain"
-              style={{ borderRadius: "20px" }}
-            />
-          </div>
-        </div>
+      {selectedProduct && (
+        <ImageViewerOverlay
+          open={isSelectedImageZoomed}
+          src={selectedProduct.image || selectedProduct.thumbnailImage || DEFAULT_PRODUCT_PLACEHOLDER}
+          alt={selectedProduct.name}
+          onClose={() => setIsSelectedImageZoomed(false)}
+        />
       )}
     </div>
   );

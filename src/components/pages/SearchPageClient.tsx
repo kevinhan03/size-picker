@@ -16,7 +16,8 @@ import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useSearchContext } from "../../contexts/SearchContext";
 import { useGridState } from "../../hooks/useGridState";
-import { getProductPageUrl, toPublicUrl } from "../../utils/product";
+import { useProductModalQuery } from "../../hooks/useProductModalQuery";
+import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
 
 const TUTORIAL_IDS = [
@@ -86,6 +87,7 @@ export function SearchPageClient() {
     suggestions,
   } = useSearchContext();
   const grid = useGridState(products);
+  const productModal = useProductModalQuery();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
@@ -198,14 +200,16 @@ export function SearchPageClient() {
   );
 
   useEffect(() => {
-    const handlePopState = () => {
+    if (!productModal.productId) {
       setSelectedProduct(null);
       setActiveRowIndex(null);
       setIsDetailImageZoomed(false);
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+      return;
+    }
+
+    const product = products.find((item) => item.id === productModal.productId);
+    if (product) setSelectedProduct(product);
+  }, [productModal.productId, products]);
 
   const getAnchorRect = (element: Element): TutorialAnchorRect => {
     const rect = element.getBoundingClientRect();
@@ -297,15 +301,15 @@ export function SearchPageClient() {
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
     showTutorialOnce("detail", anchorRect);
-    window.history.pushState(null, "", getProductPageUrl(product));
+    productModal.openProduct(product.id);
   };
 
   const handleGridClose = () => {
+    productModal.closeProduct();
     setSelectedProduct(null);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
     setShowGuestDetailSaveHint(false);
-    window.history.back();
   };
 
   const handleGridRecommendationClick = (product: Product, anchorRect?: TutorialAnchorRect) => {
@@ -313,7 +317,7 @@ export function SearchPageClient() {
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
     showTutorialOnce("detail", anchorRect);
-    window.history.replaceState(null, "", getProductPageUrl(product));
+    productModal.openProduct(product.id, true);
   };
 
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
@@ -560,7 +564,7 @@ export function SearchPageClient() {
           }}
           isInDigbox={isInDigbox(normalizedProduct.id)}
           showGuestDigboxHint={showGuestDetailSaveHint}
-          relatedGraphButtonLabel="비슷한 상품"
+          relatedGraphButtonLabel="비슷한 상품 보기"
           analyticsSource="home_grid"
         />
       )}

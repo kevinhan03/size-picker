@@ -395,6 +395,11 @@ export interface ProductTasteDecision {
   primaryTag: StyleTagName;
   secondaryTag?: StyleTagName;
   closetShare: number;
+  tagEvidence: Array<{
+    tag: StyleTagName;
+    productScore: number;
+    closetShare: number;
+  }>;
   closestProducts: Array<{
     product: Product;
     similarity: number;
@@ -695,6 +700,11 @@ export function getProductTasteDecision(product: Product, closetProducts: Produc
   const [primaryTag] = topTags[0];
   const secondaryTag = topTags[1]?.[0];
   const closetShare = closetShareByTag.get(primaryTag) || 0;
+  const tagEvidence = topTags.map(([tag, productScore]) => ({
+    tag,
+    productScore,
+    closetShare: closetShareByTag.get(tag) || 0,
+  }));
   const closestProducts = eligibleClosetProducts
     .map((candidate) => {
       const style = styleSimilarity(product, candidate);
@@ -732,7 +742,7 @@ export function getProductTasteDecision(product: Product, closetProducts: Produc
         ? "new_direction"
         : "core_match";
 
-  return { kind, primaryTag, secondaryTag, closetShare, closestProducts };
+  return { kind, primaryTag, secondaryTag, closetShare, tagEvidence, closestProducts };
 }
 
 function getEffectiveStyleAttributes(product: Product): Record<string, unknown> | null {

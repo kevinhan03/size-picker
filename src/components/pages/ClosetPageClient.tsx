@@ -8,18 +8,19 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { PageState } from "../PageState";
 import { ImageViewerOverlay } from "../ImageViewerOverlay";
-import { getProductPageUrl, toPublicUrl } from "../../utils/product";
+import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
 
 const CATEGORIES = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
 type ViewMode = "grid" | "list";
 
 function getClosetProductPageUrl(product: Product): string {
-  return `${getProductPageUrl(product)}?source=closet`;
+  return `?product=${encodeURIComponent(product.id)}`;
 }
 
 const cardStyle: React.CSSProperties = {
@@ -488,6 +489,7 @@ export function ClosetPageClient() {
   const { closetProducts, removeFromCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const digbox = useDigboxContext();
   const ensureDigboxLoaded = digbox.ensureLoaded;
+  const productModal = useProductModalQuery();
 
   const [catFilter, setCatFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -548,13 +550,27 @@ export function ClosetPageClient() {
     return closetProducts.find((item) => item.id === normalizedProduct.id) || normalizedProduct;
   }, [closetProducts, normalizedProduct]);
 
-  const handleProductOpen = (product: Product) => {
+  useEffect(() => {
+    if (!productModal.productId) {
+      setSelectedProduct(null);
+      setActiveRowIndex(null);
+      setIsDetailImageZoomed(false);
+      return;
+    }
+
+    const product = closetProducts.find((item) => item.id === productModal.productId);
+    if (product) setSelectedProduct(product);
+  }, [closetProducts, productModal.productId]);
+
+  const handleProductOpen = (product: Product, replace = false) => {
     setSelectedProduct(product);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
+    productModal.openProduct(product.id, replace);
   };
 
   const handleModalClose = () => {
+    productModal.closeProduct();
     setSelectedProduct(null);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
@@ -945,7 +961,7 @@ export function ClosetPageClient() {
           activeRowIndex={activeRowIndex}
           onClose={handleModalClose}
           onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
-          onRecommendationClick={handleProductOpen}
+          onRecommendationClick={(product) => handleProductOpen(product, true)}
           onZoomImage={() => setIsDetailImageZoomed(true)}
           onImageError={handleImageLoadError}
           modalRef={modalRef}

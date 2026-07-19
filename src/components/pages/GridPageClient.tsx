@@ -9,7 +9,8 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useGridState } from "../../hooks/useGridState";
-import { getProductPageUrl, toPublicUrl } from "../../utils/product";
+import { useProductModalQuery } from "../../hooks/useProductModalQuery";
+import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
 
 export function GridPageClient() {
@@ -17,6 +18,7 @@ export function GridPageClient() {
   const { closetProducts, toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const { toggleDigbox, isInDigbox, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
   const grid = useGridState(products);
+  const productModal = useProductModalQuery();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
@@ -38,34 +40,36 @@ export function GridPageClient() {
   }, [selectedProduct]);
 
   useEffect(() => {
-    const handlePopState = () => {
+    if (!productModal.productId) {
       setSelectedProduct(null);
       setActiveRowIndex(null);
       setIsDetailImageZoomed(false);
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+      return;
+    }
+
+    const product = products.find((item) => item.id === productModal.productId);
+    if (product) setSelectedProduct(product);
+  }, [productModal.productId, products]);
 
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
-    window.history.pushState(null, "", getProductPageUrl(product));
+    productModal.openProduct(product.id);
   };
 
   const handleClose = () => {
+    productModal.closeProduct();
     setSelectedProduct(null);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
-    window.history.back();
   };
 
   const handleRecommendationClick = (product: Product) => {
     setSelectedProduct(product);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
-    window.history.replaceState(null, "", getProductPageUrl(product));
+    productModal.openProduct(product.id, true);
   };
 
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {

@@ -7,12 +7,13 @@ import { Search, Trash2, X } from "lucide-react";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { supabase } from "../../lib/supabase";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
-import { getProductPageUrl, toPublicUrl } from "../../utils/product";
+import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
 
 const CATEGORIES = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
@@ -25,10 +26,6 @@ const cardStyle: React.CSSProperties = {
   overflow: "hidden",
   boxShadow: "0 1px 0 rgba(255,255,255,0.08) inset, 0 12px 40px rgba(0,0,0,0.55)",
 };
-
-function getDigboxProductPageUrl(product: Product): string {
-  return `${getProductPageUrl(product)}?source=digbox`;
-}
 
 function GridCard({
   product,
@@ -57,7 +54,7 @@ function GridCard({
       }`}
     >
       <Link
-        href={getDigboxProductPageUrl(product)}
+        href={`?product=${encodeURIComponent(product.id)}`}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();
@@ -196,7 +193,7 @@ function ListRow({
         </button>
       )}
       <Link
-        href={getDigboxProductPageUrl(product)}
+        href={`?product=${encodeURIComponent(product.id)}`}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();
@@ -216,7 +213,7 @@ function ListRow({
         </div>
       </Link>
       <Link
-        href={getDigboxProductPageUrl(product)}
+        href={`?product=${encodeURIComponent(product.id)}`}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();
@@ -302,6 +299,7 @@ export function DigboxPageClient({
   const auth = useAuthContext();
   const digbox = useDigboxContext();
   const ensureDigboxLoaded = digbox.ensureLoaded;
+  const productModal = useProductModalQuery();
   const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
 
   const isOwner = Boolean(auth.dbUsername && auth.dbUsername === username);
@@ -418,13 +416,27 @@ export function DigboxPageClient({
     return { ...selectedProduct, image, thumbnailImage };
   }, [selectedProduct]);
 
-  const handleProductOpen = (product: Product) => {
+  useEffect(() => {
+    if (!productModal.productId) {
+      setSelectedProduct(null);
+      setActiveRowIndex(null);
+      setIsDetailImageZoomed(false);
+      return;
+    }
+
+    const product = products.find((item) => item.id === productModal.productId);
+    if (product) setSelectedProduct(product);
+  }, [productModal.productId, products]);
+
+  const handleProductOpen = (product: Product, replace = false) => {
     setSelectedProduct(product);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
+    productModal.openProduct(product.id, replace);
   };
 
   const handleModalClose = () => {
+    productModal.closeProduct();
     setSelectedProduct(null);
     setActiveRowIndex(null);
     setIsDetailImageZoomed(false);
@@ -840,7 +852,7 @@ export function DigboxPageClient({
           activeRowIndex={activeRowIndex}
           onClose={handleModalClose}
           onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
-          onRecommendationClick={handleProductOpen}
+          onRecommendationClick={(product) => handleProductOpen(product, true)}
           onZoomImage={() => setIsDetailImageZoomed(true)}
           onImageError={handleImageLoadError}
           modalRef={modalRef}

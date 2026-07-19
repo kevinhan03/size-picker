@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProductDetailModal } from "./ProductDetailModal";
+import { ImageViewerOverlay } from "./ImageViewerOverlay";
 import { useClosetContext } from "../contexts/ClosetContext";
 import { useDigboxContext } from "../contexts/DigboxContext";
 import type { Product } from "../types";
@@ -73,22 +74,12 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
         analyticsSource="product_route"
       />
 
-      {isDetailImageZoomed && (
-        <div
-          className="fixed inset-0 z-[75] bg-black/90 backdrop-blur-sm p-4 flex items-center justify-center cursor-pointer"
-          onClick={() => setIsDetailImageZoomed(false)}
-          onTouchStart={() => setIsDetailImageZoomed(false)}
-        >
-          <div className="h-[63vh] w-full max-w-6xl flex items-center justify-center">
-            <img
-              src={normalizedProduct.image}
-              alt={normalizedProduct.name}
-              className="max-w-full max-h-full object-contain cursor-pointer"
-              style={{ borderRadius: "20px" }}
-            />
-          </div>
-        </div>
-      )}
+      <ImageViewerOverlay
+        open={isDetailImageZoomed}
+        src={normalizedProduct.image}
+        alt={normalizedProduct.name}
+        onClose={() => setIsDetailImageZoomed(false)}
+      />
     </>
   );
 }

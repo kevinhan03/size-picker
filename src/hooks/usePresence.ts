@@ -14,6 +14,7 @@ export function usePresence(isOpen: boolean, options: PresenceOptions = {}) {
   const [isMounted, setIsMounted] = useState(isOpen);
   const [isVisible, setIsVisible] = useState(false);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimer = useRef<number | null>(null);
   const enterFrames = useRef<number[]>([]);
 
   const clearExitTimer = useCallback(() => {
@@ -28,8 +29,16 @@ export function usePresence(isOpen: boolean, options: PresenceOptions = {}) {
     enterFrames.current = [];
   }, []);
 
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     clearExitTimer();
+    clearCloseTimer();
     clearEnterFrames();
     if (isOpen) {
       setIsMounted(true);
@@ -41,6 +50,7 @@ export function usePresence(isOpen: boolean, options: PresenceOptions = {}) {
       });
       enterFrames.current = [mountFrame];
       return () => {
+        clearCloseTimer();
         clearEnterFrames();
       };
     }
@@ -52,14 +62,20 @@ export function usePresence(isOpen: boolean, options: PresenceOptions = {}) {
     }, exitDuration);
 
     return () => {
+      clearCloseTimer();
       clearExitTimer();
       clearEnterFrames();
     };
-  }, [clearEnterFrames, clearExitTimer, exitDuration, isOpen, onExitComplete]);
+  }, [clearCloseTimer, clearEnterFrames, clearExitTimer, exitDuration, isOpen, onExitComplete]);
 
   const requestClose = useCallback((close: () => void) => {
+    if (closeTimer.current) return;
     setIsVisible(false);
-    window.setTimeout(close, exitDuration);
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = null;
+      setIsMounted(false);
+      close();
+    }, exitDuration);
   }, [exitDuration]);
 
   return { isMounted, isVisible, requestClose, enterDuration, exitDuration };
