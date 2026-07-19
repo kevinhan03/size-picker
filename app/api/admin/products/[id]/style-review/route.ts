@@ -23,6 +23,9 @@ const REVIEW_STATUSES = new Set(["needs_review", "approved", "edited", "rejected
 const TARGET_GENDERS = new Set(["menswear", "womenswear", "unisex", "unknown"]);
 const STYLE_ATTRIBUTE_KEYS = [
   "bottom_silhouette",
+  "top_type",
+  "top_silhouette",
+  "outer_type",
   "top_length",
   "material",
   "color",

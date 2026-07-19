@@ -7,6 +7,9 @@ const SETTINGS_TABLE = "site_settings";
 const SETTINGS_KEY = "style_attribute_options";
 const ATTRIBUTE_KEYS = new Set([
   "bottom_silhouette",
+  "top_type",
+  "top_silhouette",
+  "outer_type",
   "top_length",
   "material",
   "color",
