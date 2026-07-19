@@ -326,6 +326,95 @@ button,
   transition-timing-function: var(--ease-out);
 }
 
+/* Outfit discovery controls use restrained press feedback; hover detail stays desktop-only. */
+.outfit-pressable:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.outfit-request-card-arrow {
+  transition: transform var(--duration-press) var(--ease-out);
+}
+
+/* Detail-page controls keep selection feedback consistent without turning browsing into animation. */
+.outfit-detail-pressable:not(:disabled):active,
+.outfit-detail-product-tile:not(article):active {
+  transform: scale(0.98);
+}
+
+.outfit-detail-product-tile {
+  transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+
+.outfit-detail-menu {
+  transform-origin: top right;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+@starting-style {
+  .outfit-detail-menu {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .outfit-primary-action:hover {
+    background-color: rgb(251 146 60);
+  }
+
+  .outfit-tab:not([aria-pressed="true"]):hover {
+    border-color: rgb(255 255 255 / 0.24);
+    color: rgb(255 237 213);
+  }
+
+  .outfit-status-tab:not([aria-pressed="true"]):hover,
+  .outfit-secondary-action:hover {
+    border-color: rgb(255 255 255 / 0.3);
+    color: white;
+  }
+
+  .outfit-request-card:hover {
+    border-color: rgb(255 255 255 / 0.16);
+    background-color: #161619;
+  }
+
+  .outfit-request-card:hover .outfit-request-card-arrow {
+    transform: translateX(0.25rem);
+  }
+
+  .outfit-detail-pressable:not(.outfit-detail-filter):hover:not(:disabled) {
+    background-color: rgb(255 255 255 / 0.075);
+  }
+
+  .outfit-detail-filter[aria-pressed="false"]:hover:not(:disabled) {
+    border-color: rgb(255 255 255 / 0.24);
+    background-color: rgb(255 255 255 / 0.075);
+    color: white;
+  }
+
+  .outfit-detail-primary-action:hover:not(:disabled) {
+    background-color: rgb(251 146 60);
+  }
+
+  .outfit-detail-secondary-action:hover:not(:disabled) {
+    border-color: rgb(255 255 255 / 0.3);
+    color: white;
+  }
+
+  .outfit-detail-danger-action:hover:not(:disabled) {
+    background-color: rgb(239 68 68 / 0.1);
+    color: rgb(252 165 165);
+  }
+
+  .outfit-detail-product-tile:not(article):hover {
+    border-color: rgb(249 115 22 / 0.6);
+  }
+
+  .outfit-detail-product-tile:not(article):hover .outfit-detail-product-image {
+    transform: scale(1.02);
+  }
+}
+
 /* Floating chrome keeps the glass language; content surfaces deliberately stay solid. */
 .ui-floating-surface {
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -552,13 +641,28 @@ button,
   [data-pressable="true"]:not([aria-disabled="true"]):active {
     transform: none;
   }
+
+  .outfit-pressable:not(:disabled):active,
+  .outfit-request-card-arrow,
+  .outfit-detail-pressable:not(:disabled):active,
+  .outfit-detail-product-tile:not(article):active {
+    transform: none !important;
+    transition: none;
+  }
 }
 
 @media (prefers-reduced-transparency: reduce) {
   .ui-layer-modal,
   .ui-layer-sheet,
+  .outfit-detail-menu,
   .ui-floating-surface {
     background-color: #111114 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .outfit-detail-selection-tray {
+    background-color: #161619 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }

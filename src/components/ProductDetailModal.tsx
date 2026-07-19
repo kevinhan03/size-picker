@@ -627,7 +627,7 @@ export function ProductDetailModal({
               ) : null}
             </div>
           {categoryMySizes.length > 0 && selectedMySize && (
-            <div className="mb-3 flex min-h-11 w-full min-w-0 items-center justify-between gap-3 px-1 py-2">
+            <div className="mb-3 flex min-h-11 w-full min-w-0 items-center justify-between gap-3 px-2 py-2">
               <span className="flex min-w-0 items-center gap-3">
                 <span className="shrink-0 text-xs font-bold text-gray-500">내 기준</span>
                 <span className="min-w-0 truncate text-sm font-bold text-gray-200">
@@ -648,6 +648,21 @@ export function ProductDetailModal({
                 className="shrink-0 text-xs font-bold text-orange-300 underline decoration-orange-300/45 underline-offset-4 transition-colors hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
               >
                 변경
+              </button>
+            </div>
+          )}
+          {categoryMySizes.length === 0 && (
+            <div className="ui-size-comparison-result mb-3 flex min-h-12 items-center justify-between gap-3 rounded-xl border border-orange-400/20 bg-orange-500/[0.06] px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-orange-100">My Size가 없어요</p>
+                <p className="mt-0.5 truncate text-xs font-semibold text-orange-100/55">내 옷을 등록하면 바로 비교할 수 있어요.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleMissingMySizeAction}
+                className="ui-size-comparison-action shrink-0 rounded-lg border border-orange-300/45 bg-orange-400/[0.13] px-3 py-1.5 text-xs font-bold text-orange-100 transition-[background-color,border-color,color,transform] duration-150 hover:border-orange-200/70 hover:bg-orange-400/[0.22] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
+              >
+                {!authUser ? "로그인하고 등록" : "My Size 등록하기"}
               </button>
             </div>
           )}
@@ -726,21 +741,7 @@ export function ProductDetailModal({
           </section>
 
           <div className="mt-4" aria-live="polite" aria-atomic="true">
-              {activeRowIndex === null ? null : categoryMySizes.length === 0 ? (
-                <div key={activeSizeLabel} className="ui-size-comparison-result mt-3 flex flex-col gap-3 rounded-xl bg-black/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-gray-100">내 사이즈가 없어 아직 비교할 수 없어요.</p>
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-500">옷장에 저장한 상품을 My Size로 등록하면 바로 비교할 수 있어요.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleMissingMySizeAction}
-                    className="ui-size-comparison-action shrink-0 self-start rounded-lg border border-orange-400/35 bg-orange-500/[0.08] px-3 py-2 text-xs font-bold text-orange-200 transition-[background-color,border-color,color,transform] duration-150 hover:border-orange-300/60 hover:bg-orange-500/[0.14] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 sm:self-auto"
-                  >
-                    {!authUser ? "로그인하고 등록" : "My Size 등록하기"}
-                  </button>
-                </div>
-              ) : isSelectedMySizeSourceProduct ? (
+              {activeRowIndex === null || categoryMySizes.length === 0 ? null : isSelectedMySizeSourceProduct ? (
                 <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-200">
                   동일한 상품입니다.
                 </div>

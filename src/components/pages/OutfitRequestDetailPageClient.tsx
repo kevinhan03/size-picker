@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Ellipsis, LoaderCircle, LockKeyhole, MessageCircleMore, Pencil, Shirt, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Ellipsis, LoaderCircle, LockKeyhole, Pencil, Shirt, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   createOutfitProposal,
@@ -12,11 +12,11 @@ import {
   updateOutfitRequest,
 } from "../../api/outfits";
 import { useAuthContext } from "../../contexts/AuthContext";
-import type { OutfitProposal, OutfitRequestDetail } from "../../types";
+import type { OutfitProposal, OutfitRequestDetail, Product } from "../../types";
 import { captureEvent } from "../../utils/analytics";
 import { buildLoginHref } from "../../utils/authNavigation";
-import { ProgressiveImage } from "../ProgressiveImage";
 import { OutfitProductTile } from "../outfits/OutfitProductTile";
+import { OutfitImageFrame } from "../outfits/OutfitImageFrame";
 import { PageState } from "../PageState";
 import { usePresence } from "../../hooks/usePresence";
 
@@ -36,14 +36,33 @@ function focusMatchLabel(proposal: OutfitProposal, focusItemCount: number) {
 type RequestConfirmAction = "close" | "delete";
 type ProposalConfirmAction = { type: "accept" | "delete"; proposal: OutfitProposal };
 
-function OutfitTextBlock({ label, children }: { label: string; children: string }) {
+function trapDialogFocus(event: React.KeyboardEvent<HTMLElement>) {
+  if (event.key !== "Tab") return;
+  const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])"));
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
+
+function OutfitFocusProductPreviewDialog({ product, onClose }: { product: Product; onClose: () => void }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    requestAnimationFrame(() => dialogRef.current?.focus());
+    return () => restoreFocusRef.current?.focus();
+  }, []);
+
   return (
-    <div className="rounded-r-2xl border-l-2 border-orange-500/70 bg-white/[0.035] px-4 py-3.5 sm:px-5 sm:py-4">
-      <div className="flex items-center gap-1.5 text-[11px] font-black text-orange-300">
-        <MessageCircleMore className="h-3.5 w-3.5" />
-        <span>{label}</span>
-      </div>
-      <p className="mt-2 whitespace-pre-wrap break-words text-[15px] font-medium leading-7 text-white/90">{children}</p>
+    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+      <button type="button" aria-label="상품 이미지 닫기" onClick={onClose} className="ui-layer-scrim absolute inset-0 cursor-default bg-black/80 backdrop-blur-sm" data-visible="true" />
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={`${product.brand} ${product.name} 이미지 크게 보기`} tabIndex={-1} onKeyDown={(event) => { trapDialogFocus(event); if (event.key === "Escape") onClose(); }} className="relative z-10 h-[88vh] w-[92vw] max-w-4xl outline-none" data-visible="true">
+        <button type="button" onClick={onClose} aria-label="상품 이미지 닫기" className="outfit-detail-pressable absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><X className="h-5 w-5" /></button>
+        <div className="relative h-full w-full"><OutfitImageFrame product={product} alt={`${product.brand} ${product.name}`} fit="contain" /></div>
+      </section>
     </div>
   );
 }
@@ -62,6 +81,9 @@ function OutfitRequestConfirmDialog({
   const isDelete = action === "delete";
   const titleId = `outfit-request-${action}-title`;
   const presence = usePresence(true);
+  const dialogRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => { restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; requestAnimationFrame(() => dialogRef.current?.focus()); return () => restoreFocusRef.current?.focus(); }, []);
   const close = () => presence.requestClose(onCancel);
 
   return (
@@ -71,9 +93,11 @@ function OutfitRequestConfirmDialog({
       <button type="button" aria-label="확인창 닫기" disabled={working} onClick={close} className="ui-layer-scrim absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm" data-visible={presence.isVisible} />
       <section
         role="alertdialog"
+        ref={dialogRef}
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby={titleId}
-        onKeyDown={(event) => { if (event.key === "Escape" && !working) close(); }}
+        onKeyDown={(event) => { trapDialogFocus(event); if (event.key === "Escape" && !working) close(); }}
         className={`ui-layer-modal ui-floating-surface relative z-10 w-full max-w-sm rounded-2xl border bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)] ${isDelete ? "border-red-500/20" : "border-orange-500/20"}`}
         data-visible={presence.isVisible}
       >
@@ -130,15 +154,20 @@ function OutfitProposalConfirmDialog({
   const isAlternative = matchedCount === 0;
   const actionLabel = isEditing ? "수정" : "제안";
   const presence = usePresence(true);
+  const dialogRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => { restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; requestAnimationFrame(() => dialogRef.current?.focus()); return () => restoreFocusRef.current?.focus(); }, []);
   const close = () => presence.requestClose(onCancel);
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
       <button type="button" aria-label="확인창 닫기" disabled={working} onClick={close} className="ui-layer-scrim absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm" data-visible={presence.isVisible} />
       <section
         role="alertdialog"
+        ref={dialogRef}
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby="outfit-proposal-confirm-title"
-        onKeyDown={(event) => { if (event.key === "Escape" && !working) close(); }}
+        onKeyDown={(event) => { trapDialogFocus(event); if (event.key === "Escape" && !working) close(); }}
         className="ui-layer-modal ui-floating-surface relative z-10 w-full max-w-sm rounded-2xl border border-orange-500/20 bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)]"
         data-visible={presence.isVisible}
       >
@@ -178,6 +207,9 @@ function OutfitProposalActionDialog({
   const isDelete = action.type === "delete";
   const titleId = `outfit-proposal-${action.type}-title`;
   const presence = usePresence(true);
+  const dialogRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => { restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; requestAnimationFrame(() => dialogRef.current?.focus()); return () => restoreFocusRef.current?.focus(); }, []);
   const close = () => presence.requestClose(onCancel);
 
   return (
@@ -185,9 +217,11 @@ function OutfitProposalActionDialog({
       <button type="button" aria-label="확인창 닫기" disabled={working} onClick={close} className="ui-layer-scrim absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm" data-visible={presence.isVisible} />
       <section
         role="alertdialog"
+        ref={dialogRef}
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby={titleId}
-        onKeyDown={(event) => { if (event.key === "Escape" && !working) close(); }}
+        onKeyDown={(event) => { trapDialogFocus(event); if (event.key === "Escape" && !working) close(); }}
         className={`ui-layer-modal ui-floating-surface relative z-10 w-full max-w-sm rounded-2xl border bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)] ${isDelete ? "border-red-500/20" : "border-orange-500/20"}`}
         data-visible={presence.isVisible}
       >
@@ -233,7 +267,13 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
   const [proposalAction, setProposalAction] = useState<ProposalConfirmAction | null>(null);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
   const [requestMenuOpen, setRequestMenuOpen] = useState(false);
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [hasMoreCategories, setHasMoreCategories] = useState(false);
   const requestMenuRef = useRef<HTMLDivElement>(null);
+  const categoryFilterRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLElement>(null);
+  const explanationRef = useRef<HTMLTextAreaElement>(null);
 
   const load = useCallback(async (showInitialLoading = false) => {
     if (showInitialLoading) setLoading(true);
@@ -277,6 +317,25 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
     };
   }, [requestMenuOpen]);
 
+  const updateCategoryHint = useCallback(() => {
+    const element = categoryFilterRef.current;
+    if (!element) return;
+    setHasMoreCategories(element.scrollLeft + element.clientWidth < element.scrollWidth - 1);
+  }, []);
+
+  useEffect(() => {
+    if (!categoryFilterRef.current) return;
+    const element = categoryFilterRef.current;
+    updateCategoryHint();
+    const resizeObserver = new ResizeObserver(updateCategoryHint);
+    resizeObserver.observe(element);
+    element.addEventListener("scroll", updateCategoryHint, { passive: true });
+    return () => {
+      resizeObserver.disconnect();
+      element.removeEventListener("scroll", updateCategoryHint);
+    };
+  }, [outfitRequest?.products, updateCategoryHint]);
+
   const categories = useMemo(() => outfitRequest ? [...new Set(outfitRequest.products.map((product) => product.category).filter(Boolean))] : [], [outfitRequest]);
   const selectedProducts = useMemo(() => {
     if (!outfitRequest) return [];
@@ -307,6 +366,12 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
     if (nextCategory === category) return;
     setCategory(nextCategory);
     setVisibleProductCount(SHARED_CLOSET_PAGE_SIZE);
+  }
+
+  function focusComposer() {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    explanationRef.current?.focus({ preventScroll: true });
+    composerRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
   }
 
   function toggleProduct(id: string) {
@@ -361,6 +426,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
       setEditingProposalId(null);
       setSelectedIds([]);
       setExplanation("");
+      setStatusMessage(editingId ? "코디 제안을 수정했어요." : "코디 제안을 등록했어요.");
       captureEvent(editingId ? "outfit_proposal_updated" : "outfit_proposal_created", {
         request_id: requestId,
         proposal_id: editingId || undefined,
@@ -387,6 +453,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
     try {
       const data = await updateOutfitRequest(requestId, { action: "accept", proposalId: proposal.id });
       setOutfitRequest(data.request);
+      setStatusMessage("코디를 채택했어요.");
       captureEvent("outfit_proposal_accepted", { request_id: requestId, proposal_id: proposal.id });
     } catch (workError) {
       setError(workError instanceof Error ? workError.message : "코디를 채택하지 못했습니다.");
@@ -403,6 +470,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
       const data = await updateOutfitRequest(requestId, { action: "close" });
       setOutfitRequest(data.request);
       setConfirmAction(null);
+      setStatusMessage("코디 요청을 마감했어요.");
       captureEvent("outfit_request_closed", { request_id: requestId });
     } catch (workError) { setError(workError instanceof Error ? workError.message : "요청을 종료하지 못했습니다."); setConfirmAction(null); }
     finally { setWorking(false); }
@@ -416,6 +484,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
       await deleteOutfitProposal(id);
       if (editingProposalId === id) cancelEditingProposal();
       await load();
+      setStatusMessage("코디 제안을 삭제했어요.");
     }
     catch (workError) { setError(workError instanceof Error ? workError.message : "제안을 삭제하지 못했습니다."); }
     finally {
@@ -440,16 +509,16 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
     : outfitRequest.proposals;
 
   return (
-    <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white">
-      <div className="mx-auto max-w-5xl">
+    <main className={`min-h-screen bg-black px-[var(--app-main-px)] pt-[var(--app-main-pt)] text-white ${canComposeProposal ? "pb-32 sm:pb-[var(--app-main-pb)]" : "pb-[var(--app-main-pb)]"}`} aria-busy={loading || working}>
+      <div className="mx-auto flex max-w-5xl flex-col">
         <div className="flex min-h-11 items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => router.push("/outfits")}
-            className="flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold text-gray-400 transition hover:bg-white/[0.06] hover:text-white"
+            className="outfit-detail-pressable flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold text-gray-400 transition-[background-color,color,transform] duration-150"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">코디 목록</span>
+            <span className="hidden sm:inline">코디 요청 목록</span>
           </button>
 
           {isOwner && (
@@ -461,7 +530,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
                 aria-expanded={requestMenuOpen}
                 aria-controls="outfit-request-management-menu"
                 onClick={() => setRequestMenuOpen((open) => !open)}
-                className={`flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold transition ${requestMenuOpen ? "bg-white/[0.08] text-white" : "text-gray-400 hover:bg-white/[0.06] hover:text-white"}`}
+                className={`outfit-detail-pressable flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold transition-[background-color,color,transform] duration-150 ${requestMenuOpen ? "bg-white/[0.08] text-white" : "text-gray-400"}`}
               >
                 <Ellipsis className="h-5 w-5" />
                 <span className="hidden sm:inline">요청 관리</span>
@@ -472,7 +541,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
                   id="outfit-request-management-menu"
                   role="menu"
                   aria-label="코디 요청 관리"
-                  className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#17171a] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.6)]"
+                  className="outfit-detail-menu absolute right-0 top-[calc(100%+0.5rem)] z-40 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#17171a] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.6)]"
                 >
                   {outfitRequest.status === "open" && (
                     <button
@@ -482,7 +551,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
                         setRequestMenuOpen(false);
                         setConfirmAction("close");
                       }}
-                      className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-gray-200 transition hover:bg-white/[0.07] focus:bg-white/[0.07] focus:outline-none"
+                      className="outfit-detail-pressable flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-gray-200 transition-[background-color,color,transform] duration-150 focus:bg-white/[0.07] focus:outline-none"
                     >
                       <LockKeyhole className="h-4 w-4 text-gray-400" />
                       요청 마감
@@ -496,7 +565,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
                         setRequestMenuOpen(false);
                         setConfirmAction("delete");
                       }}
-                      className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-red-300 transition hover:bg-red-500/10 focus:bg-red-500/10 focus:outline-none"
+                      className="outfit-detail-pressable outfit-detail-danger-action flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-red-300 transition-[background-color,color,transform] duration-150 focus:bg-red-500/10 focus:outline-none"
                     >
                       <Trash2 className="h-4 w-4" />
                       요청 삭제
@@ -508,35 +577,36 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
           )}
         </div>
 
-        <section className="mt-7 rounded-3xl border border-white/10 bg-[#0d0d10] p-6 sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4"><p className="text-sm font-bold text-orange-400">@{outfitRequest.authorUsername}</p><span className={`rounded-full px-3 py-1.5 text-xs font-bold ${outfitRequest.status === "open" ? "bg-emerald-500/15 text-emerald-300" : "bg-white/10 text-white/55"}`}>{statusLabel(outfitRequest.status)}</span></div>
-          <div className="mt-6">
-            <OutfitTextBlock label="코디 고민">{outfitRequest.description}</OutfitTextBlock>
-          </div>
+        <section className="mt-7 rounded-3xl border border-white/[0.1] bg-[#111114] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] sm:p-7">
+          <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm font-bold text-orange-300">@{outfitRequest.authorUsername}님의 코디 고민</p><span className={`rounded-full px-3 py-1.5 text-xs font-bold ${outfitRequest.status === "open" ? "bg-emerald-500/15 text-emerald-300" : "bg-white/10 text-white/55"}`}>{statusLabel(outfitRequest.status)}</span></div>
+          <h1 className="mt-3 max-w-3xl whitespace-pre-wrap break-words text-[clamp(1.125rem,2vw,1.5rem)] font-semibold leading-8 tracking-[-0.015em] text-white sm:leading-9">{outfitRequest.description}</h1>
           {focusProducts.length > 0 && (
-            <div className="mt-7 border-t border-white/10 pt-6">
-              <p className="text-xs font-black text-orange-300">우선 활용 요청 아이템</p>
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {focusProducts.map((product) => <OutfitProductTile key={product.id} product={product} badge="요청 아이템" />)}
+            <div className="mt-7 border-t border-white/[0.1] pt-5">
+              <p className="text-sm font-black text-orange-300">우선 활용 요청 아이템</p>
+              <div className="mt-3 grid grid-cols-3 gap-2.5 sm:gap-3">
+                {focusProducts.slice(0, 3).map((product) => <article key={product.id} className="min-w-0"><button type="button" onClick={() => setPreviewProduct(product)} aria-label={`${product.brand} ${product.name} 이미지 크게 보기`} className="outfit-detail-pressable relative block w-full overflow-hidden rounded-xl border border-white/[0.1] bg-white/[0.035] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><div className="relative aspect-[4/5] bg-white/[0.035]"><OutfitImageFrame product={product} alt={`${product.brand} ${product.name}`} fit="contain" /><span className="absolute left-1.5 top-1.5 rounded-full bg-black/75 px-1.5 py-1 text-[9px] font-black text-orange-200">우선 활용</span></div></button><p className="mt-2 truncate text-[10px] font-black uppercase tracking-wide text-orange-300">{product.brand}</p><p className="mt-0.5 line-clamp-2 text-xs font-semibold leading-4 text-white/85">{product.name}</p></article>)}
               </div>
             </div>
           )}
         </section>
 
-        {acceptedProposal && <section className="mt-8 rounded-3xl border border-orange-500/45 bg-orange-500/[0.07] p-6"><div className="flex items-center gap-2 text-orange-300"><Check className="h-5 w-5" /><h2 className="font-black">채택한 코디</h2></div><div className="mt-3 flex flex-wrap items-center gap-2"><p className="text-sm font-bold">@{acceptedProposal.authorUsername}</p>{focusMatchLabel(acceptedProposal, outfitRequest.focusProductIds.length) && <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-black text-orange-200">{focusMatchLabel(acceptedProposal, outfitRequest.focusProductIds.length)}</span>}</div><div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">{acceptedProposal.products.map((product) => <OutfitProductTile key={product.id} product={product} />)}</div><div className="mt-5"><OutfitTextBlock label="스타일링 코멘트">{acceptedProposal.explanation}</OutfitTextBlock></div></section>}
+        <p aria-live="polite" className="sr-only">{statusMessage}</p>
+        {error && <p role="alert" className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{error}</p>}
 
+        {!isOwner && (
         <section id="shared-closet-section" className="mt-10 scroll-mt-24">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h2 className="text-xl font-black">공유된 Closet</h2>
               <p className="mt-1 text-sm text-white/40">요청을 올린 시점의 상품 {outfitRequest.products.length}개</p>
             </div>
-            <div className="flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="relative max-w-full">
+            <div ref={categoryFilterRef} aria-label="공유된 옷 카테고리 필터" className="flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"
                 aria-pressed={!category}
                 onClick={() => selectCategory("")}
-                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold ${!category ? "bg-white text-black" : "bg-white/[0.06] text-white/50"}`}
+                className={`outfit-detail-pressable outfit-detail-filter min-h-11 whitespace-nowrap rounded-full border px-4 text-xs font-bold transition-[background-color,border-color,color,transform] duration-150 ${!category ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.035] text-white/55"}`}
               >
                 전체
               </button>
@@ -546,11 +616,13 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
                   type="button"
                   aria-pressed={category === item}
                   onClick={() => selectCategory(item)}
-                  className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold ${category === item ? "bg-white text-black" : "bg-white/[0.06] text-white/50"}`}
+                  className={`outfit-detail-pressable outfit-detail-filter min-h-11 whitespace-nowrap rounded-full border px-4 text-xs font-bold transition-[background-color,border-color,color,transform] duration-150 ${category === item ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.035] text-white/55"}`}
                 >
                   {item}
                 </button>
               ))}
+            </div>
+            {hasMoreCategories && <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-black via-black/85 to-transparent" />}
             </div>
           </div>
           <div id="shared-closet-product-grid" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -574,19 +646,26 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
               type="button"
               aria-controls="shared-closet-product-grid"
               onClick={() => setVisibleProductCount((current) => current + SHARED_CLOSET_PAGE_SIZE)}
-              className="mt-4 min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.035] px-4 text-sm font-bold text-white/60 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+              className="outfit-detail-pressable outfit-detail-secondary-action mt-4 min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.035] px-4 text-sm font-bold text-white/60 transition-[background-color,border-color,color,transform] duration-150"
             >
               옷 더 보기 · {hiddenProductCount}개 남음
             </button>
           )}
+          {canComposeProposal && selectedProducts.length > 0 && (
+            <aside aria-label="선택한 코디 상품" className="outfit-detail-selection-tray fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-white/15 bg-[#161619]/95 p-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)] backdrop-blur sm:sticky sm:bottom-4 sm:inset-x-auto sm:mt-5 sm:max-w-3xl">
+              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"><span className="shrink-0 text-xs font-black text-orange-300">{selectedProducts.length}/6</span><div className="flex -space-x-2 overflow-hidden">{selectedProducts.slice(0, 4).map((product) => <button key={product.id} type="button" onClick={() => toggleProduct(String(product.id))} aria-label={`${product.brand} ${product.name} 선택 해제`} className="outfit-detail-pressable relative h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 border-[#161619]"><OutfitImageFrame product={product} alt="" /></button>)}</div><span aria-live="polite" className="truncate text-xs text-white/60">{selectedProducts.length < 2 ? "옷을 1개 더 골라주세요." : "제안할 조합이 준비됐어요."}</span></div>
+              <button type="button" disabled={selectedProducts.length < 2} onClick={focusComposer} className="outfit-detail-pressable outfit-detail-primary-action min-h-11 shrink-0 rounded-xl bg-orange-500 px-4 text-xs font-black text-black transition-[background-color,transform] duration-150 disabled:cursor-default disabled:opacity-55">{selectedProducts.length < 2 ? "옷 1개 더 선택" : "코디 제안 작성"}</button>
+            </aside>
+          )}
         </section>
+        )}
 
-        {canComposeProposal && (
-          <section className="mx-auto mt-8 max-w-3xl rounded-3xl border border-orange-500/30 bg-[#121214] p-5 shadow-2xl sm:p-6">
+        {canComposeProposal && selectedIds.length >= 2 && (
+          <section ref={composerRef} aria-labelledby="outfit-proposal-heading" className="mx-auto mt-8 max-w-3xl scroll-mt-24 rounded-2xl border border-orange-500/25 bg-[#121214] p-5 sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="font-black">{isEditingMyProposal ? "코디 수정하기" : "코디 제안하기"}</h2>
-                <p className="mt-1 text-xs leading-5 text-white/40">상품은 선택한 순서대로 표시됩니다. 요청 아이템을 제외한 경우 설명에 이유를 작성하십시오.</p>
+                <h2 id="outfit-proposal-heading" className="font-black">{isEditingMyProposal ? "코디 수정하기" : "코디 제안하기"}</h2>
+                <p className="mt-1 text-xs leading-5 text-white/45">선택한 순서대로 표시됩니다. 요청 아이템을 제외했다면 이유를 알려주세요.</p>
               </div>
               <span className={`shrink-0 text-sm font-black ${selectedIds.length >= 2 ? "text-orange-400" : "text-white/30"}`}>{selectedIds.length}/6</span>
             </div>
@@ -595,7 +674,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
               <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {selectedProducts.map((product, index) => (
                   <div key={product.id} className="relative aspect-square overflow-hidden rounded-xl border border-white/15 bg-white/[0.04]">
-                    <ProgressiveImage src={product.thumbnailImage || product.image} alt={`${product.brand} ${product.name}`} className="object-cover" />
+                    <OutfitImageFrame product={product} alt={`${product.brand} ${product.name}`} />
                     <span className="absolute left-1.5 top-1.5 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-orange-500 px-1.5 text-[10px] font-black text-black shadow-md">
                       {index + 1}
                     </span>
@@ -603,7 +682,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
                       type="button"
                       onClick={() => toggleProduct(String(product.id))}
                       aria-label={`${product.brand} ${product.name} 선택 해제`}
-                      className="absolute right-1.5 top-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border-0 bg-black/75 p-0 text-white shadow-md outline-none backdrop-blur transition hover:bg-red-500 focus-visible:ring-2 focus-visible:ring-orange-400"
+                      className="outfit-detail-pressable absolute right-1.5 top-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border-0 bg-black/75 p-0 text-white shadow-md outline-none backdrop-blur focus-visible:ring-2 focus-visible:ring-orange-400"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -611,25 +690,24 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
                 ))}
               </div>
             ) : (
-              <p className="mt-5 text-sm font-semibold text-white/40">공유된 Closet에서 코디에 사용할 옷을 2개 이상 선택하십시오.</p>
+              <p className="mt-5 text-sm font-semibold text-white/40">공유된 Closet에서 코디에 사용할 옷을 2개 이상 선택하세요.</p>
             )}
 
-            {selectedIds.length === 1 && <p className="mt-3 text-xs font-semibold text-orange-300">코디를 완성하려면 옷을 1개 더 선택하십시오.</p>}
-            <textarea value={explanation} onChange={(event) => setExplanation(event.target.value)} maxLength={300} rows={3} placeholder="이 조합이 상황에 잘 맞는 이유를 10자 이상 작성하십시오." className="mt-4 w-full resize-none rounded-xl border border-white/10 bg-black/50 p-3 text-sm outline-none placeholder:text-white/25 focus:border-orange-500/60" />
+            {selectedIds.length === 1 && <p className="mt-3 text-xs font-semibold text-orange-300">코디를 완성하려면 옷을 1개 더 선택하세요.</p>}
+            <label htmlFor="outfit-proposal-explanation" className="mt-4 block text-xs font-bold text-white/65">스타일링 코멘트</label>
+            <textarea ref={explanationRef} id="outfit-proposal-explanation" value={explanation} onChange={(event) => setExplanation(event.target.value)} maxLength={300} rows={3} placeholder="이 조합이 상황에 잘 맞는 이유를 10자 이상 작성하세요." className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-black/50 p-3 text-sm outline-none placeholder:text-white/25 focus:border-orange-500/60" />
             <div className={`mt-3 grid gap-2 ${isEditingMyProposal ? "grid-cols-2" : "grid-cols-1"}`}>
               {isEditingMyProposal && (
-                <button type="button" disabled={working} onClick={cancelEditingProposal} className="rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-black text-white/60 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40">
+                <button type="button" disabled={working} onClick={cancelEditingProposal} className="outfit-detail-pressable rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-black text-white/60 transition-[background-color,border-color,color,transform] duration-150 disabled:opacity-40">
                   수정 취소
                 </button>
               )}
-              <button disabled={selectedIds.length < 2 || explanation.trim().length < 10 || working} onClick={() => void submitProposal()} className="flex w-full items-center justify-center rounded-xl bg-orange-500 py-3 text-sm font-black text-black disabled:opacity-35">{working ? <LoaderCircle className="h-4 w-4 animate-spin" /> : isEditingMyProposal ? "수정 저장" : "이 코디 제안하기"}</button>
+              <button disabled={selectedIds.length < 2 || explanation.trim().length < 10 || working} onClick={() => void submitProposal()} className="outfit-detail-pressable outfit-detail-primary-action flex w-full items-center justify-center rounded-xl bg-orange-500 py-3 text-sm font-black text-black transition-[background-color,transform] duration-150 disabled:opacity-35">{working ? <LoaderCircle className="h-4 w-4 animate-spin" /> : isEditingMyProposal ? "수정 저장" : "이 코디 제안하기"}</button>
             </div>
           </section>
         )}
 
-        {error && <p className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{error}</p>}
-
-        <section className="mt-12 border-t border-white/10 pt-9">
+        <section className={`mt-12 border-t border-white/10 pt-9 ${isOwner ? "order-3" : ""}`}>
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black">받은 코디 {outfitRequest.proposals.length}</h2>
             {outfitRequest.status !== "open" && <span className="flex items-center gap-1.5 text-xs text-white/35"><LockKeyhole className="h-3.5 w-3.5" />제안 마감</span>}
@@ -646,41 +724,66 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
                 const matchLabel = focusMatchLabel(proposal, outfitRequest.focusProductIds.length);
                 const isMine = proposal.authorId === currentUserId;
                 return (
-                  <article key={proposal.id} className={`rounded-3xl border p-5 ${accepted ? "border-orange-500/45 bg-orange-500/[0.06]" : "border-white/10 bg-[#0d0d10]"}`}>
+                  <article key={proposal.id} className={`rounded-2xl border p-5 sm:p-6 ${accepted ? "border-orange-500/35 bg-orange-500/[0.055]" : "border-white/[0.09] bg-[#111114]"}`}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-bold">@{proposal.authorUsername}</p>
-                        {matchLabel && <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${proposal.focusMatch === "none" ? "bg-white/10 text-white/55" : "bg-orange-500/15 text-orange-200"}`}>{matchLabel}</span>}
+                        {matchLabel && <span className="text-[11px] font-bold text-white/45">{matchLabel}</span>}
                         {editingProposalId === proposal.id && <span className="text-[11px] font-black text-orange-300">수정 중</span>}
                       </div>
                       <div className="flex items-center gap-1">
                         {accepted && <span className="rounded-full bg-orange-500 px-2.5 py-1 text-[11px] font-black text-black">채택</span>}
                         {isMine && outfitRequest.status === "open" && (
                           <>
-                            <button type="button" disabled={working} onClick={() => startEditingProposal(proposal)} className="flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-white/45 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40" aria-label="제안 수정">
+                            <button type="button" disabled={working} onClick={() => startEditingProposal(proposal)} className="outfit-detail-pressable flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-white/45 transition-[background-color,color,transform] duration-150 disabled:opacity-40" aria-label="제안 수정">
                               <Pencil className="h-3.5 w-3.5" />수정
                             </button>
-                            <button type="button" disabled={working} onClick={() => setProposalAction({ type: "delete", proposal })} className="flex h-9 w-9 items-center justify-center rounded-lg text-white/30 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40" aria-label="제안 삭제">
+                            <button type="button" disabled={working} onClick={() => setProposalAction({ type: "delete", proposal })} className="outfit-detail-pressable outfit-detail-danger-action flex h-9 w-9 items-center justify-center rounded-lg text-white/30 transition-[background-color,color,transform] duration-150 disabled:opacity-40" aria-label="제안 삭제">
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </>
                         )}
                       </div>
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">{proposal.products.map((product) => <OutfitProductTile key={product.id} product={product} />)}</div>
-                    <div className="mt-4">
-                      <OutfitTextBlock label="스타일링 코멘트">{proposal.explanation}</OutfitTextBlock>
-                    </div>
-                    {isOwner && outfitRequest.status === "open" && <button disabled={working} onClick={() => setProposalAction({ type: "accept", proposal })} className="mt-5 rounded-xl bg-white px-4 py-2.5 text-xs font-black text-black hover:bg-orange-400">이 코디 채택하기</button>}
+                    <div className={`mt-4 grid grid-cols-3 gap-2 ${proposal.products.length <= 3 ? "" : "sm:grid-cols-4 lg:grid-cols-6"}`}>{proposal.products.map((product) => <div key={product.id} className="relative aspect-square overflow-hidden rounded-xl bg-white/[0.04]"><OutfitImageFrame product={product} alt={`${product.brand} ${product.name}`} /></div>)}</div>
+                    <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-white/75">{proposal.explanation}</p>
+                    {isOwner && outfitRequest.status === "open" && <button disabled={working} onClick={() => setProposalAction({ type: "accept", proposal })} className="outfit-detail-pressable outfit-detail-secondary-action mt-5 min-h-11 rounded-xl border border-white/15 bg-white px-4 text-xs font-black text-black transition-[background-color,border-color,color,transform] duration-150">이 코디 채택하기</button>}
                   </article>
                 );
               })}
             </div>
           )}
         </section>
+        {isOwner && (
+          <section id="shared-closet-section" className="mt-10 scroll-mt-24">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black">공유된 Closet</h2>
+                <p className="mt-1 text-sm text-white/40">요청을 올린 시점의 상품 {outfitRequest.products.length}개</p>
+              </div>
+              <div className="relative max-w-full">
+                <div ref={categoryFilterRef} aria-label="공유된 옷 카테고리 필터" className="flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button type="button" aria-pressed={!category} onClick={() => selectCategory("")} className={`outfit-detail-pressable outfit-detail-filter min-h-11 whitespace-nowrap rounded-full border px-4 text-xs font-bold transition-[background-color,border-color,color,transform] duration-150 ${!category ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.035] text-white/55"}`}>전체</button>
+                  {categories.map((item) => (
+                    <button key={item} type="button" aria-pressed={category === item} onClick={() => selectCategory(item)} className={`outfit-detail-pressable outfit-detail-filter min-h-11 whitespace-nowrap rounded-full border px-4 text-xs font-bold transition-[background-color,border-color,color,transform] duration-150 ${category === item ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.035] text-white/55"}`}>{item}</button>
+                  ))}
+                </div>
+                {hasMoreCategories && <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-black via-black/85 to-transparent" />}
+              </div>
+            </div>
+            <div id="shared-closet-product-grid" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {displayedProducts.map((product) => {
+                const productId = String(product.id);
+                return <OutfitProductTile key={product.id} product={product} badge={outfitRequest.focusProductIds.includes(productId) ? "요청 아이템" : undefined} selectable={canComposeProposal} selected={selectedIds.includes(productId)} order={selectedIds.indexOf(productId) + 1} onClick={() => toggleProduct(productId)} />;
+              })}
+            </div>
+            {hiddenProductCount > 0 && <button type="button" aria-controls="shared-closet-product-grid" onClick={() => setVisibleProductCount((current) => current + SHARED_CLOSET_PAGE_SIZE)} className="outfit-detail-pressable outfit-detail-secondary-action mt-4 min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.035] px-4 text-sm font-bold text-white/60 transition-[background-color,border-color,color,transform] duration-150">옷 더 보기 · {hiddenProductCount}개 남음</button>}
+          </section>
+        )}
         {confirmAction && <OutfitRequestConfirmDialog action={confirmAction} working={working} onCancel={() => setConfirmAction(null)} onConfirm={() => { if (confirmAction === "delete") void removeRequest(); else void closeRequest(); }} />}
         {proposalConfirmOpen && <OutfitProposalConfirmDialog matchedCount={outfitRequest.focusProductIds.filter((id) => selectedIds.includes(id)).length} totalCount={outfitRequest.focusProductIds.length} isEditing={isEditingMyProposal} working={working} onCancel={() => setProposalConfirmOpen(false)} onConfirm={() => void submitProposal(true)} />}
         {proposalAction && <OutfitProposalActionDialog action={proposalAction} working={working} onCancel={() => setProposalAction(null)} onConfirm={() => { if (proposalAction.type === "delete") void removeProposal(proposalAction.proposal.id); else void acceptProposal(proposalAction.proposal); }} />}
+        {previewProduct && <OutfitFocusProductPreviewDialog product={previewProduct} onClose={() => setPreviewProduct(null)} />}
       </div>
     </main>
   );
