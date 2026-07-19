@@ -239,11 +239,8 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
       humanStyleAttributes: humanAttributes,
       humanStyleTagsEvidence: product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null,
       tagReviewNote: reviewNote,
+      targetGender,
     });
-  };
-
-  const saveTargetGenderReview = () => {
-    onSave(product.id, { targetGender });
   };
 
   return (
@@ -275,6 +272,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
                 humanStyleAttributes: humanAttributes,
                 humanStyleTagsEvidence: product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null,
                 tagReviewNote: reviewNote,
+                targetGender,
               })
             }
             disabled={isSaving || !hasAiTags}
@@ -315,6 +313,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
           <p className="mt-1 text-xs text-gray-500">
             AI 추정: {targetGenderLabels[product.targetGender ?? 'unknown']}
             {product.humanTargetGender ? ` · 사람 검수: ${targetGenderLabels[product.humanTargetGender]}` : ''}
+            {' · 저장 또는 승인 시 반영'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -328,15 +327,6 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
               <option key={value} value={value}>{targetGenderLabels[value]}</option>
             ))}
           </select>
-          <button
-            type="button"
-            onClick={saveTargetGenderReview}
-            disabled={isSaving}
-            className="inline-flex h-9 items-center gap-1 rounded-lg border border-orange-500/50 bg-orange-500/10 px-3 text-xs font-semibold text-orange-200 hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:border-gray-800 disabled:bg-gray-900 disabled:text-gray-500"
-          >
-            <Save className="h-3.5 w-3.5" />
-            성별 저장
-          </button>
         </div>
       </div>
 
