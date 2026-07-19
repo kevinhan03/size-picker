@@ -404,6 +404,7 @@ export interface ProductTasteDecision {
     product: Product;
     similarity: number;
     styleSimilarity: number;
+    visualSimilarity: number | null;
     sameCategory: boolean;
     shapeSimilarity: number | null;
     expressionSimilarity: number | null;
@@ -676,17 +677,45 @@ function sameProductCategory(left: Product, right: Product) {
   return Boolean(leftCategory && rightCategory && leftCategory === rightCategory);
 }
 
-function weightedProductSimilarity(
-  style: number,
-  sameCategory: boolean,
-  shape: number | null,
-  expression: number | null
-) {
-  const components: Array<[number, number]> = [[style, 0.55], [sameCategory ? 1 : 0, 0.15]];
-  if (shape !== null) components.push([shape, 0.15]);
-  if (expression !== null) components.push([expression, 0.15]);
+export interface ProductHybridSimilarity {
+  score: number;
+  styleSimilarity: number | null;
+  visualSimilarity: number | null;
+  sameCategory: boolean;
+  shapeSimilarity: number | null;
+  expressionSimilarity: number | null;
+  shapeMatches: string[];
+  expressionMatches: string[];
+}
+
+export function getProductHybridSimilarity(left: Product, right: Product): ProductHybridSimilarity | null {
+  const style = styleSimilarity(left, right);
+  const leftEmbedding = parseEmbedding(left.imageEmbedding);
+  const rightEmbedding = parseEmbedding(right.imageEmbedding);
+  const visual = leftEmbedding && rightEmbedding ? cosineSimilarity(leftEmbedding, rightEmbedding) : null;
+  if (style === null && visual === null) return null;
+
+  const shape = attributeSimilarity(left, right, SHAPE_ATTRIBUTE_KEYS);
+  const expression = attributeSimilarity(left, right, EXPRESSION_ATTRIBUTE_KEYS);
+  const sameCategory = sameProductCategory(left, right);
+  // Prefer the explainable style signal, then visual similarity; use human-verified
+  // shape and expression attributes to refine the ranking when available.
+  const components: Array<[number, number]> = [[sameCategory ? 1 : 0, 0.15]];
+  if (style !== null) components.push([style, 0.4]);
+  if (visual !== null) components.push([Math.max(0, visual), 0.25]);
+  if (shape.score !== null) components.push([shape.score, 0.12]);
+  if (expression.score !== null) components.push([expression.score, 0.08]);
   const totalWeight = components.reduce((sum, [, weight]) => sum + weight, 0);
-  return components.reduce((sum, [score, weight]) => sum + score * weight, 0) / totalWeight;
+  return {
+    score: components.reduce((sum, [score, weight]) => sum + score * weight, 0) / totalWeight,
+    styleSimilarity: style,
+    visualSimilarity: visual,
+    sameCategory,
+    shapeSimilarity: shape.score,
+    expressionSimilarity: expression.score,
+    shapeMatches: shape.matches,
+    expressionMatches: expression.matches,
+  };
 }
 
 export function getProductTasteDecision(product: Product, closetProducts: Product[]): ProductTasteDecision | null {
@@ -707,20 +736,18 @@ export function getProductTasteDecision(product: Product, closetProducts: Produc
   }));
   const closestProducts = eligibleClosetProducts
     .map((candidate) => {
-      const style = styleSimilarity(product, candidate);
-      if (style === null) return null;
-      const shape = attributeSimilarity(product, candidate, SHAPE_ATTRIBUTE_KEYS);
-      const expression = attributeSimilarity(product, candidate, EXPRESSION_ATTRIBUTE_KEYS);
-      const sameCategory = sameProductCategory(product, candidate);
+      const similarity = getProductHybridSimilarity(product, candidate);
+      if (!similarity) return null;
       return {
         product: candidate,
-        similarity: weightedProductSimilarity(style, sameCategory, shape.score, expression.score),
-        styleSimilarity: style,
-        sameCategory,
-        shapeSimilarity: shape.score,
-        expressionSimilarity: expression.score,
-        shapeMatches: shape.matches,
-        expressionMatches: expression.matches,
+        similarity: similarity.score,
+        styleSimilarity: similarity.styleSimilarity ?? 0,
+        visualSimilarity: similarity.visualSimilarity,
+        sameCategory: similarity.sameCategory,
+        shapeSimilarity: similarity.shapeSimilarity,
+        expressionSimilarity: similarity.expressionSimilarity,
+        shapeMatches: similarity.shapeMatches,
+        expressionMatches: similarity.expressionMatches,
       };
     })
     .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))

@@ -11,6 +11,7 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import {
   TAGS,
+  getProductHybridSimilarity,
   getEffectiveStyleTags,
   normalizeStyleTags,
   parseEmbedding,
@@ -200,9 +201,11 @@ function buildImageRelatedProducts(product: Product, products: Product[]): Relat
       const embedding = parseEmbedding(candidate.imageEmbedding);
       if (!embedding) return null;
       const profile = getProductTagProfile(candidate);
+      const hybridSimilarity = getProductHybridSimilarity(product, candidate);
+      if (!hybridSimilarity) return null;
       return {
         product: candidate,
-        similarity: cosineSimilarity(sourceEmbedding, embedding),
+        similarity: hybridSimilarity.score,
         tags: profile.tags,
         tagSource: profile.tagSource,
         tagReliability: profile.tagReliability,
@@ -823,7 +826,7 @@ export function ProductRelatedGraphModal({
         {isSheetExpanded && <div className="ui-related-graph-sheet-details">
           <section className="ui-related-list-section is-primary" aria-labelledby="similar-products-heading">
             <h3 id="similar-products-heading" className="ui-related-list-heading">비슷한 상품 <span>{imageRelatedProducts.length}개</span></h3>
-            <p className="ui-related-list-caption">이미지 기준</p>
+            <p className="ui-related-list-caption">이미지 · 태그 · 형태 · 표현 기준</p>
             <div className="ui-related-product-list">
               {imageRelatedProducts.map((entry) => (
                 <button key={entry.product.id} type="button" onClick={() => openProductModal(entry.product, "top_similar", buildRelatedGraphReason(graphProduct, entry))} className="ui-related-product-row">
@@ -856,8 +859,8 @@ export function ProductRelatedGraphModal({
       <div ref={containerRef} className={`relative z-[1] h-full w-full transition-opacity duration-300 ${isReady ? "opacity-100" : "opacity-0"}`} />
       {!imageRelatedProducts.length && (
         <section className="absolute left-1/2 top-1/2 z-10 w-[min(360px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-white/10 bg-[#111318]/92 p-6 text-center shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl">
-          <p className="text-sm font-black text-white">이미지 기반 비슷한 상품을 준비 중이에요.</p>
-          <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">이 상품 또는 같은 카테고리 상품의 이미지 임베딩이 준비되면 여기에서 비슷한 상품을 탐색할 수 있어요.</p>
+          <p className="text-sm font-black text-white">비슷한 상품을 준비 중이에요.</p>
+          <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">같은 카테고리의 이미지 임베딩과 검수 데이터를 함께 비교해 보여드려요.</p>
         </section>
       )}
       {selectedProduct && (
