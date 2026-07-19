@@ -26,6 +26,7 @@ const STYLE_ATTRIBUTE_KEYS = [
   "top_type",
   "top_silhouette",
   "outer_type",
+  "outer_silhouette",
   "top_length",
   "material",
   "color",

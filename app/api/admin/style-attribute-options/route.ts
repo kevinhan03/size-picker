@@ -10,6 +10,7 @@ const ATTRIBUTE_KEYS = new Set([
   "top_type",
   "top_silhouette",
   "outer_type",
+  "outer_silhouette",
   "top_length",
   "material",
   "color",

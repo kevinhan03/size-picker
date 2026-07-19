@@ -621,7 +621,7 @@ function styleSimilarity(left: Product, right: Product) {
   return leftVector.reduce((sum, value, index) => sum + value * rightVector[index], 0);
 }
 
-const SHAPE_ATTRIBUTE_KEYS = ["bottom_silhouette", "top_type", "top_silhouette", "outer_type", "top_length"];
+const SHAPE_ATTRIBUTE_KEYS = ["bottom_silhouette", "top_type", "top_silhouette", "outer_type", "outer_silhouette", "top_length"];
 const EXPRESSION_ATTRIBUTE_KEYS = ["material", "color", "wash_texture", "details"];
 
 function comparableAttributeValue(value: unknown): string | null {

@@ -38,6 +38,7 @@ const ATTRIBUTE_FIELDS = [
   { key: 'top_type', label: '상의 유형', group: 'shape', categories: ['Top'], options: [['unknown', '판단 보류'], ['sleeveless', '민소매'], ['t_shirt', '티셔츠'], ['shirt', '셔츠'], ['pique', '피케'], ['knit', '니트'], ['sweatshirt', '스웨트셔츠'], ['hoodie', '후디']] },
   { key: 'top_silhouette', label: '상의 실루엣', group: 'shape', categories: ['Top'], options: [['unknown', '판단 보류'], ['slim', '슬림'], ['regular', '레귤러'], ['relaxed', '릴렉스드'], ['oversized', '오버사이즈'], ['boxy', '박시']] },
   { key: 'outer_type', label: '아우터 유형', group: 'shape', categories: ['Outer'], options: [['unknown', '판단 보류'], ['jacket', '재킷'], ['blazer', '블레이저'], ['coat', '코트'], ['padding', '패딩'], ['vest', '베스트'], ['windbreaker', '바람막이']] },
+  { key: 'outer_silhouette', label: '아우터 실루엣', group: 'shape', categories: ['Outer'], options: [['unknown', '판단 보류'], ['slim', '슬림'], ['regular', '레귤러'], ['relaxed', '릴렉스드'], ['oversized', '오버사이즈'], ['boxy', '박시']] },
   { key: 'top_length', label: '상의·아우터 기장', group: 'shape', categories: ['Top', 'Outer'], options: [['unknown', '판단 보류'], ['cropped', '크롭'], ['regular', '레귤러'], ['long', '롱']] },
   { key: 'material', label: '소재', group: 'expression', options: [['unknown', '판단 보류'], ['cotton', '코튼'], ['denim', '데님'], ['knit', '니트'], ['wool', '울'], ['leather', '레더'], ['linen', '린넨'], ['synthetic', '합성 소재'], ['mixed', '혼방']] },
   { key: 'color', label: '색상', group: 'expression', options: [['unknown', '판단 보류'], ['black', '블랙'], ['white', '화이트'], ['gray', '그레이'], ['blue', '블루'], ['brown', '브라운'], ['beige', '베이지'], ['green', '그린'], ['red', '레드']] },
