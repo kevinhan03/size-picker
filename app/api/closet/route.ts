@@ -65,7 +65,7 @@ export async function GET(request: Request) {
 
     const { data: productsData, error: productsError } = await db
       .from("products")
-      .select("id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,style_tags,human_style_tags,tag_review_status,tag_review_note,image_embedding")
+      .select("id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,style_tags,style_attributes,human_style_tags,human_style_attributes,tag_review_status,tag_review_note,image_embedding")
       .in("id", productIds);
 
     if (productsError) throw productsError;
