@@ -75,8 +75,8 @@ export function AdminProductsList({
         const payload = await response.json();
         if (!response.ok || !payload?.ok || !Array.isArray(payload?.data?.options)) return;
         if (!isMounted) return;
-        setCustomAttributeOptions(payload.data.options.map((option: { attribute_key?: unknown; value?: unknown }) => ({
-          attributeKey: String(option.attribute_key ?? ''),
+        setCustomAttributeOptions(payload.data.options.map((option: { attributeKey?: unknown; value?: unknown }) => ({
+          attributeKey: String(option.attributeKey ?? ''),
           value: String(option.value ?? ''),
         })).filter((option: StyleAttributeOption) => option.attributeKey && option.value));
       })
@@ -96,7 +96,7 @@ export function AdminProductsList({
       throw new Error(payload?.error || '속성 선택지 저장에 실패했습니다.');
     }
     const saved = {
-      attributeKey: String(payload.data.option.attribute_key ?? ''),
+      attributeKey: String(payload.data.option.attributeKey ?? ''),
       value: String(payload.data.option.value ?? ''),
     } as StyleAttributeOption;
     setCustomAttributeOptions((previous) =>
