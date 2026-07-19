@@ -169,6 +169,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
   const [targetGender, setTargetGender] = useState<ProductTargetGender>(
     product.humanTargetGender ?? product.targetGender ?? 'unknown'
   );
+  const [openAttributeKey, setOpenAttributeKey] = useState<string | null>(null);
 
   const hasAiTags = Boolean(product.styleTags);
   const aiAttributes = useMemo(() => editableStyleAttributes(product.styleAttributes), [product.styleAttributes]);
@@ -191,6 +192,26 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
   useEffect(() => {
     setTargetGender(product.humanTargetGender ?? product.targetGender ?? 'unknown');
   }, [product.humanTargetGender, product.targetGender]);
+
+  useEffect(() => {
+    if (!openAttributeKey) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (event.target instanceof Element && !event.target.closest('[data-style-attribute-dropdown]')) {
+        setOpenAttributeKey(null);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenAttributeKey(null);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [openAttributeKey]);
 
   const setTagScore = (tag: StyleTagName, score: number) => {
     setHumanTags((prev) => ({
@@ -359,7 +380,12 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
                   return (
                     <div key={field.key} className="block min-w-0 text-xs text-gray-400">
                       <span className="mb-1 block">{field.label}</span>
-                      <details className="group relative">
+                      <details
+                        className="group relative"
+                        data-style-attribute-dropdown
+                        open={openAttributeKey === field.key}
+                        onToggle={(event) => setOpenAttributeKey(event.currentTarget.open ? field.key : null)}
+                      >
                         <summary className="flex h-9 cursor-pointer list-none items-center justify-between rounded-md border border-gray-700 bg-gray-950 px-2 text-sm text-white marker:content-none focus:border-orange-500 focus:outline-none">
                           <span className="truncate">{selectedLabels.join(', ') || '판단 보류'}</span>
                           <span className="ml-2 text-gray-500 transition group-open:rotate-180">⌄</span>
