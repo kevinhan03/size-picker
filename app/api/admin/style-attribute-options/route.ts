@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       .from(SETTINGS_TABLE)
       .upsert({ key: SETTINGS_KEY, value: JSON.stringify(options) });
     if (saveError) throw saveError;
-    return NextResponse.json({ ok: true, data: { option: { attribute_key: attributeKey, value } } });
+    return NextResponse.json({ ok: true, data: { option: { attributeKey, value } } });
   } catch (error: unknown) {
     return NextResponse.json(
       { ok: false, error: getErrorMessage(error, "style attribute option save error") },

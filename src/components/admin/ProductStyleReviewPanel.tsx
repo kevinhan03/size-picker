@@ -54,13 +54,21 @@ const isFieldApplicable = (field: AttributeField, category: string) =>
 const normalizeAttributeValue = (value: unknown) => String(value ?? '').trim().toLowerCase() || 'unknown';
 const attributeValues = (value: unknown) => (Array.isArray(value) ? value : [value]).map(normalizeAttributeValue).filter((value) => value !== 'unknown');
 
-const optionsForAttribute = (field: AttributeField, customOptions: StyleAttributeOption[]) => {
+const optionsForAttribute = (
+  field: AttributeField,
+  customOptions: StyleAttributeOption[],
+  persistedValues: string[] = []
+) => {
   const builtIn = field.options.map(([value, label]) => [value, label] as const);
   const knownValues = new Set<string>(builtIn.map(([value]) => value));
   const custom = customOptions
     .filter((option) => option.attributeKey === field.key && !knownValues.has(option.value))
     .map((option) => [option.value, option.value] as const);
-  return [...builtIn, ...custom];
+  custom.forEach(([value]) => knownValues.add(value));
+  const persisted = persistedValues
+    .filter((value) => value !== 'unknown' && !knownValues.has(value))
+    .map((value) => [value, value] as const);
+  return [...builtIn, ...custom, ...persisted];
 };
 
 const normalizeAttributeForField = (field: AttributeField, value: unknown, customOptions: StyleAttributeOption[]) => {
@@ -351,10 +359,11 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
               </p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {ATTRIBUTE_FIELDS.filter((field) => field.group === group && isFieldApplicable(field, product.category)).map((field) => {
-                  const selectedValues = attributeValues(humanAttributes[field.key])
-                    .map((value) => normalizeAttributeForField(field, value, customAttributeOptions))
-                    .filter((value) => value !== 'unknown');
-                  const selectedLabels = optionsForAttribute(field, customAttributeOptions)
+                  // Saved review values must remain visible even while custom options are
+                  // loading or if an older option was later removed from configuration.
+                  const selectedValues = attributeValues(humanAttributes[field.key]);
+                  const availableOptions = optionsForAttribute(field, customAttributeOptions, selectedValues);
+                  const selectedLabels = availableOptions
                     .filter(([value]) => selectedValues.includes(value))
                     .map(([, label]) => label);
                   return (
@@ -366,7 +375,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
                           <span className="ml-2 text-gray-500 transition group-open:rotate-180">⌄</span>
                         </summary>
                         <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-gray-700 bg-gray-950 p-1.5 shadow-xl">
-                          {optionsForAttribute(field, customAttributeOptions).filter(([value]) => value !== 'unknown').map(([value, optionLabel]) => (
+                          {availableOptions.filter(([value]) => value !== 'unknown').map(([value, optionLabel]) => (
                             <label key={value} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800">
                               <input
                                 type="checkbox"
