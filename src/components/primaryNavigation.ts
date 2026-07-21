@@ -14,8 +14,8 @@ export const primaryNavigationItems: PrimaryNavigationItem[] = [
   { destination: "digging", label: "디깅", icon: Compass },
   { destination: "outfits", label: "코디", icon: Shirt },
   { destination: "taste", label: "취향", icon: Network },
-  { destination: "closet", label: "옷장", icon: ClosetIcon },
   { destination: "digbox", label: "저장", icon: Star },
+  { destination: "closet", label: "옷장", icon: ClosetIcon },
 ];
 
 export function getPrimaryNavigationDestination(pathname: string): PrimaryNavigationDestination | null {

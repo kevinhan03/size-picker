@@ -382,7 +382,7 @@ button,
     transform: translateX(0.25rem);
   }
 
-  .outfit-detail-pressable:not(.outfit-detail-filter):hover:not(:disabled) {
+  .outfit-detail-pressable:not(.outfit-detail-filter):not(.outfit-detail-product-select):not(.outfit-detail-product-preview):hover:not(:disabled) {
     background-color: rgb(255 255 255 / 0.075);
   }
 
@@ -412,6 +412,23 @@ button,
 
   .outfit-detail-product-tile:not(article):hover .outfit-detail-product-image {
     transform: scale(1.02);
+  }
+
+  .outfit-detail-product-tile-selectable:hover {
+    border-color: rgb(249 115 22 / 0.6);
+  }
+
+  .outfit-detail-product-tile-selectable[data-selected="false"]:hover {
+    background-color: #161619;
+  }
+
+  .outfit-detail-product-tile-selectable:hover .outfit-detail-product-image {
+    transform: scale(1.02);
+  }
+
+  .outfit-detail-product-preview:hover {
+    background-color: rgb(0 0 0 / 0.88);
+    transform: scale(1.04);
   }
 }
 
@@ -487,6 +504,16 @@ button,
     transform: translateY(-2px);
   }
 
+.digbox-product-card[data-editing="false"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.26);
+}
+
+  .digbox-list-row[data-editing="false"]:hover {
+    transform: translateX(2px);
+    border-color: rgba(255, 255, 255, 0.15) !important;
+  }
+
   .dig-match-choice:hover {
     transform: translateY(-4px);
     border-color: rgb(251 146 60 / 0.7);
@@ -520,6 +547,92 @@ button,
   display: none;
 }
 
+.digbox-product-card-link:active {
+  transform: scale(0.98);
+}
+
+.digbox-product-card[data-selected="true"] {
+  border-color: #fb923c;
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.3), 0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
+.digbox-product-card[data-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  border: 2px solid #fb923c;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.digbox-copy-toast {
+  transition: opacity 150ms var(--ease-out);
+}
+
+.digbox-removal-tray {
+  opacity: 1;
+  transition: opacity 150ms var(--ease-out);
+}
+
+@starting-style {
+  .digbox-copy-toast {
+    opacity: 0;
+  }
+
+  .digbox-removal-tray {
+    opacity: 0;
+  }
+}
+
+.digbox-sheet-backdrop {
+  opacity: 1;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.digbox-sheet-backdrop[data-closing="true"] {
+  opacity: 0;
+}
+
+.digbox-sheet {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+}
+
+.digbox-sheet[data-closing="true"] {
+  opacity: 0;
+  transform: translateY(100%);
+  transition-duration: 160ms;
+}
+
+@starting-style {
+  .digbox-sheet-backdrop {
+    opacity: 0;
+  }
+
+  .digbox-sheet {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .digbox-product-card-link:active,
+  .digbox-list-row:hover {
+    transform: none;
+  }
+
+  .digbox-removal-tray {
+    transition: none;
+  }
+
+  .digbox-sheet-backdrop,
+  .digbox-sheet {
+    transition: opacity 120ms ease;
+  }
+}
+
 .ui-detail-toolbar-button:active {
   transform: scale(0.97);
 }
@@ -551,6 +664,16 @@ button,
 
 .ui-size-comparison-result {
   animation: ui-size-comparison-result-in 170ms ease-out;
+}
+
+.outfit-detail-selection-tray {
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.outfit-detail-selection-tray[data-visible="true"] {
+  opacity: 1;
+  transition-duration: 150ms;
 }
 
 .ui-related-graph-tool {
@@ -628,6 +751,10 @@ button,
     animation-duration: 120ms;
   }
 
+  .outfit-detail-selection-tray {
+    transition: none;
+  }
+
   .ui-related-graph-sheet {
     animation: none;
     transition: opacity 160ms ease, background-color 160ms ease;
@@ -679,6 +806,22 @@ button,
 .closet-product-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
+}
+
+.collection-page-title {
+  margin-bottom: 1.75rem;
+}
+
+.collection-page-heading-row {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.collection-search-field {
+  width: 100%;
 }
 
 @media (min-width: 1024px) {

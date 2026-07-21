@@ -259,7 +259,7 @@ export interface SizeRecommendation {
 export type AddProductMode = 'menu' | 'capture' | 'url' | 'manual';
 
 export type OutfitRequestStatus = 'open' | 'accepted' | 'closed';
-export type OutfitRequestScope = 'open' | 'completed' | 'mine';
+export type OutfitRequestScope = 'open' | 'completed' | 'mine' | 'proposed';
 export type OutfitRequestMineStatus = 'all' | OutfitRequestStatus;
 export type OutfitFocusMatch = 'all' | 'partial' | 'none' | 'not_applicable';
 
@@ -275,6 +275,9 @@ export interface OutfitRequestSummary {
   proposalCount: number;
   previewProducts: Product[];
   focusProducts: Product[];
+  myProposalId?: string;
+  proposedAt?: string;
+  isAccepted?: boolean;
 }
 
 export interface OutfitProposal {

@@ -3,21 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import Link from "next/link";
-import { Search, Trash2, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { supabase } from "../../lib/supabase";
 import { ProgressiveImage } from "../ProgressiveImage";
+import { FilterBar } from "../FilterBar";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 import { toPublicUrl } from "../../utils/product";
+import { CollectionSearchField } from "../CollectionSearchField";
+import { CollectionEmptyState } from "../CollectionEmptyState";
 import type { Product } from "../../types";
-
-const CATEGORIES = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
-type ViewMode = "grid" | "list";
 
 const cardStyle: React.CSSProperties = {
   background: "#111114",
@@ -31,16 +31,12 @@ function GridCard({
   product,
   selected,
   isEditing,
-  otherDigboxCount,
-  otherDigboxCountLabel,
   onSelect,
   onOpen,
 }: {
   product: Product;
   selected: boolean;
   isEditing: boolean;
-  otherDigboxCount?: number;
-  otherDigboxCountLabel?: string;
   onSelect: () => void;
   onOpen: () => void;
 }) {
@@ -49,8 +45,12 @@ function GridCard({
 
   return (
     <div
-      className={`ui-card ui-product-card ui-card-lift relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[#151518] shadow-[0_18px_44px_rgba(0,0,0,0.24)] transition-[transform,border-color,box-shadow] ${
-        isEditing ? "" : "group hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
+      data-editing={isEditing}
+      data-selected={isEditing && selected}
+      className={`digbox-product-card ui-card ui-product-card relative flex h-full flex-col overflow-hidden rounded-[22px] border bg-[linear-gradient(180deg,rgba(25,25,29,0.98),rgba(15,15,18,0.98))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-[transform,border-color,box-shadow,background-color] duration-150 [transition-timing-function:var(--ease-out)] ${
+        isEditing && selected
+          ? "border-orange-400 bg-orange-500/[0.08] shadow-[0_0_0_2px_rgba(251,146,60,0.3),0_14px_34px_rgba(0,0,0,0.18)]"
+          : "border-white/[0.09]"
       }`}
     >
       <Link
@@ -60,11 +60,10 @@ function GridCard({
           event.preventDefault();
           onOpen();
         }}
-        className="relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[28px] text-inherit no-underline"
+        className="digbox-product-card-link relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[22px] text-inherit no-underline"
       >
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_32%,transparent_68%,rgba(255,255,255,0.1))]" />
-        <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(17,24,39,0.72),rgba(0,0,0,0.46))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:m-3 sm:h-48 sm:rounded-[22px]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.12),transparent_28%)]" />
+        <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
           <div className="absolute inset-3 z-[1] sm:inset-4">
             {imgOk && imageSrc ? (
               <ProgressiveImage
@@ -81,16 +80,9 @@ function GridCard({
             )}
           </div>
         </div>
-        <div className="flex flex-1 flex-col bg-black/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
+        <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
           <div className="mb-1 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
           <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
-          {otherDigboxCount ? (
-            <div className="mb-2">
-              <span className="inline-flex rounded-md bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-gray-400">
-                {otherDigboxCountLabel || `${otherDigboxCount}명이 담았어요`}
-              </span>
-            </div>
-          ) : null}
           <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
         </div>
       </Link>
@@ -98,28 +90,13 @@ function GridCard({
       {isEditing && (
         <button
           type="button"
-          aria-label="상품 선택"
+          aria-label={selected ? "상품 선택 해제" : "상품 선택"}
+          aria-pressed={selected}
           onClick={onSelect}
-          className="absolute inset-0 z-10 rounded-[28px] bg-transparent"
+          className="absolute inset-0 z-10 rounded-[22px] bg-transparent"
         />
       )}
 
-      {isEditing && (
-        <button
-          type="button"
-          aria-label="?곹뭹 ?좏깮"
-          onClick={onSelect}
-          className={`absolute left-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-md border-2 p-0 backdrop-blur transition ${
-            selected ? "border-orange-500 bg-orange-500" : "border-white/30 bg-black/50 hover:border-orange-500/70 hover:bg-orange-500/10"
-          }`}
-        >
-          {selected && (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3">
-              <polyline points="20,6 9,17 4,12" />
-            </svg>
-          )}
-        </button>
-      )}
     </div>
   );
 }
@@ -128,26 +105,21 @@ function ListRow({
   product,
   selected,
   isEditing,
-  otherDigboxCount,
-  otherDigboxCountLabel,
   onSelect,
   onOpen,
 }: {
   product: Product;
   selected: boolean;
   isEditing: boolean;
-  otherDigboxCount?: number;
-  otherDigboxCountLabel?: string;
   onSelect: () => void;
   onOpen: () => void;
 }) {
-  const [hover, setHover] = useState(false);
   const [imgOk, setImgOk] = useState(true);
 
   return (
     <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      className={`digbox-list-row ${isEditing && selected ? "border-orange-400/80 bg-orange-500/[0.08]" : "border-white/[0.09]"}`}
+      data-editing={isEditing}
       style={{
         ...cardStyle,
         position: "relative",
@@ -156,10 +128,8 @@ function ListRow({
         gap: 14,
         padding: "12px 16px",
         transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
-        transform: hover && !isEditing ? "translateX(4px)" : "none",
-        borderColor: hover && !isEditing
-          ? "rgba(255,255,255,0.15)"
-          : "rgba(255,255,255,0.09)",
+        borderColor: isEditing && selected ? "rgba(251,146,60,0.8)" : "rgba(255,255,255,0.09)",
+        background: isEditing && selected ? "rgba(249,115,22,0.08)" : "#111114",
       }}
     >
       {isEditing && (
@@ -231,15 +201,11 @@ function ListRow({
       <span style={{ fontSize: 10, color: "#6b7280", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "3px 8px", flexShrink: 0 }}>
         {product.category}
       </span>
-      {otherDigboxCount ? (
-        <span style={{ fontSize: 10, color: "#9ca3af", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "3px 8px", flexShrink: 0 }}>
-          {otherDigboxCountLabel || `${otherDigboxCount}명이 담았어요`}
-        </span>
-      ) : null}
       {isEditing && (
         <button
           type="button"
-          aria-label="상품 선택"
+          aria-label={selected ? "상품 선택 해제" : "상품 선택"}
+          aria-pressed={selected}
           onClick={onSelect}
           style={{
             position: "absolute",
@@ -314,12 +280,18 @@ export function DigboxPageClient({
     }
   }, [ensureClosetLoaded, ensureDigboxLoaded, isOwner]);
 
+  useEffect(() => () => {
+    if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+  }, []);
+
   const [catFilter, setCatFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [isUndoingRemoval, setIsUndoingRemoval] = useState(false);
+  const [removalUndoProducts, setRemovalUndoProducts] = useState<Product[] | null>(null);
+  const [removalError, setRemovalError] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
@@ -330,9 +302,11 @@ export function DigboxPageClient({
   const [bioInput, setBioInput] = useState(initialBio);
   const [bioSaving, setBioSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isSheetClosing, setIsSheetClosing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const bioTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const removalUndoTimerRef = useRef<number | null>(null);
 
   const getAnchorRect = (element: Element): TutorialAnchorRect => {
     const rect = element.getBoundingClientRect();
@@ -353,8 +327,26 @@ export function DigboxPageClient({
     setActiveTutorial({ id: tutorialId, anchorRect });
   };
 
+  const closeMenu = () => {
+    if (!menuOpen || isSheetClosing) return;
+    setIsSheetClosing(true);
+    window.setTimeout(() => {
+      setMenuOpen(false);
+      setIsSheetClosing(false);
+    }, 160);
+  };
+
+  const toggleMenu = () => {
+    if (menuOpen) {
+      closeMenu();
+      return;
+    }
+    setIsSheetClosing(false);
+    setMenuOpen(true);
+  };
+
   const handleShare = async () => {
-    setMenuOpen(false);
+    closeMenu();
     const url = `${window.location.origin}/u/${encodeURIComponent(username)}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -368,6 +360,15 @@ export function DigboxPageClient({
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const openBioEditor = () => {
+    closeMenu();
+    setBioInput(bio);
+    window.setTimeout(() => {
+      setIsBioEditing(true);
+      bioTextareaRef.current?.focus();
+    }, 170);
   };
 
   const saveBio = async () => {
@@ -390,12 +391,6 @@ export function DigboxPageClient({
       setBioSaving(false);
     }
   };
-
-  const catCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    products.forEach((p) => { counts[p.category] = (counts[p.category] || 0) + 1; });
-    return counts;
-  }, [products]);
 
   const filtered = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -455,11 +450,43 @@ export function DigboxPageClient({
     });
   };
 
-  const removeSelected = () => {
-    void Promise.all([...selectedIds].map((id) => digbox.removeFromDigbox(id)));
-    setSelectedIds(new Set());
-    setIsEditing(false);
-    setConfirmBatchDelete(false);
+  const removeSelected = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length || isRemoving) return;
+
+    setIsRemoving(true);
+    setRemovalError(null);
+    const results = await Promise.allSettled(ids.map((id) => digbox.removeFromDigbox(id)));
+    const succeededIds = new Set(ids.filter((_, index) => results[index]?.status === "fulfilled"));
+    const failedIds = ids.filter((id) => !succeededIds.has(id));
+    const removedProducts = products.filter((product) => succeededIds.has(product.id));
+
+    if (removedProducts.length) {
+      if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+      setRemovalUndoProducts(removedProducts);
+      removalUndoTimerRef.current = window.setTimeout(() => setRemovalUndoProducts(null), 5000);
+    }
+
+    setSelectedIds(new Set(failedIds));
+    setIsEditing(failedIds.length > 0);
+    if (failedIds.length) setRemovalError("일부 상품을 저장 목록에서 삭제하지 못했어요. 다시 시도해주세요.");
+    setIsRemoving(false);
+  };
+
+  const undoRemoval = async () => {
+    if (!removalUndoProducts?.length || isUndoingRemoval) return;
+
+    setIsUndoingRemoval(true);
+    setRemovalError(null);
+    const results = await Promise.allSettled(removalUndoProducts.map((product) => digbox.addToDigbox(product.id)));
+    const failedCount = results.filter((result) => result.status === "rejected").length;
+    if (failedCount) {
+      setRemovalError("일부 상품을 다시 저장하지 못했어요. 다시 시도해주세요.");
+    } else {
+      if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+      setRemovalUndoProducts(null);
+    }
+    setIsUndoingRemoval(false);
   };
 
   const getCardDigboxCountLabel = (count: number) =>
@@ -481,10 +508,10 @@ export function DigboxPageClient({
     >
       <div style={{ width: "100%", maxWidth: 1280 }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div className="collection-page-title">
+          <div className="collection-page-heading-row">
             <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>
-              {username}&apos;s Saved items
+              {isOwner ? "저장한 상품" : `${username} 님이 저장한 상품`}
             </h1>
             {isOwner && (
               <div style={{ position: "relative" }}>
@@ -492,11 +519,11 @@ export function DigboxPageClient({
                   type="button"
                   onClick={(event) => {
                     showTutorialOnce("digboxShare", getAnchorRect(event.currentTarget));
-                    setMenuOpen((v) => !v);
+                    toggleMenu();
                   }}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 3, width: 32, height: 32, borderRadius: 9,
+                    gap: 3, width: 36, height: 36, borderRadius: 9,
                     background: menuOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
                     border: "1px solid rgba(255,255,255,0.08)",
                     cursor: "pointer", transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
@@ -512,7 +539,7 @@ export function DigboxPageClient({
           </div>
 
           {/* bio 표시 */}
-          {!isBioEditing && (
+          {!isOwner && !isBioEditing && (
             bio ? (
               <p style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.6, maxWidth: 480, whiteSpace: "pre-wrap" }}>
                 {bio}
@@ -564,8 +591,10 @@ export function DigboxPageClient({
         </div>
 
         {/* 복사 완료 토스트 */}
+        <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel="저장한 상품 검색" />
+
         {copied && (
-          <div className="fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]" style={{
+          <div className="digbox-copy-toast fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]" style={{
             left: "50%",
             transform: "translateX(-50%)", zIndex: 90,
             background: "rgba(17,24,39,0.95)", border: "1px solid rgba(255,255,255,0.1)",
@@ -582,10 +611,12 @@ export function DigboxPageClient({
         {isOwner && menuOpen && (
           <>
             <div
-              onClick={() => setMenuOpen(false)}
+              className="digbox-sheet-backdrop"
+              data-closing={isSheetClosing}
+              onClick={closeMenu}
               style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
             />
-            <div style={{
+            <div className="digbox-sheet" data-closing={isSheetClosing} style={{
               position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 75,
               background: "#111114", borderTop: "1px solid rgba(255,255,255,0.08)",
               borderRadius: "20px 20px 0 0",
@@ -623,7 +654,7 @@ export function DigboxPageClient({
               {isOwner && (
                 <button
                   type="button"
-                  onClick={() => { setMenuOpen(false); setBioInput(bio); setIsBioEditing(true); setTimeout(() => bioTextareaRef.current?.focus(), 30); }}
+                  onClick={openBioEditor}
                   style={{
                     width: "100%", display: "flex", alignItems: "center", gap: 14,
                     padding: "14px 24px", background: "none", border: "none",
@@ -649,37 +680,11 @@ export function DigboxPageClient({
         )}
 
         {/* Category filter */}
-        <div className="mb-6 flex gap-2 overflow-x-auto overflow-y-visible py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 sm:overflow-visible sm:py-0">
-          {([["", "All", products.length]] as [string, string, number][])
-            .concat(CATEGORIES.map((cat) => [cat, cat, catCounts[cat] || 0]))
-            .map(([value, label, count]) => {
-              const isActive = catFilter === value;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setCatFilter(catFilter === value ? "" : value === "" ? "" : value)}
-                  className={`flex h-9 min-w-max flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-[11px] font-black transition-[border-color,background-color,color,box-shadow] sm:h-10 sm:min-w-0 sm:flex-auto sm:px-2 sm:text-xs ${
-                    isActive
-                      ? "border-orange-500/55 bg-orange-500/12 text-orange-400 shadow-[0_8px_20px_rgba(249,115,22,0.12)]"
-                      : "border-white/10 bg-white/[0.045] text-gray-400 hover:border-white/18 hover:bg-white/[0.07] hover:text-gray-100"
-                  }`}
-                >
-                  <span>{label}</span>
-                  <span className={`rounded-md px-1.5 py-0.5 text-[10px] leading-none ${isActive ? "bg-orange-500/18 text-orange-300" : "bg-white/[0.06] text-gray-600"}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-        </div>
+        <FilterBar categoryValue={catFilter} onCategoryChange={(value) => setCatFilter(value)} disabled={isEditing} />
 
         {/* Toolbar */}
-        <div
-          className="closet-toolbar"
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 10, flexWrap: "wrap" }}
-        >
-          <div className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 transition focus-within:border-orange-500/45 focus-within:bg-white/[0.055] sm:h-[34px]">
+        <div className="hidden">
+          <div className="flex h-9 w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 transition focus-within:border-orange-500/45 focus-within:bg-white/[0.055] sm:h-[34px]">
             <Search className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
             <input
               type="text"
@@ -701,112 +706,87 @@ export function DigboxPageClient({
           </div>
 
           {/* Right controls */}
-          <div className="closet-toolbar-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="hidden">
             {isEditing && (
-              <div style={{ height: 34, display: "inline-flex", alignItems: "center", padding: "0 12px", borderRadius: 11, background: "rgba(255,255,255,0.05)", color: selectedIds.size > 0 ? "#F97316" : "#8b949e", fontSize: 11, fontWeight: 800 }}>
-                {selectedIds.size} selected
-              </div>
-            )}
-
-            {/* View toggle */}
-            {!isEditing && (
-              <div style={{ display: "flex", height: 34, background: "rgba(255,255,255,0.05)", borderRadius: 11, border: "1px solid rgba(255,255,255,0.1)", overflow: "hidden" }}>
-                {([
-                  { id: "grid" as ViewMode, icon: (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <rect x="3" y="3" width="7" height="7" rx="1" />
-                      <rect x="14" y="3" width="7" height="7" rx="1" />
-                      <rect x="3" y="14" width="7" height="7" rx="1" />
-                      <rect x="14" y="14" width="7" height="7" rx="1" />
-                    </svg>
-                  )},
-                  { id: "list" as ViewMode, icon: (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="8" y1="6" x2="21" y2="6" />
-                      <line x1="8" y1="12" x2="21" y2="12" />
-                      <line x1="8" y1="18" x2="21" y2="18" />
-                      <line x1="3" y1="6" x2="3.01" y2="6" />
-                      <line x1="3" y1="12" x2="3.01" y2="12" />
-                      <line x1="3" y1="18" x2="3.01" y2="18" />
-                    </svg>
-                  )},
-                ] as { id: ViewMode; icon: React.ReactNode }[]).map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => setViewMode(v.id)}
-                    style={{
-                      width: 36, height: "100%", padding: 0, border: "none", cursor: "pointer",
-                      background: viewMode === v.id ? "rgba(249,115,22,0.18)" : "transparent",
-                      color: viewMode === v.id ? "#F97316" : "#6b7280",
-                      transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 0,
-                    }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 0 }}>{v.icon}</span>
-                  </button>
-                ))}
-              </div>
+              <p aria-live="polite" className="text-xs font-bold text-orange-300">
+                {selectedIds.size ? `${selectedIds.size}개 선택됨` : "상품을 선택하세요"}
+              </p>
             )}
 
             {/* Delete button — owner only */}
-            {isOwner && (
+            {isOwner && !isEditing && (
               <button
                 type="button"
                 onClick={() => {
-                  if (isEditing && selectedIds.size > 0) { setConfirmBatchDelete(true); return; }
-                  setIsEditing((prev) => { if (prev) setSelectedIds(new Set()); return !prev; });
+                  setRemovalError(null);
+                  setIsEditing(true);
                 }}
                 style={{
-                  height: 34, width: 36, display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  padding: 0, borderRadius: 11,
-                  background: isEditing ? "rgba(249,115,22,0.18)" : "rgba(255,255,255,0.05)",
+                  height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 12px", borderRadius: 11,
+                  background: "rgba(255,255,255,0.05)",
                   border: "1px solid rgba(255,255,255,0.1)",
-                  color: isEditing ? "#F97316" : "#6b7280",
+                  color: "#d1d5db",
                   cursor: "pointer", transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
                 }}
-                aria-label={isEditing ? "삭제 선택 완료" : "삭제할 상품 선택"}
+                aria-label="편집"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                저장 목록에서 삭제
               </button>
             )}
 
             {isOwner && isEditing && (
               <button
                 type="button"
-                onClick={() => { setSelectedIds(new Set()); setIsEditing(false); }}
+                onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }}
                 style={{
-                  height: 34, width: 36, display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  padding: 0, borderRadius: 11, background: "rgba(255,255,255,0.05)", border: "none",
+                  height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 12px", borderRadius: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
                   color: "#6b7280", cursor: "pointer", transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
                 }}
-                aria-label="삭제 선택 취소"
+                aria-label="취소"
               >
-                <X className="h-3.5 w-3.5" />
+                취소
               </button>
             )}
           </div>
         </div>
 
+        {removalError && <p role="alert" className="mb-4 text-xs font-semibold text-red-300">{removalError}</p>}
         </div>{/* end 860 wrapper */}
 
         {/* Empty state */}
         {isLoading ? null : filtered.length === 0 ? (
-          <div style={{ ...cardStyle, padding: "60px 24px", textAlign: "center", marginTop: 20 }}>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.5" style={{ margin: "0 auto 16px" }}>
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-            <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6 }}>
-              저장한 상품이 없어요.
-              <br />
-              마음에 드는 상품을 담아보세요.
+          <CollectionEmptyState
+            collection="saved"
+            query={searchQuery}
+            category={catFilter}
+            onClearSearch={() => setSearchQuery("")}
+            onClearCategory={() => setCatFilter("")}
+            onClearAll={() => {
+              setSearchQuery("");
+              setCatFilter("");
+            }}
+          />
+        ) : (
+          <>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p aria-live="polite" className={`text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
+              {isEditing
+                ? (selectedIds.size ? `${selectedIds.size}개 선택됨` : "저장 목록에서 삭제할 상품을 선택하세요.")
+                : (searchQuery.trim() ? `${filtered.length}개 검색 결과` : `저장한 상품 ${filtered.length}개`)}
             </p>
-            <Link
-              href="/"
-              style={{ display: "inline-block", marginTop: 16, padding: "10px 24px", borderRadius: 12, background: "#F97316", color: "#000", fontWeight: 700, fontSize: 13, textDecoration: "none" }}
-            >
-              상품 보기
-            </Link>
+            {isOwner && !isEditing && (
+              <button type="button" onClick={() => { setRemovalError(null); setIsEditing(true); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                저장 목록에서 삭제
+              </button>
+            )}
+            {isOwner && isEditing && (
+              <button type="button" onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                취소
+              </button>
+            )}
           </div>
-        ) : viewMode === "grid" ? (
           <div className="closet-product-grid" style={{ display: "grid" }}>
             {filtered.map((p) => (
               <GridCard
@@ -814,37 +794,37 @@ export function DigboxPageClient({
                 product={p}
                 selected={selectedIds.has(p.id)}
                 isEditing={isEditing}
-                otherDigboxCount={discoveredDigboxCounts[p.id] || 0}
-                otherDigboxCountLabel={discoveredDigboxCounts[p.id] ? getCardDigboxCountLabel(discoveredDigboxCounts[p.id]) : undefined}
                 onSelect={() => toggleSelect(p.id)}
                 onOpen={() => handleProductOpen(p)}
               />
             ))}
           </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {filtered.map((p) => (
-              <ListRow
-                key={p.id}
-                product={p}
-                selected={selectedIds.has(p.id)}
-                isEditing={isEditing}
-                otherDigboxCount={discoveredDigboxCounts[p.id] || 0}
-                otherDigboxCountLabel={discoveredDigboxCounts[p.id] ? getCardDigboxCountLabel(discoveredDigboxCounts[p.id]) : undefined}
-                onSelect={() => toggleSelect(p.id)}
-                onOpen={() => handleProductOpen(p)}
-              />
-            ))}
-          </div>
+          </>
         )}
       </div>
 
-      {confirmBatchDelete && (
-        <DeleteConfirmDialog
-          onConfirm={removeSelected}
-          onCancel={() => setConfirmBatchDelete(false)}
-        />
+      {isOwner && isEditing && selectedIds.size > 0 && (
+        <div className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
+          <p className="min-w-0 text-sm font-bold text-white"><span className="text-orange-300">{selectedIds.size}개</span> 선택됨</p>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }} className="h-10 rounded-xl px-3 text-sm font-bold text-gray-300 transition hover:bg-white/[0.06] hover:text-white">
+              취소
+            </button>
+            <button type="button" disabled={isRemoving} onClick={() => void removeSelected()} className="h-10 rounded-xl bg-red-500 px-4 text-sm font-bold text-white transition hover:bg-red-400 disabled:cursor-wait disabled:bg-red-500/50">
+              {isRemoving ? "저장 목록에서 삭제 중…" : "선택한 상품을 저장 목록에서 삭제"}
+            </button>
+          </div>
+        </div>
       )}
+
+      {removalUndoProducts?.length ? (
+        <div role="status" className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 px-4 py-3 text-sm shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
+          <p className="min-w-0 font-semibold text-white">상품 {removalUndoProducts.length}개를 저장 목록에서 삭제했어요.</p>
+          <button type="button" disabled={isUndoingRemoval} onClick={() => void undoRemoval()} className="shrink-0 font-bold text-orange-300 transition hover:text-orange-200 disabled:cursor-wait disabled:text-orange-300/50">
+            {isUndoingRemoval ? "되돌리는 중…" : "되돌리기"}
+          </button>
+        </div>
+      ) : null}
 
       {normalizedProduct && (
         <ProductDetailModal

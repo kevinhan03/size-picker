@@ -141,22 +141,17 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
         {!isAdmin && (
           <nav aria-label="주요 메뉴" className="hidden items-center gap-1 lg:flex">
             {primaryNavigationItems.map(({ destination, label, icon: Icon }) => (
-              <div key={destination} className="group relative">
-                <button
-                  type="button"
-                  aria-current={activeDestination === destination ? "page" : undefined}
-                  aria-label={label}
-                  onClick={() => navigate(destination)}
-                  className={desktopNavClass(activeDestination === destination)}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-xs font-bold">{label}</span>
-                </button>
-                <div className={tooltipClass}>
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                  {label}
-                </div>
-              </div>
+              <button
+                key={destination}
+                type="button"
+                aria-current={activeDestination === destination ? "page" : undefined}
+                aria-label={label}
+                onClick={() => navigate(destination)}
+                className={desktopNavClass(activeDestination === destination)}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="text-xs font-bold">{label}</span>
+              </button>
             ))}
             <div className="group relative hidden">
               <button

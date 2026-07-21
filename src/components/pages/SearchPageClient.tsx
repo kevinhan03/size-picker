@@ -480,6 +480,7 @@ export function SearchPageClient() {
       <FilterBar
         categoryValue={grid.gridCategoryFilter}
         onCategoryChange={handleCategoryFilterChange}
+        className="max-w-3xl"
       />
 
       <div className="w-full max-w-7xl dig-grid">

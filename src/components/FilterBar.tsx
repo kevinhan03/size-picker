@@ -6,6 +6,8 @@ import type { TutorialAnchorRect } from "./OnboardingTutorial";
 interface FilterBarProps {
   categoryValue: string;
   onCategoryChange: (value: string, anchorRect?: TutorialAnchorRect) => void;
+  disabled?: boolean;
+  className?: string;
 }
 
 const getAnchorRect = (element: HTMLElement): TutorialAnchorRect => {
@@ -13,17 +15,23 @@ const getAnchorRect = (element: HTMLElement): TutorialAnchorRect => {
   return { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left, width: rect.width, height: rect.height };
 };
 
-export function FilterBar({ categoryValue, onCategoryChange }: FilterBarProps) {
+export function FilterBar({ categoryValue, onCategoryChange, disabled = false, className = "" }: FilterBarProps) {
   const categories = [{ label: "전체", value: "" }, ...CATEGORY_OPTIONS.map((category) => ({ label: category, value: category }))];
 
   return (
-    <div className="dig-filterbar mb-5 w-full max-w-3xl">
+    <div className={`dig-filterbar mb-5 w-full ${className}`}>
       <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="grid w-[31rem] grid-cols-6 sm:w-full">
+        <div className="grid w-full grid-cols-6">
         {categories.map(({ label, value }) => {
           const active = categoryValue === value;
           return (
-            <button key={value || "all"} type="button" onClick={(event) => onCategoryChange(value, getAnchorRect(event.currentTarget))} className={`h-9 min-w-0 border-b-2 border-r border-white/[0.12] px-2 text-xs font-bold transition last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${active ? "border-b-orange-300 text-orange-300" : "border-b-transparent text-gray-500 hover:text-white"}`}>
+            <button
+              key={value || "all"}
+              type="button"
+              disabled={disabled}
+              onClick={(event) => onCategoryChange(value, getAnchorRect(event.currentTarget))}
+              className={`h-9 min-w-0 border-b-2 border-r border-white/[0.12] px-2 text-xs font-bold transition last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 disabled:cursor-not-allowed disabled:opacity-45 ${active ? "border-b-orange-300 text-orange-300" : "border-b-transparent text-gray-500 hover:text-white"}`}
+            >
               {label}
             </button>
           );

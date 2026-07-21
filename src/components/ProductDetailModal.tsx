@@ -77,10 +77,10 @@ function SavedSizeSummary({ product }: { product?: Product | null }) {
   if (!label) return null;
 
   return (
-    <span className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-black text-gray-300">
-      <span className="uppercase text-gray-500">My size</span>
-      <span className="text-sm leading-none text-orange-400">{label}</span>
-    </span>
+    <p className="flex items-baseline gap-2 text-sm">
+      <span className="text-xs font-semibold text-gray-500">보유 사이즈</span>
+      <span className="font-bold text-gray-100">{label}</span>
+    </p>
   );
 }
 
@@ -573,19 +573,21 @@ export function ProductDetailModal({
                 <span className="text-gray-500">{product.category}</span>
               </div>
               <h4 className="mb-2 text-2xl font-bold text-white">{product.name}</h4>
-              {product.url ? (
-                <a
-                  href={product.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center text-sm text-gray-300 transition-colors hover:text-orange-400"
-                >
-                  공식 홈페이지 <ExternalLink className="ml-1 h-3 w-3" />
-                </a>
-              ) : (
-                <span className="text-sm text-gray-600">URL 없음</span>
-              )}
-              {savedClosetProduct ? <div className="mt-3"><SavedSizeSummary product={savedClosetProduct} /></div> : null}
+              <div className="mt-3 space-y-2">
+                {savedClosetProduct ? <SavedSizeSummary product={savedClosetProduct} /> : null}
+                {product.url ? (
+                  <a
+                    href={product.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-sm text-gray-400 transition-colors hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
+                  >
+                    공식 홈페이지 <ExternalLink className="ml-1 h-3 w-3" />
+                  </a>
+                ) : (
+                  <span className="text-sm text-gray-600">URL 없음</span>
+                )}
+              </div>
               {(product.registeredBy || otherDigboxCount > 0 || relatedGraphReason) && (
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-gray-500">
                   {product.registeredBy && <span>발굴한 사람: <span className="text-gray-200">{product.registeredBy}</span></span>}
@@ -705,14 +707,14 @@ export function ProductDetailModal({
                         onKeyDown={(event) => handleSizeTableRowKeyDown(event, rowIndex)}
                         tabIndex={0}
                         aria-selected={isActiveRow}
-                        aria-label={`${String(row[0] ?? "사이즈")} ${isActiveRow ? "선택됨" : "선택"}`}
+                        aria-label={`${String(row[0] ?? "사이즈")}${isSavedRow ? " 보유 사이즈" : ""} ${isActiveRow ? "선택됨" : "선택"}`}
                         className="group cursor-pointer outline-none focus-visible:[&>td]:bg-white/[0.075] focus-visible:[&>td:first-child]:rounded-l-lg focus-visible:[&>td:last-child]:rounded-r-lg"
                       >
                         {row.map((cell, cellIndex) => {
                           return (
                             <td
                               key={cellIndex}
-                          className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-[background-color,color,opacity] duration-150 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""} ${
+                          className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-[background-color,color,opacity] duration-150 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""} ${cellIndex === 0 && isSavedRow ? "border-l-2 border-l-orange-300/75 pl-1.5 sm:pl-3.5" : ""} ${
                             isActiveRow
                                   ? "bg-orange-500/[0.13] text-orange-50 first:rounded-l-lg last:rounded-r-lg"
                                   : isPressedRow
@@ -724,7 +726,6 @@ export function ProductDetailModal({
                             >
                               <span className="inline-flex items-center gap-1.5">
                                 {displayTableCell(cell)}
-                                {cellIndex === 0 && isSavedRow ? <span className="rounded bg-white/[0.08] px-1 py-0.5 text-[9px] font-bold text-gray-400">내 저장</span> : null}
                               </span>
                             </td>
                           );

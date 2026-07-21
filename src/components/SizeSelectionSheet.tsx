@@ -1,6 +1,6 @@
 import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { ClosetSizeSelection, Product } from "../types";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { usePresence } from "../hooks/usePresence";
@@ -179,7 +179,6 @@ export function SizeSelectionSheet({
   const canConfirm = hasSizeTable ? selectedRowIndex !== null : manualSize.trim().length > 0;
   const selectedSizeLabel = selectedRow ? String(selectedRow[0] ?? '').trim() : manualSize.trim();
   const measurementSummary = measurements
-    .slice(0, 3)
     .map(({ label, value }) => `${label} ${value}`)
     .join(' · ');
   const selectionHint = hasSizeTable
@@ -215,7 +214,8 @@ export function SizeSelectionSheet({
           <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h3 className="truncate text-lg font-bold">보유 사이즈 선택</h3>
-            <p className="mt-1 truncate text-sm text-gray-400">{product.name}</p>
+            {product.brand ? <p className="mt-1 truncate text-xs font-semibold tracking-wide text-white/40">{product.brand}</p> : null}
+            <p className="mt-0.5 truncate text-sm font-semibold text-white/85">{product.name}</p>
           </div>
           <button
             type="button"
@@ -241,12 +241,11 @@ export function SizeSelectionSheet({
                     onClick={() => setSelectedRowIndex(index)}
                     className={`relative h-12 rounded-xl border text-sm font-bold transition-[background-color,border-color,color,box-shadow] ${
                       active
-                        ? "border-orange-400/75 bg-orange-500/[0.16] text-orange-100 shadow-[inset_0_0_0_1px_rgba(251,146,60,0.12)]"
-                        : "border-white/10 bg-white/[0.06] text-gray-200 hover:border-orange-400/50 hover:text-orange-200"
+                        ? "border-white/35 bg-white/[0.12] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+                        : "border-white/10 bg-white/[0.06] text-gray-200 hover:border-white/25 hover:text-white"
                     }`}
                   >
                     {label}
-                    {active ? <Check className="absolute right-2 top-2 h-3.5 w-3.5" strokeWidth={2.75} /> : null}
                   </button>
                 );
               })}
@@ -266,12 +265,12 @@ export function SizeSelectionSheet({
           </div>
         )}
 
-        <div className="mt-4 flex min-h-[4.5rem] items-center">
+        <div className="mt-4 min-h-6" aria-live="polite">
           {canConfirm ? (
-            <div>
-              <p className="text-xl font-bold tracking-tight text-orange-100">{selectedSizeLabel}</p>
-              <p className="mt-1 text-xs text-gray-400">{measurementSummary || (hasSizeTable ? '선택한 사이즈로 내 옷장에 저장됩니다.' : '직접 입력한 보유 사이즈입니다.')}</p>
-            </div>
+            <p className="text-sm leading-6 text-white/55">
+              <span className="font-bold text-white">{selectedSizeLabel}</span>
+              <span>{measurementSummary ? ` · ${measurementSummary}` : ` · ${hasSizeTable ? '선택한 사이즈로 내 옷장에 저장됩니다.' : '직접 입력한 보유 사이즈입니다.'}`}</span>
+            </p>
           ) : <p className="text-xs text-gray-500">{selectionHint}</p>}
         </div>
 

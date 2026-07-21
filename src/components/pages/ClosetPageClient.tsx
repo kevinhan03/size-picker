@@ -11,8 +11,11 @@ import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { ProductDetailModal } from "../ProductDetailModal";
+import { FilterBar } from "../FilterBar";
 import { PageState } from "../PageState";
 import { ImageViewerOverlay } from "../ImageViewerOverlay";
+import { CollectionSearchField } from "../CollectionSearchField";
+import { CollectionEmptyState } from "../CollectionEmptyState";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
 
@@ -55,9 +58,9 @@ function GridCard({
 
   return (
     <div
-      className={`ui-card ui-product-card ui-card-lift relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[#151518] shadow-[0_18px_44px_rgba(0,0,0,0.24)] transition-[transform,border-color,box-shadow] ${
-        isEditing ? "" : "group hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(0,0,0,0.3)]"
-      }`}
+      data-editing={isEditing}
+      data-selected={isEditing && selected}
+      className="digbox-product-card ui-card ui-product-card relative flex h-full flex-col overflow-hidden rounded-[22px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(25,25,29,0.98),rgba(15,15,18,0.98))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-[transform,border-color,box-shadow,background-color] duration-150 [transition-timing-function:var(--ease-out)]"
     >
       <Link
         href={href}
@@ -66,11 +69,10 @@ function GridCard({
           event.preventDefault();
           onOpen();
         }}
-        className="relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[28px] text-inherit no-underline"
+        className="digbox-product-card-link relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[22px] text-inherit no-underline"
       >
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),transparent_32%,transparent_68%,rgba(255,255,255,0.1))]" />
-        <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(17,24,39,0.72),rgba(0,0,0,0.46))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:m-3 sm:h-48 sm:rounded-[22px]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.12),transparent_28%)]" />
+        <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
           <div className="absolute inset-3 z-[1] sm:inset-4">
             {imgOk && imageSrc ? (
               <ProgressiveImage
@@ -87,7 +89,7 @@ function GridCard({
             )}
           </div>
         </div>
-        <div className="flex flex-1 flex-col bg-black/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
+        <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
           <div className="mb-1 flex items-center gap-2">
             <span className="truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</span>
             {product.closetSelectedSizeLabel && (
@@ -97,46 +99,7 @@ function GridCard({
             )}
           </div>
           <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
-          {product.closetSelectedSizeSnapshot?.headers?.length ? (
-            <div className="mt-auto">
-              <div
-                style={{
-                  overflowX: "auto",
-                  scrollbarWidth: "none",
-                  borderTop: "1px solid rgba(255,255,255,0.07)",
-                  paddingTop: 8,
-                  marginTop: 4,
-                }}
-              >
-                <div style={{ display: "flex", gap: 6, minWidth: "max-content" }}>
-                  {product.closetSelectedSizeSnapshot.headers.slice(1).map((header, i) => {
-                    const value = product.closetSelectedSizeSnapshot!.row[i + 1];
-                    if (!value) return null;
-                    return (
-                      <div
-                        key={`${header}-${i}`}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          background: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                          borderRadius: 8,
-                          padding: "4px 7px",
-                          minWidth: 40,
-                        }}
-                      >
-                        <span style={{ fontSize: 9, color: "#6b7280", fontWeight: 600, letterSpacing: "0.03em", whiteSpace: "nowrap" }}>{header}</span>
-                        <span style={{ fontSize: 12, color: "#e5e7eb", fontWeight: 700, marginTop: 2, whiteSpace: "nowrap" }}>{value}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
-          )}
+          <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
         </div>
       </Link>
 
@@ -145,26 +108,10 @@ function GridCard({
           type="button"
           aria-label="상품 선택"
           onClick={onSelect}
-          className="absolute inset-0 z-10 rounded-[28px] bg-transparent"
+          className="absolute inset-0 z-10 rounded-[22px] bg-transparent"
         />
       )}
 
-      {isEditing && (
-        <button
-          type="button"
-          aria-label="상품 선택"
-          onClick={onSelect}
-          className={`absolute left-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-md border-2 p-0 backdrop-blur transition ${
-            selected ? "border-orange-500 bg-orange-500" : "border-white/30 bg-black/50 hover:border-orange-500/70 hover:bg-orange-500/10"
-          }`}
-        >
-          {selected && (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3">
-              <polyline points="20,6 9,17 4,12" />
-            </svg>
-          )}
-        </button>
-      )}
 
       {showInlineDelete && (
       <button
@@ -625,8 +572,8 @@ export function ClosetPageClient() {
       <div style={{ width: "100%", maxWidth: 1280 }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
         {/* Title */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <div>
+        <div className="collection-page-title">
+          <div className="collection-page-heading-row">
             <h1
               style={{
                 fontSize: 22,
@@ -636,46 +583,20 @@ export function ClosetPageClient() {
                 lineHeight: 1,
               }}
             >
-              My Closet
+              내 옷장
             </h1>
+            <span aria-hidden="true" className="h-9 w-9 shrink-0" />
           </div>
         </div>
 
-        {/* Category filter */}
-        <div className="mb-6 flex gap-2 overflow-x-auto overflow-y-visible py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 sm:overflow-visible sm:py-0">
-          {([["", "All", closetItems.length]] as [string, string, number][])
-            .concat(CATEGORIES.map((cat) => [cat, cat, catCounts[cat] || 0]))
-            .map(([value, label, count]) => {
-              const isActive = catFilter === value;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setCatFilter(catFilter === value ? "" : value === "" ? "" : value)}
-                  className={`flex h-9 min-w-max flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-[11px] font-black transition-[border-color,background-color,color,box-shadow] sm:h-10 sm:min-w-0 sm:flex-auto sm:px-2 sm:text-xs ${
-                    isActive
-                      ? "border-orange-500/55 bg-orange-500/12 text-orange-400 shadow-[0_8px_20px_rgba(249,115,22,0.12)]"
-                      : "border-white/10 bg-white/[0.045] text-gray-400 hover:border-white/18 hover:bg-white/[0.07] hover:text-gray-100"
-                  }`}
-                >
-                  <span>{label}</span>
-                  <span
-                    className={`rounded-md px-1.5 py-0.5 text-[10px] leading-none ${
-                      isActive ? "bg-orange-500/18 text-orange-300" : "bg-white/[0.06] text-gray-600"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-        </div>
+        <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel="옷장 상품 검색" />
+        <FilterBar categoryValue={catFilter} onCategoryChange={(value) => setCatFilter(value)} disabled={isEditing} />
 
         {/* Toolbar */}
         <div
-          className="closet-toolbar"
+          className="hidden"
           style={{
-            display: "flex",
+            display: "none",
             alignItems: "center",
             justifyContent: "space-between",
             marginBottom: 18,
@@ -683,23 +604,27 @@ export function ClosetPageClient() {
             flexWrap: "wrap",
           }}
         >
-          <div className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 transition focus-within:border-orange-500/45 focus-within:bg-white/[0.055] sm:h-[34px]">
-            <Search className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+          <div className="flex h-11 min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.045] px-3.5 transition-[background-color,border-color,box-shadow] duration-150 focus-within:border-orange-400/60 focus-within:bg-white/[0.07] focus-within:ring-2 focus-within:ring-orange-500/10 sm:h-10">
+            <Search className="h-4 w-4 flex-shrink-0 text-white/45" />
             <input
               type="text"
               value={searchQuery}
+              disabled={isEditing}
+              autoComplete="off"
+              enterKeyHint="search"
+              aria-label="옷장 상품 검색"
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search closet"
-              className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-white outline-none placeholder:text-gray-600"
+              placeholder="브랜드 또는 상품명 검색"
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/35 disabled:cursor-not-allowed disabled:text-white/45"
             />
-            {searchQuery && (
+            {searchQuery && !isEditing && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06] p-0 text-gray-500 transition hover:bg-orange-500/[0.14] hover:text-orange-300"
-                aria-label="Clear closet search"
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-white/45 transition hover:bg-white/[0.08] hover:text-white"
+                aria-label="검색어 지우기"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -720,11 +645,11 @@ export function ClosetPageClient() {
                   fontWeight: 800,
                 }}
               >
-                {selectedIds.size} selected
+                {selectedIds.size ? `${selectedIds.size}개 선택됨` : "옷장에서 삭제할 상품을 선택하세요."}
               </div>
             )}
             {/* View toggle */}
-            {!isEditing && (
+            {false && !isEditing && (
             <div
               className="closet-view-control"
               style={{
@@ -851,55 +776,34 @@ export function ClosetPageClient() {
           </div>
         </div>
 
-        </div>{/* end 860 wrapper */}
+        </div>{/* legacy toolbar removed */}
 
         {/* Empty state */}
         {filtered.length === 0 && (
-          <div
-            style={{
-              ...cardStyle,
-              padding: "60px 24px",
-              textAlign: "center",
-              marginTop: 20,
+          <CollectionEmptyState
+            collection="closet"
+            query={searchQuery}
+            category={catFilter}
+            onClearSearch={() => setSearchQuery("")}
+            onClearCategory={() => setCatFilter("")}
+            onClearAll={() => {
+              setSearchQuery("");
+              setCatFilter("");
             }}
-          >
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#374151"
-              strokeWidth="1.5"
-              style={{ margin: "0 auto 16px" }}
-            >
-              <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z" />
-            </svg>
-            <p style={{ color: "#6b7280", fontSize: 14 }}>
-              옷장이 비어있어요.
-              <br />
-              아래에서 상품을 추가해보세요.
-            </p>
-            <Link
-              href="/"
-              style={{
-                display: "inline-block",
-                marginTop: 16,
-                padding: "10px 24px",
-                borderRadius: 12,
-                background: "#F97316",
-                color: "#000",
-                fontWeight: 700,
-                fontSize: 13,
-                textDecoration: "none",
-              }}
-            >
-              상품 둘러보기
-            </Link>
-          </div>
+          />
         )}
 
+        {filtered.length > 0 ? (
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p aria-live="polite" className={`text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
+              {isEditing ? (selectedIds.size ? `${selectedIds.size}개 선택됨` : "옷장에서 삭제할 상품을 선택하세요.") : (searchQuery.trim() ? `${filtered.length}개 검색 결과` : `옷장 상품 ${filtered.length}개`)}
+            </p>
+            {!isEditing ? <button type="button" onClick={() => setIsEditing(true)} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">옷장에서 삭제</button> : <button type="button" onClick={() => { setSelectedIds(new Set()); setIsEditing(false); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">취소</button>}
+          </div>
+        ) : null}
+
         {/* Grid view */}
-        {viewMode === "grid" && filtered.length > 0 && (
+        {filtered.length > 0 && (
           <div
             className="closet-product-grid"
             style={{ display: "grid" }}
@@ -920,7 +824,7 @@ export function ClosetPageClient() {
         )}
 
         {/* List view */}
-        {viewMode === "list" && filtered.length > 0 && (
+        {false && viewMode === "list" && filtered.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {filtered.map((p) => (
               <ListRow
@@ -937,6 +841,16 @@ export function ClosetPageClient() {
           </div>
         )}
       </div>
+
+      {isEditing && selectedIds.size > 0 ? (
+        <div className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
+          <p className="min-w-0 text-sm font-bold text-white"><span className="text-orange-300">{selectedIds.size}개</span> 선택됨</p>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={() => { setSelectedIds(new Set()); setIsEditing(false); }} className="h-10 rounded-xl px-3 text-sm font-bold text-gray-300 transition hover:bg-white/[0.06] hover:text-white">취소</button>
+            <button type="button" onClick={() => setConfirmBatchDelete(true)} className="h-10 rounded-xl bg-red-500 px-4 text-sm font-bold text-white transition hover:bg-red-400">선택한 상품을 옷장에서 삭제</button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Delete single confirm */}
       {confirmDeleteId && (

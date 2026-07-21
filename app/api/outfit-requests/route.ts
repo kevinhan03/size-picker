@@ -8,8 +8,15 @@ import {
   OUTFIT_PRODUCT_SNAPSHOT_SELECT,
   validateRequestInput,
 } from "../../../server/utils/outfits.js";
+import type { OutfitRequestSummary } from "../../../src/types";
 
 const REQUEST_SELECT = "id,author_id,description,status,accepted_proposal_id,created_at";
+type ProposalRow = { id: string; request_id: string; created_at: string };
+type ProposedRequestSummary = OutfitRequestSummary & {
+  myProposalId: string;
+  proposedAt: string;
+  isAccepted: boolean;
+};
 
 function unauthorized(message = "registered account required") {
   return NextResponse.json({ ok: false, error: message }, { status: 401 });
@@ -26,7 +33,7 @@ export async function GET(request: Request) {
     if (!user) return unauthorized();
 
     const url = new URL(request.url);
-    const scope = ["open", "completed", "mine"].includes(url.searchParams.get("scope") || "")
+    const scope = ["open", "completed", "mine", "proposed"].includes(url.searchParams.get("scope") || "")
       ? String(url.searchParams.get("scope"))
       : "open";
     const status = ["open", "accepted", "closed"].includes(url.searchParams.get("status") || "")
@@ -35,23 +42,64 @@ export async function GET(request: Request) {
     const offset = Math.max(0, Number.parseInt(url.searchParams.get("offset") || "0", 10) || 0);
     const limit = Math.min(20, Math.max(1, Number.parseInt(url.searchParams.get("limit") || "20", 10) || 20));
 
-    let query = db.from("outfit_requests").select(REQUEST_SELECT, { count: "exact" });
-    if (scope === "open") query = query.eq("status", "open").neq("author_id", user.id);
-    if (scope === "completed") query = query.in("status", ["accepted", "closed"]);
-    if (scope === "mine") {
-      query = query.eq("author_id", user.id);
-      if (status !== "all") query = query.eq("status", status);
-    }
+    let requests: OutfitRequestSummary[];
+    let total = 0;
 
-    const { data, error, count } = await query
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
-    if (error) throw error;
-    const requests = await hydrateRequestSummaries(db, data || []);
+    if (scope === "proposed") {
+      const [proposalPageResult, proposalCountResult] = await Promise.all([
+        db.rpc("list_my_outfit_request_proposals", {
+          p_author_id: user.id,
+          p_offset: offset,
+          p_limit: limit,
+        }),
+        db.from("outfit_proposals").select("id", { count: "exact", head: true }).eq("author_id", user.id),
+      ]);
+      if (proposalPageResult.error) throw proposalPageResult.error;
+      if (proposalCountResult.error) throw proposalCountResult.error;
+
+      const proposals = (proposalPageResult.data || []) as ProposalRow[];
+      const requestIds = proposals.map((proposal) => String(proposal.request_id));
+      const { data: requestRows, error: requestError } = requestIds.length
+        ? await db.from("outfit_requests").select(REQUEST_SELECT).in("id", requestIds)
+        : { data: [], error: null };
+      if (requestError) throw requestError;
+
+      const summaries = await hydrateRequestSummaries(db, requestRows || []) as OutfitRequestSummary[];
+      const summariesById = new Map<string, OutfitRequestSummary>(summaries.map((summary) => [summary.id, summary]));
+      const proposalRequests: ProposedRequestSummary[] = proposals
+        .map((proposal) => {
+          const summary = summariesById.get(String(proposal.request_id));
+          if (!summary) return null;
+          return {
+            ...summary,
+            myProposalId: String(proposal.id),
+            proposedAt: proposal.created_at,
+            isAccepted: summary.acceptedProposalId === String(proposal.id),
+          };
+        })
+        .filter((summary): summary is ProposedRequestSummary => Boolean(summary));
+      total = proposalCountResult.count || 0;
+      requests = proposalRequests;
+    } else {
+      let query = db.from("outfit_requests").select(REQUEST_SELECT, { count: "exact" });
+      if (scope === "open") query = query.eq("status", "open").neq("author_id", user.id);
+      if (scope === "completed") query = query.in("status", ["accepted", "closed"]);
+      if (scope === "mine") {
+        query = query.eq("author_id", user.id);
+        if (status !== "all") query = query.eq("status", status);
+      }
+
+      const { data, error, count } = await query
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (error) throw error;
+      requests = await hydrateRequestSummaries(db, data || []);
+      total = count || 0;
+    }
 
     return NextResponse.json({
       ok: true,
-      data: { requests, total: count || 0, nextOffset: offset + requests.length, currentUserId: user.id },
+      data: { requests, total, nextOffset: offset + requests.length, currentUserId: user.id },
     });
   } catch (error: unknown) {
     console.error("[outfits] list failed", error);
