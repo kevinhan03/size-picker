@@ -1,4 +1,4 @@
-import { Check, Plus, Save, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { Product, ProductStyleReviewInput, ProductTargetGender, StyleAttributes, StyleTagName, StyleTags, TagReviewStatus } from '../../types';
 
@@ -258,16 +258,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
     setNewOptionInputs((previous) => ({ ...previous, [field.key]: '' }));
   };
 
-  const saveEditedReview = () => {
-    onSave(product.id, {
-      tagReviewStatus: 'edited',
-      humanStyleTags: humanTags,
-      humanStyleAttributes: isAccessory ? null : humanAttributes,
-      humanStyleTagsEvidence: product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null,
-      tagReviewNote: reviewNote,
-      targetGender,
-    });
-  };
+  const isPreviouslyApproved = reviewStatus === 'approved' || reviewStatus === 'edited';
 
   return (
     <div className="mt-4 rounded-xl border border-gray-800 bg-black/30 p-3">
@@ -293,7 +284,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
             type="button"
             onClick={() =>
               onSave(product.id, {
-                tagReviewStatus: 'approved',
+                tagReviewStatus: isPreviouslyApproved ? 'edited' : 'approved',
                 humanStyleTags: humanTags,
                 humanStyleAttributes: isAccessory ? null : humanAttributes,
                 humanStyleTagsEvidence: product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null,
@@ -305,16 +296,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
             className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-500"
           >
             <Check className="h-3.5 w-3.5" />
-            승인
-          </button>
-          <button
-            type="button"
-            onClick={saveEditedReview}
-            disabled={isSaving || !hasAiTags}
-            className="inline-flex items-center gap-1 rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-500"
-          >
-            <Save className="h-3.5 w-3.5" />
-            저장
+            {isPreviouslyApproved ? '저장' : '승인'}
           </button>
           <button
             type="button"
