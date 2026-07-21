@@ -176,6 +176,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
   const [openAttributeKey, setOpenAttributeKey] = useState<string | null>(null);
 
   const hasAiTags = Boolean(product.styleTags);
+  const isAccessory = String(product.category || '').trim().toLowerCase() === 'acc';
   const aiAttributes = useMemo(() => editableStyleAttributes(product.styleAttributes), [product.styleAttributes]);
   const topTasteTags = getTopTags(effectiveTags);
   const reviewStatus = product.tagReviewStatus ?? 'none';
@@ -261,7 +262,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
     onSave(product.id, {
       tagReviewStatus: 'edited',
       humanStyleTags: humanTags,
-      humanStyleAttributes: humanAttributes,
+      humanStyleAttributes: isAccessory ? null : humanAttributes,
       humanStyleTagsEvidence: product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null,
       tagReviewNote: reviewNote,
       targetGender,
@@ -294,7 +295,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
               onSave(product.id, {
                 tagReviewStatus: 'approved',
                 humanStyleTags: humanTags,
-                humanStyleAttributes: humanAttributes,
+                humanStyleAttributes: isAccessory ? null : humanAttributes,
                 humanStyleTagsEvidence: product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null,
                 tagReviewNote: reviewNote,
                 targetGender,
@@ -355,7 +356,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
         </div>
       </div>
 
-      <section className="mt-4 border-y border-gray-800 py-4">
+      {!isAccessory ? <section className="mt-4 border-y border-gray-800 py-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold text-gray-200">형태 · 표현 속성 검수</p>
@@ -444,7 +445,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
             </div>
           ))}
         </div>
-      </section>
+      </section> : null}
 
       {hasAiTags ? (
         <div className="mt-4 grid gap-2 md:grid-cols-2">

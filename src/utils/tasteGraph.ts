@@ -773,6 +773,7 @@ export function getProductTasteDecision(product: Product, closetProducts: Produc
 }
 
 function getEffectiveStyleAttributes(product: Product): Record<string, unknown> | null {
+  if (String(product.category || "").trim().toLowerCase() === "acc") return null;
   const hasHumanAttributes = product.humanStyleAttributes && typeof product.humanStyleAttributes === "object" && !Array.isArray(product.humanStyleAttributes);
   if (hasHumanAttributes && (product.tagReviewStatus === "approved" || product.tagReviewStatus === "edited")) {
     return product.humanStyleAttributes as Record<string, unknown>;

@@ -393,6 +393,7 @@ const TAG_INTERPRETATIONS: Record<StyleTagName, string> = {
 };
 
 function effectiveAttributes(product: Product) {
+  if (String(product.category || "").trim().toLowerCase() === "acc") return null;
   const hasHumanAttributes = product.humanStyleAttributes && typeof product.humanStyleAttributes === "object" && !Array.isArray(product.humanStyleAttributes);
   return hasHumanAttributes && (product.tagReviewStatus === "approved" || product.tagReviewStatus === "edited")
     ? product.humanStyleAttributes as Record<string, unknown>
