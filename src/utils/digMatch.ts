@@ -134,7 +134,7 @@ function eligibleProducts(products: Product[], presentation: DigMatchPresentatio
     const tags = normalizeStyleTags(getEffectiveStyleTags(product).tags);
     const targetGender = normalizeTargetGender(product.humanTargetGender ?? product.targetGender);
     const matchesPresentation =
-      presentation === "all" || targetGender === presentation || targetGender === "unisex";
+      presentation === "all" || targetGender === presentation || targetGender === "unisex" || targetGender === "unknown";
     return matchesPresentation && Boolean(product.image || product.thumbnailImage) && Object.values(tags).some((score) => score >= 0.2);
   });
 }

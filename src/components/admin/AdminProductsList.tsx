@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock3, Search, Sparkles, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, Search, Sparkles, XCircle } from 'lucide-react';
 import { ProgressiveImage } from '../ProgressiveImage';
 import { AdminProductEditor } from './AdminProductEditor';
 import { ProductStyleReviewPanel, type StyleAttributeOption } from './ProductStyleReviewPanel';
@@ -67,6 +67,7 @@ export function AdminProductsList({
   const [aiTagFilter, setAiTagFilter] = useState<AiTagFilter>('all');
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
   const [customAttributeOptions, setCustomAttributeOptions] = useState<StyleAttributeOption[]>([]);
+  const [expandedReviewIds, setExpandedReviewIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     let isMounted = true;
@@ -131,7 +132,30 @@ export function AdminProductsList({
         );
     }
     return true;
+  }).sort((left, right) => {
+    // The approved-review view is an operational queue: show the most recently
+    // approved or edited product first, independently of original registration date.
+    if (reviewFilter !== 'approved') return 0;
+    return new Date(right.reviewedAt ?? 0).getTime() - new Date(left.reviewedAt ?? 0).getTime();
   });
+
+  const formatReviewedAt = (reviewedAt: string | null | undefined) => {
+    if (!reviewedAt) return null;
+    const date = new Date(reviewedAt);
+    if (Number.isNaN(date.getTime())) return null;
+    return new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    }).format(date);
+  };
+
+  const toggleReviewPanel = (productId: string) => {
+    setExpandedReviewIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
 
   if (allProducts.length === 0) {
     return <div className="text-center py-16 text-gray-500">등록된 상품이 없습니다.</div>;
@@ -156,7 +180,7 @@ export function AdminProductsList({
             전체 보기 {allProducts.length}개
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-4">
           {([
             ['tagged', 'AI 태그 있음', aiTaggedCount, Sparkles, 'text-orange-300'],
             ['untagged', 'AI 태그 없음', aiUntaggedCount, Clock3, 'text-gray-300'],
@@ -238,7 +262,7 @@ export function AdminProductsList({
       )}
       {filteredProducts.map((product) => (
         <div key={product.id} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl p-4">
-          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          <div className="flex flex-col gap-4 min-[900px]:flex-row min-[900px]:items-start">
             <div className="relative w-20 h-20 bg-white rounded-xl p-2 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
               <ProgressiveImage
                 src={product.image}
@@ -267,8 +291,8 @@ export function AdminProductsList({
                 />
               ) : (
                 <div>
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div>
+                  <div className="relative flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-start min-[900px]:justify-between">
+                    <div className="min-[600px]:pr-[19rem]">
                       <p className="text-xs font-bold text-orange-500 uppercase tracking-wide">{product.brand}</p>
                       <p className="text-base font-semibold text-white">{product.name}</p>
                       <p className="text-sm text-gray-400 mt-1">{product.category}</p>
@@ -285,11 +309,27 @@ export function AdminProductsList({
                         {hasAiTags(product) ? <span className="rounded-md border border-gray-700 bg-gray-800 px-2 py-0.5 text-xs text-gray-300">{isApprovedReview(product) ? '승인 완료' : isRejectedReview(product) ? '반려' : '미승인'}</span> : null}
                       </div>
                       {product.taggingStatus === 'failed' && product.taggingError ? <p className="mt-2 flex items-start gap-1.5 rounded-md border border-red-500/20 bg-red-500/[0.06] px-2.5 py-2 text-xs leading-5 text-red-200"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{product.taggingError}</p> : null}
-                      <p className="text-sm text-gray-500 mt-1 break-all">
-                        {product.url || 'URL 없음'}
-                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-[600px]:absolute min-[600px]:right-0 min-[600px]:top-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleReviewPanel(product.id)}
+                        aria-expanded={expandedReviewIds.has(product.id)}
+                        aria-controls={`style-review-${product.id}`}
+                        aria-label={expandedReviewIds.has(product.id) ? '검수 접기' : '검수 펼치기'}
+                        title={expandedReviewIds.has(product.id) ? '검수 접기' : '검수 펼치기'}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-orange-200 hover:bg-orange-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                      >
+                        <ChevronDown
+                          aria-hidden="true"
+                          className={`h-4 w-4 transition-transform ${expandedReviewIds.has(product.id) ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {isApprovedReview(product) && formatReviewedAt(product.reviewedAt) ? (
+                        <span className="text-xs text-gray-500" title={`승인 완료: ${formatReviewedAt(product.reviewedAt)}`}>
+                          승인 {formatReviewedAt(product.reviewedAt)}
+                        </span>
+                      ) : null}
                       <button
                         onClick={() => onStartEdit(product)}
                         className="px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-800"
@@ -309,13 +349,18 @@ export function AdminProductsList({
                       </button>
                     </div>
                   </div>
-                  <ProductStyleReviewPanel
-                    customAttributeOptions={customAttributeOptions}
-                    isSaving={isAdminActionLoading}
-                    onAddAttributeOption={addAttributeOption}
-                    onSave={onSaveStyleReview}
-                    product={product}
-                  />
+                  <div id={`style-review-${product.id}`} hidden={!expandedReviewIds.has(product.id)}>
+                    <p className="mt-4 break-all text-sm text-gray-500">
+                      {product.url || 'URL 없음'}
+                    </p>
+                    <ProductStyleReviewPanel
+                      customAttributeOptions={customAttributeOptions}
+                      isSaving={isAdminActionLoading}
+                      onAddAttributeOption={addAttributeOption}
+                      onSave={onSaveStyleReview}
+                      product={product}
+                    />
+                  </div>
                 </div>
               )}
             </div>
