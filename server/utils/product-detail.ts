@@ -33,6 +33,15 @@ export function isPrimaryColumnHeader(value: string): boolean {
   return normalized === "사이즈" || normalized === "호수" || /^size$/i.test(normalized);
 }
 
+function objectParticle(value: string): "을" | "를" {
+  const lastCharacter = value.trim().at(-1);
+  if (!lastCharacter) return "을";
+
+  const codePoint = lastCharacter.charCodeAt(0);
+  if (codePoint < 0xac00 || codePoint > 0xd7a3) return "를";
+  return (codePoint - 0xac00) % 28 === 0 ? "를" : "을";
+}
+
 export function buildProductMetadata(product: Awaited<ReturnType<typeof fetchProduct>>): Metadata {
   if (!product) {
     return {
@@ -41,7 +50,7 @@ export function buildProductMetadata(product: Awaited<ReturnType<typeof fetchPro
   }
 
   const imageUrl = resolveImageUrl(product.imagePath || product.image || "");
-  const description = `${product.brand} ${product.name} 사이즈표를 확인하세요. 카테고리: ${product.category}`;
+  const description = `${product.brand} ${product.name}${objectParticle(product.name)} DIGBOX에 저장하고, 나만의 취향을 쌓아가세요.`;
   const canonicalPath = `/product/${product.slug ? `${product.id}-${product.slug}` : product.id}`;
 
   return {

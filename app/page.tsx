@@ -2,14 +2,30 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SearchPageClient } from "../src/components/pages/SearchPageClient";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.digbox.co.kr";
+
 export const metadata: Metadata = {
-  description: "취향은 더 깊게, 발견은 더 쉽게. 마음에 드는 옷과 패션 아이템을 한곳에서 디깅하세요.",
+  description: "좋아하는 옷을 기록하고 공유하며, 서로의 취향에서 새로운 스타일을 발견하는 곳, DIGBOX.",
 };
 
 export default function Page() {
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "DIGBOX | 디그박스",
+    alternateName: ["DIGBOX", "디그박스"],
+    url: siteUrl,
+  };
+
   return (
-    <Suspense fallback={<main className="min-h-screen bg-black" />}>
-      <SearchPageClient />
-    </Suspense>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+      <Suspense fallback={<main className="min-h-screen bg-black" />}>
+        <SearchPageClient />
+      </Suspense>
+    </>
   );
 }

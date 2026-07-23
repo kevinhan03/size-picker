@@ -11,17 +11,19 @@ const siteUrl =
 
 export const metadata: Metadata = {
   metadataBase: siteUrl ? new URL(siteUrl) : undefined,
-  title: "DIGBOX",
-  description: "취향은 더 깊게, 발견은 더 쉽게. 마음에 드는 옷과 패션 아이템을 한곳에서 디깅하세요.",
+  title: "DIGBOX | 디그박스",
+  description: "좋아하는 옷을 기록하고 공유하며, 서로의 취향에서 새로운 스타일을 발견하는 곳, DIGBOX.",
+  applicationName: "DIGBOX | 디그박스",
   openGraph: {
-    title: "DIGBOX",
-    description: "취향은 더 깊게, 발견은 더 쉽게. 마음에 드는 옷과 패션 아이템을 한곳에서 디깅하세요.",
+    title: "DIGBOX | 디그박스",
+    description: "좋아하는 옷을 기록하고 공유하며, 서로의 취향에서 새로운 스타일을 발견하는 곳, DIGBOX.",
+    siteName: "DIGBOX | 디그박스",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "DIGBOX",
-    description: "취향은 더 깊게, 발견은 더 쉽게. 마음에 드는 옷과 패션 아이템을 한곳에서 디깅하세요.",
+    title: "DIGBOX | 디그박스",
+    description: "좋아하는 옷을 기록하고 공유하며, 서로의 취향에서 새로운 스타일을 발견하는 곳, DIGBOX.",
   },
   icons: {
     icon: "/favicon-simple.svg",
