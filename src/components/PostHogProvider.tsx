@@ -3,7 +3,8 @@
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider, usePostHog } from "posthog-js/react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { flushPendingAnalyticsEvents } from "../utils/analytics";
 
 function PageViewTracker() {
   const pathname = usePathname();
@@ -22,20 +23,29 @@ function PageViewTracker() {
   return null;
 }
 
-if (typeof window !== "undefined") {
-  posthog.init("phc_vU4zvKHs7soZFJmRNncFAxT2asm4pCDnMWByEZWrabXC", {
-    api_host: "https://us.i.posthog.com",
-    capture_pageview: false,
-    capture_pageleave: true,
-  });
-}
-
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  const [isPostHogReady, setIsPostHogReady] = useState(false);
+
+  useEffect(() => {
+    if (!posthog.__loaded) {
+      posthog.init("phc_vU4zvKHs7soZFJmRNncFAxT2asm4pCDnMWByEZWrabXC", {
+        api_host: "https://us.i.posthog.com",
+        capture_pageview: false,
+        capture_pageleave: true,
+      });
+    }
+
+    flushPendingAnalyticsEvents();
+    setIsPostHogReady(true);
+  }, []);
+
   return (
     <PHProvider client={posthog}>
-      <Suspense fallback={null}>
-        <PageViewTracker />
-      </Suspense>
+      {isPostHogReady ? (
+        <Suspense fallback={null}>
+          <PageViewTracker />
+        </Suspense>
+      ) : null}
       {children}
     </PHProvider>
   );

@@ -100,7 +100,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
       <header className="fixed inset-x-0 top-0 z-50 flex h-[calc(4rem+env(safe-area-inset-top))] items-end border-b border-white/10 bg-black/95 px-4 pb-3 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
           <Link href="/" aria-label="DIGBOX 홈으로" className="flex items-center gap-2 rounded-xl text-sm font-bold tracking-tight text-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
-            <Image src="/favicon-simple.svg" alt="" width={32} height={32} className="h-8 w-8" />
+            <Image src="/digbox-mark.png" alt="" width={32} height={32} className="h-8 w-8" />
             DIGBOX
           </Link>
           <Link href="/" className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-semibold text-gray-300 transition-[background-color,color] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
@@ -130,7 +130,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
             className="flex min-w-0 cursor-pointer items-center gap-2 rounded-xl"
           >
             <span className="flex h-8 w-8 items-center justify-center lg:h-9 lg:w-9">
-              <Image src="/favicon-simple.svg" alt="" width={40} height={40} className="h-full w-full object-contain" />
+              <Image src="/digbox-mark.png" alt="" width={40} height={40} className="h-full w-full object-contain" />
             </span>
             <span className="flex min-w-0 flex-col text-left leading-none">
               <span className="font-bold tracking-tight text-orange-500">DIGBOX</span>

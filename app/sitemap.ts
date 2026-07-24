@@ -18,6 +18,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: `${siteUrl}/privacy`,
+      changeFrequency: "yearly",
+      priority: 0.3,
+      lastModified: new Date("2026-07-24"),
+    },
+    {
+      url: `${siteUrl}/terms`,
+      changeFrequency: "yearly",
+      priority: 0.3,
+      lastModified: new Date("2026-07-24"),
+    },
   ];
 
   assertSupabaseConfig();

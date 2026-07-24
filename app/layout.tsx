@@ -26,7 +26,14 @@ export const metadata: Metadata = {
     description: "좋아하는 옷을 기록하고 공유하며, 서로의 취향에서 새로운 스타일을 발견하는 곳, DIGBOX.",
   },
   icons: {
-    icon: "/favicon-simple.svg",
+    icon: [
+      {
+        url: "/digbox-mark.png",
+        type: "image/png",
+        sizes: "806x806",
+      },
+    ],
+    shortcut: "/digbox-mark.png",
   },
 };
 

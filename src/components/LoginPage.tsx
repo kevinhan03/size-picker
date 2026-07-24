@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import Link from 'next/link';
 import { LogIn, UserPlus } from 'lucide-react';
 import { completeMyProfile } from '../api';
 import { getAuthErrorMessage } from '../utils/authMessage';
@@ -444,6 +445,20 @@ export const LoginPage = ({
               <GoogleIcon />
               {tab === 'login' ? 'Google로 로그인' : 'Google로 회원가입'}
             </button>
+
+            {tab === 'signup' && (
+              <p className="text-center text-[11px] font-medium leading-5 text-gray-500">
+                회원가입을 계속하면{' '}
+                <Link href="/terms" className="font-bold text-gray-300 underline underline-offset-2 hover:text-orange-300">
+                  이용약관
+                </Link>
+                에 동의하고{' '}
+                <Link href="/privacy" className="font-bold text-gray-300 underline underline-offset-2 hover:text-orange-300">
+                  개인정보 처리방침
+                </Link>
+                을 확인한 것으로 봅니다.
+              </p>
+            )}
           </div>
         </div>
       </div>

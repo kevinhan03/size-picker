@@ -8,6 +8,7 @@ import { GridView } from "../GridView";
 import { FilterBar } from "../FilterBar";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { ImageViewerOverlay } from "../ImageViewerOverlay";
+import { LegalFooter } from "../LegalFooter";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 import { useAuthContext } from "../../contexts/AuthContext";
@@ -517,6 +518,8 @@ export function SearchPageClient() {
           isLoading={isProductsLoading}
         />
       </div>
+
+      <LegalFooter />
 
       {isScrollTopVisible && (
         <button
