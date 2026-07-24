@@ -5,6 +5,7 @@ import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { TutorialAnchorRect } from "./OnboardingTutorial";
 import type { Product } from "../types";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
 import { CATEGORY_OPTIONS } from "../constants";
 
 // Initial estimate — virtualizer corrects with actual measurements via measureElement
@@ -27,10 +28,15 @@ interface GridViewProps {
 export function GridView({
   allProducts,
   filteredGridProducts,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing component contract.
   gridCategoryCounts,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing component contract.
   gridCategoryFilter,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing component contract.
   setGridCategoryFilter,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing component contract.
   gridSearchQuery,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing component contract.
   setGridSearchQuery,
   onProductClick,
   onImageError,

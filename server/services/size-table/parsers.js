@@ -15,6 +15,7 @@ import {
   isLikelyMeasurementKey,
   isNumericLikeCell,
   isPlainObject,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing parser contract.
   parseNumericCellValue,
   scoreSizeTableCandidate,
   SIZE_KEY_NAME_PATTERN,

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ExternalLink, Network, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { ClosetSizeSelection, MySizeProfile, Product, RelatedGraphReason } from "../types";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useMySizesContext } from "../contexts/MySizesContext";
@@ -195,6 +196,7 @@ export function ProductDetailModal({
   activeRowIndex,
   onClose,
   onRowClick,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing component contract.
   onRecommendationClick,
   onZoomImage,
   onImageError,

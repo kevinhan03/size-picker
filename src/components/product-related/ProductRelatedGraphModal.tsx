@@ -734,6 +734,8 @@ export function ProductRelatedGraphModal({
       if (graphContainer) graphContainer.innerHTML = "";
       graphRef.current = null;
     };
+    // relatedProducts changes are applied by the incremental graph effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphProduct, openProductModal]);
 
   useEffect(() => {
@@ -830,6 +832,7 @@ export function ProductRelatedGraphModal({
             <div className="ui-related-product-list">
               {imageRelatedProducts.map((entry) => (
                 <button key={entry.product.id} type="button" onClick={() => openProductModal(entry.product, "top_similar", buildRelatedGraphReason(graphProduct, entry))} className="ui-related-product-row">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for arbitrary product image URLs. */}
                   <img src={entry.product.thumbnailImage || entry.product.image || DEFAULT_PRODUCT_PLACEHOLDER} alt="" />
                   <span><strong>{entry.product.brand}</strong><em>{entry.product.name}</em></span><b><small>유사도</small>{Math.round(entry.similarity * 100)}%</b>
                 </button>
@@ -843,6 +846,7 @@ export function ProductRelatedGraphModal({
               <div className="ui-related-product-list">
                 {moodRelatedProducts.map((entry) => (
                   <button key={entry.product.id} type="button" onClick={() => openProductModal(entry.product, "top_similar", buildRelatedGraphReason(graphProduct, entry))} className="ui-related-product-row">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for arbitrary product image URLs. */}
                     <img src={entry.product.thumbnailImage || entry.product.image || DEFAULT_PRODUCT_PLACEHOLDER} alt="" />
                     <span><strong>{entry.product.brand}</strong><em>{entry.product.name}</em></span><b><small>유사한 스타일</small>{entry.sharedTags?.map(({ tag }) => styleTagLabel(tag)).join(" · ")}</b>
                   </button>

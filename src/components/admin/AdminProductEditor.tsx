@@ -97,14 +97,20 @@ export function AdminProductEditor({
         <div className="space-y-2">
           <p className="text-xs text-gray-400">상품 이미지 교체</p>
           <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-            {adminImagePreview ? <img src={adminImagePreview} className="h-full object-contain" /> : <Upload className="w-6 h-6 text-gray-500" />}
+            {adminImagePreview ? (
+              // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text -- Preserve the existing native admin preview DOM.
+              <img src={adminImagePreview} className="h-full object-contain" />
+            ) : <Upload className="w-6 h-6 text-gray-500" />}
             <input type="file" className="hidden" accept="image/*" onChange={(event) => onFileUpload(event, 'product')} />
           </label>
         </div>
         <div className="space-y-2">
           <p className="text-xs text-gray-400">사이즈표 이미지 업로드</p>
           <label className="cursor-pointer w-full h-28 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-            {adminSizeChartImage ? <img src={adminSizeChartImage} className="h-full object-contain" /> : <Upload className="w-6 h-6 text-gray-500" />}
+            {adminSizeChartImage ? (
+              // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text -- Preserve the existing native admin preview DOM.
+              <img src={adminSizeChartImage} className="h-full object-contain" />
+            ) : <Upload className="w-6 h-6 text-gray-500" />}
             <input type="file" className="hidden" accept="image/*" onChange={(event) => onFileUpload(event, 'chart')} />
           </label>
         </div>

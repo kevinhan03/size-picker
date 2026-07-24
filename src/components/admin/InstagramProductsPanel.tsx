@@ -175,6 +175,7 @@ export function InstagramProductsPanel({
                   >
                     <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
                       {thumbSrc && (
+                        // eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for arbitrary catalog image URLs.
                         <img
                           src={thumbSrc}
                           alt={product.name}
@@ -229,6 +230,7 @@ export function InstagramProductsPanel({
                   </div>
                   <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
                     {thumbSrc && (
+                      // eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for arbitrary catalog image URLs.
                       <img
                         src={thumbSrc}
                         alt={product.name}

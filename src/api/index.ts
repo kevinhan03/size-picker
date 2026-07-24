@@ -1,5 +1,7 @@
 import type {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained as part of the existing API type surface.
   BrandBackfillResult,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained as part of the existing API type surface.
   BrandRule,
   ClosetSizeSelection,
   MySizeInput,

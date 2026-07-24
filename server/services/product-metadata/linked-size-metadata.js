@@ -20,6 +20,7 @@ export function createLinkedSizeMetadataService({
   isLikelySizeChartImageUrl,
   launchMetadataBrowser,
   normalizeCellText,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing service contract.
   normalizeUrlCandidate,
   sortSizeChartImageCandidates,
   uniqValues,

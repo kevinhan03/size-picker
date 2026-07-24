@@ -58,6 +58,7 @@ function ProductChoice({ product, side, onChoose }: { product: DigMatchQuestion[
       className="dig-match-choice group relative min-h-[360px] overflow-hidden rounded-lg border border-white/10 bg-[#151518] text-left shadow-[0_18px_40px_rgba(0,0,0,0.28)] transition-[transform,border-color] duration-160 [transition-timing-function:var(--ease-out)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:min-h-[460px]"
       aria-label={`${product.brand} ${product.name} 선택`}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- Preserve eager native loading and fallback mutation behavior. */}
       <img src={product.image || product.thumbnailImage || DEFAULT_PRODUCT_PLACEHOLDER} alt={product.name} onError={handleImageFallback} className="dig-match-choice-image absolute inset-0 h-full w-full object-cover transition-transform duration-200 [transition-timing-function:var(--ease-out)]" />
       <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-4 pb-4 pt-16 sm:px-5 sm:pb-5">
         <span className="block text-[11px] font-bold uppercase text-orange-300">{product.brand}</span>
@@ -103,6 +104,7 @@ function RecommendationGroup({ title, copy, items, onOpen }: {
       <div className="mt-3 space-y-2">
         {items.map(({ product, reasons }) => (
           <button key={product.id} type="button" onClick={() => onOpen(product)} className="flex w-full items-center gap-3 rounded-md border border-white/10 bg-white/[0.03] p-2 text-left transition hover:border-orange-400/60">
+            {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading and direct fallback source mutation. */}
             <img src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER} alt="" onError={handleImageFallback} className="h-14 w-14 rounded object-cover" />
             <span className="min-w-0"><span className="block truncate text-xs font-bold text-orange-200">{product.brand}</span><span className="mt-1 block line-clamp-2 text-sm font-bold text-white">{product.name}</span>{reasons.length ? <span className="mt-1 block text-xs text-gray-500">{reasons.map(getDigMatchTagLabel).join(" · ")}</span> : null}</span>
             <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-gray-500" />
@@ -333,6 +335,7 @@ export function DigMatchPageClient() {
               <div><p className="text-xs font-bold uppercase text-orange-400">DIG MATCH RESULT</p><h1 className="mt-2 text-3xl font-bold sm:text-4xl">{result.interpretation.title}</h1><p className="mt-3 max-w-2xl text-base leading-7 text-gray-400">{result.interpretation.summary}</p></div>
               <button type="button" onClick={start} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-white/15 px-3 text-sm font-bold text-gray-200 transition hover:border-orange-400/70 hover:text-white"><RotateCcw className="h-4 w-4" /> 다시 하기</button>
             </div>
+            {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading and direct fallback source mutation. */}
             {result.selectedProducts.length > 0 && <div className="mt-8 grid grid-cols-3 gap-2 sm:grid-cols-6">{result.selectedProducts.map((product) => <img key={product.id} src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER} alt="" onError={handleImageFallback} className="aspect-square w-full rounded-md object-cover" />)}</div>}
             <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
               <div>

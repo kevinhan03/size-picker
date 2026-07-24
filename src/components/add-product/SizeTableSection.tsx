@@ -90,6 +90,7 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
               <span className="text-xs font-bold">{UPLOAD_HINT}</span>
             </div>
           ) : (
+            // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text -- Preserve the existing upload-preview DOM and loading behavior.
             <img src={form.formData.sizeChartImage} className="h-full object-contain" />
           )}
           {form.isAnalyzingTable && (
@@ -119,6 +120,7 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
                 className="group relative block w-full overflow-hidden bg-black/30"
                 aria-label="사이즈표 원본 크게 보기"
               >
+                {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for uploaded chart object URLs. */}
                 <img src={form.formData.sizeChartImage || ""} alt="업로드한 사이즈표 원본" className="block h-auto w-full" />
                 <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-black/70 px-2 py-1 text-[11px] text-white opacity-0 transition group-hover:opacity-100">
                   <Expand className="h-3.5 w-3.5" /> 크게 보기
@@ -222,6 +224,7 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
               >
                 <X className="h-5 w-5" />
               </button>
+              {/* eslint-disable-next-line @next/next/no-img-element -- Preserve the existing full-resolution chart preview. */}
               <img src={form.formData.sizeChartImage} alt="업로드한 사이즈표 원본 확대" className="max-h-[90vh] max-w-[95vw] object-contain" />
             </div>
           </div>,

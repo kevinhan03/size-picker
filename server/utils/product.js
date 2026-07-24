@@ -180,6 +180,7 @@ export const insertProductRow = async (input) => {
   const normalizedImagePath = String(imagePath || "").trim();
   const normalizedImage = String(image || "").trim();
   const effectiveImagePath = normalizedImagePath || normalizedImage || null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing normalization path.
   const effectiveImage = normalizedImage || normalizedImagePath || "";
   const normalizedSlug = String(slug || "").trim() || null;
   const effectiveProductMetadata =

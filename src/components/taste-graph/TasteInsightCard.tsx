@@ -100,6 +100,7 @@ export function TasteInsightCard({
                     onClick={() => onExplore({ source: "digbox", tag: entry.tag })}
                   >
                     {entry.product.thumbnailImage || entry.product.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for arbitrary product image URLs.
                       <img src={entry.product.thumbnailImage || entry.product.image} alt="" />
                     ) : (
                       <span className="insight-product-empty" aria-hidden="true" />

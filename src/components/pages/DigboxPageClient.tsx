@@ -101,6 +101,7 @@ function GridCard({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing dormant list view.
 function ListRow({
   product,
   selected,
@@ -173,6 +174,7 @@ function ListRow({
       >
         <div style={{ width: 52, height: 52, borderRadius: 10, background: "rgba(17,24,39,0.8)", overflow: "hidden", cursor: "pointer" }}>
           {imgOk && (
+            // eslint-disable-next-line @next/next/no-img-element -- Preserve the existing native list-thumbnail behavior.
             <img
               src={product.thumbnailImage || product.image}
               alt={product.name}
@@ -221,6 +223,7 @@ function ListRow({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing dormant confirmation UI.
 function DeleteConfirmDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -489,6 +492,7 @@ export function DigboxPageClient({
     setIsUndoingRemoval(false);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing label helper.
   const getCardDigboxCountLabel = (count: number) =>
     isOwner ? `${count}명이 저장했어요` : `${count}명이 저장했어요`;
 

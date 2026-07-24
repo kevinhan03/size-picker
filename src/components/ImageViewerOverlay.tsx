@@ -72,6 +72,7 @@ export function ImageViewerOverlay({ open, src, alt, onClose }: ImageViewerOverl
           onClick={close}
           className="flex h-full w-full cursor-zoom-out items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element -- Preserve the overlay's native full-resolution loading behavior. */}
           <img src={src} alt={alt} className="max-h-full max-w-full object-contain" style={{ borderRadius: "20px" }} />
         </button>
       </div>

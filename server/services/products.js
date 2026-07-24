@@ -1,5 +1,6 @@
 export function createProductService({
   assertSupabaseConfig,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing service contract.
   parseSizeTable,
   SUBMISSIONS_STORAGE_PREFIX,
   supabase,

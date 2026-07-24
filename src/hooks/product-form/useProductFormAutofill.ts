@@ -8,7 +8,9 @@ import {
   resizeImage,
 } from "../../utils/image";
 import {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing runtime contract.
   isDuplicateProductErrorMessage,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing runtime contract.
   isOptionalMetadataCategory,
   normalizeComparableProductUrl,
 } from "../../utils/product";

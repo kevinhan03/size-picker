@@ -256,6 +256,7 @@ function MySizesManager({
                       }`}
                     >
                       <div className="relative h-12 w-10 shrink-0 overflow-hidden rounded-lg bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for the existing product thumbnail. */}
                         <img
                           src={product.thumbnailImage || product.image}
                           alt=""
@@ -602,6 +603,7 @@ export function MyPageView({
           <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
             {isDiscoveriesLoading ? <p className="py-12 text-center text-sm font-semibold text-gray-500">발굴한 아이템을 불러오는 중입니다.</p> : discoveredProducts.length ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for the existing discovery thumbnails. */}
                 {discoveredProducts.map((product) => <Link key={product.id} href={getProductPageUrl(product)} onClick={() => setIsDiscoveriesOpen(false)} className="group min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] no-underline transition hover:border-orange-400/60"><div className="aspect-square bg-white/[0.04]"><img src={product.thumbnailImage || product.image} alt={product.name} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]" /></div><div className="min-w-0 p-3"><p className="truncate text-[11px] font-bold uppercase text-orange-300">{product.brand}</p><p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{product.name}</p></div></Link>)}
               </div>
             ) : <div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-gray-600" /><p className="mt-3 text-sm font-bold text-gray-300">아직 발굴한 아이템이 없습니다.</p></div>}

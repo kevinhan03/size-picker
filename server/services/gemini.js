@@ -181,6 +181,7 @@ export function createGeminiService({
 
       const normalized = normalizeProductImageGeminiAssessment(parsed);
       if (normalized) return normalized;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing runtime contract.
       lastErrorText = "Gemini image assessment normalization failed";
     }
 

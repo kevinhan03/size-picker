@@ -69,6 +69,7 @@ export default async function ProductPage({ params }: Props) {
           <div className="mb-8 flex flex-col items-start gap-6 sm:flex-row">
             {imageUrl && (
               <div className="flex h-40 w-40 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/[0.06]">
+                {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for arbitrary product image URLs. */}
                 <img src={imageUrl} alt={product.name} className="max-h-full max-w-full object-contain" />
               </div>
             )}

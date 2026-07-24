@@ -69,6 +69,7 @@ export function ProductImageSection({ form }: ProductImageSectionProps) {
             className="group flex h-full w-full items-center justify-center"
             aria-label="상품 이미지 크게 보기"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element -- Upload previews may use object URLs and must keep native loading behavior. */}
             <img src={form.formData.productImage} alt="선택한 상품 이미지" className="h-full w-full object-contain" onError={form.handleThumbnailLoadError} />
             <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-black/70 px-2 py-1 text-[11px] text-white opacity-0 transition group-hover:opacity-100">
               <Expand className="h-3.5 w-3.5" /> 크게 보기
@@ -120,6 +121,7 @@ export function ProductImageSection({ form }: ProductImageSectionProps) {
               >
                 <X className="h-5 w-5" />
               </button>
+              {/* eslint-disable-next-line @next/next/no-img-element -- Preserve the existing full-resolution preview behavior. */}
               <img src={form.formData.productImage} alt="선택한 상품 이미지 확대" className="max-h-[90vh] max-w-[95vw] object-contain" />
             </div>
           </div>,
@@ -143,6 +145,7 @@ export function ProductImageSection({ form }: ProductImageSectionProps) {
                   className={`relative h-16 rounded-lg border overflow-hidden ${isActive ? 'border-orange-500 ring-1 ring-orange-500' : 'border-gray-700 hover:border-gray-500'}`}
                   title={candidateUrl}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text -- Candidate thumbnails preserve the existing unlabeled native preview DOM. */}
                   <img
                     src={candidateUrl}
                     className="w-full h-full object-cover"

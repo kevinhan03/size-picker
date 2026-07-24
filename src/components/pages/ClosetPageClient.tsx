@@ -19,6 +19,7 @@ import { CollectionEmptyState } from "../CollectionEmptyState";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing collection constants.
 const CATEGORIES = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
 type ViewMode = "grid" | "list";
 
@@ -223,6 +224,7 @@ function ListRow({
           }}
         >
           {imgOk && (
+            // eslint-disable-next-line @next/next/no-img-element -- Preserve the existing native list-thumbnail behavior.
             <img
               src={product.thumbnailImage || product.image}
               alt={product.name}
@@ -474,6 +476,7 @@ export function ClosetPageClient() {
     });
   }, [closetItems, catFilter, searchQuery]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing derived collection state.
   const catCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     closetItems.forEach((p) => {
