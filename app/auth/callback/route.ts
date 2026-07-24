@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { assertSupabaseConfig, supabase as adminSupabase } from '../../../server/lib/supabase.js';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -12,7 +13,10 @@ export async function GET(request: NextRequest) {
   }
 
   const cookieStore = await cookies();
-  const oauthIntent = cookieStore.get('digbox_oauth_intent')?.value === 'signup' ? 'signup' : 'login';
+  const oauthIntentCookie = cookieStore.get('digbox_oauth_intent')?.value;
+  const oauthIntent = oauthIntentCookie === 'signup' || oauthIntentCookie === 'login'
+    ? oauthIntentCookie
+    : null;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,8 +70,16 @@ export async function GET(request: NextRequest) {
 
   if (oauthIntent === 'login') {
     await supabase.auth.signOut({ scope: 'local' });
+    try {
+      assertSupabaseConfig();
+      await adminSupabase!.auth.admin.deleteUser(userId);
+    } catch {
+      // The daily cleanup job retries accounts that could not be removed here.
+    }
     return redirect('/login?error=unregistered_google');
   }
 
+  // Never delete an account when the browser did not preserve its OAuth intent.
+  // Treat the account as an incomplete signup so the user can finish safely.
   return redirect('/onboarding/username');
 }

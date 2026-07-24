@@ -355,6 +355,17 @@ export const deleteMyAccount = async (): Promise<void> => {
   }
 };
 
+export const cleanupUnregisteredGoogleAccount = async (): Promise<void> => {
+  const token = await getAccessToken();
+  if (!token) return;
+  const response = await fetch('/api/auth/cleanup-unregistered', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/auth/cleanup-unregistered');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to clean up incomplete signup');
+};
+
 export const completeMyProfile = async (username: string): Promise<string> => {
   assertSupabaseClient();
   const {

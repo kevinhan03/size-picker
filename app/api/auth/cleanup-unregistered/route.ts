@@ -43,6 +43,13 @@ export async function POST(request: Request) {
       });
     }
 
+    if (String(user.app_metadata?.provider || "") !== "google") {
+      return NextResponse.json({
+        ok: true,
+        data: { deleted: false, registered: false, eligible: false },
+      });
+    }
+
     const { error: deleteError } = await db.auth.admin.deleteUser(user.id);
     if (deleteError) throw deleteError;
 

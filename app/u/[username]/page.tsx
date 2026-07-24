@@ -40,7 +40,7 @@ async function fetchUserDigbox(username: string): Promise<{ username: string; bi
   const { data: user, error: userError } = await db
     .from("users")
     .select("id, username, bio")
-    .eq("username", normalizedUsername)
+    .ilike("username", normalizedUsername)
     .maybeSingle();
 
   if (userError) throw userError;

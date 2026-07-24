@@ -8,6 +8,8 @@ import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useMySizesContext } from "../../contexts/MySizesContext";
 import { supabase } from "../../lib/supabase";
+import { changeMyUsername } from "../../api/username";
+import { captureEvent } from "../../utils/analytics";
 import type { Product } from "../../types";
 
 export function MyPageClient() {
@@ -83,6 +85,11 @@ export function MyPageClient() {
         onLogout={() => {
           void supabase?.auth.signOut();
           router.push("/");
+        }}
+        onChangeUsername={async (nextUsername) => {
+          const result = await changeMyUsername(nextUsername);
+          auth.setDbUsername(result.username);
+          if (result.changed) captureEvent("username_changed", { source: "mypage" });
         }}
         onDeleteAccount={() => {
           void auth.deleteAccount().then((deleted) => {

@@ -7,17 +7,37 @@ import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
 import { ClosetIcon } from "./icons/ClosetIcon";
-import { GoogleSignupCompleteModal } from "./GoogleSignupCompleteModal";
 import { GuestDigboxExperience } from "./GuestDigboxExperience";
 import { MobileBottomNav } from "./MobileBottomNav";
-import { NeedsUsernameModal } from "./NeedsUsernameModal";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useClosetContext } from "../contexts/ClosetContext";
 import { useDigboxContext } from "../contexts/DigboxContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
 import { useSearchContext } from "../contexts/SearchContext";
+import { readAuthContinuation, saveAuthContinuation } from "../utils/authNavigation";
 
 const SIGNUP_VERIFIED_TOAST_KEY = "digbox_signup_verified_toast";
+const GOOGLE_SIGNUP_TOAST_KEY = "digbox_google_signup_complete_toast";
+
+function GoogleSignupWelcomeToast() {
+  const pathname = usePathname();
+  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    if (!pathname || pathname.startsWith("/onboarding")) return;
+    if (sessionStorage.getItem(GOOGLE_SIGNUP_TOAST_KEY) !== "1") return;
+    sessionStorage.removeItem(GOOGLE_SIGNUP_TOAST_KEY);
+    setMounted(true);
+    requestAnimationFrame(() => setVisible(true));
+    const hideTimer = window.setTimeout(() => setVisible(false), 2600);
+    const removeTimer = window.setTimeout(() => setMounted(false), 2820);
+    return () => { window.clearTimeout(hideTimer); window.clearTimeout(removeTimer); };
+  }, [pathname]);
+
+  if (!mounted) return null;
+  return <div className="pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 sm:bottom-6"><div role="status" className={`rounded-2xl border border-emerald-400/25 bg-[#111114]/95 px-4 py-3 text-center text-sm font-bold text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] duration-200 motion-reduce:transition-opacity ${visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0 motion-reduce:translate-y-0"}`}>가입을 완료했어요. DIGBOX에 오신 것을 환영해요!</div></div>;
+}
 
 const AddProductModal = dynamic(
   () => import("./AddProductModal").then((mod) => mod.AddProductModal),
@@ -370,6 +390,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const auth = useAuthContext();
   const productForm = useProductFormContext();
   const search = useSearchContext();
+  const router = useRouter();
   const pathname = usePathname();
   const isAdminPage = pathname?.startsWith("/admin");
   const isOnboardingPage = pathname?.startsWith("/onboarding");
@@ -377,6 +398,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const usesMinimalChrome = isAuthPage || isOnboardingPage;
   const showFullChrome = !isAdminPage && !usesMinimalChrome;
   const hideMobileBottomNav = isAdminPage || usesMinimalChrome;
+
+  useEffect(() => {
+    if (!auth.isAuthLoading && auth.needsUsername && !isOnboardingPage) {
+      if (!readAuthContinuation()) {
+        saveAuthContinuation({ intent: "signup", returnTo: pathname || "/", source: "username_required", method: "google" });
+      }
+      router.replace("/onboarding/username");
+    }
+  }, [auth.isAuthLoading, auth.needsUsername, isOnboardingPage, pathname, router]);
 
   return (
     <>
@@ -387,26 +417,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {showFullChrome && <AddProductModal form={productForm} />}
       {showFullChrome && <ProductSubmitToast />}
       {showFullChrome && <SignupVerifiedToast />}
+      {showFullChrome && <GoogleSignupWelcomeToast />}
       {showFullChrome && <ClosetToast />}
       {showFullChrome && <DigboxToast />}
       {showFullChrome && <GuestDigboxExperience />}
       {!hideMobileBottomNav && <MobileBottomNav />}
-      {auth.needsUsername && !isOnboardingPage && (
-        <NeedsUsernameModal
-          pendingUsername={auth.pendingUsername}
-          onUsernameChange={auth.setPendingUsername}
-          onSubmit={() => void auth.submitUsername(() => {})}
-          usernameError={auth.usernameError}
-          isSubmitting={auth.isSubmittingUsername}
-        />
-      )}
-      {auth.googleSignupComplete && (
-        <GoogleSignupCompleteModal
-          onStart={() => {
-            auth.setGoogleSignupComplete(false);
-          }}
-        />
-      )}
     </>
   );
 }

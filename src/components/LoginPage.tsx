@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import Link from 'next/link';
-import { LogIn, UserPlus } from 'lucide-react';
+import { AlertCircle, LogIn, UserPlus } from 'lucide-react';
 import { completeMyProfile } from '../api';
 import { getAuthErrorMessage } from '../utils/authMessage';
 import { validateUsername } from '../utils/username';
@@ -19,6 +19,7 @@ interface LoginPageProps {
   onClearGoogleAuthError?: () => void;
   initialTab?: AuthTab;
   isGuestDigboxSignup?: boolean;
+  isUnregisteredGoogle?: boolean;
 }
 
 type PendingSignup = {
@@ -28,6 +29,13 @@ type PendingSignup = {
 } | null;
 
 const SIGNUP_VERIFIED_TOAST_KEY = 'digbox_signup_verified_toast';
+
+const checkSignupUsernameAvailability = async (username: string) => {
+  const response = await fetch(`/api/auth/username/availability?username=${encodeURIComponent(username)}`);
+  const payload = await response.json() as { ok?: boolean; data?: { available?: boolean; reason?: string | null }; error?: string };
+  if (!response.ok || !payload.ok) throw new Error(payload.error || '사용자 이름을 확인하지 못했어요. 다시 시도해 주세요.');
+  return { available: Boolean(payload.data?.available), reason: payload.data?.reason || null };
+};
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
@@ -46,6 +54,7 @@ export const LoginPage = ({
   onClearGoogleAuthError,
   initialTab = 'login',
   isGuestDigboxSignup = false,
+  isUnregisteredGoogle = false,
 }: LoginPageProps) => {
   const [tab, setTab] = useState<AuthTab>(initialTab);
   const [email, setEmail] = useState('');
@@ -60,6 +69,13 @@ export const LoginPage = ({
   const [verificationCode, setVerificationCode] = useState('');
   const [isResending, setIsResending] = useState(false);
   const [isSignupVerified, setIsSignupVerified] = useState(false);
+  const verificationCodeInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!signupEmail) return;
+    const frame = window.requestAnimationFrame(() => verificationCodeInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [signupEmail]);
 
   const reset = () => {
     setEmail('');
@@ -122,13 +138,13 @@ export const LoginPage = ({
     onClearGoogleAuthError?.();
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (intent: AuthTab = tab) => {
     setError(null);
-    sessionStorage.setItem('google_oauth_intent', tab);
-    document.cookie = `digbox_oauth_intent=${encodeURIComponent(tab)}; Path=/; Max-Age=600; SameSite=Lax`;
+    sessionStorage.setItem('google_oauth_intent', intent);
+    document.cookie = `digbox_oauth_intent=${encodeURIComponent(intent)}; Path=/; Max-Age=600; SameSite=Lax`;
     const continuation = readAuthContinuation();
-    if (continuation) saveAuthContinuation({ ...continuation, intent: tab, method: 'google' });
-    captureEvent('auth_started', { mode: tab, method: 'google', source: continuation?.source || 'direct', stage: 'submit' });
+    if (continuation) saveAuthContinuation({ ...continuation, intent, method: 'google' });
+    captureEvent('auth_started', { mode: intent, method: 'google', source: continuation?.source || 'direct', stage: 'submit' });
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -200,13 +216,9 @@ export const LoginPage = ({
         onSuccess();
       } else {
         const trimmedUsername = username.trim();
-        const { data: existing } = await supabase
-          .from('users')
-          .select('username')
-          .ilike('username', trimmedUsername)
-          .maybeSingle();
-        if (existing) {
-          setError('이미 사용 중인 유저네임입니다. 다른 유저네임을 사용해 주세요.');
+        const { available, reason } = await checkSignupUsernameAvailability(trimmedUsername);
+        if (!available) {
+          setError(reason || '이미 사용 중인 사용자 이름입니다. 다른 사용자 이름을 사용해 주세요.');
           return;
         }
 
@@ -242,9 +254,9 @@ export const LoginPage = ({
     <>
       {signupEmail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-8 text-center shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
+          <div role="dialog" aria-modal="true" aria-labelledby="email-verification-title" className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-8 text-center shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-400">DIGBOX</p>
-            <h2 className="mt-3 text-lg font-bold text-white">
+            <h2 id="email-verification-title" className="mt-3 text-lg font-bold text-white">
               {isSignupVerified ? '이메일 인증이 완료되었습니다' : '이메일 인증이 필요해요'}
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-gray-300">
@@ -263,6 +275,8 @@ export const LoginPage = ({
               </p>
             )}
             <input
+              ref={verificationCodeInputRef}
+              aria-label="인증코드 입력"
               value={verificationCode}
               onChange={(event) => setVerificationCode(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter') void handleCompleteEmailSignup(); }}
@@ -270,17 +284,17 @@ export const LoginPage = ({
               inputMode="numeric"
               autoComplete="one-time-code"
               placeholder="인증코드 입력"
-              className="mt-5 w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-center text-lg font-black tracking-[0.2em] text-white placeholder-gray-500 placeholder:text-sm placeholder:font-semibold placeholder:tracking-normal transition focus:border-orange-500 focus:outline-none"
+              className="mt-5 w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-center text-lg font-black tracking-[0.2em] text-white placeholder-gray-500 placeholder:text-sm placeholder:font-semibold placeholder:tracking-normal transition-[border-color,box-shadow] duration-150 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus-visible:ring-orange-400 motion-reduce:transition-none"
             />
             {error && (
-              <p className="mt-4 rounded-lg border border-red-500/30 bg-red-900/20 px-3 py-2 text-sm text-red-400">
+              <p role="alert" className="mt-4 rounded-lg border border-red-500/30 bg-red-900/20 px-3 py-2 text-sm text-red-400">
                 {error}
               </p>
             )}
             <button
               onClick={() => void handleCompleteEmailSignup()}
               disabled={isSubmitting || isSignupVerified}
-              className="mt-6 w-full rounded-xl bg-orange-500 py-3 text-sm font-bold text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+              className="mt-6 w-full rounded-xl bg-orange-500 py-3 text-sm font-bold text-black transition-[background-color,transform,box-shadow] duration-150 hover:bg-orange-400 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 disabled:active:scale-100 motion-reduce:transform-none motion-reduce:transition-none"
             >
               {isSignupVerified ? '완료되었습니다' : isSubmitting ? '확인 중...' : '가입 완료'}
             </button>
@@ -288,7 +302,7 @@ export const LoginPage = ({
               type="button"
               onClick={() => void handleResendCode()}
               disabled={isResending || isSignupVerified}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-gray-300 transition hover:bg-white/[0.08] hover:text-white"
+              className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-gray-300 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.08] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] disabled:active:scale-100 motion-reduce:transform-none motion-reduce:transition-none"
             >
               {isResending ? '재전송 중...' : '인증코드 다시 보내기'}
             </button>
@@ -304,7 +318,7 @@ export const LoginPage = ({
                 setPassword('');
                 setTab('login');
               }}
-              className="mt-2 w-full py-2 text-xs font-semibold text-gray-500 transition hover:text-gray-300"
+              className="mt-2 w-full rounded-lg py-2 text-xs font-semibold text-gray-500 transition-[color,transform] duration-150 hover:text-gray-300 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:active:scale-100 motion-reduce:transform-none motion-reduce:transition-none"
             >
               로그인으로 이동
             </button>
@@ -312,12 +326,23 @@ export const LoginPage = ({
         </div>
       )}
 
-      <div className="mx-auto mt-16 w-full max-w-md px-4">
-        <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-          <div className="mb-8 flex overflow-hidden rounded-xl border border-white/10">
+      <div className="mx-auto mt-4 w-full max-w-md">
+        <div className="rounded-2xl border border-white/10 bg-[#151518] p-6 shadow-[0_12px_32px_rgba(0,0,0,0.36)] sm:p-8">
+          <div className="mb-6">
+            <h1 className="text-xl font-bold tracking-[-0.02em] text-white">
+              {tab === 'login' ? '다시 만나 반가워요' : '새 계정 만들기'}
+            </h1>
+            <p className="mt-1.5 text-sm leading-6 text-gray-300">
+              {tab === 'login' ? '내 취향과 저장한 아이템을 이어서 확인하세요.' : '취향을 기록하고 나만의 스타일을 만들어 보세요.'}
+            </p>
+          </div>
+
+          <div className="mb-6 flex overflow-hidden rounded-xl border border-white/10">
             <button
+              type="button"
               onClick={() => switchTab('login')}
-              className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-bold transition ${
+              aria-pressed={tab === 'login'}
+              className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-bold transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transform-none motion-reduce:transition-none ${
                 tab === 'login' ? 'bg-orange-500 text-black' : 'text-gray-400 hover:text-gray-200'
               }`}
             >
@@ -325,8 +350,10 @@ export const LoginPage = ({
               로그인
             </button>
             <button
+              type="button"
               onClick={() => switchTab('signup')}
-              className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-bold transition ${
+              aria-pressed={tab === 'signup'}
+              className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-bold transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transform-none motion-reduce:transition-none ${
                 tab === 'signup' ? 'bg-orange-500 text-black' : 'text-gray-400 hover:text-gray-200'
               }`}
             >
@@ -336,6 +363,17 @@ export const LoginPage = ({
           </div>
 
           <div className="space-y-4">
+            {tab === 'login' && isUnregisteredGoogle && (
+              <section role="alert" aria-labelledby="unregistered-google-title" className="rounded-2xl border border-orange-400/30 bg-orange-400/[0.08] p-4">
+                <div className="flex gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-400/15 text-orange-300"><AlertCircle className="h-4.5 w-4.5" /></span>
+                  <div>
+                    <h2 id="unregistered-google-title" className="text-sm font-black text-orange-100">가입된 Google 계정이 아니에요</h2>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-300">이 Google 계정으로는 아직 DIGBOX를 시작하지 않았어요. 처음이라면 회원가입으로 계속해 주세요.</p>
+                  </div>
+                </div>
+              </section>
+            )}
             {tab === 'signup' && isGuestDigboxSignup && (
               <div className="rounded-xl border border-orange-400/25 bg-orange-400/[0.08] px-4 py-3">
                 <p className="text-sm font-black text-orange-300">선택한 아이템을 내 저장 목록에 보관합니다</p>
@@ -345,27 +383,29 @@ export const LoginPage = ({
               </div>
             )}
             <div>
-              <label className="mb-1.5 block text-xs text-gray-400">Email</label>
+              <label htmlFor="auth-email" className="mb-1.5 block text-sm font-medium text-gray-300">이메일</label>
               <input
+                id="auth-email"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 onKeyDown={(event) => { if (event.key === 'Enter') void handleSubmit(); }}
                 placeholder="example@email.com"
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 placeholder:text-sm transition focus:border-orange-500 focus:outline-none"
+                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder-gray-500 transition-[border-color,box-shadow] duration-150 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus-visible:ring-orange-400 motion-reduce:transition-none"
               />
             </div>
 
             {tab === 'signup' && (
               <div>
-                <label className="mb-1.5 block text-xs text-gray-400">Username</label>
+                <label htmlFor="auth-username" className="mb-1.5 block text-sm font-medium text-gray-300">사용자 이름</label>
                 <input
+                  id="auth-username"
                   type="text"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   onKeyDown={(event) => { if (event.key === 'Enter') void handleSubmit(); }}
-                  placeholder="유저네임을 입력해 주세요"
-                  className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 placeholder:text-sm transition focus:border-orange-500 focus:outline-none"
+                  placeholder="사용자 이름을 입력해 주세요"
+                  className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder-gray-500 transition-[border-color,box-shadow] duration-150 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus-visible:ring-orange-400 motion-reduce:transition-none"
                 />
                 <p className="mt-1.5 text-xs font-medium text-gray-500">
                   영문, 숫자, 밑줄(_), 마침표(.)만 사용해 3-20자로 입력해 주세요.
@@ -374,38 +414,40 @@ export const LoginPage = ({
             )}
 
             <div>
-              <label className="mb-1.5 block text-xs text-gray-400">Password</label>
+              <label htmlFor="auth-password" className="mb-1.5 block text-sm font-medium text-gray-300">비밀번호</label>
               <input
+                id="auth-password"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 onKeyDown={(event) => { if (event.key === 'Enter') void handleSubmit(); }}
                 placeholder={tab === 'signup' ? '8자 이상 입력해 주세요' : '비밀번호 입력'}
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 placeholder:text-sm transition focus:border-orange-500 focus:outline-none"
+                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder-gray-500 transition-[border-color,box-shadow] duration-150 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus-visible:ring-orange-400 motion-reduce:transition-none"
               />
             </div>
 
             {tab === 'signup' && (
               <div>
-                <label className="mb-1.5 block text-xs text-gray-400">Confirm Password</label>
+                <label htmlFor="auth-password-confirm" className="mb-1.5 block text-sm font-medium text-gray-300">비밀번호 확인</label>
                 <input
+                  id="auth-password-confirm"
                   type="password"
                   value={passwordConfirm}
                   onChange={(event) => setPasswordConfirm(event.target.value)}
                   onKeyDown={(event) => { if (event.key === 'Enter') void handleSubmit(); }}
                   placeholder="비밀번호를 다시 입력해 주세요"
-                  className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 placeholder:text-sm transition focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder-gray-500 transition-[border-color,box-shadow] duration-150 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus-visible:ring-orange-400 motion-reduce:transition-none"
                 />
               </div>
             )}
 
             {error && !signupEmail && (
-              <p className="rounded-lg border border-red-500/30 bg-red-900/20 px-3 py-2 text-sm text-red-400">
+              <p role="alert" className="rounded-lg border border-red-500/30 bg-red-900/20 px-3 py-2 text-sm text-red-400">
                 {error}
               </p>
             )}
             {info && (
-              <p className="rounded-lg border border-green-500/30 bg-green-900/20 px-3 py-2 text-sm text-green-400">
+              <p role="status" className="rounded-lg border border-green-500/30 bg-green-900/20 px-3 py-2 text-sm text-green-400">
                 {info}
               </p>
             )}
@@ -413,7 +455,7 @@ export const LoginPage = ({
             <button
               onClick={() => void handleSubmit()}
               disabled={isSubmitting}
-              className={`w-full rounded-xl py-3 text-sm font-bold transition ${
+              className={`w-full rounded-xl py-3 text-sm font-bold transition-[background-color,color,transform,box-shadow] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] disabled:active:scale-100 motion-reduce:transform-none motion-reduce:transition-none ${
                 isSubmitting
                   ? 'cursor-not-allowed bg-gray-700 text-gray-400'
                   : 'bg-orange-500 text-black hover:bg-orange-400'
@@ -432,7 +474,7 @@ export const LoginPage = ({
             </div>
 
             {googleAuthError && (
-              <p className="rounded-lg border border-red-500/30 bg-red-900/20 px-3 py-2 text-sm text-red-400">
+              <p role="alert" className="rounded-lg border border-red-500/30 bg-red-900/20 px-3 py-2 text-sm text-red-400">
                 {googleAuthError}
               </p>
             )}
@@ -440,7 +482,7 @@ export const LoginPage = ({
             <button
               onClick={() => void handleGoogleLogin()}
               type="button"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-gray-900 transition hover:bg-gray-100"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-gray-900 transition-[background-color,transform,box-shadow] duration-150 hover:bg-gray-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] motion-reduce:transform-none motion-reduce:transition-none"
             >
               <GoogleIcon />
               {tab === 'login' ? 'Google로 로그인' : 'Google로 회원가입'}

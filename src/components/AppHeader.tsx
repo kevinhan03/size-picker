@@ -97,13 +97,13 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
 
   if (variant === "minimal") {
     return (
-      <header className="fixed inset-x-0 top-0 z-50 flex h-[calc(4rem+env(safe-area-inset-top))] items-end border-b border-white/10 bg-black/95 px-4 pb-3 pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
-          <Link href="/" aria-label="DIGBOX 홈으로" className="flex items-center gap-2 rounded-xl text-sm font-bold tracking-tight text-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
-            <Image src="/digbox-mark.png" alt="" width={32} height={32} className="h-8 w-8" />
-            DIGBOX
+      <header className="app-header-motion pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center border-b border-white/[0.06] bg-black transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none">
+        <div className={`pointer-events-auto flex items-center justify-between ${headerFrameClass}`}>
+          <Link href="/" aria-label="DIGBOX 홈으로" className="flex min-w-0 items-center gap-2 rounded-xl text-base font-bold tracking-tight text-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+            <Image src="/digbox-mark.png" alt="" width={40} height={40} className="h-8 w-8 object-contain lg:h-9 lg:w-9" />
+            <span className="font-bold tracking-tight">DIGBOX</span>
           </Link>
-          <Link href="/" className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-semibold text-gray-300 transition-[background-color,color] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+          <Link href="/" className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-semibold text-gray-300 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transform-none motion-reduce:transition-none">
             <ArrowLeft className="h-3.5 w-3.5" />
             홈으로
           </Link>
