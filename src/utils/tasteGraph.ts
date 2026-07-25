@@ -918,8 +918,8 @@ export function getProductTasteDecision(product: Product, closetProducts: Produc
   return { kind, primaryTag, secondaryTag, closetShare, tagEvidence, closestProducts };
 }
 
-function getEffectiveStyleAttributes(product: Product): Record<string, unknown> | null {
-  if (String(product.category || "").trim().toLowerCase() === "acc") return null;
+function getEffectiveStyleAttributes(product: Product, includeAccessories = false): Record<string, unknown> | null {
+  if (!includeAccessories && String(product.category || "").trim().toLowerCase() === "acc") return null;
   const hasHumanAttributes = product.humanStyleAttributes && typeof product.humanStyleAttributes === "object" && !Array.isArray(product.humanStyleAttributes);
   if (hasHumanAttributes && (product.tagReviewStatus === "approved" || product.tagReviewStatus === "edited")) {
     return product.humanStyleAttributes as Record<string, unknown>;
@@ -927,6 +927,60 @@ function getEffectiveStyleAttributes(product: Product): Record<string, unknown> 
   return product.styleAttributes && typeof product.styleAttributes === "object" && !Array.isArray(product.styleAttributes)
     ? product.styleAttributes as Record<string, unknown>
     : null;
+}
+
+const PRODUCT_STYLE_LABELS: Record<string, Record<string, string>> = {
+  bottom_silhouette: { straight: "스트레이트 실루엣", wide: "와이드 실루엣", tapered: "테이퍼드 실루엣", bootcut: "부츠컷 실루엣", flare: "플레어 실루엣", balloon: "벌룬 실루엣" },
+  top_silhouette: { slim: "슬림 실루엣", regular: "레귤러 실루엣", relaxed: "릴랙스드 실루엣", oversized: "오버사이즈 실루엣", boxy: "박시 실루엣" },
+  outer_silhouette: { slim: "슬림 실루엣", regular: "레귤러 실루엣", relaxed: "릴랙스드 실루엣", oversized: "오버사이즈 실루엣", boxy: "박시 실루엣" },
+  material: { cotton: "코튼 소재", denim: "데님 소재", knit: "니트 소재", wool: "울 소재", leather: "레더 소재", linen: "린넨 소재", synthetic: "합성 소재", mixed: "혼방 소재" },
+  color: { black: "블랙 컬러", white: "화이트 컬러", gray: "그레이 컬러", blue: "블루 컬러", brown: "브라운 컬러", beige: "베이지 컬러", green: "그린 컬러", red: "레드 컬러" },
+  wash_texture: { clean: "깔끔한 질감", washed: "워싱 질감", faded: "페이디드 질감", distressed: "디스트레스드 질감", textured: "텍스처가 느껴지는 질감" },
+};
+
+const PRODUCT_TYPE_LABELS: Record<string, Record<string, string>> = {
+  top_type: { sleeveless: "민소매", t_shirt: "티셔츠", shirt: "셔츠", pique: "피케 셔츠", knit: "니트", sweatshirt: "스웨트셔츠", hoodie: "후디" },
+  outer_type: { jacket: "재킷", blazer: "블레이저", coat: "코트", padding: "패딩", vest: "베스트", windbreaker: "윈드브레이커" },
+};
+
+const PRODUCT_CATEGORY_LABELS: Record<string, string> = { top: "상의", bottom: "하의", outer: "아우터", acc: "액세서리" };
+
+function firstKnownStyleAttribute(attributes: Record<string, unknown>, key: string) {
+  const values = Array.isArray(attributes[key]) ? attributes[key] : [attributes[key]];
+  return values
+    .map((value) => String(value ?? "").trim().toLowerCase())
+    .find((value) => value && value !== "unknown") || null;
+}
+
+/** Produces a short product-only description from reviewed or extracted style attributes. */
+export function describeProductStyle(product: Product): string | null {
+  const attributes = getEffectiveStyleAttributes(product, true);
+  if (!attributes) return null;
+
+  const category = String(product.category || "").trim().toLowerCase();
+  const typeKey = category === "top" ? "top_type" : category === "outer" ? "outer_type" : null;
+  const typeValue = typeKey ? firstKnownStyleAttribute(attributes, typeKey) : null;
+  const productLabel = (typeKey && typeValue ? PRODUCT_TYPE_LABELS[typeKey]?.[typeValue] : null)
+    || PRODUCT_CATEGORY_LABELS[category]
+    || "상품";
+  const silhouetteKey = category === "bottom"
+    ? "bottom_silhouette"
+    : category === "top"
+      ? "top_silhouette"
+      : category === "outer"
+        ? "outer_silhouette"
+        : null;
+  const detailKeys = ["color", silhouetteKey, "material", "wash_texture"].filter((key): key is string => Boolean(key));
+  const details = detailKeys
+    .map((key) => {
+      const value = firstKnownStyleAttribute(attributes, key);
+      return value ? PRODUCT_STYLE_LABELS[key]?.[value] || null : null;
+    })
+    .filter((detail): detail is string => Boolean(detail))
+    .slice(0, 2);
+
+  if (!details.length) return typeValue ? `${productLabel}예요.` : null;
+  return `${details.join("과 ")}이 돋보이는 ${productLabel}예요.`;
 }
 
 function averageTagScores(products: Product[]) {

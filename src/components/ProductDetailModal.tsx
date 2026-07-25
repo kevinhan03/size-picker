@@ -22,7 +22,7 @@ import {
 import { captureEvent } from "../utils/analytics";
 import { ClosetIcon } from "./icons/ClosetIcon";
 import { ProductTasteDecisionPanel } from "./taste-graph/ProductTasteDecision";
-import { getProductTasteDecision } from "../utils/tasteGraph";
+import { computeTasteSummary, getProductTasteDecision } from "../utils/tasteGraph";
 import { buildLoginHref } from "../utils/authNavigation";
 import { getProductPageUrl } from "../utils/product";
 
@@ -242,6 +242,10 @@ export function ProductDetailModal({
     () => (authUser ? getProductTasteDecision(product, closetProducts) : null),
     [authUser, closetProducts, product]
   );
+  const hasEnoughTasteData = useMemo(
+    () => computeTasteSummary(closetProducts.filter((item) => String(item.id) !== String(product.id))).taggedCount >= 3,
+    [closetProducts, product.id]
+  );
 
   useEffect(() => {
     return () => {
@@ -282,7 +286,6 @@ export function ProductDetailModal({
   );
   const isSelectedMySizeSourceProduct = selectedMySize?.sourceProductId === product.id;
   const activeSizeLabel = String(activeProductSnapshot?.row?.[0] ?? "").trim();
-  const hasProductInsights = Boolean(tasteDecision);
 
   const closeMySizePicker = () => {
     setIsMySizePickerOpen(false);
@@ -571,18 +574,21 @@ export function ProductDetailModal({
             </div>
           </div>
 
-          {hasProductInsights && (
-            <section className="mt-5" aria-label="내 취향 분석">
-              <ProductTasteDecisionPanel decision={tasteDecision!} />
-            </section>
-          )}
+          <section className="mt-4" aria-label="상품과 내 취향 인사이트">
+            <ProductTasteDecisionPanel
+              product={product}
+              decision={tasteDecision}
+              isAuthenticated={Boolean(authUser)}
+              hasEnoughTasteData={hasEnoughTasteData}
+            />
+          </section>
 
           <button
             type="button"
             onClick={handleSimilarProductsClick}
-            className="group mt-5 flex min-h-14 w-full items-center justify-between gap-4 rounded-2xl border border-white/[0.1] bg-white/[0.045] px-4 py-3 text-left shadow-[0_10px_28px_rgba(0,0,0,0.18)] transition-[background-color,border-color,box-shadow,transform] duration-150 hover:border-white/[0.18] hover:bg-white/[0.075] hover:shadow-[0_12px_30px_rgba(0,0,0,0.22)] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
+            className="group mt-3 flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-transparent px-4 py-2.5 text-left transition-[background-color,border-color,transform] duration-150 hover:border-white/[0.15] hover:bg-white/[0.035] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
           >
-            <span className="min-w-0 truncate text-sm font-bold text-white">이 상품과 함께 보기</span>
+            <span className="min-w-0 truncate text-sm font-semibold text-gray-200">이 상품과 함께 보기</span>
             <ChevronRight className="h-5 w-5 shrink-0 text-gray-500 transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-orange-300" aria-hidden="true" />
           </button>
 
