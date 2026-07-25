@@ -101,8 +101,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
   const decodedUsername = decodeURIComponent(username).trim();
   return {
-    title: `${decodedUsername}'s saved items | DIGBOX`,
-    description: `${decodedUsername}'s saved items`,
+    title: "저장한 상품 | DIGBOX",
+    description: `${decodedUsername}의 저장한 상품`,
   };
 }
 

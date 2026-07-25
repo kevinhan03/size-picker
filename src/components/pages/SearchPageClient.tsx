@@ -327,7 +327,7 @@ export function SearchPageClient() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white">
+    <main className="flex min-h-screen flex-col items-center bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white lg:pt-24">
       {productsError && (
         <div className="mb-6 flex w-full max-w-4xl flex-col items-center gap-4 rounded-xl border border-orange-500 bg-orange-900/50 px-6 py-4 text-orange-200 md:flex-row">
           <div className="flex flex-1 items-center gap-2">
@@ -568,7 +568,6 @@ export function SearchPageClient() {
           }}
           isInDigbox={isInDigbox(normalizedProduct.id)}
           showGuestDigboxHint={showGuestDetailSaveHint}
-          relatedGraphButtonLabel="비슷한 상품 보기"
           analyticsSource="home_grid"
         />
       )}

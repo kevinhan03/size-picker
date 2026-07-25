@@ -623,6 +623,15 @@ function styleSimilarity(left: Product, right: Product) {
 
 const SHAPE_ATTRIBUTE_KEYS = ["bottom_silhouette", "top_type", "top_silhouette", "outer_type", "outer_silhouette", "top_length"];
 const EXPRESSION_ATTRIBUTE_KEYS = ["material", "color", "wash_texture", "details"];
+const COMPATIBILITY_ATTRIBUTE_KEYS = ["formality", "era_signal", "sportiness", "utility_level", "decoration_level"];
+
+const ORDERED_COMPATIBILITY_VALUES: Record<string, Record<string, number>> = {
+  formality: { casual: 0, "smart-casual": 0.5, classic: 0.75, formal: 1 },
+  era_signal: { modern: 0, contemporary: 0.1, "vintage-worn": 0.6, "retro-90s": 0.75, "retro-70s": 0.85, "y2k aesthetic": 0.75 },
+  sportiness: { none: 0, low: 0.25, light: 0.5, strong: 1 },
+  utility_level: { none: 0, light: 0.5, strong: 1, high: 1 },
+  decoration_level: { minimal: 0, low: 0, moderate: 0.5, medium: 0.5, high: 1 },
+};
 
 function comparableAttributeValue(value: unknown): string | null {
   const normalized = String(value ?? "").trim().toLowerCase();
@@ -688,6 +697,110 @@ export interface ProductHybridSimilarity {
   expressionMatches: string[];
 }
 
+/**
+ * Unlike an exact attribute match, an outfit can bridge neighbouring levels
+ * (for example casual with smart-casual). The value maps make that judgement
+ * explicit and leave unknown values out instead of guessing.
+ */
+function compatibilityAttributeSimilarity(left: Product, right: Product) {
+  const leftAttributes = getEffectiveStyleAttributes(left);
+  const rightAttributes = getEffectiveStyleAttributes(right);
+  if (!leftAttributes || !rightAttributes) return null;
+
+  const scores: number[] = [];
+  for (const key of COMPATIBILITY_ATTRIBUTE_KEYS) {
+    const leftValue = comparableAttributeValue(leftAttributes[key]);
+    const rightValue = comparableAttributeValue(rightAttributes[key]);
+    if (!leftValue || !rightValue) continue;
+
+    const scale = ORDERED_COMPATIBILITY_VALUES[key];
+    const leftPosition = scale?.[leftValue];
+    const rightPosition = scale?.[rightValue];
+    if (leftPosition === undefined || rightPosition === undefined) continue;
+    scores.push(1 - Math.abs(leftPosition - rightPosition));
+  }
+
+  return scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null;
+}
+
+function categoryPairCompatibility(left: Product, right: Product): number | null {
+  const leftCategory = String(left.category || "").trim().toLowerCase();
+  const rightCategory = String(right.category || "").trim().toLowerCase();
+  const pair = [leftCategory, rightCategory].sort().join(":");
+
+  const pairScores: Record<string, number> = {
+    "bottom:outer": 0.9,
+    "bottom:shoes": 1,
+    "bottom:top": 0.95,
+    "outer:shoes": 0.9,
+    "outer:top": 0.85,
+    "shoes:top": 0.85,
+  };
+  return pairScores[pair] ?? null;
+}
+
+/**
+ * Cross-category discovery intentionally prioritizes the catalogued style
+ * signal. Unlike substitute recommendations, it does not require an image
+ * embedding and it never treats missing tags as a match.
+ */
+export function getCrossCategoryStyleSimilarity(left: Product, right: Product): ProductHybridSimilarity | null {
+  const style = styleSimilarity(left, right);
+  if (style === null) return null;
+
+  const leftEmbedding = parseEmbedding(left.imageEmbedding);
+  const rightEmbedding = parseEmbedding(right.imageEmbedding);
+  const visual = leftEmbedding && rightEmbedding ? cosineSimilarity(leftEmbedding, rightEmbedding) : null;
+  const expression = attributeSimilarity(left, right, EXPRESSION_ATTRIBUTE_KEYS);
+  const compatibility = compatibilityAttributeSimilarity(left, right);
+  const categoryPair = categoryPairCompatibility(left, right);
+  const sameCategory = sameProductCategory(left, right);
+  // A complementary item should first share the product's tagged mood. The
+  // structured attributes and category pair then refine compatibility; visual
+  // likeness is deliberately only a small tie-breaker, not the styling rule.
+  const components: Array<[number, number]> = [[style, 0.62]];
+  if (compatibility !== null) components.push([compatibility, 0.18]);
+  if (expression.score !== null) components.push([expression.score, 0.08]);
+  if (categoryPair !== null) components.push([categoryPair, 0.07]);
+  if (visual !== null) components.push([Math.max(0, visual), 0.05]);
+  const totalWeight = components.reduce((sum, [, weight]) => sum + weight, 0);
+
+  return {
+    score: components.reduce((sum, [score, weight]) => sum + score * weight, 0) / totalWeight,
+    styleSimilarity: style,
+    visualSimilarity: visual,
+    sameCategory,
+    shapeSimilarity: null,
+    expressionSimilarity: expression.score,
+    shapeMatches: [],
+    expressionMatches: expression.matches,
+  };
+}
+
+export function getEffectiveProductTargetGender(product: Product): string {
+  const reviewed = String(product.humanTargetGender || "").trim().toLowerCase();
+  const inferred = String(product.targetGender || "").trim().toLowerCase();
+  return reviewed || inferred || "unknown";
+}
+
+/**
+ * Treat the two strongest style tags as the product's explicit style intent.
+ * A missing tag set is deliberately returned as `null`, so incomplete catalog
+ * data does not make a product impossible to discover.
+ */
+export function hasSharedPrimaryStyleTag(left: Product, right: Product): boolean | null {
+  const leftTags = selectTopTags(normalizeStyleTags(getEffectiveStyleTags(left).tags), 2, {
+    enforceSecondThreshold: false,
+  }).filter(([, score]) => score >= SECOND_TAG_MIN_CONFIDENCE);
+  const rightTags = selectTopTags(normalizeStyleTags(getEffectiveStyleTags(right).tags), 2, {
+    enforceSecondThreshold: false,
+  }).filter(([, score]) => score >= SECOND_TAG_MIN_CONFIDENCE);
+
+  if (!leftTags.length || !rightTags.length) return null;
+  const rightTagNames = new Set(rightTags.map(([tag]) => tag));
+  return leftTags.some(([tag]) => rightTagNames.has(tag));
+}
+
 export function getProductHybridSimilarity(left: Product, right: Product): ProductHybridSimilarity | null {
   const style = styleSimilarity(left, right);
   const leftEmbedding = parseEmbedding(left.imageEmbedding);
@@ -706,6 +819,39 @@ export function getProductHybridSimilarity(left: Product, right: Product): Produ
   if (shape.score !== null) components.push([shape.score, 0.12]);
   if (expression.score !== null) components.push([expression.score, 0.08]);
   const totalWeight = components.reduce((sum, [, weight]) => sum + weight, 0);
+  return {
+    score: components.reduce((sum, [score, weight]) => sum + score * weight, 0) / totalWeight,
+    styleSimilarity: style,
+    visualSimilarity: visual,
+    sameCategory,
+    shapeSimilarity: shape.score,
+    expressionSimilarity: expression.score,
+    shapeMatches: shape.matches,
+    expressionMatches: expression.matches,
+  };
+}
+
+/**
+ * Ranking used only for the similar-products page. It is intentionally more
+ * visual than the taste-analysis score, with metadata used as a tie-breaker.
+ */
+export function getProductRecommendationSimilarity(left: Product, right: Product): ProductHybridSimilarity | null {
+  const style = styleSimilarity(left, right);
+  const leftEmbedding = parseEmbedding(left.imageEmbedding);
+  const rightEmbedding = parseEmbedding(right.imageEmbedding);
+  const visual = leftEmbedding && rightEmbedding ? cosineSimilarity(leftEmbedding, rightEmbedding) : null;
+  if (style === null && visual === null) return null;
+
+  const shape = attributeSimilarity(left, right, SHAPE_ATTRIBUTE_KEYS);
+  const expression = attributeSimilarity(left, right, EXPRESSION_ATTRIBUTE_KEYS);
+  const sameCategory = sameProductCategory(left, right);
+  const components: Array<[number, number]> = [[sameCategory ? 1 : 0, 0.1]];
+  if (visual !== null) components.push([Math.max(0, visual), 0.5]);
+  if (style !== null) components.push([style, 0.25]);
+  if (shape.score !== null) components.push([shape.score, 0.1]);
+  if (expression.score !== null) components.push([expression.score, 0.05]);
+  const totalWeight = components.reduce((sum, [, weight]) => sum + weight, 0);
+
   return {
     score: components.reduce((sum, [score, weight]) => sum + score * weight, 0) / totalWeight,
     styleSimilarity: style,

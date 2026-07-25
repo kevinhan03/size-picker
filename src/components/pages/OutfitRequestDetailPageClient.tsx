@@ -822,7 +822,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
 
         <section className={`mt-12 border-t border-white/10 pt-9 ${isOwner ? "order-3" : ""}`}>
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black">제안된 코디 {outfitRequest.proposals.length}</h2>
+            <h2 className="text-xl font-black">추천 코디 {outfitRequest.proposals.length}</h2>
             {outfitRequest.status !== "open" && <span className="flex items-center gap-1.5 text-xs text-white/35"><LockKeyhole className="h-3.5 w-3.5" />제안 마감</span>}
           </div>
           {orderedProposals.length === 0 ? (

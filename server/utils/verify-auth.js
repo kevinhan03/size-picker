@@ -11,11 +11,12 @@ export async function verifyBearerToken(token) {
   if (!supabaseUrl || !supabaseAnonKey) return null;
 
   const client = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: { user }, error } = await client.auth.getUser();
+  // A server-side client has no persisted session. Pass the caller's token
+  // directly so a valid signed-in user is not mistaken for an anonymous one.
+  const { data: { user }, error } = await client.auth.getUser(token);
   if (error || !user) return null;
   return user;
 }

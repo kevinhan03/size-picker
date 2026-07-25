@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { UsernameOnboardingPageClient } from "../../../src/components/pages/UsernameOnboardingPageClient";
+
+export const metadata: Metadata = {
+  title: "사용자 이름 설정 | DIGBOX",
+  robots: { index: false, follow: false },
+};
 
 export default async function UsernameOnboardingPage() {
   const cookieStore = await cookies();

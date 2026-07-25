@@ -1,20 +1,18 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent, PointerEvent, RefObject, SyntheticEvent, TouchEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ExternalLink, Network, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
-import type { ClosetSizeSelection, MySizeProfile, Product, RelatedGraphReason } from "../types";
+import type { ClosetSizeSelection, MySizeProfile, Product } from "../types";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useMySizesContext } from "../contexts/MySizesContext";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useClosetContext } from "../contexts/ClosetContext";
-import { useProductsContext } from "../contexts/ProductsContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
 import { usePresence } from "../hooks/usePresence";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
-import { ProductRelatedGraphModal } from "./product-related/ProductRelatedGraphModal";
 import {
   compareMeasurementSnapshots,
   displayTableCell,
@@ -24,8 +22,9 @@ import {
 import { captureEvent } from "../utils/analytics";
 import { ClosetIcon } from "./icons/ClosetIcon";
 import { ProductTasteDecisionPanel } from "./taste-graph/ProductTasteDecision";
-import { getProductTasteDecision, styleTagLabel } from "../utils/tasteGraph";
+import { getProductTasteDecision } from "../utils/tasteGraph";
 import { buildLoginHref } from "../utils/authNavigation";
+import { getProductPageUrl } from "../utils/product";
 
 interface ProductDetailModalProps {
   product: Product;
@@ -44,10 +43,6 @@ interface ProductDetailModalProps {
   onCollectionActionStart?: (anchorRect?: TutorialAnchorRect) => void;
   hideDigboxButton?: boolean;
   hideCollectionActions?: boolean;
-  hideRelatedGraphButton?: boolean;
-  onRelatedGraphRequest?: () => void;
-  relatedGraphButtonLabel?: string;
-  relatedGraphReason?: RelatedGraphReason | null;
   showGuestDigboxHint?: boolean;
   otherDigboxCount?: number;
   otherDigboxCountLabel?: string;
@@ -56,17 +51,6 @@ interface ProductDetailModalProps {
 
 function getClosetSizeLabel(product?: Product | null): string {
   return String(product?.closetSelectedSizeLabel || "").trim();
-}
-
-function getRelatedGraphReasonCopy(reason: RelatedGraphReason) {
-  if (reason.recommendationType === "mood") {
-    const sharedStyles = reason.sharedTags.slice(0, 2).map(({ tag }) => styleTagLabel(tag));
-    return sharedStyles.length
-      ? `이 상품과 ${sharedStyles.join(" · ")} 스타일이 비슷해요.`
-      : "이 상품과 유사한 스타일의 다른 상품이에요.";
-  }
-
-  return `이미지 유사도 ${Math.round(reason.similarity * 100)}% · 연결된 상품을 탐색해 보세요.`;
 }
 
 function getClosetSizeRowIndex(product?: Product | null): number | null {
@@ -208,10 +192,6 @@ export function ProductDetailModal({
   onCollectionActionStart,
   hideDigboxButton,
   hideCollectionActions,
-  hideRelatedGraphButton,
-  onRelatedGraphRequest,
-  relatedGraphButtonLabel = "비슷한 상품 보기",
-  relatedGraphReason,
   showGuestDigboxHint = false,
   otherDigboxCount = 0,
   otherDigboxCountLabel,
@@ -222,8 +202,7 @@ export function ProductDetailModal({
   const { authUser } = useAuthContext();
   const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const canUseCloset = Boolean(authUser);
-  const [isRelatedGraphOpen, setIsRelatedGraphOpen] = useState(false);
-  useBodyScrollLock(modalRef, !isRelatedGraphOpen);
+  useBodyScrollLock(modalRef);
   const sizeTableTouchStartX = useRef<number | null>(null);
   const sizeTableTouchStartY = useRef<number | null>(null);
   const sizeTableIsScrolling = useRef(false);
@@ -242,7 +221,6 @@ export function ProductDetailModal({
   const [mySizeSearchQuery, setMySizeSearchQuery] = useState("");
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const { mySizes, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
-  const { products } = useProductsContext();
   const [selectedMySizeId, setSelectedMySizeId] = useState<string>("");
   const savedClosetProduct = closetProduct || null;
   const savedSizeRowIndex = getClosetSizeRowIndex(savedClosetProduct);
@@ -304,7 +282,6 @@ export function ProductDetailModal({
   );
   const isSelectedMySizeSourceProduct = selectedMySize?.sourceProductId === product.id;
   const activeSizeLabel = String(activeProductSnapshot?.row?.[0] ?? "").trim();
-  const canExploreRelatedProducts = !hideRelatedGraphButton || Boolean(onRelatedGraphRequest) || Boolean(relatedGraphReason);
   const hasProductInsights = Boolean(tasteDecision);
 
   const closeMySizePicker = () => {
@@ -317,7 +294,6 @@ export function ProductDetailModal({
     setIsExtraMeasurementsOpen(false);
     setIsMySizePickerOpen(false);
     setMySizeSearchQuery("");
-    setIsRelatedGraphOpen(false);
   }, [product.id]);
 
   useEffect(() => {
@@ -465,12 +441,8 @@ export function ProductDetailModal({
     router.push("/mypage");
   };
 
-  const handleRelatedGraphClick = () => {
-    if (onRelatedGraphRequest) {
-      onRelatedGraphRequest();
-      return;
-    }
-    setIsRelatedGraphOpen(true);
+  const handleSimilarProductsClick = () => {
+    router.push(`${getProductPageUrl(product)}/similar`);
   };
 
   const closeModal = () => presence.requestClose(onClose);
@@ -590,11 +562,10 @@ export function ProductDetailModal({
                   <span className="text-sm text-gray-600">URL 없음</span>
                 )}
               </div>
-              {(product.registeredBy || otherDigboxCount > 0 || relatedGraphReason) && (
+              {(product.registeredBy || otherDigboxCount > 0) && (
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-gray-500">
                   {product.registeredBy && <span>발굴한 사람: <span className="text-gray-200">{product.registeredBy}</span></span>}
                   {otherDigboxCount > 0 && <span>{otherDigboxCountLabel || `이 발굴 상품을 ${otherDigboxCount}명이 저장했어요`}</span>}
-                  {relatedGraphReason && <span>{getRelatedGraphReasonCopy(relatedGraphReason)}</span>}
                 </div>
               )}
             </div>
@@ -606,19 +577,14 @@ export function ProductDetailModal({
             </section>
           )}
 
-          {canExploreRelatedProducts ? (
-            <button
-              type="button"
-              onClick={handleRelatedGraphClick}
-              className="group mt-3 flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-[background-color,color,transform] duration-150 hover:bg-white/[0.05] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
-            >
-              <span className="flex min-w-0 items-center gap-2.5">
-                <Network className="h-4 w-4 shrink-0 text-orange-300 transition-transform duration-150 group-hover:scale-110" aria-hidden="true" />
-                <span className="truncate text-sm font-bold text-gray-300 transition-colors group-hover:text-white">{relatedGraphButtonLabel}</span>
-              </span>
-              <span className="shrink-0 text-base leading-none text-gray-500 transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-orange-200" aria-hidden="true">→</span>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={handleSimilarProductsClick}
+            className="group mt-5 flex min-h-14 w-full items-center justify-between gap-4 rounded-2xl border border-white/[0.1] bg-white/[0.045] px-4 py-3 text-left shadow-[0_10px_28px_rgba(0,0,0,0.18)] transition-[background-color,border-color,box-shadow,transform] duration-150 hover:border-white/[0.18] hover:bg-white/[0.075] hover:shadow-[0_12px_30px_rgba(0,0,0,0.22)] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
+          >
+            <span className="min-w-0 truncate text-sm font-bold text-white">이 상품과 함께 보기</span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-gray-500 transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-orange-300" aria-hidden="true" />
+          </button>
 
           <section className="mt-8" aria-labelledby="size-selection-title">
             <div className="mb-3 flex items-end justify-between gap-4">
@@ -867,13 +833,6 @@ export function ProductDetailModal({
         tutorialId={activeTutorial.id}
         anchorRect={activeTutorial.anchorRect}
         onClose={() => setActiveTutorial(null)}
-      />
-    )}
-    {isRelatedGraphOpen && (
-      <ProductRelatedGraphModal
-        product={product}
-        products={products}
-        onClose={() => setIsRelatedGraphOpen(false)}
       />
     )}
     </>
