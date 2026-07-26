@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, LogOut, Plus, Ruler, Search, Trash2, UserRound, X } from "lucide-react";
-import type { MySizeInput, MySizeProfile, Product } from "../../types";
+import { Check, ChevronDown, ChevronRight, LogOut, Pencil, Plus, Ruler, Search, Trash2, UserRound, X } from "lucide-react";
+import type { MySizeInput, MySizeProfile, MySizeUpdateInput, Product } from "../../types";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 import { getProductPageUrl } from "../../utils/product";
 import { UsernameSetupForm } from "../UsernameSetupForm";
@@ -15,6 +16,7 @@ interface MyPageViewProps {
   closetProducts: Product[];
   mySizes: MySizeProfile[];
   onCreateMySize: (input: MySizeInput) => Promise<void>;
+  onUpdateMySize: (id: string, input: MySizeUpdateInput) => Promise<void>;
   onDeleteMySize: (id: string) => Promise<void>;
   onLogout: () => void;
   onChangeUsername: (username: string) => Promise<void>;
@@ -23,8 +25,8 @@ interface MyPageViewProps {
   deleteAccountError: string | null;
 }
 
-const cardClass =
-  "ui-panel rounded-2xl bg-[#111114] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_18px_46px_rgba(0,0,0,0.32)]";
+const primaryCardClass =
+  "ui-panel rounded-[24px] border border-white/[0.08] bg-[#111114] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_18px_46px_rgba(0,0,0,0.32)]";
 
 const getSnapshotPreview = (profile: MySizeProfile) =>
   profile.measurementSnapshot.headers
@@ -40,15 +42,40 @@ const getMySizePrimaryLabel = (profile: MySizeProfile) => {
   return sizeLabel || "사이즈";
 };
 
+function trapDialogFocus(event: React.KeyboardEvent<HTMLElement>) {
+  if (event.key !== "Tab") return;
+  const focusable = Array.from(
+    event.currentTarget.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+    )
+  );
+  if (focusable.length === 0) {
+    event.preventDefault();
+    return;
+  }
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function MySizesManager({
   closetProducts,
   mySizes,
   onCreateMySize,
+  onUpdateMySize,
   onDeleteMySize,
 }: {
   closetProducts: Product[];
   mySizes: MySizeProfile[];
   onCreateMySize: (input: MySizeInput) => Promise<void>;
+  onUpdateMySize: (id: string, input: MySizeUpdateInput) => Promise<void>;
   onDeleteMySize: (id: string) => Promise<void>;
 }) {
   const registeredProductIds = useMemo(
@@ -73,13 +100,36 @@ function MySizesManager({
   const [isAdding, setIsAdding] = useState(false);
   const [sourceProductId, setSourceProductId] = useState("");
   const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
+  const [pendingProductSelectionId, setPendingProductSelectionId] = useState<string | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [fitNote, setFitNote] = useState("");
   const [expandedProfileId, setExpandedProfileId] = useState<string | null>(null);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingFitNote, setEditingFitNote] = useState("");
+  const [noteEditorPosition, setNoteEditorPosition] = useState<{ top: number; left: number } | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [deleteCandidate, setDeleteCandidate] = useState<MySizeProfile | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
+  const noteEditorRef = useRef<HTMLTextAreaElement>(null);
+  const noteEditorTriggerRef = useRef<HTMLButtonElement>(null);
+  const deleteCancelButtonRef = useRef<HTMLButtonElement>(null);
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!pendingProductSelectionId) return;
+    const timeoutId = window.setTimeout(() => {
+      setIsProductPickerOpen(false);
+      setProductSearchQuery("");
+      setPendingProductSelectionId(null);
+    }, 110);
+    return () => window.clearTimeout(timeoutId);
+  }, [pendingProductSelectionId]);
 
   const getAnchorRect = (element: Element): TutorialAnchorRect => {
     const rect = element.getBoundingClientRect();
@@ -125,6 +175,7 @@ function MySizesManager({
   const resetForm = () => {
     setSourceProductId("");
     setIsProductPickerOpen(false);
+    setPendingProductSelectionId(null);
     setProductSearchQuery("");
     setFitNote("");
     setFormError(null);
@@ -158,15 +209,89 @@ function MySizesManager({
     }
   };
 
+  const startEditingProfile = (profile: MySizeProfile, event: React.MouseEvent<HTMLButtonElement>) => {
+    noteEditorTriggerRef.current = event.currentTarget;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const popoverWidth = 320;
+    const gutter = 12;
+    setNoteEditorPosition({
+      top: Math.max(gutter, Math.min(rect.bottom + 8, window.innerHeight - 260)),
+      left: Math.max(gutter, Math.min(rect.right - popoverWidth, window.innerWidth - popoverWidth - gutter)),
+    });
+    setEditingProfileId(profile.id);
+    setEditingFitNote(profile.fitNote || "");
+    setEditError(null);
+  };
+
+  const cancelEditingProfile = () => {
+    setEditingProfileId(null);
+    setEditingFitNote("");
+    setNoteEditorPosition(null);
+    setEditError(null);
+  };
+
+  const saveProfileNote = async (profileId: string) => {
+    setEditError(null);
+    setIsUpdatingProfile(true);
+    try {
+      await onUpdateMySize(profileId, { fitNote: editingFitNote.trim() || null });
+      cancelEditingProfile();
+    } catch (error: unknown) {
+      setEditError(error instanceof Error ? error.message : "메모를 수정하지 못했어요.");
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const confirmDeleteProfile = async () => {
+    if (!deleteCandidate) return;
+    setDeleteError(null);
+    setIsDeletingProfile(true);
+    try {
+      await onDeleteMySize(deleteCandidate.id);
+      setDeleteCandidate(null);
+    } catch (error: unknown) {
+      setDeleteError(error instanceof Error ? error.message : "My Size를 삭제하지 못했어요.");
+    } finally {
+      setIsDeletingProfile(false);
+    }
+  };
+
+  const closeDeleteProfileConfirm = () => {
+    if (isDeletingProfile) return;
+    setDeleteCandidate(null);
+    setDeleteError(null);
+  };
+
+  useEffect(() => {
+    if (!editingProfileId) return;
+    const frameId = window.requestAnimationFrame(() => noteEditorRef.current?.focus());
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      noteEditorTriggerRef.current?.focus();
+    };
+  }, [editingProfileId]);
+
+  useEffect(() => {
+    if (!deleteCandidate) return;
+    const frameId = window.requestAnimationFrame(() => deleteCancelButtonRef.current?.focus());
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      deleteTriggerRef.current?.focus();
+    };
+  }, [deleteCandidate]);
+
   return (
-    <section className={`${cardClass} min-w-0 overflow-hidden p-5`}>
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <>
+      <section className={`${primaryCardClass} min-w-0 overflow-hidden p-4 sm:p-5`} aria-labelledby="my-size-title">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.06] text-gray-300">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.045] text-gray-300">
             <Ruler className="h-4 w-4" />
           </span>
           <div>
-            <h2 className="text-lg font-black text-white">My Size</h2>
+            <h2 id="my-size-title" className="text-lg font-black tracking-[-0.02em] text-white">My Size</h2>
+            <p className="mt-0.5 text-xs font-medium text-gray-500">내 옷에서 저장한 기준 사이즈</p>
           </div>
         </div>
         <button
@@ -180,7 +305,7 @@ function MySizesManager({
             setIsAdding(true);
             setFormError(null);
           }}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-black transition hover:bg-orange-400"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-black transition-[background-color,transform] duration-150 hover:bg-orange-400 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
         >
           {isAdding ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {isAdding ? "닫기" : "추가"}
@@ -188,30 +313,31 @@ function MySizesManager({
       </div>
 
       {isAdding && (
-        <div className="mb-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-base font-black text-white">My Size 추가</h3>
-              <p className="mt-1 text-xs font-semibold text-gray-500">옷장에서 잘 맞았던 사이즈를 저장합니다.</p>
-            </div>
-          </div>
-
+        <div className="my-size-panel-reveal mb-5 border-t border-white/[0.08] pt-4">
           <div>
-            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-gray-500">옷장 상품</label>
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-gray-500">등록할 옷 선택</label>
             {closetCandidates.length > 0 && (
-              <div className="relative">
+              <div>
                 <button
                   type="button"
+                  aria-expanded={isProductPickerOpen}
+                  aria-controls="my-size-product-list"
                   onClick={(event) => {
                     showTutorialOnce("mySizeSetup", getAnchorRect(event.currentTarget));
                     setIsProductPickerOpen((value) => !value);
                   }}
-                  className={`flex h-12 w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-xl border px-3 text-left transition ${
-                    isProductPickerOpen || selectedProduct
-                      ? "border-orange-500/50 bg-orange-500/10"
-                      : "border-white/10 bg-white/[0.06] hover:border-white/20"
+                  className={`ui-my-size-pressable flex min-h-12 w-full min-w-0 items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-[background-color,transform] duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none ${
+                    selectedProduct
+                      ? "bg-orange-500/[0.10] active:bg-orange-500/[0.16]"
+                      : "bg-white/[0.045] hover:bg-white/[0.075] active:bg-white/[0.09]"
                   }`}
                 >
+                  {selectedProduct && (
+                    <div className="h-10 w-9 shrink-0 overflow-hidden rounded-lg bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for the existing product thumbnail. */}
+                      <img src={selectedProduct.thumbnailImage || selectedProduct.image} alt="" className="h-full w-full object-contain" />
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1 overflow-hidden">
                     {selectedProduct ? (
                       <>
@@ -226,18 +352,25 @@ function MySizesManager({
                       </>
                     )}
                   </div>
-                  <ChevronRight className={`h-4 w-4 shrink-0 text-gray-500 transition-transform ${isProductPickerOpen ? "rotate-90" : ""}`} />
+                  {selectedProduct && (
+                    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-orange-200">
+                      <Check className="h-3.5 w-3.5" aria-hidden="true" /> 선택됨
+                    </span>
+                  )}
+                  <ChevronRight className={`h-4 w-4 shrink-0 text-gray-500 transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none ${isProductPickerOpen ? "rotate-90" : ""}`} />
                 </button>
 
                 {isProductPickerOpen && (
-                  <div className="mt-2 rounded-xl border border-white/10 bg-[#111114] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+                  <div id="my-size-product-list" className="mt-3 border-t border-white/[0.08] pt-3">
+                    <label htmlFor="my-size-product-search" className="sr-only">상품명 또는 브랜드 검색</label>
                     <input
+                      id="my-size-product-search"
                       value={productSearchQuery}
                       onChange={(event) => setProductSearchQuery(event.target.value)}
                       placeholder="상품명 또는 브랜드 검색"
-                      className="mb-2 h-10 w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-500/70"
+                      className="mb-2 h-10 w-full rounded-lg bg-white/[0.045] px-3 text-xs font-semibold text-white outline-none placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-orange-300/70"
                     />
-                    <div className="grid max-h-[210px] gap-1.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div className="grid max-h-[210px] gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {filteredClosetCandidates.length > 0 ? (
                         filteredClosetCandidates.map((product) => {
                           const sizeLabel = product.closetSelectedSizeLabel || product.closetSelectedSizeSnapshot?.row?.[0] || "사이즈";
@@ -248,13 +381,12 @@ function MySizesManager({
                       type="button"
                       onClick={() => {
                         setSourceProductId(product.id);
-                        setIsProductPickerOpen(false);
-                        setProductSearchQuery("");
+                        setPendingProductSelectionId(product.id);
                       }}
-                      className={`flex min-w-0 items-center gap-3 rounded-xl border p-2 text-left transition ${
+                      className={`ui-my-size-pressable flex min-w-0 items-center gap-3 rounded-xl p-2 text-left transition-[background-color,transform] duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none ${
                         selected
-                          ? "border-orange-500/70 bg-orange-500/12"
-                          : "border-white/[0.06] bg-white/[0.035] hover:border-white/[0.14] hover:bg-white/[0.06]"
+                          ? "bg-orange-500/[0.10]"
+                          : "hover:bg-white/[0.06] active:bg-white/[0.09]"
                       }`}
                     >
                       <div className="relative h-12 w-10 shrink-0 overflow-hidden rounded-lg bg-white">
@@ -274,12 +406,16 @@ function MySizesManager({
                         </div>
                         <p className="truncate text-xs font-bold text-white">{product.name}</p>
                       </div>
-                      <span className={`h-3 w-3 shrink-0 rounded-full border ${selected ? "border-orange-400 bg-orange-400" : "border-white/20"}`} />
+                      {selected && (
+                        <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-orange-200">
+                          <Check className="h-3.5 w-3.5" aria-hidden="true" /> 선택됨
+                        </span>
+                      )}
                     </button>
                           );
                         })
                       ) : (
-                        <div className="rounded-lg border border-white/[0.06] bg-white/[0.035] px-3 py-4 text-center text-xs font-semibold text-gray-500">
+                        <div className="px-3 py-4 text-center text-xs font-semibold text-gray-500">
                           검색 결과가 없습니다.
                         </div>
                       )}
@@ -295,19 +431,29 @@ function MySizesManager({
             )}
           </div>
 
+          <div className="mt-4">
+            <label htmlFor="my-size-fit-note" className="mb-2 block text-[11px] font-black uppercase tracking-wide text-gray-500">
+              착용 메모 <span className="normal-case font-semibold text-gray-600">(선택)</span>
+            </label>
           <textarea
+            id="my-size-fit-note"
             value={fitNote}
             onChange={(event) => setFitNote(event.target.value)}
-            placeholder="착용감 메모 (선택): 예: 허리는 편하고 기장은 살짝 김"
+            placeholder="예: 허리는 편하고 기장은 살짝 김"
             rows={2}
-            className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 py-3 text-sm font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-500/70"
+            className="w-full resize-none rounded-xl bg-white/[0.045] px-3 py-3 text-sm font-semibold leading-relaxed text-white outline-none placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-orange-300/70"
           />
+          </div>
+          {!selectedProduct && closetCandidates.length > 0 && (
+            <p id="my-size-save-hint" className="mt-3 text-xs font-semibold text-gray-500">상품을 선택하면 저장할 수 있어요.</p>
+          )}
           {formError && <p className="mt-3 text-sm font-semibold text-red-300">{formError}</p>}
           <button
             type="button"
             onClick={() => void handleCreate()}
-            disabled={isSaving}
-            className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500"
+            disabled={isSaving || !selectedProduct}
+            aria-describedby={!selectedProduct && closetCandidates.length > 0 ? "my-size-save-hint" : undefined}
+            className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition-[background-color,transform] duration-150 hover:bg-orange-400 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500 motion-reduce:transform-none motion-reduce:transition-none"
           >
             {isSaving ? "저장 중..." : "My Size 저장"}
           </button>
@@ -315,88 +461,98 @@ function MySizesManager({
       )}
 
       {mySizes.length > 0 ? (
-        <div className="grid gap-2">
+        <div className="divide-y divide-white/[0.08]">
           {groupedProfiles.map(([group, profiles]) => {
             const isOpen = openCategories.has(group);
+            const categoryId = `my-size-category-${encodeURIComponent(group)}`;
             return (
-              <div key={group} className="rounded-xl border border-white/[0.08] bg-black/20 overflow-hidden">
+              <section key={group}>
                 <button
                   type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={categoryId}
                   onClick={() => toggleCategory(group)}
-                  className="flex w-full items-center justify-between px-3 py-3 transition hover:bg-white/[0.035]"
+                  className="flex w-full items-center justify-between rounded-lg px-1 py-4 text-left transition-[background-color,transform] duration-150 hover:bg-white/[0.035] active:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
                 >
-                  <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-2">
                     <span className="text-sm font-black uppercase tracking-wide text-white">{group}</span>
-                    <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[10px] font-bold text-gray-400">{profiles.length}</span>
-                  </div>
-                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    <span className="text-[11px] font-bold text-gray-500">{profiles.length}</span>
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
                 </button>
                 {isOpen && (
-                  <div className="grid max-h-[240px] gap-2 overflow-y-auto border-t border-white/[0.06] p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {profiles.map((profile) => {
-                  const preview = getSnapshotPreview(profile);
-                  const isExpanded = expandedProfileId === profile.id;
-                  return (
-                    <article
-                      key={profile.id}
-                      onClick={() => setExpandedProfileId((current) => (current === profile.id ? null : profile.id))}
-                      className="min-w-0 cursor-pointer overflow-hidden rounded-xl border border-white/[0.08] bg-black/20 px-3 py-3 transition hover:border-white/[0.14] hover:bg-white/[0.035]"
-                    >
-                      <div className="flex min-w-0 items-start justify-between gap-3">
-                        <div className="min-w-0">
+                  <div id={categoryId} className="border-t border-white/[0.06]">
+                    {profiles.map((profile, index) => {
+                      const preview = getSnapshotPreview(profile);
+                      const isExpanded = expandedProfileId === profile.id;
+                      const profileId = `my-size-profile-${profile.id}`;
+                      return (
+                        <article
+                          key={profile.id}
+                          className="my-size-profile-row border-b border-white/[0.06] py-3 last:border-b-0"
+                          style={{ transitionDelay: `${Math.min(index, 3) * 24}ms` }}
+                        >
                           <div className="flex min-w-0 items-center gap-2">
-                            <h3 className="truncate text-sm font-black text-white">{getMySizePrimaryLabel(profile)}</h3>
-                          </div>
-                          {profile.brand && (
-                            <p className="mt-1 truncate text-xs font-bold text-orange-400/70">{profile.brand}</p>
-                          )}
-                          <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">
-                            {profile.title || "상품명 없음"}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void onDeleteMySize(profile.id);
-                            }}
-                            aria-label="마이사이즈 삭제"
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-gray-500 transition hover:border-red-500/40 hover:text-red-300"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                      {(profile.fitNote || preview.length > 0) && !isExpanded && (
-                        <p className="mt-2 text-[11px] font-bold text-gray-600">
-                          눌러서 {profile.fitNote ? "메모와 " : ""}실측 보기
-                        </p>
-                      )}
-                      {isExpanded && (
-                        <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.035] px-3 py-2">
-                          {profile.fitNote && (
-                            <p className="text-xs font-semibold leading-relaxed text-gray-400">
-                              {profile.fitNote}
-                            </p>
-                          )}
-                          {preview.length > 0 && (
-                            <div className={`${profile.fitNote ? "mt-2" : ""} flex min-w-0 flex-wrap gap-1`}>
-                              {preview.map(({ label, value }) => (
-                                <span key={`${profile.id}-${label}`} className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-gray-400">
-                                  {label} {value}
+                            <button
+                              type="button"
+                              aria-expanded={isExpanded}
+                              aria-controls={profileId}
+                              onClick={() => setExpandedProfileId((current) => (current === profile.id ? null : profile.id))}
+                              className="group min-w-0 flex-1 rounded-lg px-1 py-1 text-left transition-[background-color,transform] duration-150 hover:bg-white/[0.035] active:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
+                            >
+                              <span className="flex min-w-0 items-center gap-3">
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-black text-white">{getMySizePrimaryLabel(profile)}</span>
+                                  <span className="mt-0.5 block truncate text-xs font-semibold text-gray-500">
+                                    {profile.brand ? `${profile.brand} · ` : ""}{profile.title || "상품명 없음"}
+                                  </span>
                                 </span>
-                              ))}
+                                <ChevronRight className={`h-4 w-4 shrink-0 text-gray-600 transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none ${isExpanded ? "rotate-90" : ""}`} />
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => startEditingProfile(profile, event)}
+                              aria-label="마이사이즈 메모 수정"
+                              aria-haspopup="dialog"
+                              aria-expanded={editingProfileId === profile.id}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-600 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                deleteTriggerRef.current = event.currentTarget;
+                                setDeleteCandidate(profile);
+                                setDeleteError(null);
+                              }}
+                              aria-label="마이사이즈 삭제"
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-600 transition-[background-color,color,transform] duration-150 hover:bg-red-500/[0.08] hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70 motion-reduce:transform-none motion-reduce:transition-none"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          {isExpanded && (
+                            <div id={profileId} className="ml-1 mt-2 border-l border-white/[0.12] pl-3">
+                              {profile.fitNote && <p className="text-xs font-semibold leading-relaxed text-gray-400">{profile.fitNote}</p>}
+                              {preview.length > 0 && (
+                                <div className={`${profile.fitNote ? "mt-2" : ""} flex min-w-0 flex-wrap gap-x-3 gap-y-1`}>
+                                  {preview.map(({ label, value }) => (
+                                    <span key={`${profile.id}-${label}`} className="text-[10px] font-semibold text-gray-500">
+                                      {label} <span className="text-gray-300">{value}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
-                        </div>
-                      )}
-                    </article>
-                  );
+                        </article>
+                      );
                     })}
                   </div>
                 )}
-              </div>
+              </section>
             );
           })}
         </div>
@@ -412,7 +568,114 @@ function MySizesManager({
           onClose={() => setActiveTutorial(null)}
         />
       )}
-    </section>
+      </section>
+      {editingProfileId && noteEditorPosition && createPortal(
+        <>
+          <button
+            type="button"
+            aria-label="메모 편집 닫기"
+            onClick={() => {
+              if (!isUpdatingProfile) cancelEditingProfile();
+            }}
+            className="fixed inset-0 z-[70] cursor-default"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="my-size-note-editor-title"
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && !isUpdatingProfile) {
+                event.preventDefault();
+                cancelEditingProfile();
+                return;
+              }
+              trapDialogFocus(event);
+            }}
+            className="my-size-note-editor fixed z-[71] w-[min(20rem,calc(100vw-1.5rem))] rounded-2xl border border-white/[0.12] bg-[#17171b]/95 p-4 shadow-[0_20px_52px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+            style={{ top: noteEditorPosition.top, left: noteEditorPosition.left }}
+          >
+            <h3 id="my-size-note-editor-title" className="text-sm font-black text-white">착용 메모 수정</h3>
+            <textarea
+              ref={noteEditorRef}
+              value={editingFitNote}
+              onChange={(event) => setEditingFitNote(event.target.value)}
+              placeholder="메모를 입력하세요"
+              rows={3}
+              disabled={isUpdatingProfile}
+              className="mt-3 w-full resize-none rounded-xl bg-white/[0.06] px-3 py-2.5 text-sm font-semibold leading-relaxed text-white outline-none placeholder:text-gray-600 focus-visible:ring-2 focus-visible:ring-orange-300/70 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            {editError && <p role="alert" className="mt-2 text-xs font-semibold text-red-300">{editError}</p>}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={cancelEditingProfile}
+                disabled={isUpdatingProfile}
+                className="rounded-lg px-3 py-2 text-xs font-bold text-gray-400 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveProfileNote(editingProfileId)}
+                disabled={isUpdatingProfile}
+                className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-black text-black transition-[background-color,transform] duration-150 hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500 motion-reduce:transform-none motion-reduce:transition-none"
+              >
+                {isUpdatingProfile ? "저장 중..." : "저장"}
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
+      {deleteCandidate && createPortal(
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="my-size-delete-title"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !isDeletingProfile) {
+              event.preventDefault();
+              closeDeleteProfileConfirm();
+              return;
+            }
+            trapDialogFocus(event);
+          }}
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-red-500/20 bg-[#151518] p-6 text-center shadow-[0_24px_64px_rgba(0,0,0,0.68)]">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-red-500/25 bg-red-500/10 text-red-300">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <h3 id="my-size-delete-title" className="mt-4 text-lg font-black text-white">My Size를 삭제할까요?</h3>
+            <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-400">
+              <span className="font-black text-white">{getMySizePrimaryLabel(deleteCandidate)}</span> 사이즈 · {deleteCandidate.title || "저장한 상품"}의 저장 정보와 착용 메모가 삭제됩니다.
+            </p>
+            <p className="mt-2 text-xs font-semibold text-red-300/80">이 작업은 되돌릴 수 없지만, 옷장 상품은 삭제되지 않습니다.</p>
+            {deleteError && <p role="alert" className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300">{deleteError}</p>}
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={closeDeleteProfileConfirm}
+                disabled={isDeletingProfile}
+                ref={deleteCancelButtonRef}
+                className="h-11 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-black text-gray-300 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteProfile()}
+                disabled={isDeletingProfile}
+                className="h-11 rounded-xl bg-red-500 text-sm font-black text-white transition-[background-color,transform] duration-150 hover:bg-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500 motion-reduce:transform-none motion-reduce:transition-none"
+              >
+                {isDeletingProfile ? "삭제 중..." : "삭제"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
 
@@ -423,6 +686,7 @@ export function MyPageView({
   closetProducts,
   mySizes,
   onCreateMySize,
+  onUpdateMySize,
   onDeleteMySize,
   onLogout,
   onChangeUsername,
@@ -446,14 +710,14 @@ export function MyPageView({
 
   return (
     <>
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 sm:gap-8">
-      <section className={`${cardClass} flex items-center gap-4 p-4 sm:p-5`} aria-labelledby="settings-title">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-400 shadow-[0_0_24px_rgba(249,115,22,0.12)]">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 sm:gap-9">
+      <section className={`${primaryCardClass} flex items-center gap-4 p-4 sm:p-5`} aria-labelledby="settings-title">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-400 shadow-[0_0_24px_rgba(249,115,22,0.1)]">
           <UserRound className="h-5 w-5" />
         </div>
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">마이페이지</p>
-          <h1 id="settings-title" className="mt-1 truncate text-xl font-black tracking-tight text-white sm:text-2xl">{username}</h1>
+          <h1 id="settings-title" className="mt-1 truncate text-2xl font-black leading-tight tracking-[-0.03em] text-white sm:text-[1.75rem]">{username}</h1>
         </div>
       </section>
 
@@ -461,6 +725,7 @@ export function MyPageView({
         closetProducts={closetProducts}
         mySizes={mySizes}
         onCreateMySize={onCreateMySize}
+        onUpdateMySize={onUpdateMySize}
         onDeleteMySize={onDeleteMySize}
       />
 
@@ -469,7 +734,7 @@ export function MyPageView({
         <button
           type="button"
           onClick={() => setIsDiscoveriesOpen(true)}
-          className="flex min-h-16 w-full items-center gap-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-left transition hover:border-orange-400/45 hover:bg-orange-500/[0.045]"
+          className="flex min-h-[3.5rem] w-full items-center gap-3 overflow-hidden rounded-xl border border-white/[0.08] bg-transparent px-4 text-left transition-colors duration-150 hover:border-white/[0.16] hover:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transition-none"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400"><Search className="h-4 w-4" /></span>
           <span className="min-w-0 flex-1"><span className="block text-sm font-black text-gray-200">내가 발굴한 아이템</span><span className="mt-0.5 block text-xs font-semibold text-gray-500">{isDiscoveriesLoading ? "불러오는 중" : `${discoveredProducts.length}개`}</span></span>
@@ -479,21 +744,22 @@ export function MyPageView({
 
       <section aria-labelledby="account-settings-title">
         <h2 id="account-settings-title" className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gray-500">계정 관리</h2>
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]">
+        <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#111114]">
           <button
             type="button"
             onClick={() => { setUsernameChangeError(null); setIsUsernameEditorOpen((open) => !open); }}
-            className="flex min-h-16 w-full items-center gap-3 px-4 text-left transition hover:bg-white/[0.045]"
+            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transition-none"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-300"><UserRound className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1"><span className="block text-sm font-black text-gray-200">사용자 이름 변경</span><span className="mt-0.5 block truncate text-xs font-semibold text-gray-500">현재 {username}</span></span>
             <ChevronRight className={`h-4 w-4 shrink-0 text-gray-600 transition-transform ${isUsernameEditorOpen ? "rotate-90" : ""}`} />
           </button>
           {isUsernameEditorOpen && <div className="border-t border-white/10 px-4 py-5"><p className="text-sm font-semibold leading-relaxed text-gray-400">이전 사용자 이름은 14일 동안만 다시 선택할 수 있어요. 그 뒤에는 다른 사용자가 사용할 수 있어요.</p><UsernameSetupForm initialUsername={username} submitLabel="사용자 이름 변경" showSuggestions={false} onSuggestionSelected={() => {}} onSubmit={async (nextUsername) => { try { await onChangeUsername(nextUsername); setIsUsernameEditorOpen(false); } catch (error) { const message = error instanceof Error ? error.message : "사용자 이름을 변경하지 못했어요."; setUsernameChangeError(message); throw error; } }} />{usernameChangeError && <p role="alert" className="mt-3 text-sm font-semibold text-red-300">{usernameChangeError}</p>}</div>}
+          <div className="mx-4 border-t border-white/[0.07]" />
           <button
             type="button"
             onClick={() => setIsLogoutConfirmOpen(true)}
-            className="flex min-h-16 w-full items-center gap-3 px-4 text-left transition hover:bg-white/[0.045]"
+            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transition-none"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-gray-300">
               <LogOut className="h-4 w-4" />
@@ -505,12 +771,12 @@ export function MyPageView({
             <ChevronRight className="h-4 w-4 shrink-0 text-gray-600" />
           </button>
         </div>
-        <div className="mt-3 overflow-hidden rounded-2xl border border-red-500/20 bg-red-500/[0.045]">
+        <div className="mt-5 overflow-hidden rounded-xl border border-red-500/20 bg-red-500/[0.035]">
           <button
             type="button"
             onClick={() => setIsDeleteConfirmOpen(true)}
             disabled={isDeletingAccount}
-            className="flex min-h-16 w-full items-center gap-3 px-4 text-left transition hover:bg-red-500/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-red-500/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-300">
               <Trash2 className="h-4 w-4" />

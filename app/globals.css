@@ -308,9 +308,11 @@ body {
   }
 }
 
-button:not(:disabled):active,
-[data-pressable="true"]:not([aria-disabled="true"]):active {
-  transform: scale(0.97);
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled):active,
+  [data-pressable="true"]:not([aria-disabled="true"]):active {
+    transform: scale(0.97);
+  }
 }
 
 /* Full-width setting rows stay anchored to their dividers; color, not scale, confirms the tap. */
@@ -774,6 +776,60 @@ button,
 
 .collection-search-field {
   width: 100%;
+}
+
+/* My Size content enters from the control that revealed it. */
+.my-size-panel-reveal,
+.my-size-profile-row {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+
+.my-size-note-editor {
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: top right;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+@starting-style {
+  .my-size-panel-reveal,
+  .my-size-profile-row {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  .my-size-note-editor {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .my-size-panel-reveal,
+  .my-size-profile-row {
+    transform: none;
+    transition: opacity 120ms ease;
+  }
+
+  .my-size-note-editor {
+    transform: none;
+    transition: opacity 120ms ease;
+  }
+
+  @starting-style {
+    .my-size-panel-reveal,
+    .my-size-profile-row {
+      opacity: 0;
+      transform: none;
+    }
+
+    .my-size-note-editor {
+      opacity: 0;
+      transform: none;
+    }
+  }
 }
 
 @media (min-width: 1024px) {

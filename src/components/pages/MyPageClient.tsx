@@ -17,7 +17,7 @@ export function MyPageClient() {
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
   const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
-  const { mySizes, createMySize, deleteMySize, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
+  const { mySizes, createMySize, updateMySize, deleteMySize, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
   const [discoveredProducts, setDiscoveredProducts] = useState<Product[]>([]);
   const [isDiscoveriesLoading, setIsDiscoveriesLoading] = useState(true);
 
@@ -78,6 +78,9 @@ export function MyPageClient() {
         mySizes={mySizes}
         onCreateMySize={async (input) => {
           await createMySize(input);
+        }}
+        onUpdateMySize={async (id, input) => {
+          await updateMySize(id, input);
         }}
         onDeleteMySize={async (id) => {
           await deleteMySize(id);
