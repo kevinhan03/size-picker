@@ -3,15 +3,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Check, ChevronDown, ChevronRight, LogOut, Pencil, Plus, Ruler, Search, Trash2, UserRound, X } from "lucide-react";
-import type { MySizeInput, MySizeProfile, MySizeUpdateInput, Product } from "../../types";
+import type { DiscoveryProduct, MySizeInput, MySizeProfile, MySizeUpdateInput, Product } from "../../types";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 import { getProductPageUrl } from "../../utils/product";
 import { UsernameSetupForm } from "../UsernameSetupForm";
 
 interface MyPageViewProps {
   username: string;
-  discoveredProducts: Product[];
+  discoveredProducts: DiscoveryProduct[];
+  discoveryTotalSaveCount: number;
   isDiscoveriesLoading: boolean;
   closetProducts: Product[];
   mySizes: MySizeProfile[];
@@ -682,6 +684,7 @@ function MySizesManager({
 export function MyPageView({
   username,
   discoveredProducts,
+  discoveryTotalSaveCount,
   isDiscoveriesLoading,
   closetProducts,
   mySizes,
@@ -694,19 +697,40 @@ export function MyPageView({
   isDeletingAccount,
   deleteAccountError,
 }: MyPageViewProps) {
+  const pathname = usePathname();
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDiscoveriesOpen, setIsDiscoveriesOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isUsernameEditorOpen, setIsUsernameEditorOpen] = useState(false);
   const [usernameChangeError, setUsernameChangeError] = useState<string | null>(null);
+  const discoveriesTriggerRef = useRef<HTMLButtonElement>(null);
+  const discoveriesCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const isProductDetailOpen = pathname.startsWith("/product/");
   const canConfirmDelete = deleteConfirmText.trim() === "삭제";
+  const sortedDiscoveredProducts = useMemo(
+    () => discoveredProducts
+      .map((product, index) => ({ product, index }))
+      .sort((left, right) => right.product.saveCount - left.product.saveCount || left.index - right.index)
+      .map(({ product }) => product),
+    [discoveredProducts]
+  );
 
   const closeDeleteConfirm = () => {
     if (isDeletingAccount) return;
     setIsDeleteConfirmOpen(false);
     setDeleteConfirmText("");
   };
+
+  useEffect(() => {
+    if (!isDiscoveriesOpen) return;
+    const trigger = discoveriesTriggerRef.current;
+    const frameId = window.requestAnimationFrame(() => discoveriesCloseButtonRef.current?.focus());
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      trigger?.focus();
+    };
+  }, [isDiscoveriesOpen]);
 
   return (
     <>
@@ -729,15 +753,26 @@ export function MyPageView({
         onDeleteMySize={onDeleteMySize}
       />
 
-      <section aria-labelledby="discoveries-title">
-        <h2 id="discoveries-title" className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gray-500">내가 발굴한 아이템</h2>
+      <section className={`${primaryCardClass} min-w-0 overflow-hidden p-4 sm:p-5`} aria-labelledby="discoveries-title">
+        <div className="mb-5 flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.045] text-gray-300">
+            <Search className="h-4 w-4" />
+          </span>
+          <div>
+            <h2 id="discoveries-title" className="text-lg font-black tracking-[-0.02em] text-white">내가 발굴한 아이템</h2>
+            <p className="mt-0.5 text-xs font-medium text-gray-500">직접 찾아 저장한 상품</p>
+          </div>
+        </div>
         <button
           type="button"
+          ref={discoveriesTriggerRef}
           onClick={() => setIsDiscoveriesOpen(true)}
-          className="flex min-h-[3.5rem] w-full items-center gap-3 overflow-hidden rounded-xl border border-white/[0.08] bg-transparent px-4 text-left transition-colors duration-150 hover:border-white/[0.16] hover:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transition-none"
+          className="flex w-full items-center justify-between rounded-lg px-1 py-4 text-left transition-[background-color,transform] duration-150 hover:bg-white/[0.035] active:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400"><Search className="h-4 w-4" /></span>
-          <span className="min-w-0 flex-1"><span className="block text-sm font-black text-gray-200">내가 발굴한 아이템</span><span className="mt-0.5 block text-xs font-semibold text-gray-500">{isDiscoveriesLoading ? "불러오는 중" : `${discoveredProducts.length}개`}</span></span>
+          <span className="min-w-0">
+            <span className="block text-sm font-black text-white">발굴한 상품 전체보기</span>
+            <span className="mt-0.5 block text-xs font-semibold text-gray-500">{isDiscoveriesLoading ? "불러오는 중" : `${discoveredProducts.length}개 상품 · 다른 사용자 ${discoveryTotalSaveCount}회 저장`}</span>
+          </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-gray-600" />
         </button>
       </section>
@@ -875,18 +910,40 @@ export function MyPageView({
       </div>
     )}
     {isDiscoveriesOpen && (
-      <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/75 px-4 py-4 backdrop-blur-sm sm:items-center sm:py-8" role="dialog" aria-modal="true" aria-label="내가 발굴한 아이템">
-        <div className="flex max-h-[min(780px,calc(100vh-2rem))] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#151518] shadow-[0_24px_64px_rgba(0,0,0,0.68)]">
+      <div
+        className="fixed inset-0 z-[64] flex items-end justify-center bg-black/75 px-4 py-4 backdrop-blur-sm sm:items-center sm:py-8"
+        role="dialog"
+        aria-hidden={isProductDetailOpen}
+        aria-modal={isProductDetailOpen ? undefined : "true"}
+        aria-label="내가 발굴한 아이템 성과"
+        inert={isProductDetailOpen}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setIsDiscoveriesOpen(false);
+            return;
+          }
+          trapDialogFocus(event);
+        }}
+      >
+        <div className="my-discoveries-panel flex max-h-[min(780px,calc(100vh-2rem))] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#151518] shadow-[0_24px_64px_rgba(0,0,0,0.68)]">
           <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
-            <div><p className="text-xs font-bold uppercase text-orange-300">MY DISCOVERIES</p><h2 className="mt-1 text-lg font-black text-white">내가 발굴한 아이템 {discoveredProducts.length}개</h2></div>
-            <button type="button" onClick={() => setIsDiscoveriesOpen(false)} aria-label="발굴 아이템 목록 닫기" className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-gray-400 transition hover:border-white/30 hover:text-white"><X className="h-4 w-4" /></button>
+            <div><p className="text-xs font-bold uppercase text-orange-300">MY DISCOVERIES</p><h2 className="mt-1 text-lg font-black text-white">발굴 아이템 성과</h2></div>
+            <button ref={discoveriesCloseButtonRef} type="button" onClick={() => setIsDiscoveriesOpen(false)} aria-label="발굴 아이템 성과 닫기" className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-gray-400 transition hover:border-white/30 hover:text-white"><X className="h-4 w-4" /></button>
           </div>
           <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
             {isDiscoveriesLoading ? <p className="py-12 text-center text-sm font-semibold text-gray-500">발굴한 아이템을 불러오는 중입니다.</p> : discoveredProducts.length ? (
+              <>
+                <div className="mb-5 grid grid-cols-2 gap-2 sm:gap-3">
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-gray-500">발굴한 상품</p><p className="mt-1 text-xl font-black tracking-[-0.02em] text-white">{discoveredProducts.length}<span className="ml-1 text-sm text-gray-400">개</span></p></div>
+                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.08] px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-orange-200/80">다른 사용자 저장</p><p className="mt-1 text-xl font-black tracking-[-0.02em] text-orange-100">{discoveryTotalSaveCount}<span className="ml-1 text-sm text-orange-200/80">회</span></p></div>
+                </div>
+                <p className="mb-3 text-xs font-semibold text-gray-500">저장 많은 순으로 정렬했어요.</p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for the existing discovery thumbnails. */}
-                {discoveredProducts.map((product) => <Link key={product.id} href={getProductPageUrl(product)} onClick={() => setIsDiscoveriesOpen(false)} className="group min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] no-underline transition hover:border-orange-400/60"><div className="aspect-square bg-white/[0.04]"><img src={product.thumbnailImage || product.image} alt={product.name} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]" /></div><div className="min-w-0 p-3"><p className="truncate text-[11px] font-bold uppercase text-orange-300">{product.brand}</p><p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{product.name}</p></div></Link>)}
+                {sortedDiscoveredProducts.map((product) => <Link key={product.id} href={getProductPageUrl(product)} className="group min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] no-underline transition hover:border-orange-400/60"><div className="aspect-square bg-white/[0.04]"><img src={product.thumbnailImage || product.image} alt={product.name} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]" /></div><div className="min-w-0 p-3"><p className="truncate text-[11px] font-bold uppercase text-orange-300">{product.brand}</p><p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{product.name}</p><p className={`mt-2 text-xs font-black ${product.saveCount > 0 ? "text-orange-200" : "text-gray-500"}`}>{product.saveCount > 0 ? `${product.saveCount}명이 저장했어요` : "아직 저장한 사람이 없어요"}</p></div></Link>)}
               </div>
+              </>
             ) : <div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-gray-600" /><p className="mt-3 text-sm font-bold text-gray-300">아직 발굴한 아이템이 없습니다.</p></div>}
           </div>
         </div>

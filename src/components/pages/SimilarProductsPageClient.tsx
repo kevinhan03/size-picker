@@ -277,13 +277,18 @@ export function SimilarProductsPageClient({ id }: { id: string }) {
           <ArrowLeft className="h-4 w-4 transition-transform duration-150 group-hover:-translate-x-0.5" aria-hidden="true" />뒤로가기
         </button>
 
-        <header className="mt-5 mb-7 flex flex-col gap-4 border-b border-white/[0.09] pb-6 sm:flex-row sm:items-start sm:justify-between">
-          <h1 className="text-3xl font-black leading-[1.08] tracking-[-0.03em] text-white sm:text-4xl"><span>이 상품과 </span><span className="text-orange-300">함께 보기</span></h1>
-          <div className="flex w-full max-w-xl min-w-0 items-center gap-3 self-end rounded-2xl border border-white/[0.1] bg-white/[0.045] p-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.18)] sm:w-[25rem]">
-            <div className="isolate h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] p-1.5" style={{ position: "relative" }}>
-              <ProgressiveImage src={normalizedSourceProduct.image} thumbnailSrc={normalizedSourceProduct.thumbnailImage} alt={normalizedSourceProduct.name} className="rounded-lg object-contain" loading="eager" onError={handleImageLoadError} />
+        <header className="ui-panel mt-5 mb-7 rounded-[24px] border border-white/[0.08] bg-[#111114] p-5 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_18px_46px_rgba(0,0,0,0.32)] sm:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-300">PRODUCT RECOMMENDATIONS</p>
+              <h1 className="mt-2 text-2xl font-black tracking-[-0.03em] text-white sm:text-3xl">추천 상품 둘러보기</h1>
             </div>
-            <div className="min-w-0"><p className="text-xs font-bold tracking-wide text-gray-500">보고 있는 상품</p><p className="mt-1 truncate text-xs font-bold text-orange-300">{normalizedSourceProduct.brand}</p><p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-gray-100 sm:text-base">{normalizedSourceProduct.name}</p></div>
+            <div className="flex w-full min-w-0 items-center gap-3 rounded-2xl border border-white/[0.08] bg-black/[0.18] p-2.5 lg:max-w-md">
+              <div className="isolate h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] p-1.5" style={{ position: "relative" }}>
+                <ProgressiveImage src={normalizedSourceProduct.image} thumbnailSrc={normalizedSourceProduct.thumbnailImage} alt={normalizedSourceProduct.name} className="rounded-lg object-contain" loading="eager" onError={handleImageLoadError} />
+              </div>
+              <div className="min-w-0"><p className="text-[11px] font-bold tracking-wide text-gray-500">보고 있는 상품</p><p className="mt-1 truncate text-xs font-bold text-orange-300">{normalizedSourceProduct.brand}</p><p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-gray-100 sm:text-base">{normalizedSourceProduct.name}</p></div>
+            </div>
           </div>
         </header>
 

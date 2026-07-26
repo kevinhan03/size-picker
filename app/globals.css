@@ -793,6 +793,13 @@ button,
   transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
 }
 
+.my-discoveries-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transform-origin: center bottom;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
 @starting-style {
   .my-size-panel-reveal,
   .my-size-profile-row {
@@ -803,6 +810,17 @@ button,
   .my-size-note-editor {
     opacity: 0;
     transform: scale(0.98);
+  }
+
+  .my-discoveries-panel {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (min-width: 640px) {
+  .my-discoveries-panel {
+    transform-origin: center;
   }
 }
 
@@ -818,6 +836,11 @@ button,
     transition: opacity 120ms ease;
   }
 
+  .my-discoveries-panel {
+    transform: none;
+    transition: opacity 120ms ease;
+  }
+
   @starting-style {
     .my-size-panel-reveal,
     .my-size-profile-row {
@@ -826,6 +849,11 @@ button,
     }
 
     .my-size-note-editor {
+      opacity: 0;
+      transform: none;
+    }
+
+    .my-discoveries-panel {
       opacity: 0;
       transform: none;
     }

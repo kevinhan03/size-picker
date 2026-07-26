@@ -47,7 +47,7 @@ export function ProductModalClient({ id }: { id: string }) {
 
   const product = contextProduct ?? fetchedProduct;
 
-  if (!product) return <div className="fixed inset-0 z-50 bg-black/80" />;
+  if (!product) return <div className="fixed inset-0 z-[65] bg-black/80" />;
 
   return <ProductDetailRouteModal product={product} />;
 }

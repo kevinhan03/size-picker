@@ -47,6 +47,10 @@ export interface Product {
   targetGenderReviewedAt?: string | null;
 }
 
+export type DiscoveryProduct = Product & {
+  saveCount: number;
+};
+
 export type ProductTargetGender = 'menswear' | 'womenswear' | 'unisex' | 'unknown';
 
 export type StyleTagName =

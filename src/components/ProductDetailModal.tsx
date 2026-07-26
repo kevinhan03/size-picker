@@ -588,7 +588,7 @@ export function ProductDetailModal({
             onClick={handleSimilarProductsClick}
             className="group mt-3 flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-transparent px-4 py-2.5 text-left transition-[background-color,border-color,transform] duration-150 hover:border-white/[0.15] hover:bg-white/[0.035] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
           >
-            <span className="min-w-0 truncate text-sm font-semibold text-gray-200">이 상품과 함께 보기</span>
+            <span className="min-w-0 truncate text-sm font-semibold text-gray-200">추천 상품 둘러보기</span>
             <ChevronRight className="h-5 w-5 shrink-0 text-gray-500 transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-orange-300" aria-hidden="true" />
           </button>
 

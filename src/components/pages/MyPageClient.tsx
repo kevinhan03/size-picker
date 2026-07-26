@@ -10,7 +10,7 @@ import { useMySizesContext } from "../../contexts/MySizesContext";
 import { supabase } from "../../lib/supabase";
 import { changeMyUsername } from "../../api/username";
 import { captureEvent } from "../../utils/analytics";
-import type { Product } from "../../types";
+import type { DiscoveryProduct } from "../../types";
 
 export function MyPageClient() {
   const router = useRouter();
@@ -18,7 +18,8 @@ export function MyPageClient() {
   const authUserId = auth.authUser?.id;
   const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const { mySizes, createMySize, updateMySize, deleteMySize, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
-  const [discoveredProducts, setDiscoveredProducts] = useState<Product[]>([]);
+  const [discoveredProducts, setDiscoveredProducts] = useState<DiscoveryProduct[]>([]);
+  const [discoveryTotalSaveCount, setDiscoveryTotalSaveCount] = useState(0);
   const [isDiscoveriesLoading, setIsDiscoveriesLoading] = useState(true);
 
   useEffect(() => {
@@ -43,9 +44,10 @@ export function MyPageClient() {
         const token = String(sessionResult?.data.session?.access_token || "").trim();
         if (!token) return;
         const response = await fetch("/api/my-discoveries", { headers: { Authorization: `Bearer ${token}` } });
-        const payload = await response.json() as { ok?: boolean; data?: { products?: Product[] } };
+        const payload = await response.json() as { ok?: boolean; data?: { products?: DiscoveryProduct[]; totalSaveCount?: number } };
         if (isActive && response.ok && payload.ok && Array.isArray(payload.data?.products)) {
           setDiscoveredProducts(payload.data.products);
+          setDiscoveryTotalSaveCount(Math.max(0, Number(payload.data?.totalSaveCount) || 0));
         }
       } catch {
         // This optional list must not block the rest of My Page.
@@ -73,6 +75,7 @@ export function MyPageClient() {
       <MyPageView
         username={username}
         discoveredProducts={discoveredProducts}
+        discoveryTotalSaveCount={discoveryTotalSaveCount}
         isDiscoveriesLoading={isDiscoveriesLoading}
         closetProducts={closetProducts}
         mySizes={mySizes}
