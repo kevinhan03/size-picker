@@ -8,6 +8,7 @@ import { useAuthContext } from "../../contexts/AuthContext";
 import type { OutfitRequestMineStatus, OutfitRequestScope, OutfitRequestSummary } from "../../types";
 import { captureEvent } from "../../utils/analytics";
 import { buildLoginHref } from "../../utils/authNavigation";
+import { PageHeader } from "../PageHeader";
 import { PageState } from "../PageState";
 
 type HubScope = Extract<OutfitRequestScope, "open" | "mine" | "proposed">;
@@ -18,7 +19,7 @@ function getRequestCacheKey(scope: HubScope, mineStatus: OutfitRequestMineStatus
 }
 
 const tabs: Array<{ value: HubScope; label: string }> = [
-  { value: "open", label: "코디 도와주기" },
+  { value: "open", label: "요청 둘러보기" },
   { value: "mine", label: "내 요청" },
   { value: "proposed", label: "내 제안" },
 ];
@@ -183,20 +184,16 @@ export function OutfitsPageClient({ initialScope = "open" }: { initialScope?: Hu
   const isRefreshing = loading && hasCompletedInitialLoad;
 
   return (
-    <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white">
+    <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto max-w-5xl">
-        <section className="flex flex-col gap-5 border-b border-white/[0.08] pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="mb-3 flex items-center gap-2 text-orange-400"><Shirt className="h-5 w-5" /><span className="text-xs font-black uppercase tracking-[0.2em]">Style together</span></div>
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">서로의 취향으로 코디를 만드는 곳</h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-white/55">코디 고민을 올리거나, 다른 회원의 옷으로 새로운 조합을 제안해보세요.</p>
-          </div>
-          <button onClick={() => router.push("/outfits/new")} className="outfit-pressable outfit-primary-action flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-black text-black transition-[background-color,transform] duration-150">
-            <Plus className="h-4 w-4" /> 코디 요청하기
-          </button>
-        </section>
+        <PageHeader
+          eyebrow="STYLE TOGETHER"
+          title="서로의 취향으로 코디를 만드는 곳"
+          description="코디 고민을 올리거나, 다른 회원의 옷으로 코디를 제안해보세요."
+          action={<button onClick={() => router.push("/outfits/new")} className="outfit-pressable outfit-primary-action flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-black text-black transition-[background-color,transform] duration-150"><Plus className="h-4 w-4" /> 코디 요청하기</button>}
+        />
 
-        <div className="mt-4 grid grid-cols-3 gap-1 border-b border-white/[0.08]">
+        <div className="mt-[var(--page-header-content-gap)] grid grid-cols-3 gap-1 border-b border-white/[0.08]">
           {tabs.map((tab) => (
             <button key={tab.value} type="button" aria-pressed={scope === tab.value} onClick={() => selectScope(tab.value)} className={`outfit-pressable outfit-tab min-h-11 border-b-2 px-4 py-2 text-sm font-black transition-[border-color,color,transform] duration-150 ${scope === tab.value ? "border-orange-400 text-orange-200" : "border-transparent text-white/45"}`}>{tab.label}</button>
           ))}
@@ -254,7 +251,7 @@ export function OutfitsPageClient({ initialScope = "open" }: { initialScope?: Hu
             )}
             {scope === "proposed" && (
               <button onClick={() => selectScope("open")} className="outfit-pressable outfit-primary-action mt-6 rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-black transition-[background-color,transform] duration-150">
-                코디 도와주기
+                요청 둘러보기
               </button>
             )}
           </div>
@@ -264,7 +261,7 @@ export function OutfitsPageClient({ initialScope = "open" }: { initialScope?: Hu
               const isProposalRequest = scope === "open";
               const isMyProposal = scope === "proposed";
               const showProposalCount = isProposalRequest || item.status === "open";
-              const cardActionLabel = isProposalRequest ? "코디 도와주기" : isMyProposal ? "제안 상세 보기" : "요청 상세 보기";
+              const cardActionLabel = isProposalRequest ? "코디 제안하기" : isMyProposal ? "제안 상세 보기" : "요청 상세 보기";
               const proposalStatus = item.isAccepted ? "내 코디가 선택됐어요" : item.status === "open" ? "제안 대기 중" : "요청 종료";
               const source = scope === "mine" ? "?from=mine" : isMyProposal ? "?from=proposed" : "";
               return (

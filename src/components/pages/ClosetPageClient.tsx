@@ -12,6 +12,7 @@ import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { ProductDetailModal } from "../ProductDetailModal";
 import { FilterBar } from "../FilterBar";
+import { PageHeader } from "../PageHeader";
 import { PageState } from "../PageState";
 import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { CollectionSearchField } from "../CollectionSearchField";
@@ -566,33 +567,18 @@ export function ClosetPageClient() {
       style={{
         minHeight: "100vh",
         background: "#000",
-        padding: "88px 16px 60px",
+        padding: "var(--page-header-top) var(--app-main-px) var(--app-main-pb)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
       }}
     >
       <div style={{ width: "100%", maxWidth: 1280 }}>
-        <div style={{ maxWidth: 860, margin: "0 auto" }}>
-        {/* Title */}
-        <div className="collection-page-title">
-          <div className="collection-page-heading-row">
-            <h1
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color: "#fff",
-                letterSpacing: "-0.02em",
-                lineHeight: 1,
-              }}
-            >
-              내 옷장
-            </h1>
-            <span aria-hidden="true" className="h-9 w-9 shrink-0" />
-          </div>
-        </div>
+        <PageHeader eyebrow="WARDROBE" title="내 옷장" />
 
-        <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel="옷장 상품 검색" />
+        <div className="mt-[var(--page-header-content-gap)]">
+          <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel="옷장 상품 검색" />
+        </div>
         <FilterBar categoryValue={catFilter} onCategoryChange={(value) => setCatFilter(value)} disabled={isEditing} />
 
         {/* Toolbar */}
@@ -779,7 +765,7 @@ export function ClosetPageClient() {
           </div>
         </div>
 
-        </div>{/* legacy toolbar removed */}
+        {/* legacy toolbar removed */}
 
         {/* Empty state */}
         {filtered.length === 0 && (

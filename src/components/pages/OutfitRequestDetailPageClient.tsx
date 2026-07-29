@@ -624,7 +624,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
             className="outfit-detail-pressable flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold text-gray-400 transition-[background-color,color,transform] duration-150"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>뒤로가기</span>
+            <span>코디 목록</span>
           </button>
 
           {isOwner && (

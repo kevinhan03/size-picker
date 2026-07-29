@@ -17,6 +17,7 @@ import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "..
 import { toPublicUrl } from "../../utils/product";
 import { CollectionSearchField } from "../CollectionSearchField";
 import { CollectionEmptyState } from "../CollectionEmptyState";
+import { PageHeader } from "../PageHeader";
 import type { Product } from "../../types";
 
 const cardStyle: React.CSSProperties = {
@@ -504,56 +505,44 @@ export function DigboxPageClient({
       style={{
         minHeight: "100vh",
         background: "#000",
-        padding: "88px 16px 60px",
+        padding: "var(--page-header-top) var(--app-main-px) var(--app-main-pb)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
       }}
     >
       <div style={{ width: "100%", maxWidth: 1280 }}>
-        <div style={{ maxWidth: 860, margin: "0 auto" }}>
-        <div className="collection-page-title">
-          <div className="collection-page-heading-row">
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>
-              {isOwner ? "저장한 상품" : `${username} 님이 저장한 상품`}
-            </h1>
-            {isOwner && (
-              <div style={{ position: "relative" }}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    showTutorialOnce("digboxShare", getAnchorRect(event.currentTarget));
-                    toggleMenu();
-                  }}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 3, width: 36, height: 36, borderRadius: 9,
-                    background: menuOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
-                  }}
-                  aria-label="메뉴"
-                >
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(156,163,175,0.8)" }} />
-                  ))}
-                </button>
-              </div>
-            )}
-          </div>
+        <PageHeader
+          eyebrow="SAVED ITEMS"
+          title={isOwner ? "저장한 상품" : `${username} 님이 저장한 상품`}
+          description={!isOwner && !isBioEditing && bio ? bio : undefined}
+          titleAccessory={isOwner ? (
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                onClick={(event) => {
+                  showTutorialOnce("digboxShare", getAnchorRect(event.currentTarget));
+                  toggleMenu();
+                }}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 3, width: 36, height: 36, borderRadius: 9,
+                  background: menuOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
+                }}
+                aria-label="메뉴"
+              >
+                {[0, 1, 2].map((i) => (
+                  <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(156,163,175,0.8)" }} />
+                ))}
+              </button>
+            </div>
+          ) : undefined}
+        />
 
-          {/* bio 표시 */}
-          {!isOwner && !isBioEditing && (
-            bio ? (
-              <p style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.6, maxWidth: 480, whiteSpace: "pre-wrap" }}>
-                {bio}
-              </p>
-            ) : null
-          )}
-
-          {/* bio 편집 */}
-          {isBioEditing && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 480, marginTop: 4 }}>
+        {isBioEditing && (
+            <div className="mt-[var(--page-header-content-gap)]" style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 480 }}>
               <textarea
                 ref={bioTextareaRef}
                 value={bioInput}
@@ -591,11 +580,12 @@ export function DigboxPageClient({
                 <span style={{ marginLeft: "auto", fontSize: 11, color: "#4b5563" }}>{bioInput.length}/160</span>
               </div>
             </div>
-          )}
-        </div>
+        )}
 
         {/* 복사 완료 토스트 */}
-        <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel="저장한 상품 검색" />
+        <div className={isBioEditing ? "mt-6" : "mt-[var(--page-header-content-gap)]"}>
+          <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel="저장한 상품 검색" />
+        </div>
 
         {copied && (
           <div className="digbox-copy-toast fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]" style={{
@@ -757,8 +747,6 @@ export function DigboxPageClient({
         </div>
 
         {removalError && <p role="alert" className="mb-4 text-xs font-semibold text-red-300">{removalError}</p>}
-        </div>{/* end 860 wrapper */}
-
         {/* Empty state */}
         {isLoading ? null : filtered.length === 0 ? (
           <CollectionEmptyState

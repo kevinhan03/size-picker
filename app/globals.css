@@ -38,6 +38,8 @@
   --app-main-pt: 8rem;
   --app-main-pb: calc(5rem + var(--app-safe-bottom));
   --app-main-px: 1rem;
+  --page-header-top: calc(5.5rem + env(safe-area-inset-top, 0px));
+  --page-header-content-gap: 1.5rem;
   --header-logo-size: 1.25rem;
   --hero-title-size: 3.75rem;
   --hero-subtitle-size: 1.5rem;
@@ -109,6 +111,7 @@
     --app-main-pt: 8rem;
     --app-main-pb: calc(5rem + var(--app-safe-bottom));
     --app-main-px: 1rem;
+    --page-header-top: 5rem;
     --header-logo-size: 1.25rem;
     --hero-title-size: 3.75rem;
     --hero-subtitle-size: 1.5rem;
@@ -768,18 +771,6 @@ button,
 .closet-product-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
-}
-
-.collection-page-title {
-  margin-bottom: 1.75rem;
-}
-
-.collection-page-heading-row {
-  display: flex;
-  min-height: 2.25rem;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.5rem;
 }
 
 .collection-search-field {

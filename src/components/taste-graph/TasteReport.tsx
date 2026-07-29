@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
+import { PageHeader } from "../PageHeader";
 import type { Product, StyleTagName } from "../../types";
 import { buildBrandClusters } from "../../utils/brandClusters";
 import {
@@ -44,11 +45,12 @@ export function TasteReport({
   const recordCount = closetProducts.length + digboxProducts.length;
   return (
     <main className="taste-report" aria-labelledby="taste-report-title">
-      <header className="taste-report-header">
-        <p>MY TASTE</p>
-        <h1 id="taste-report-title">나의 취향</h1>
-        <span>저장한 상품과 옷장 {recordCount}개를 바탕으로 정리했어요.</span>
-      </header>
+      <PageHeader
+        eyebrow="MY TASTE"
+        title="나의 취향"
+        titleId="taste-report-title"
+        description={<>저장한 상품과 옷장 {recordCount}개를 바탕으로 정리했어요.</>}
+      />
 
       <section className="taste-report-details" aria-labelledby="taste-evidence-title">
         <div className="taste-report-evidence-header">
@@ -140,24 +142,21 @@ export function TasteReport({
       ) : null}
 
       <style jsx>{`
-        .taste-report { --taste-space-1: .5rem; --taste-space-2: .75rem; --taste-space-3: 1rem; --taste-space-4: 1.5rem; --taste-space-5: 2rem; --taste-section-gap: clamp(2rem, 4vw, 3rem); box-sizing: border-box; width: min(100%, 70rem); min-height: 100vh; margin: 0 auto; padding: var(--app-main-pt) var(--app-main-px) var(--app-main-pb); background: #000; color: #f5f5f6; font-family: var(--font-sans); }
-        .taste-report-header { max-width: 42rem; }
-        .taste-report-header p, .taste-report-evidence-header p { margin: 0; color: #f2a56c; font-size: .75rem; font-weight: 800; letter-spacing: .08em; }
-        .taste-report-header h1 { margin: var(--taste-space-1) 0 0; font-size: clamp(2rem, 4vw, 3rem); font-weight: 780; letter-spacing: -.04em; line-height: 1.08; }
-        .taste-report-header > span { display: block; margin-top: var(--taste-space-2); color: #b9c0cc; font-size: .875rem; font-weight: 600; line-height: 1.6; }
-        .taste-report-details { margin-top: var(--taste-section-gap); padding-top: var(--taste-space-4); border-top: 1px solid rgba(255,255,255,.12); }
+        .taste-report { --taste-space-1: .5rem; --taste-space-2: .75rem; --taste-space-3: 1rem; --taste-space-4: 1.5rem; --taste-space-5: 2rem; --taste-section-gap: clamp(2rem, 4vw, 3rem); box-sizing: border-box; width: min(100%, 70rem); min-height: 100vh; margin: 0 auto; padding: var(--page-header-top) var(--app-main-px) var(--app-main-pb); background: #000; color: #f5f5f6; font-family: var(--font-sans); }
+        .taste-report-evidence-header p { margin: 0; color: #7f8998; font-size: .625rem; font-weight: 800; letter-spacing: .1em; }
+        .taste-report-details { margin-top: var(--page-header-content-gap); }
         .taste-report-evidence-header { display: flex; align-items: end; justify-content: space-between; gap: var(--taste-space-4); }
-        .taste-report-evidence-header h2 { margin: var(--taste-space-1) 0 0; font-size: clamp(1.25rem, 2.5vw, 1.75rem); font-weight: 760; letter-spacing: -.03em; line-height: 1.25; }
-        .taste-report-evidence-header button, .taste-report-brands button { display: inline-flex; min-height: 3rem; flex: 0 0 auto; align-items: center; gap: .55rem; padding: .75rem 1rem; border: 1px solid rgba(255,255,255,.18); border-radius: .75rem; background: #191a1f; color: #fff; cursor: pointer; font: inherit; font-size: .875rem; font-weight: 750; white-space: nowrap; }
-        .taste-report-evidence-header button :global(svg), .taste-report-brands button :global(svg) { width: 1rem; height: 1rem; color: #f2a56c; }
-        .taste-report-evidence-header button :global(svg):last-child, .taste-report-brands button :global(svg):last-child { margin-left: .25rem; }
+        .taste-report-evidence-header h2 { margin: .375rem 0 0; font-size: clamp(1.25rem, 2vw, 1.5rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.25; }
+        .taste-report-evidence-header button, .taste-report-brands button { display: inline-flex; min-height: 2.75rem; flex: 0 0 auto; align-items: center; gap: .35rem; padding: .5rem .25rem; border: 0; border-radius: .5rem; background: transparent; color: #c9d0da; cursor: pointer; font: inherit; font-size: .8125rem; font-weight: 700; white-space: nowrap; }
+        .taste-report-evidence-header button :global(svg), .taste-report-brands button :global(svg) { width: .9rem; height: .9rem; color: #f2a56c; }
+        .taste-report-evidence-header button :global(svg):last-child, .taste-report-brands button :global(svg):last-child { margin-left: .125rem; }
         .taste-report-details-content { padding-top: var(--taste-space-4); }
         .taste-report-saturated { margin: 0; color: #aeb7c4; font-size: .8125rem; font-weight: 600; line-height: 1.55; }
         .taste-report-saturated strong { color: #f5f5f6; font-weight: 750; }
         .taste-report-sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(var(--taste-space-4), 3vw, 3rem); margin-top: var(--taste-space-4); }
         .taste-report-categories { display: grid; grid-template-columns: minmax(13rem, .65fr) minmax(0, 1.35fr); gap: clamp(var(--taste-space-4), 3vw, 3rem); margin-top: var(--taste-space-5); padding-top: var(--taste-space-4); border-top: 1px solid rgba(255,255,255,.12); }
-        .taste-report-categories > div > p { margin: 0; color: #f2a56c; font-size: .75rem; font-weight: 800; letter-spacing: .08em; }
-        .taste-report-categories h2 { margin: .5rem 0 0; font-size: clamp(1.25rem, 2.5vw, 1.75rem); font-weight: 760; letter-spacing: -.03em; line-height: 1.25; }
+        .taste-report-categories > div > p { margin: 0; color: #7f8998; font-size: .625rem; font-weight: 800; letter-spacing: .1em; }
+        .taste-report-categories h2 { margin: .375rem 0 0; font-size: clamp(1.25rem, 2vw, 1.5rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.25; }
         .taste-report-categories > div > span { display: block; margin-top: .75rem; color: #aeb7c4; font-size: .8125rem; font-weight: 600; line-height: 1.55; }
         .taste-category-list { display: grid; gap: 1rem; }
         .taste-category-list article { padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,.09); }
@@ -171,8 +170,8 @@ export function TasteReport({
         .taste-category-tags span { display: inline-flex; align-items: center; gap: .35rem; color: #aeb7c4; font-size: .75rem; font-weight: 650; }
         .taste-category-tags i { width: .4rem; height: .4rem; border-radius: 999px; }
         .taste-report-brands { display: flex; align-items: center; justify-content: space-between; gap: var(--taste-space-4); margin-top: var(--taste-section-gap); padding: var(--taste-space-4) 0 0; border-top: 1px solid rgba(255,255,255,.12); }
-        .taste-report-brands > div > p { margin: 0; color: #f2a56c; font-size: .75rem; font-weight: 800; letter-spacing: .08em; }
-        .taste-report-brands h2 { margin: .5rem 0 0; font-size: clamp(1.25rem, 2.5vw, 1.75rem); font-weight: 760; letter-spacing: -.03em; line-height: 1.25; }
+        .taste-report-brands > div > p { margin: 0; color: #7f8998; font-size: .625rem; font-weight: 800; letter-spacing: .1em; }
+        .taste-report-brands h2 { margin: .375rem 0 0; font-size: clamp(1.25rem, 2vw, 1.5rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.25; }
         .taste-report-brands > div > span { display: block; margin-top: .75rem; color: #aeb7c4; font-size: .8125rem; font-weight: 600; line-height: 1.55; }
         .taste-brand-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin-top: 1rem; }
         .taste-brand-list article { min-width: 0; padding-left: .75rem; border-left: 2px solid rgba(255,255,255,.18); }
@@ -183,10 +182,9 @@ export function TasteReport({
         .taste-brand-tags { display: flex; flex-wrap: wrap; gap: .35rem .6rem; margin-top: .45rem; }
         .taste-brand-tags span { display: inline-flex; align-items: center; gap: .25rem; color: #b9c0cc; font-size: .6875rem; font-weight: 650; white-space: nowrap; }
         .taste-brand-tags i { width: .35rem; height: .35rem; border-radius: 999px; }
-        @media (hover: hover) and (pointer: fine) { .taste-report-evidence-header button:hover, .taste-report-brands button:hover { border-color: rgba(255,255,255,.36); background: #22232a; } }
-        @media (prefers-reduced-motion: no-preference) { .taste-report-evidence-header button, .taste-report-brands button { transition: transform var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out); } .taste-report-evidence-header button:active, .taste-report-brands button:active { transform: scale(.98); } }
-        @media (max-width: 700px) { .taste-report-sources, .taste-report-categories, .taste-brand-list { grid-template-columns: 1fr; } .taste-report-evidence-header, .taste-report-brands { align-items: stretch; flex-direction: column; } .taste-report-evidence-header button, .taste-report-brands button { justify-content: center; } }
-        @media (prefers-contrast: more) { .taste-report-evidence-header button, .taste-report-brands button { border-color: rgba(255,255,255,.55); } }
+        @media (hover: hover) and (pointer: fine) { .taste-report-evidence-header button:hover, .taste-report-brands button:hover { background: rgba(255,255,255,.06); color: #fff; } }
+        @media (prefers-reduced-motion: no-preference) { .taste-report-evidence-header button, .taste-report-brands button { transition: transform var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out); } .taste-report-evidence-header button:active, .taste-report-brands button:active { transform: scale(.98); } }
+        @media (max-width: 700px) { .taste-report-sources, .taste-report-categories, .taste-brand-list { grid-template-columns: 1fr; } .taste-report-evidence-header, .taste-report-brands { align-items: stretch; flex-direction: column; } .taste-report-evidence-header button, .taste-report-brands button { align-self: flex-start; } }
       `}</style>
     </main>
   );

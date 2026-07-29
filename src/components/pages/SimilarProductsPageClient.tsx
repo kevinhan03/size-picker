@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { KeyboardEvent, SyntheticEvent } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { PageHeader } from "../PageHeader";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import type { Product } from "../../types";
@@ -139,7 +139,6 @@ function EmptyBehavioralCard({ status }: { status: BehavioralStatus }) {
 }
 
 export function SimilarProductsPageClient({ id }: { id: string }) {
-  const router = useRouter();
   const { products, isProductsLoading } = useProductsContext();
   const [behavioralProducts, setBehavioralProducts] = useState<Product[]>([]);
   const [behavioralStatus, setBehavioralStatus] = useState<BehavioralStatus>("idle");
@@ -267,32 +266,31 @@ export function SimilarProductsPageClient({ id }: { id: string }) {
     return <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white" />;
   }
   if (!normalizedSourceProduct) {
-    return <main className="flex min-h-screen items-center justify-center bg-black px-6 text-center text-white"><div><p className="text-base font-bold">상품 정보를 불러오지 못했어요.</p><button type="button" onClick={() => router.back()} className="mt-4 rounded-xl border border-white/15 px-4 py-2 text-sm font-bold text-gray-200 transition active:scale-[0.98]">돌아가기</button></div></main>;
+    return <main className="flex min-h-screen items-center justify-center bg-black px-6 text-center text-white"><div><p className="text-base font-bold">상품 정보를 불러오지 못했어요.</p><Link href="/" className="mt-4 inline-flex rounded-xl border border-white/15 px-4 py-2 text-sm font-bold text-gray-200 transition active:scale-[0.98]">상품 둘러보기</Link></div></main>;
   }
 
   return (
-    <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white lg:pt-24">
+    <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto w-full max-w-7xl">
-        <button type="button" onClick={() => router.back()} className="group flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold text-gray-400 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70">
-          <ArrowLeft className="h-4 w-4 transition-transform duration-150 group-hover:-translate-x-0.5" aria-hidden="true" />뒤로가기
-        </button>
-
-        <header className="ui-panel mt-5 mb-7 rounded-[24px] border border-white/[0.08] bg-[#111114] p-5 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_18px_46px_rgba(0,0,0,0.32)] sm:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-orange-300">PRODUCT RECOMMENDATIONS</p>
-              <h1 className="mt-2 text-2xl font-black tracking-[-0.03em] text-white sm:text-3xl">추천 상품 둘러보기</h1>
-            </div>
-            <div className="flex w-full min-w-0 items-center gap-3 rounded-2xl border border-white/[0.08] bg-black/[0.18] p-2.5 lg:max-w-md">
+        <PageHeader
+          eyebrow="PRODUCT RECOMMENDATIONS"
+          title="추천 상품 둘러보기"
+          context={
+            <Link
+              href={`/?product=${encodeURIComponent(normalizedSourceProduct.id)}`}
+              scroll={false}
+              className="group flex w-full min-w-0 items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-2.5 text-left transition-[background-color,border-color,transform] duration-150 hover:border-white/[0.15] hover:bg-white/[0.055] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
+            >
               <div className="isolate h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] p-1.5" style={{ position: "relative" }}>
                 <ProgressiveImage src={normalizedSourceProduct.image} thumbnailSrc={normalizedSourceProduct.thumbnailImage} alt={normalizedSourceProduct.name} className="rounded-lg object-contain" loading="eager" onError={handleImageLoadError} />
               </div>
-              <div className="min-w-0"><p className="text-[11px] font-bold tracking-wide text-gray-500">보고 있는 상품</p><p className="mt-1 truncate text-xs font-bold text-orange-300">{normalizedSourceProduct.brand}</p><p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-gray-100 sm:text-base">{normalizedSourceProduct.name}</p></div>
-            </div>
-          </div>
-        </header>
+              <div className="min-w-0"><p className="text-[11px] font-bold tracking-wide text-gray-500">현재 보고 있는 상품</p><p className="mt-1 truncate text-xs font-bold text-orange-300">{normalizedSourceProduct.brand}</p><p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-gray-100 sm:text-base">{normalizedSourceProduct.name}</p></div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-gray-500 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+            </Link>
+          }
+        />
 
-        <section className="pb-8 pt-2 sm:pb-10 sm:pt-3" aria-label="상품 추천">
+        <section className="mt-[var(--page-header-content-gap)] pb-8 sm:pb-10" aria-label="상품 추천">
           <div role="tablist" aria-label="상품 추천 기준" className="grid grid-cols-3 rounded-2xl border border-white/[0.1] bg-white/[0.045] p-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
             {RECOMMENDATION_SECTIONS.map((section, index) => {
               const isActive = activeSection === section.id;
