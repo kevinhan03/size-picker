@@ -21,7 +21,7 @@ export const primaryNavigationItems: PrimaryNavigationItem[] = [
 export function getPrimaryNavigationDestination(pathname: string): PrimaryNavigationDestination | null {
   if (pathname === "/" || pathname === "/grid" || pathname.startsWith("/product/")) return "digging";
   if (pathname.startsWith("/outfits")) return "outfits";
-  if (pathname.startsWith("/taste-graph")) return "taste";
+  if (pathname.startsWith("/taste")) return "taste";
   if (pathname.startsWith("/closet")) return "closet";
   if (pathname.startsWith("/u/")) return "digbox";
   return null;

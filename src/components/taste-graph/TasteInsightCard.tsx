@@ -200,7 +200,7 @@ export function TasteInsightCard({
           border-radius: 12px;
           background: rgba(249, 115, 22, 0.1);
           color: #f7f8fa;
-          transition: border-color 150ms ease, background-color 150ms ease;
+          transition: border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out);
         }
 
         .insight-lead:hover {
@@ -260,7 +260,7 @@ export function TasteInsightCard({
           border-radius: 10px;
           box-shadow: none;
           color: #f3f4f6;
-          transition: background-color 150ms ease;
+          transition: background-color var(--duration-press) var(--ease-out);
         }
 
         .insight-row:hover,
@@ -316,7 +316,7 @@ export function TasteInsightCard({
           border-radius: 10px;
           box-shadow: none;
           color: #f3f4f6;
-          transition: background-color 150ms ease;
+          transition: background-color var(--duration-press) var(--ease-out);
         }
 
         .insight-product img,
@@ -364,7 +364,7 @@ export function TasteInsightCard({
           border-radius: 0 0 10px 10px;
           box-shadow: none;
           color: #f3f4f6;
-          transition: background-color 150ms ease;
+          transition: background-color var(--duration-press) var(--ease-out);
         }
 
         .insight-caution > span { color: #9ca4b1; }

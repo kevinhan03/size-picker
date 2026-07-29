@@ -22,13 +22,16 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
   const digbox = useDigboxContext();
   const productForm = useProductFormContext();
   const [isCompactViewport, setIsCompactViewport] = useState(false);
+  const [isIconOnlyActions, setIsIconOnlyActions] = useState(false);
   const [hiddenOnCompact, setHiddenOnCompact] = useState(false);
 
   useEffect(() => {
     let lastY = window.scrollY;
     const media = window.matchMedia("(max-width: 1023px)");
+    const narrowActionsMedia = window.matchMedia("(max-width: 640px)");
     const updateViewport = () => {
       setIsCompactViewport(media.matches);
+      setIsIconOnlyActions(narrowActionsMedia.matches);
       if (!media.matches) setHiddenOnCompact(false);
     };
     const onScroll = () => {
@@ -41,16 +44,18 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
     updateViewport();
     window.addEventListener("scroll", onScroll, { passive: true });
     media.addEventListener("change", updateViewport);
+    narrowActionsMedia.addEventListener("change", updateViewport);
     return () => {
       window.removeEventListener("scroll", onScroll);
       media.removeEventListener("change", updateViewport);
+      narrowActionsMedia.removeEventListener("change", updateViewport);
     };
   }, []);
 
   const isAdmin = pathname.startsWith("/admin");
   const activeDestination = getPrimaryNavigationDestination(pathname);
   const isMyPage = pathname === "/mypage";
-  const compactActions = isCompactViewport;
+  const compactActions = isIconOnlyActions;
   const headerFrameClass = isCompactViewport
     ? "h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-6xl px-4 pt-[env(safe-area-inset-top)]"
     : "h-16 w-full max-w-6xl px-4";
@@ -65,7 +70,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
       return;
     }
     if (destination === "taste") {
-      router.push("/taste-graph");
+      router.push("/taste");
       return;
     }
     if (destination === "closet") {
@@ -97,7 +102,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
 
   if (variant === "minimal") {
     return (
-      <header className="app-header-motion pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center border-b border-white/[0.06] bg-black transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none">
+      <header className="app-header-motion pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center border-b border-white/[0.08] bg-black/80 backdrop-blur-xl transition-transform duration-[var(--duration-popover)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none">
         <div className={`pointer-events-auto flex items-center justify-between ${headerFrameClass}`}>
           <Link href="/" aria-label="DIGBOX 홈으로" className="flex min-w-0 items-center gap-2 rounded-xl text-base font-bold tracking-tight text-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
             <Image src="/digbox-mark.png" alt="" width={40} height={40} className="h-8 w-8 object-contain lg:h-9 lg:w-9" />
@@ -113,7 +118,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
   }
 
   return (
-    <header className={`app-header-motion pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center border-b border-white/[0.06] bg-black transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] ${hiddenOnCompact ? "-translate-y-full" : "translate-y-0"}`}>
+    <header className={`app-header-motion pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center border-b border-white/[0.08] bg-black/80 backdrop-blur-xl transition-transform duration-[var(--duration-popover)] [transition-timing-function:var(--ease-out)] ${hiddenOnCompact ? "-translate-y-full" : "translate-y-0"}`}>
       <div className={`pointer-events-auto flex items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr] ${headerFrameClass}`}>
         <div className="flex min-w-0 items-center">
           <div
@@ -172,40 +177,40 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
         )}
 
         {!isAdmin && (
-          <div className="flex items-center justify-end gap-2">
+          <div className={`flex items-center justify-end ${compactActions ? "gap-0" : "gap-1"}`}>
             <div className="group relative">
-              <button type="button" onClick={openProductForm} aria-label="상품 추가" className={`flex h-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#00FF00]/30 bg-[#00FF00]/[0.08] text-[#00FF00] transition-[width,background-color,border-color] duration-300 ease-out hover:border-[#00FF00]/55 hover:bg-[#00FF00]/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF00]/80 ${compactActions ? "w-9" : "w-[4.25rem]"}`}>
+              <button type="button" onClick={openProductForm} aria-label="상품 추가" className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg px-2 text-gray-400 transition-[width,background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11 px-0" : "h-10 w-[4.5rem]"}`}>
                 <Plus className="h-4 w-4" />
-                <span className={`overflow-hidden whitespace-nowrap text-xs font-bold transition-[max-width,margin,opacity] duration-200 ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-10 opacity-100"}`}>상품</span>
+                <span className={`overflow-hidden whitespace-nowrap text-xs font-bold transition-[max-width,margin,opacity] duration-[var(--duration-popover)] ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-10 opacity-100"}`}>상품</span>
               </button>
               <div className={tooltipClass}>
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
                 상품 추가
               </div>
             </div>
-            {!pathname.startsWith("/dig-match") && <div className="group relative">
+            <div className="group relative">
               <button
                 type="button"
                 aria-current={pathname.startsWith("/dig-match") ? "page" : undefined}
                 aria-label="디그매치"
                 onClick={() => router.push(auth.authUser ? "/dig-match" : buildLoginHref("login", "/dig-match"))}
-                className={`flex h-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border text-xs font-bold transition-[width,background-color,border-color,color,box-shadow] duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "w-9" : "w-[6.5rem]"} ${
+                className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg px-2 text-xs font-bold transition-[width,background-color,color] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11 px-0" : "h-10 w-[6.75rem]"} ${
                   pathname.startsWith("/dig-match")
-                    ? "border-orange-300 bg-orange-400 text-black shadow-[0_4px_16px_rgba(251,146,60,0.22)]"
-                    : "border-orange-400/70 bg-orange-500/85 text-black shadow-[0_4px_16px_rgba(249,115,22,0.18)] hover:border-orange-300 hover:bg-orange-400"
+                    ? "bg-orange-500/[0.08] text-orange-300"
+                    : "text-gray-400 hover:bg-white/[0.06] hover:text-white"
                 }`}
               >
                 <Sparkles className="h-4 w-4" />
-                <span className={`overflow-hidden whitespace-nowrap transition-[max-width,margin,opacity] duration-200 ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1.5 max-w-16 opacity-100"}`}>디그매치</span>
+                <span className={`overflow-hidden whitespace-nowrap transition-[max-width,margin,opacity] duration-[var(--duration-popover)] ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1.5 max-w-16 opacity-100"}`}>디그매치</span>
               </button>
               <div className={tooltipClass}>
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
                 디그매치
               </div>
-            </div>}
+            </div>
             {auth.authUser ? (
               <div className="group relative">
-                <button type="button" aria-label="마이페이지" onClick={() => router.push("/mypage")} className={`flex h-9 w-9 items-center justify-center rounded-xl border text-gray-300 transition hover:border-orange-500/50 hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${isMyPage ? "border-orange-500/40 bg-orange-500/15 text-orange-300" : "border-white/15 bg-white/[0.06]"}`}>
+                <button type="button" aria-label="마이페이지" onClick={() => router.push("/mypage")} className={`flex items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"} ${isMyPage ? "bg-orange-500/[0.08] text-orange-300" : ""}`}>
                   <UserRound className="h-4 w-4" />
                 </button>
                 <div className={tooltipClass}>
@@ -215,7 +220,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
               </div>
             ) : (
               <div className="group relative">
-                <button type="button" aria-label="로그인" onClick={() => router.push("/login")} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-gray-300 transition hover:border-orange-500/50 hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                <button type="button" aria-label="로그인" onClick={() => router.push("/login")} className={`flex items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}>
                   <LogIn className="h-4 w-4" />
                 </button>
                 <div className={tooltipClass}>

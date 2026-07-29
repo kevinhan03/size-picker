@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MOTION_DURATION_MS } from "../utils/motion";
 
 interface PresenceOptions {
   enterDuration?: number;
@@ -10,7 +11,11 @@ interface PresenceOptions {
 
 /** Keeps a layer mounted long enough for its exit transition to finish. */
 export function usePresence(isOpen: boolean, options: PresenceOptions = {}) {
-  const { enterDuration = 220, exitDuration = 160, onExitComplete } = options;
+  const {
+    enterDuration = MOTION_DURATION_MS.layerEnter,
+    exitDuration = MOTION_DURATION_MS.layerExit,
+    onExitComplete,
+  } = options;
   const [isMounted, setIsMounted] = useState(isOpen);
   const [isVisible, setIsVisible] = useState(false);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

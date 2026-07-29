@@ -15,6 +15,7 @@ import { useDigboxContext } from "../contexts/DigboxContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
 import { useSearchContext } from "../contexts/SearchContext";
 import { readAuthContinuation, saveAuthContinuation } from "../utils/authNavigation";
+import { MOTION_DURATION_MS } from "../utils/motion";
 
 const SIGNUP_VERIFIED_TOAST_KEY = "digbox_signup_verified_toast";
 const GOOGLE_SIGNUP_TOAST_KEY = "digbox_google_signup_complete_toast";
@@ -31,12 +32,15 @@ function GoogleSignupWelcomeToast() {
     setMounted(true);
     requestAnimationFrame(() => setVisible(true));
     const hideTimer = window.setTimeout(() => setVisible(false), 2600);
-    const removeTimer = window.setTimeout(() => setMounted(false), 2820);
+    const removeTimer = window.setTimeout(
+      () => setMounted(false),
+      2600 + MOTION_DURATION_MS.layerExit
+    );
     return () => { window.clearTimeout(hideTimer); window.clearTimeout(removeTimer); };
   }, [pathname]);
 
   if (!mounted) return null;
-  return <div className="pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 sm:bottom-6"><div role="status" className={`rounded-2xl border border-emerald-400/25 bg-[#111114]/95 px-4 py-3 text-center text-sm font-bold text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] duration-200 motion-reduce:transition-opacity ${visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0 motion-reduce:translate-y-0"}`}>가입을 완료했어요. DIGBOX에 오신 것을 환영해요!</div></div>;
+  return <div className="pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 sm:bottom-6"><div role="status" className={`rounded-2xl border border-emerald-400/25 bg-[#111114]/95 px-4 py-3 text-center text-sm font-bold text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] [transition-timing-function:var(--ease-out)] motion-reduce:transition-opacity motion-reduce:duration-[var(--duration-reduced)] ${visible ? "duration-[var(--duration-layer-enter)] translate-y-0 opacity-100" : "duration-[var(--duration-layer-exit)] translate-y-3 opacity-0 motion-reduce:translate-y-0"}`}>가입을 완료했어요. DIGBOX에 오신 것을 환영해요!</div></div>;
 }
 
 const AddProductModal = dynamic(
@@ -78,7 +82,7 @@ function ClosetToast() {
     hideTimerRef.current = setTimeout(() => {
       hasVisibleToastRef.current = false;
       setVisibleToast(null);
-    }, 220);
+    }, MOTION_DURATION_MS.layerExit);
 
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -94,8 +98,8 @@ function ClosetToast() {
   return (
     <div className="pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]">
       <div
-        className={`ui-floating-surface pointer-events-auto flex items-center gap-3 rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] duration-200 [transition-timing-function:var(--ease-out)] ${
-          isVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+        className={`ui-floating-surface pointer-events-auto flex items-center gap-3 rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] [transition-timing-function:var(--ease-out)] motion-reduce:transition-opacity motion-reduce:duration-[var(--duration-reduced)] ${
+          isVisible ? "duration-[var(--duration-layer-enter)] translate-y-0 opacity-100" : "duration-[var(--duration-layer-exit)] translate-y-3 opacity-0 motion-reduce:translate-y-0"
         }`}
       >
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500/15 text-orange-400">
@@ -179,7 +183,7 @@ function DigboxToast() {
     hideTimerRef.current = setTimeout(() => {
       hasVisibleToastRef.current = false;
       setVisibleToast(null);
-    }, 220);
+    }, MOTION_DURATION_MS.layerExit);
 
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -209,8 +213,8 @@ function DigboxToast() {
   return (
     <div className={`pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 ${guestCount > 0 && !auth.authUser ? "sm:bottom-[calc(5rem+env(safe-area-inset-bottom))]" : "sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"}`}>
       <div
-        className={`ui-floating-surface pointer-events-auto flex items-center gap-3 rounded-2xl border border-yellow-400/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] duration-200 [transition-timing-function:var(--ease-out)] ${
-          isVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+        className={`ui-floating-surface pointer-events-auto flex items-center gap-3 rounded-2xl border border-yellow-400/25 bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] [transition-timing-function:var(--ease-out)] motion-reduce:transition-opacity motion-reduce:duration-[var(--duration-reduced)] ${
+          isVisible ? "duration-[var(--duration-layer-enter)] translate-y-0 opacity-100" : "duration-[var(--duration-layer-exit)] translate-y-3 opacity-0 motion-reduce:translate-y-0"
         }`}
       >
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/15 text-yellow-400">
@@ -315,7 +319,10 @@ function ProductSubmitToast() {
     }
 
     setIsVisible(false);
-    hideTimerRef.current = setTimeout(() => setVisibleToast(null), 220);
+    hideTimerRef.current = setTimeout(
+      () => setVisibleToast(null),
+      MOTION_DURATION_MS.layerExit
+    );
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
@@ -329,9 +336,9 @@ function ProductSubmitToast() {
   return (
     <div className="pointer-events-none fixed left-1/2 top-1/2 z-[95] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2">
       <div
-        className={`ui-floating-surface pointer-events-auto flex items-center gap-3 rounded-2xl border bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] duration-200 [transition-timing-function:var(--ease-out)] ${
+        className={`ui-floating-surface pointer-events-auto flex items-center gap-3 rounded-2xl border bg-[#111114]/95 px-4 py-3 text-sm text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] [transition-timing-function:var(--ease-out)] motion-reduce:transition-opacity motion-reduce:duration-[var(--duration-reduced)] ${
           isError ? "border-red-500/30" : "border-orange-500/25"
-        } ${isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
+        } ${isVisible ? "duration-[var(--duration-layer-enter)] scale-100 opacity-100" : "duration-[var(--duration-layer-exit)] scale-95 opacity-0 motion-reduce:scale-100"}`}
       >
         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ${isError ? "bg-red-500/15 text-red-300" : "bg-orange-500/15 text-orange-400"}`}>
           {isError ? "!" : "✓"}
@@ -362,7 +369,10 @@ function SignupVerifiedToast() {
     requestAnimationFrame(() => setIsVisible(true));
 
     const hideTimer = window.setTimeout(() => setIsVisible(false), 1900);
-    const removeTimer = window.setTimeout(() => setShouldRender(false), 2150);
+    const removeTimer = window.setTimeout(
+      () => setShouldRender(false),
+      1900 + MOTION_DURATION_MS.layerExit
+    );
     return () => {
       window.clearTimeout(hideTimer);
       window.clearTimeout(removeTimer);
@@ -374,8 +384,8 @@ function SignupVerifiedToast() {
   return (
     <div className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center px-4">
       <div
-        className={`ui-floating-surface pointer-events-auto w-full max-w-sm rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-6 py-5 text-center text-white shadow-[0_24px_64px_rgba(0,0,0,0.62)] backdrop-blur-2xl transition-[transform,opacity] duration-200 [transition-timing-function:var(--ease-out)] ${
-          isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0"
+        className={`ui-floating-surface pointer-events-auto w-full max-w-sm rounded-2xl border border-orange-500/25 bg-[#111114]/95 px-6 py-5 text-center text-white shadow-[0_24px_64px_rgba(0,0,0,0.62)] backdrop-blur-2xl transition-[transform,opacity] [transition-timing-function:var(--ease-out)] motion-reduce:transition-opacity motion-reduce:duration-[var(--duration-reduced)] ${
+          isVisible ? "duration-[var(--duration-layer-enter)] scale-100 opacity-100" : "duration-[var(--duration-layer-exit)] scale-95 opacity-0 motion-reduce:scale-100"
         }`}
       >
         <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-400">DIGBOX</p>

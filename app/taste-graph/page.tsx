@@ -1,14 +1,16 @@
-import type { Metadata } from "next";
-import { TasteGraphPageClient } from "../../src/components/pages/TasteGraphPageClient";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "취향 분석 | DIGBOX",
-  robots: {
-    index: false,
-    follow: false,
-  },
+type LegacyTasteGraphPageProps = {
+  searchParams: Promise<{ source?: string; view?: string; tag?: string }>;
 };
 
-export default function TasteGraphPage() {
-  return <TasteGraphPageClient />;
+export default async function LegacyTasteGraphPage({ searchParams }: LegacyTasteGraphPageProps) {
+  const query = await searchParams;
+  const sourcePath = query.source === "digbox" ? "saved" : query.source ? "closet" : null;
+  const nextQuery = new URLSearchParams();
+  if (query.view === "brands") nextQuery.set("view", "brands");
+  if (query.tag) nextQuery.set("tag", query.tag);
+  const suffix = nextQuery.size ? `?${nextQuery.toString()}` : "";
+
+  redirect(sourcePath ? `/taste/${sourcePath}${suffix}` : `/taste${suffix}`);
 }

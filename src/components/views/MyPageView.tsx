@@ -359,7 +359,7 @@ function MySizesManager({
                       <Check className="h-3.5 w-3.5" aria-hidden="true" /> 선택됨
                     </span>
                   )}
-                  <ChevronRight className={`h-4 w-4 shrink-0 text-gray-500 transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none ${isProductPickerOpen ? "rotate-90" : ""}`} />
+                  <ChevronRight className={`h-4 w-4 shrink-0 text-gray-500 transition-transform duration-[var(--duration-popover)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none ${isProductPickerOpen ? "rotate-90" : ""}`} />
                 </button>
 
                 {isProductPickerOpen && (
@@ -480,7 +480,7 @@ function MySizesManager({
                     <span className="text-sm font-black uppercase tracking-wide text-white">{group}</span>
                     <span className="text-[11px] font-bold text-gray-500">{profiles.length}</span>
                   </span>
-                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform duration-[var(--duration-popover)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
                 </button>
                 {isOpen && (
                   <div id={categoryId} className="border-t border-white/[0.06]">
@@ -509,7 +509,7 @@ function MySizesManager({
                                     {profile.brand ? `${profile.brand} · ` : ""}{profile.title || "상품명 없음"}
                                   </span>
                                 </span>
-                                <ChevronRight className={`h-4 w-4 shrink-0 text-gray-600 transition-transform duration-[180ms] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none ${isExpanded ? "rotate-90" : ""}`} />
+                                <ChevronRight className={`h-4 w-4 shrink-0 text-gray-600 transition-transform duration-[var(--duration-popover)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none ${isExpanded ? "rotate-90" : ""}`} />
                               </span>
                             </button>
                             <button
@@ -941,7 +941,7 @@ export function MyPageView({
                 <p className="mb-3 text-xs font-semibold text-gray-500">저장 많은 순으로 정렬했어요.</p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for the existing discovery thumbnails. */}
-                {sortedDiscoveredProducts.map((product) => <Link key={product.id} href={getProductPageUrl(product)} className="group min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] no-underline transition hover:border-orange-400/60"><div className="aspect-square bg-white/[0.04]"><img src={product.thumbnailImage || product.image} alt={product.name} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]" /></div><div className="min-w-0 p-3"><p className="truncate text-[11px] font-bold uppercase text-orange-300">{product.brand}</p><p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{product.name}</p><p className={`mt-2 text-xs font-black ${product.saveCount > 0 ? "text-orange-200" : "text-gray-500"}`}>{product.saveCount > 0 ? `${product.saveCount}명이 저장했어요` : "아직 저장한 사람이 없어요"}</p></div></Link>)}
+                {sortedDiscoveredProducts.map((product) => <Link key={product.id} href={getProductPageUrl(product)} className="group min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] no-underline transition hover:border-orange-400/60"><div className="aspect-square bg-white/[0.04]"><img src={product.thumbnailImage || product.image} alt={product.name} className="h-full w-full object-contain transition duration-[var(--duration-layer-enter)] group-hover:scale-[1.03]" /></div><div className="min-w-0 p-3"><p className="truncate text-[11px] font-bold uppercase text-orange-300">{product.brand}</p><p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{product.name}</p><p className={`mt-2 text-xs font-black ${product.saveCount > 0 ? "text-orange-200" : "text-gray-500"}`}>{product.saveCount > 0 ? `${product.saveCount}명이 저장했어요` : "아직 저장한 사람이 없어요"}</p></div></Link>)}
               </div>
               </>
             ) : <div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-gray-600" /><p className="mt-3 text-sm font-bold text-gray-300">아직 발굴한 아이템이 없습니다.</p></div>}

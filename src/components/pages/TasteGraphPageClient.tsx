@@ -1,46 +1,86 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { createPortal } from "react-dom";
+import { ArrowLeft, Network, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Network, Plus } from "lucide-react";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { captureEvent } from "../../utils/analytics";
-import { TasteGraphCanvas } from "../taste-graph/TasteGraphCanvas";
-import { BrandClusterCanvas } from "../taste-graph/BrandClusterCanvas";
-import { BrandClusterSummaryCard } from "../taste-graph/BrandClusterSummaryCard";
-import { TasteInsightCard } from "../taste-graph/TasteInsightCard";
-import { TasteSummaryCard } from "../taste-graph/TasteSummaryCard";
+import { toPublicUrl } from "../../utils/product";
+import type { Product, StyleTagName } from "../../types";
+import type { TasteCollectionSource } from "../../utils/tasteGraph";
+import { buildBrandClusters } from "../../utils/brandClusters";
+import { ImageViewerOverlay } from "../ImageViewerOverlay";
+import { TasteReport } from "../taste-graph/TasteReport";
 import { PageState } from "../PageState";
-import type { StyleTagName } from "../../types";
-import { TAGS } from "../../utils/tasteGraph";
 
-type TasteGraphSource = "closet" | "digbox" | "insight";
+const TasteGraphCanvas = dynamic(() => import("../taste-graph/TasteGraphCanvas").then((module) => module.TasteGraphCanvas), { loading: () => <MapLoading />, ssr: false });
+const BrandClusterCanvas = dynamic(() => import("../taste-graph/BrandClusterCanvas").then((module) => module.BrandClusterCanvas), { loading: () => <MapLoading />, ssr: false });
+const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
 
-const SOURCE_ORDER: readonly TasteGraphSource[] = ["digbox", "insight", "closet"];
+type TasteGraphSource = TasteCollectionSource;
 type TasteGraphView = "products" | "brands";
-type InsightFocus = { source: "closet" | "digbox"; tag: StyleTagName } | null;
+type MapTarget = { source?: TasteCollectionSource; tag?: StyleTagName };
 
-export function TasteGraphPageClient() {
+const SOURCE_ORDER: readonly TasteGraphSource[] = ["digbox", "closet"];
+
+function MapLoading() {
+  return <div className="flex h-full items-center justify-center text-sm font-semibold text-gray-400">취향 그래프를 준비하고 있어요.</div>;
+}
+
+function sourcePath(source: TasteGraphSource) {
+  return source === "digbox" ? "saved" : "closet";
+}
+
+export function TasteGraphPageClient({
+  initialSource,
+  initialView = "products",
+  initialTag,
+}: {
+  initialSource?: TasteGraphSource;
+  initialView?: TasteGraphView;
+  initialTag?: StyleTagName;
+}) {
   const router = useRouter();
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
-  const [selectedSource, setSelectedSource] = useState<TasteGraphSource | null>(null);
-  const [selectedView, setSelectedView] = useState<TasteGraphView>("products");
+  const [isMapOpen, setIsMapOpen] = useState(Boolean(initialSource));
+  const [selectedSource, setSelectedSource] = useState<TasteGraphSource | null>(initialSource || null);
+  const [selectedView, setSelectedView] = useState<TasteGraphView>(initialView);
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
-  const [insightFocus, setInsightFocus] = useState<InsightFocus>(null);
-  const [urlFocus, setUrlFocus] = useState<{ source: TasteGraphSource | null; tag?: StyleTagName }>({ source: null });
+  const [productGraphReady, setProductGraphReady] = useState<Record<TasteGraphSource, boolean>>({
+    digbox: false,
+    closet: false,
+  });
+  const [urlFocus, setUrlFocus] = useState<{ source: TasteGraphSource | null; tag?: StyleTagName }>({
+    source: initialSource || null,
+    tag: initialTag,
+  });
+  const productModal = useProductModalQuery();
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
+  const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const reportScrollPositionRef = useRef(0);
+  const shouldRestoreReportScrollRef = useRef(false);
   const {
     closetProducts,
     isLoading: isClosetLoading,
     ensureLoaded: ensureClosetLoaded,
+    toggleCloset,
+    isInCloset,
   } = useClosetContext();
   const {
     digboxProducts,
     isLoading: isDigboxLoading,
     ensureLoaded: ensureDigboxLoaded,
+    toggleDigbox,
+    isInDigbox,
   } = useDigboxContext();
 
   useEffect(() => {
@@ -54,217 +94,248 @@ export function TasteGraphPageClient() {
   }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const requestedSource = params.get("source");
-    const source = requestedSource === "closet" || requestedSource === "digbox" || requestedSource === "insight" ? requestedSource : null;
-    const requestedTag = params.get("tag");
-    const tag = requestedTag && (TAGS as string[]).includes(requestedTag) ? (requestedTag as StyleTagName) : undefined;
-    setUrlFocus({ source, tag });
-  }, []);
+    setSelectedSource(initialSource || null);
+    setSelectedView(initialView);
+    setSelectedBrand(null);
+    setUrlFocus({ source: initialSource || null, tag: initialTag });
+    setIsMapOpen(Boolean(initialSource));
+  }, [initialSource, initialTag, initialView]);
 
-  const source = selectedSource ?? urlFocus.source ?? (closetProducts.length > 0 ? "closet" : "digbox");
-  const graphSource = source === "insight" ? insightFocus?.source ?? (closetProducts.length > 0 ? "closet" : "digbox") : source;
-  const activeProducts = graphSource === "closet" ? closetProducts : digboxProducts;
-  const sourceLabel = graphSource === "closet" ? "Closet" : "저장";
-  const sourceNoun = graphSource === "closet" ? "Closet 상품" : "저장한 상품";
-  const eyebrow = graphSource === "closet" ? "보유 취향" : "관심 취향";
-  const emptyCopy = useMemo(
-    () =>
-      graphSource === "closet"
-        ? {
-            title: "아직 보유 상품이 없습니다",
-            description: "실제로 가진 상품을 Closet에 담으면 보유 취향이 그려집니다.",
-          }
-        : {
-            title: "아직 관심 상품이 없습니다",
-            description: "마음에 드는 상품을 저장하면 관심 취향이 그려집니다.",
-          },
-    [graphSource]
+  const source = selectedSource ?? urlFocus.source ?? "digbox";
+  const activeProducts = source === "closet" ? closetProducts : digboxProducts;
+  const brandProducts = useMemo(
+    () => Array.from(new Map([...digboxProducts, ...closetProducts].map((product) => [product.id, product])).values()),
+    [closetProducts, digboxProducts]
   );
+  const normalizedProduct = useMemo<Product | null>(() => {
+    if (!selectedProduct) return null;
+    const imagePath = String(selectedProduct.imagePath || "").trim();
+    const image = imagePath ? toPublicUrl(imagePath) : selectedProduct.image;
+    const thumbnailImage = imagePath
+      ? toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 })
+      : selectedProduct.thumbnailImage;
+    return { ...selectedProduct, image, thumbnailImage };
+  }, [selectedProduct]);
+  const hasBrandClusters = useMemo(() => buildBrandClusters(brandProducts).clusters.length > 1, [brandProducts]);
+  const emptyCopy = useMemo(() => source === "closet"
+    ? { title: "아직 옷장 상품이 없어요", description: "실제로 가진 상품을 옷장에 넣으면 보유 취향을 그려드릴게요." }
+    : source === "digbox"
+      ? { title: "아직 저장한 상품이 없어요", description: "마음에 드는 상품을 저장하면 관심 취향을 그려드릴게요." }
+      : { title: "아직 취향을 읽을 상품이 없어요", description: "상품을 저장하거나 옷장에 추가하면 스타일 섬이 자라기 시작해요." }, [source]);
 
   useEffect(() => {
-    if (source === "digbox" && activeProducts.length > 0) {
-      captureEvent("interest_taste_viewed", { product_count: activeProducts.length });
+    if (isMapOpen && source !== "closet" && digboxProducts.length > 0) {
+      captureEvent("interest_taste_viewed", { product_count: digboxProducts.length });
     }
-  }, [activeProducts.length, source]);
+  }, [digboxProducts.length, isMapOpen, source]);
 
-  const renderSourceToggle = (floating = false) => (
-    <div className={`taste-source-toggle${floating ? " is-floating" : ""}`} aria-label="취향 분석 기준">
-      <span
-        className="taste-source-thumb"
-        style={{ transform: `translateX(${SOURCE_ORDER.indexOf(source) * 100}%)` }}
-        aria-hidden="true"
-      />
+  useEffect(() => {
+    if (isMapOpen || !shouldRestoreReportScrollRef.current) return;
+    shouldRestoreReportScrollRef.current = false;
+    requestAnimationFrame(() => window.scrollTo({ top: reportScrollPositionRef.current, behavior: "auto" }));
+  }, [isMapOpen]);
+
+  useEffect(() => {
+    if (!productModal.productId) {
+      setSelectedProduct(null);
+      setActiveRowIndex(null);
+      setIsDetailImageZoomed(false);
+      return;
+    }
+
+    const product =
+      digboxProducts.find((item) => item.id === productModal.productId) ||
+      closetProducts.find((item) => item.id === productModal.productId);
+    if (product) setSelectedProduct(product);
+  }, [closetProducts, digboxProducts, productModal.productId]);
+
+  const openProductDetail = (productId: string) => {
+    const product = activeProducts.find((item) => item.id === productId);
+    if (!product) return;
+    setSelectedProduct(product);
+    setActiveRowIndex(null);
+    setIsDetailImageZoomed(false);
+    productModal.openProduct(product.id);
+  };
+
+  const closeProductDetail = () => {
+    productModal.closeProduct();
+    setSelectedProduct(null);
+    setActiveRowIndex(null);
+    setIsDetailImageZoomed(false);
+  };
+
+  const openRecommendedProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setActiveRowIndex(null);
+    setIsDetailImageZoomed(false);
+    productModal.openProduct(product.id, true);
+  };
+
+  const handleProductImageError = (event: SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.onerror = null;
+    event.currentTarget.style.display = "none";
+  };
+
+  const openMap = (target?: MapTarget) => {
+    reportScrollPositionRef.current = window.scrollY;
+    const nextSource = target?.source || "digbox";
+    const tagQuery = target?.tag ? `?tag=${encodeURIComponent(target.tag)}` : "";
+    setSelectedSource(nextSource);
+    setSelectedView("products");
+    setSelectedBrand(null);
+    setUrlFocus({ source: nextSource, tag: target?.tag });
+    router.push(`/taste/${sourcePath(nextSource)}${tagQuery}`);
+  };
+
+  const openBrandMap = () => {
+    if (!hasBrandClusters) return;
+    reportScrollPositionRef.current = window.scrollY;
+    setSelectedSource("digbox");
+    setSelectedView("brands");
+    setSelectedBrand(null);
+    setUrlFocus({ source: "digbox" });
+    router.push("/taste/saved?view=brands");
+  };
+
+  const closeMap = () => {
+    shouldRestoreReportScrollRef.current = true;
+    setIsMapOpen(false);
+    setSelectedSource(null);
+    setSelectedBrand(null);
+    router.push("/taste");
+  };
+
+  const selectSource = (nextSource: TasteGraphSource) => {
+    if (nextSource === source) return;
+    setSelectedSource(nextSource);
+    setSelectedView("products");
+    setSelectedBrand(null);
+    setUrlFocus({ source: nextSource });
+    window.history.replaceState(null, "", `/taste/${sourcePath(nextSource)}`);
+  };
+
+  const renderSourceToggle = () => (
+    <div className="taste-source-toggle" aria-label="그래프 데이터 선택">
+      <span className="taste-source-thumb" style={{ transform: `translateX(${SOURCE_ORDER.indexOf(source) * 100}%)` }} aria-hidden="true" />
       {SOURCE_ORDER.map((value) => (
-        <button
-          key={value}
-          type="button"
-          className={`taste-source-button ${source === value ? "active" : ""}`}
-          onClick={() => {
-            setSelectedSource(value);
-            if (value !== "insight") setInsightFocus(null);
-            if (value === "insight") setSelectedView("products");
-            setSelectedBrand(null);
-          }}
-        >
-          {value === "digbox" ? "저장" : value === "closet" ? "CLOSET" : "INSIGHT"}
-          <span>{value === "digbox" ? digboxProducts.length : value === "closet" ? closetProducts.length : ""}</span>
+        <button key={value} type="button" className={`taste-source-button ${source === value ? "active" : ""}`} onClick={() => selectSource(value)}>
+          {value === "digbox" ? "저장" : "옷장"}
+          <span>{value === "digbox" ? digboxProducts.length : closetProducts.length}</span>
         </button>
       ))}
     </div>
   );
-  const sourceToggle = renderSourceToggle();
-
-  const viewToggle = source !== "insight" ? (
-    <div className="taste-view-toggle" aria-label="그래프 보기 방식">
-      <span
-        className="taste-view-thumb"
-        style={{ transform: `translateX(${selectedView === "brands" ? 100 : 0}%)` }}
-        aria-hidden="true"
-      />
-      <button type="button" className={selectedView === "products" ? "active" : ""} onClick={() => { setSelectedView("products"); setSelectedBrand(null); }}>
-        상품 그래프
-      </button>
-      <button type="button" className={selectedView === "brands" ? "active" : ""} onClick={() => setSelectedView("brands")}>
-        브랜드 클러스터
-      </button>
-    </div>
-  ) : null;
 
   if (auth.isAuthLoading || !auth.authUser || isClosetLoading || isDigboxLoading) {
-    return (
-      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
-        <PageState
-          kind="loading"
-          title="취향 지도를 준비하고 있어요"
-          description="저장한 상품을 분석해 나만의 연결을 만드는 중입니다."
-        />
-      </main>
-    );
+    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="취향 그래프를 준비하고 있어요" description="저장한 상품을 분석해 나만의 연결을 만드는 중입니다." /></main>;
   }
 
-  if (activeProducts.length === 0) {
-    return (
-      <main className="taste-graph-page flex flex-col items-center justify-center gap-4 bg-black px-6 text-center text-white">
-        <div className="absolute left-4 right-4 top-4 flex justify-end">
-          {renderSourceToggle(true)}
-        </div>
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-300">
-          <Network className="h-7 w-7" />
-        </span>
-        <div>
-          <p className="text-xl font-black text-white">{emptyCopy.title}</p>
-          <p className="mt-2 text-sm font-semibold text-gray-500">{emptyCopy.description}</p>
-        </div>
-        <Link
-          href="/"
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition hover:bg-orange-400"
-        >
-          <Plus className="h-4 w-4" />
-          상품 둘러보기
-        </Link>
-      </main>
-    );
+  if (!closetProducts.length && !digboxProducts.length) {
+    return <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-6 pt-[var(--app-main-pt)] text-center text-white"><span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-300"><Network className="h-7 w-7" /></span><div><h1 className="text-xl font-black">아직 취향을 읽을 상품이 없어요</h1><p className="mt-2 text-sm font-semibold leading-6 text-gray-400">상품을 저장하거나 옷장에 추가하면 취향의 중심을 보여드릴게요.</p></div><Link href="/" className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition hover:bg-orange-400"><Plus className="h-4 w-4" />상품 둘러보기</Link></main>;
+  }
+
+  if (isMapOpen && !activeProducts.length) {
+    return <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-6 pt-[var(--app-main-pt)] text-center text-white"><button type="button" onClick={closeMap} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300"><ArrowLeft className="h-4 w-4" />요약으로 돌아가기</button><p className="text-xl font-black">{emptyCopy.title}</p><p className="max-w-sm text-sm font-semibold leading-6 text-gray-400">{emptyCopy.description}</p></main>;
   }
 
   return (
-    <main className="taste-graph-page taste-graph-layout">
-      <aside className={`taste-summary-pane ${source === "insight" ? "taste-insight-pane" : ""}`}>
-        {source === "insight" ? (
-          <TasteInsightCard
-            controls={sourceToggle}
-            closetProducts={closetProducts}
-            digboxProducts={digboxProducts}
-            onExplore={(target) => {
-              setInsightFocus(target);
-              setSelectedSource("insight");
-            }}
-          />
-        ) : (
-          selectedView === "brands" ? (
-            <BrandClusterSummaryCard
-              controls={sourceToggle}
-              viewControls={viewToggle}
-              products={activeProducts}
-              source={graphSource}
-              selectedBrand={selectedBrand}
-            />
-          ) : (
-            <TasteSummaryCard
-              controls={sourceToggle}
-              viewControls={viewToggle}
-              products={activeProducts}
-              eyebrow={eyebrow}
-              sourceLabel={sourceLabel}
-              sourceNoun={sourceNoun}
-            />
-          )
-        )}
-      </aside>
+    <>
+      {!isMapOpen ? <TasteReport closetProducts={closetProducts} digboxProducts={digboxProducts} onOpenMap={openMap} onOpenBrandMap={hasBrandClusters ? openBrandMap : undefined} /> : null}
+    <main className={`taste-graph-page taste-graph-layout ${!isMapOpen ? "taste-graph-layout--standby" : ""}`} aria-hidden={!isMapOpen}>
+      <header className="taste-graph-toolbar">
+        <button type="button" onClick={closeMap} className="taste-map-back">
+          <ArrowLeft className="h-4 w-4" />요약으로
+        </button>
+        {selectedView === "products" ? renderSourceToggle() : null}
+      </header>
       <div className="taste-canvas-pane">
-        {selectedView === "brands" && source !== "insight" ? (
-          <BrandClusterCanvas
-            key={`brands-${graphSource}`}
-            products={activeProducts}
-            selectedBrand={selectedBrand}
-            onSelectBrand={setSelectedBrand}
-          />
-        ) : (
-          <TasteGraphCanvas
-            key={`${graphSource}-${source === "insight" ? insightFocus?.tag || "overview" : "overview"}`}
-            products={activeProducts}
-            initialTag={source === "insight" ? insightFocus?.tag : urlFocus.tag}
-          />
-        )}
+        <div
+          className={`taste-product-graph-stack ${selectedView === "products" ? "active" : ""}`}
+          aria-hidden={selectedView !== "products"}
+        >
+          <div className={`taste-product-graph-layer ${source === "digbox" ? "active" : ""}`}>
+            <TasteGraphCanvas
+              products={digboxProducts}
+              initialTag={urlFocus.source === "digbox" ? urlFocus.tag : undefined}
+              source="digbox"
+              active={isMapOpen && selectedView === "products" && source === "digbox"}
+              onOpenProduct={openProductDetail}
+              onLoading={() => setProductGraphReady((ready) => ({ ...ready, digbox: false }))}
+              onReady={() => setProductGraphReady((ready) => ({ ...ready, digbox: true }))}
+            />
+          </div>
+          <div className={`taste-product-graph-layer ${source === "closet" ? "active" : ""}`}>
+            <TasteGraphCanvas
+              products={closetProducts}
+              initialTag={urlFocus.source === "closet" ? urlFocus.tag : undefined}
+              source="closet"
+              active={isMapOpen && selectedView === "products" && source === "closet"}
+              onOpenProduct={openProductDetail}
+              onLoading={() => setProductGraphReady((ready) => ({ ...ready, closet: false }))}
+              onReady={() => setProductGraphReady((ready) => ({ ...ready, closet: true }))}
+            />
+          </div>
+        </div>
+        {selectedView === "products" && !productGraphReady[source] ? (
+          <div className="taste-graph-loading-overlay" aria-live="polite"><MapLoading /></div>
+        ) : null}
+        {isMapOpen && selectedView === "brands" ? (
+          <BrandClusterCanvas products={brandProducts} selectedBrand={selectedBrand} onSelectBrand={setSelectedBrand} />
+        ) : null}
       </div>
+
+      {normalizedProduct && typeof document !== "undefined"
+        ? createPortal(
+            <>
+              <ProductDetailModal
+                product={normalizedProduct}
+                closetProduct={closetProducts.find((item) => item.id === normalizedProduct.id) || null}
+                activeRowIndex={activeRowIndex}
+                onClose={closeProductDetail}
+                onRowClick={setActiveRowIndex}
+                onRecommendationClick={openRecommendedProduct}
+                onZoomImage={() => setIsDetailImageZoomed(true)}
+                onImageError={handleProductImageError}
+                modalRef={modalRef}
+                onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
+                isInCloset={isInCloset(normalizedProduct.id)}
+                onToggleDigbox={() => toggleDigbox(normalizedProduct.id)}
+                isInDigbox={isInDigbox(normalizedProduct.id)}
+                hideDigboxButton={isInDigbox(normalizedProduct.id)}
+                analyticsSource="taste_graph"
+              />
+              <ImageViewerOverlay
+                open={isDetailImageZoomed}
+                src={normalizedProduct.image}
+                alt={normalizedProduct.name}
+                onClose={() => setIsDetailImageZoomed(false)}
+              />
+            </>,
+            document.body
+          )
+        : null}
       <style jsx>{layoutStyles}</style>
     </main>
+    </>
   );
 }
 
 const layoutStyles = `
-  .taste-graph-layout {
-    display: flex;
-    flex-direction: row;
-    min-height: 0;
-  }
-
-  .taste-summary-pane {
-    width: clamp(292px, 23vw, 340px);
-    flex-shrink: 0;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    background: #111217;
-  }
-
-  .taste-insight-pane {
-    scrollbar-width: none;
-  }
-
-  .taste-insight-pane::-webkit-scrollbar {
-    display: none;
-  }
-
-  .taste-canvas-pane {
-    position: relative;
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-  }
-
-  @media (max-width: 1023px) {
-    .taste-graph-layout {
-      flex-direction: column;
-    }
-
-    .taste-summary-pane {
-      width: 100%;
-      max-height: 40%;
-      border-right: 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    }
-  }
-
+  .taste-graph-layout { position: fixed; display: flex; width: 100%; min-height: 0; flex-direction: column; overflow: hidden; overscroll-behavior: none; background: #111217; opacity: 1; transform: translateY(0); transition: opacity var(--duration-popover) var(--ease-out), transform var(--duration-popover) var(--ease-out); }
+  .taste-graph-layout--standby { display: none; inset: 0; pointer-events: none; }
+  @starting-style { .taste-graph-layout { opacity: 0; transform: translateY(8px); } }
+  .taste-graph-toolbar { position: absolute; top: .75rem; left: .75rem; z-index: 10; display: flex; align-items: center; gap: .5rem; }
+  .taste-graph-toolbar :global(.taste-view-toggle) { width: auto; min-width: 11rem; }
+  .taste-canvas-pane { position: relative; flex: 1 1 0%; min-width: 0; min-height: 0; overflow: hidden; }
+  .taste-product-graph-stack, .taste-product-graph-layer { position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; }
+  .taste-product-graph-stack { visibility: hidden; pointer-events: none; }
+  .taste-product-graph-stack.active { visibility: visible; pointer-events: auto; }
+  .taste-product-graph-layer { visibility: hidden; opacity: 0; pointer-events: none; }
+  .taste-product-graph-layer.active { visibility: visible; opacity: 1; pointer-events: auto; }
+  .taste-graph-loading-overlay { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; background: #111217; }
+  .taste-map-back { display: inline-flex; min-height: 2.25rem; flex-shrink: 0; align-items: center; gap: .375rem; padding: 0 .75rem; border: 1px solid rgba(255,255,255,.12); border-radius: .625rem; background: rgba(17,18,23,.78); backdrop-filter: blur(14px); color: #d0d5dd; cursor: pointer; font: inherit; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+  @media (hover: hover) and (pointer: fine) { .taste-map-back:hover { color: #fff; border-color: rgba(255,255,255,.28); } }
+  @media (max-width: 700px) { .taste-graph-toolbar { right: .75rem; flex-wrap: wrap; } .taste-source-toggle { flex: 1 1 auto; } .taste-view-toggle { margin-left: auto; } }
+  @media (prefers-reduced-motion: reduce) { .taste-graph-layout { transform: none; transition: opacity var(--duration-reduced) ease; } }
 `;

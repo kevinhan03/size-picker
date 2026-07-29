@@ -422,7 +422,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
   const myProposal = outfitRequest?.proposals.find((proposal) => proposal.authorId === currentUserId) || null;
   const isEditingMyProposal = Boolean(myProposal && editingProposalId === myProposal.id);
   const canComposeProposal = Boolean(!isOwner && outfitRequest?.status === "open" && (!myProposal || isEditingMyProposal));
-  const selectionTrayPresence = usePresence(canComposeProposal && selectedProducts.length > 0, { enterDuration: 150, exitDuration: 160 });
+  const selectionTrayPresence = usePresence(canComposeProposal && selectedProducts.length > 0);
   const selectionTrayCount = selectedProducts.length || (selectionTrayPresence.isMounted ? 1 : 0);
   const acceptedProposal = outfitRequest?.proposals.find((proposal) => proposal.id === outfitRequest.acceptedProposalId) || null;
   const focusProducts = useMemo(() => {

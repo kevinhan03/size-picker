@@ -23,6 +23,7 @@
   --duration-popover: 160ms;
   --duration-layer-enter: 220ms;
   --duration-layer-exit: 160ms;
+  --duration-reduced: 120ms;
   --surface-floating: rgba(17, 17, 20, 0.88);
   --surface-panel: #111114;
   --surface-card: #151518;
@@ -130,14 +131,16 @@
 .taste-graph-page {
   position: fixed;
   inset: 4rem 0 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .taste-source-toggle {
   position: relative;
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
-  min-width: 294px;
+  min-width: 224px;
   padding: 3px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
@@ -150,11 +153,11 @@
   top: 3px;
   bottom: 3px;
   left: 3px;
-  width: calc((100% - 6px) / 3);
+  width: calc((100% - 6px) / 2);
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  transition: transform 180ms var(--ease-out);
+  transition: transform var(--duration-popover) var(--ease-out);
   pointer-events: none;
 }
 
@@ -184,7 +187,7 @@
   font-weight: 750;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  transition: background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out), box-shadow var(--duration-press) var(--ease-out);
 }
 
 .taste-source-button span {
@@ -193,7 +196,7 @@
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  transition: color 140ms ease;
+  transition: color var(--duration-press) var(--ease-out);
 }
 
 .taste-source-button span:empty {
@@ -232,7 +235,7 @@
   width: calc((100% - 6px) / 2);
   border-radius: 9px;
   background: rgba(249, 115, 22, 0.15);
-  transition: transform 180ms var(--ease-out);
+  transition: transform var(--duration-popover) var(--ease-out);
   pointer-events: none;
 }
 
@@ -249,7 +252,7 @@
   font-weight: 750;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: color 150ms ease;
+  transition: color var(--duration-press) var(--ease-out);
 }
 
 .taste-view-toggle button:hover {
@@ -280,7 +283,7 @@
 @media (max-width: 1023px) {
   .taste-graph-page {
     top: calc(4rem + env(safe-area-inset-top));
-    bottom: calc(4rem + env(safe-area-inset-bottom));
+    bottom: calc(var(--app-bottom-nav-height) + env(safe-area-inset-bottom));
   }
 }
 
@@ -344,12 +347,12 @@ button,
 }
 
 .outfit-detail-product-tile {
-  transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out), transform 150ms var(--ease-out);
+  transition: border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), transform var(--duration-press) var(--ease-out);
 }
 
 .outfit-detail-menu {
   transform-origin: top right;
-  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+  transition: opacity var(--duration-popover) var(--ease-out), transform var(--duration-popover) var(--ease-out);
 }
 
 @starting-style {
@@ -517,12 +520,11 @@ button,
   }
 
   .dig-match-choice:hover {
-    transform: translateY(-4px);
-    border-color: rgb(251 146 60 / 0.7);
+    border-color: rgba(255, 255, 255, 0.25);
   }
 
   .dig-match-choice:hover .dig-match-choice-image {
-    transform: scale(1.03);
+    transform: scale(1.015);
   }
 
   .recent-brand-card:hover,
@@ -569,12 +571,12 @@ button,
 }
 
 .digbox-copy-toast {
-  transition: opacity 150ms var(--ease-out);
+  transition: opacity var(--duration-layer-exit) var(--ease-out);
 }
 
 .digbox-removal-tray {
   opacity: 1;
-  transition: opacity 150ms var(--ease-out);
+  transition: opacity var(--duration-layer-exit) var(--ease-out);
 }
 
 @starting-style {
@@ -589,7 +591,7 @@ button,
 
 .digbox-sheet-backdrop {
   opacity: 1;
-  transition: opacity 160ms var(--ease-out);
+  transition: opacity var(--duration-layer-exit) var(--ease-out);
 }
 
 .digbox-sheet-backdrop[data-closing="true"] {
@@ -599,13 +601,13 @@ button,
 .digbox-sheet {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+  transition: opacity var(--duration-layer-enter) var(--ease-out), transform var(--duration-layer-enter) var(--ease-out);
 }
 
 .digbox-sheet[data-closing="true"] {
   opacity: 0;
   transform: translateY(100%);
-  transition-duration: 160ms;
+  transition-duration: var(--duration-layer-exit);
 }
 
 @starting-style {
@@ -631,7 +633,7 @@ button,
 
   .digbox-sheet-backdrop,
   .digbox-sheet {
-    transition: opacity 120ms ease;
+    transition: opacity var(--duration-reduced) ease;
   }
 }
 
@@ -665,17 +667,17 @@ button,
 }
 
 .ui-size-comparison-result {
-  animation: ui-size-comparison-result-in 170ms ease-out;
+  animation: ui-size-comparison-result-in var(--duration-popover) var(--ease-out);
 }
 
 .outfit-detail-selection-tray {
   opacity: 0;
-  transition: opacity 160ms var(--ease-out);
+  transition: opacity var(--duration-layer-exit) var(--ease-out);
 }
 
 .outfit-detail-selection-tray[data-visible="true"] {
   opacity: 1;
-  transition-duration: 150ms;
+  transition-duration: var(--duration-layer-enter);
 }
 
 @media (max-width: 520px) {
@@ -690,12 +692,12 @@ button,
   .ui-layer-modal,
   .ui-layer-sheet {
     transform: none !important;
-    transition: opacity 160ms ease !important;
+    transition: opacity var(--duration-reduced) ease !important;
   }
 
   .app-header-motion {
     transform: none !important;
-    transition: opacity 160ms ease !important;
+    transition: opacity var(--duration-reduced) ease !important;
   }
 
   .animate-\[filter-dropdown-in_var\(--duration-popover\)_var\(--ease-out\)\] {
@@ -707,7 +709,7 @@ button,
   }
 
   .ui-size-comparison-result {
-    animation-duration: 120ms;
+    animation-duration: var(--duration-reduced);
   }
 
   .outfit-detail-selection-tray {
@@ -733,6 +735,12 @@ button,
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  .app-header-motion {
+    background-color: #000 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
   .ui-layer-modal,
   .ui-layer-sheet,
   .outfit-detail-menu,
@@ -778,26 +786,76 @@ button,
   width: 100%;
 }
 
+/* Dig Match begins on the same black canvas as the rest of the product, with one
+   deliberately solid reading surface instead of several competing translucent cards. */
+main[data-dig-match-screen="ready"] > div > section {
+  max-width: 40rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 1.5rem;
+  background: #111114;
+  padding: 1.5rem;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset, 0 18px 46px rgba(0, 0, 0, 0.28);
+}
+
+main[data-dig-match-screen="ready"] > div > section > p:first-child {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dig-match-presentation-option:not([aria-checked="true"]):hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #fff;
+  }
+
+  .dig-match-start-button:not(:disabled):hover {
+    background-color: rgb(253 186 116);
+  }
+
+  .dig-match-recommendation-row:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .dig-match-recommendation-card:hover .dig-match-recommendation-image {
+    transform: scale(1.02);
+  }
+}
+
+main[data-dig-match-screen="ready"] > div > section > p:nth-of-type(2) {
+  color: rgb(229 231 235);
+}
+
+main[data-dig-match-screen="ready"] > div > section > div > p,
+main[data-dig-match-screen="ready"] > div > section > p:not(:first-child):not(:nth-of-type(2)) {
+  color: rgb(156 163 175);
+}
+
+@media (min-width: 640px) {
+  main[data-dig-match-screen="ready"] > div > section {
+    padding: 2rem;
+  }
+}
+
 /* My Size content enters from the control that revealed it. */
 .my-size-panel-reveal,
 .my-size-profile-row {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+  transition: opacity var(--duration-popover) var(--ease-out), transform var(--duration-popover) var(--ease-out);
 }
 
 .my-size-note-editor {
   opacity: 1;
   transform: scale(1);
   transform-origin: top right;
-  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+  transition: opacity var(--duration-popover) var(--ease-out), transform var(--duration-popover) var(--ease-out);
 }
 
 .my-discoveries-panel {
   opacity: 1;
   transform: translateY(0) scale(1);
   transform-origin: center bottom;
-  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+  transition: opacity var(--duration-popover) var(--ease-out), transform var(--duration-popover) var(--ease-out);
 }
 
 @starting-style {
@@ -828,17 +886,17 @@ button,
   .my-size-panel-reveal,
   .my-size-profile-row {
     transform: none;
-    transition: opacity 120ms ease;
+    transition: opacity var(--duration-reduced) ease;
   }
 
   .my-size-note-editor {
     transform: none;
-    transition: opacity 120ms ease;
+    transition: opacity var(--duration-reduced) ease;
   }
 
   .my-discoveries-panel {
     transform: none;
-    transition: opacity 120ms ease;
+    transition: opacity var(--duration-reduced) ease;
   }
 
   @starting-style {

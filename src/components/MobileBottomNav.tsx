@@ -22,7 +22,7 @@ export function MobileBottomNav() {
     captureEvent("mobile_nav_clicked", { destination, is_authenticated: Boolean(auth.authUser) });
     if (destination === "digging") return void router.push("/");
     if (destination === "outfits") return void router.push(auth.authUser ? "/outfits" : buildLoginHref("login", "/outfits"));
-    if (destination === "taste") return void router.push("/taste-graph");
+    if (destination === "taste") return void router.push("/taste");
     if (destination === "closet") return void router.push("/closet");
     if (!auth.authUser) return void digbox.setIsGuestPanelOpen(true);
     router.push(auth.dbUsername ? `/u/${encodeURIComponent(auth.dbUsername)}` : "/mypage");

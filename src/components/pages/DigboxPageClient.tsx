@@ -128,7 +128,7 @@ function ListRow({
         alignItems: "center",
         gap: 14,
         padding: "12px 16px",
-        transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+        transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
         borderColor: isEditing && selected ? "rgba(251,146,60,0.8)" : "rgba(255,255,255,0.09)",
         background: isEditing && selected ? "rgba(249,115,22,0.08)" : "#111114",
       }}
@@ -151,7 +151,7 @@ function ListRow({
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
-            transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+            transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
             position: "relative",
             zIndex: 20,
           }}
@@ -530,7 +530,7 @@ export function DigboxPageClient({
                     gap: 3, width: 36, height: 36, borderRadius: 9,
                     background: menuOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
                     border: "1px solid rgba(255,255,255,0.08)",
-                    cursor: "pointer", transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+                    cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
                   }}
                   aria-label="메뉴"
                 >
@@ -637,7 +637,7 @@ export function DigboxPageClient({
                 style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 14,
                   padding: "14px 24px", background: "none", border: "none",
-                  cursor: "pointer", transition: "background 0.15s",
+                  cursor: "pointer", transition: "background-color var(--duration-press) var(--ease-out)",
                 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; }}
@@ -662,7 +662,7 @@ export function DigboxPageClient({
                   style={{
                     width: "100%", display: "flex", alignItems: "center", gap: 14,
                     padding: "14px 24px", background: "none", border: "none",
-                    cursor: "pointer", transition: "background 0.15s",
+                    cursor: "pointer", transition: "background-color var(--duration-press) var(--ease-out)",
                   }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; }}
@@ -731,7 +731,7 @@ export function DigboxPageClient({
                   background: "rgba(255,255,255,0.05)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   color: "#d1d5db",
-                  cursor: "pointer", transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+                  cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
                 }}
                 aria-label="편집"
               >
@@ -746,7 +746,7 @@ export function DigboxPageClient({
                 style={{
                   height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center",
                   padding: "0 12px", borderRadius: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#6b7280", cursor: "pointer", transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+                  color: "#6b7280", cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
                 }}
                 aria-label="취소"
               >

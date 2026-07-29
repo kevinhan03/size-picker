@@ -22,6 +22,16 @@ const tailwindConfig = {
           ...defaultTheme.fontFamily.sans,
         ],
       },
+      transitionDuration: {
+        DEFAULT: "var(--duration-press)",
+        150: "var(--duration-press)",
+        200: "var(--duration-popover)",
+        300: "var(--duration-layer-enter)",
+      },
+      transitionTimingFunction: {
+        DEFAULT: "var(--ease-out)",
+        out: "var(--ease-out)",
+      },
     },
   },
   plugins: [],

@@ -48,8 +48,9 @@ export const LEGACY_TAG_KEY_MAP: Record<string, StyleTagName> = {
 export const TAG_TOP_N = 2;
 export const PRODUCT_PANEL_TAG_TOP_N = 5;
 export const SECOND_TAG_MIN_CONFIDENCE = 0.15;
-export const EMBEDDING_TOP_K = 2;
+export const EMBEDDING_MIN_SIMILARITY = 0.72;
 export const SIMILAR_TOP_K = 5;
+export const EMBEDDING_TOP_K = SIMILAR_TOP_K;
 export const ITEM_COLLAPSED_OPACITY = 0.82;
 export const SEARCH_DIM_OPACITY = 0.06;
 export const ITEM_COLLAPSED_RADIUS = 16;
@@ -151,7 +152,9 @@ export interface TasteGraphProduct {
   nodeId: string;
   label: string;
   brand: string;
+  productUrl: string;
   imageUrl: string;
+  fallbackImageUrl: string;
   styleTags: Partial<StyleTags>;
   styleTagSource: "human" | "ai";
   tagReviewStatus: string;
@@ -167,6 +170,7 @@ export interface TasteGraphNode {
   productId?: string;
   label: string;
   imageUrl?: string;
+  fallbackImageUrl?: string;
   product?: TasteGraphProduct;
   count?: number;
   radius: number;
@@ -179,6 +183,14 @@ export interface TasteGraphNode {
   highlighted?: boolean;
   x?: number;
   y?: number;
+  vx?: number;
+  vy?: number;
+  fx?: number;
+  fy?: number;
+  anchorX?: number;
+  anchorY?: number;
+  targetX?: number;
+  targetY?: number;
 }
 
 export interface TasteGraphLink {
@@ -215,6 +227,7 @@ export function createGraph(products: Product[]): TasteGraphState {
     TAGS.map((tag) => [tag, []])
   );
   const tagCounts = new Map<StyleTagName, number>(TAGS.map((tag) => [tag, 0]));
+  const tagWeights = new Map<StyleTagName, number>(TAGS.map((tag) => [tag, 0]));
   const productByNodeId = new Map<string, TasteGraphProduct>();
 
   const items: TasteGraphProduct[] = products.map((product) => {
@@ -230,7 +243,12 @@ export function createGraph(products: Product[]): TasteGraphState {
       nodeId: `item:${product.id}`,
       label: String(product.name || `Product ${product.id}`),
       brand: String(product.brand || "").trim(),
-      imageUrl: product.thumbnailImage || product.image || "",
+      productUrl: String(product.url || "").trim(),
+      imageUrl: product.image || product.thumbnailImage || "",
+      fallbackImageUrl:
+        product.thumbnailImage && product.thumbnailImage !== product.image
+          ? product.thumbnailImage
+          : "",
       styleTags: normalizeStyleTags(effectiveStyleTags.tags),
       styleTagSource: effectiveStyleTags.source,
       tagReviewStatus: String(product.tagReviewStatus || "").trim(),
@@ -255,6 +273,7 @@ export function createGraph(products: Product[]): TasteGraphState {
       productId: product.id,
       label: product.label,
       imageUrl: product.imageUrl,
+      fallbackImageUrl: product.fallbackImageUrl,
       product,
       radius: ITEM_COLLAPSED_RADIUS,
       visible: true,
@@ -276,20 +295,22 @@ export function createGraph(products: Product[]): TasteGraphState {
       };
       tagLinks.push(link);
       tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      tagWeights.set(tag, (tagWeights.get(tag) || 0) + score / scoreTotal);
       tagItems.get(tag)!.push({ productNodeId: product.nodeId, weight: score, rank: index + 1 });
     });
   }
 
   const connectedTags = TAGS.filter((tag) => (tagCounts.get(tag) || 0) > 0);
-  const maxTagCount = Math.max(1, ...connectedTags.map((tag) => tagCounts.get(tag) || 0));
+  const maxTagWeight = Math.max(1, ...connectedTags.map((tag) => tagWeights.get(tag) || 0));
   for (const tag of connectedTags) {
     const count = tagCounts.get(tag) || 0;
+    const weight = tagWeights.get(tag) || 0;
     nodes.push({
       id: `tag:${tag}`,
       type: "tag",
       label: tag,
       count,
-      radius: MIN_TAG_RADIUS + (MAX_TAG_RADIUS - MIN_TAG_RADIUS) * Math.sqrt(count / maxTagCount),
+      radius: MIN_TAG_RADIUS + (MAX_TAG_RADIUS - MIN_TAG_RADIUS) * Math.sqrt(weight / maxTagWeight),
       visible: true,
       opacity: 1,
     });
@@ -326,7 +347,9 @@ export function createEmbeddingForceLinks(products: TasteGraphProduct[]): TasteG
     for (const other of productsWithEmbedding) {
       if (product.id === other.id) continue;
       const similarity = cosineSimilarity(product.embedding!, other.embedding!);
-      if (Number.isFinite(similarity)) scored.push({ other, similarity: similarity as number });
+      if (Number.isFinite(similarity) && (similarity as number) >= EMBEDDING_MIN_SIMILARITY) {
+        scored.push({ other, similarity: similarity as number });
+      }
     }
 
     scored.sort((a, b) => b.similarity - a.similarity);

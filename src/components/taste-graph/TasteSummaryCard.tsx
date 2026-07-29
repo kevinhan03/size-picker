@@ -206,7 +206,7 @@ export function TasteSummaryCard({
           font-size: 12px;
           font-weight: 700;
           list-style: none;
-          transition: background-color 150ms ease, color 150ms ease;
+          transition: background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out);
         }
 
         .taste-summary-details summary:hover {

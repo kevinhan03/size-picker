@@ -498,7 +498,7 @@ export function SearchPageClient() {
             <button
               type="button"
               onClick={handleClearBrand}
-              className="flex h-9 flex-shrink-0 items-center rounded-xl border border-white/[0.12] bg-white/[0.055] px-3 text-xs font-bold text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-200 hover:-translate-y-px hover:border-orange-300/45 hover:bg-orange-500/[0.11] hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#11131a]"
+              className="flex h-9 flex-shrink-0 items-center rounded-xl border border-white/[0.12] bg-white/[0.055] px-3 text-xs font-bold text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-[var(--duration-popover)] hover:-translate-y-px hover:border-orange-300/45 hover:bg-orange-500/[0.11] hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#11131a]"
             >
               선택 해제
             </button>
@@ -527,7 +527,7 @@ export function SearchPageClient() {
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label="맨 위로 이동"
           title="맨 위로 이동"
-          className="fixed bottom-5 right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/[0.1] text-white shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-orange-300/55 hover:bg-white/[0.16] hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#11131a] md:bottom-7 md:right-7"
+          className="fixed bottom-5 right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/[0.1] text-white shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl transition duration-[var(--duration-popover)] hover:-translate-y-0.5 hover:border-orange-300/55 hover:bg-white/[0.16] hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#11131a] md:bottom-7 md:right-7"
         >
           <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
         </button>

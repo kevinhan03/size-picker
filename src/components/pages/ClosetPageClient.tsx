@@ -165,7 +165,7 @@ function ListRow({
         alignItems: "center",
         gap: 14,
         padding: "12px 16px",
-        transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+        transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
         transform: hover && !isEditing ? "translateX(4px)" : "none",
         borderColor: hover && !isEditing
           ? "rgba(255,255,255,0.15)"
@@ -191,7 +191,7 @@ function ListRow({
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
-          transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+          transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
           position: "relative",
           zIndex: 20,
         }}
@@ -294,7 +294,7 @@ function ListRow({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+          transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
           color: hover ? "#f87171" : "#4b5563",
         }}
       >
@@ -704,7 +704,7 @@ export function ClosetPageClient() {
                     background:
                       viewMode === v.id ? "rgba(249,115,22,0.18)" : "transparent",
                     color: viewMode === v.id ? "#F97316" : "#6b7280",
-                    transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+                    transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -742,7 +742,7 @@ export function ClosetPageClient() {
                 border: "1px solid rgba(255,255,255,0.1)",
                 color: isEditing ? "#F97316" : "#6b7280",
                 cursor: "pointer",
-                transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+                transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
                 boxShadow: "none",
               }}
               aria-label={isEditing ? "삭제 선택 완료" : "삭제할 상품 선택"}
@@ -768,7 +768,7 @@ export function ClosetPageClient() {
                   border: "none",
                   color: "#6b7280",
                   cursor: "pointer",
-                  transition: "transform 150ms var(--ease-out), border-color 150ms ease, background-color 150ms ease, color 150ms ease",
+                  transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
                   boxShadow: "none",
                 }}
                 aria-label="삭제 선택 취소"
