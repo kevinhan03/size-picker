@@ -3,7 +3,7 @@
 import { type PointerEvent, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Heart, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { fetchDigMatchProfile, saveTasteSwipe } from "../../api/tasteMatch";
+import { fetchDigMatchProducts, fetchDigMatchProfile, saveTasteSwipe } from "../../api/tasteMatch";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../../constants";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
@@ -33,7 +33,10 @@ function saveSeen(ids: Set<string>) {
 export function TasteSwipePageClient() {
   const router = useRouter();
   const auth = useAuthContext();
-  const { products, isProductsLoading } = useProductsContext();
+  const { products: contextProducts, isProductsLoading: isContextProductsLoading } = useProductsContext();
+  const [feedProducts, setFeedProducts] = useState<Product[]>([]);
+  const [isFeedLoading, setIsFeedLoading] = useState(true);
+  const [feedLoadFailed, setFeedLoadFailed] = useState(false);
   const [profile, setProfile] = useState<DigMatchProfile | null>(null);
   const [presentation, setPresentation] = useState<DigMatchPresentation>("all");
   const [deck, setDeck] = useState<Product[]>([]);
@@ -55,6 +58,18 @@ export function TasteSwipePageClient() {
     void fetchDigMatchProfile().then((value) => { if (value) setProfile(value); }).catch(() => undefined);
   }, [auth.authUser]);
 
+  useEffect(() => {
+    let active = true;
+    void fetchDigMatchProducts()
+      .then((items) => { if (active) setFeedProducts(items); })
+      .catch(() => { if (active) setFeedLoadFailed(true); })
+      .finally(() => { if (active) setIsFeedLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const products = feedProducts.length ? feedProducts : (feedLoadFailed ? contextProducts : []);
+  const isProductsLoading = isFeedLoading || (feedLoadFailed && isContextProductsLoading);
+
   const start = useCallback(() => {
     const next = buildTasteSwipeDeck(products, profile, presentation, seen.current, 24);
     setDeck(next); setActions([]); setFinished(false); setDragX(0); setExitDecision(null);
@@ -62,21 +77,30 @@ export function TasteSwipePageClient() {
   }, [auth.authUser, presentation, products, profile]);
 
   const current = deck[0] || null;
-  const nextProfile = useMemo(() => actions.length ? calculateTasteSwipeProfile(profile, products, actions) : profile, [actions, products, profile]);
-  const recommendations = useMemo(() => nextProfile ? getDigMatchRecommendations(products, nextProfile, new Set(actions.map((action) => action.productId)), 3, presentation) : [], [actions, nextProfile, presentation, products]);
+  const nextProfile = useMemo(() => finished && actions.length ? calculateTasteSwipeProfile(profile, products, actions) : profile, [actions, finished, products, profile]);
+  const recommendations = useMemo(() => finished && nextProfile ? getDigMatchRecommendations(products, nextProfile, new Set(actions.map((action) => action.productId)), 3, presentation) : [], [actions, finished, nextProfile, presentation, products]);
+
+  useEffect(() => {
+    deck.slice(1, 3).forEach((product) => {
+      const image = new Image();
+      image.src = product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER;
+      void image.decode?.().catch(() => undefined);
+    });
+  }, [deck]);
 
   const finish = useCallback(async () => {
     if (finished) return;
     setFinished(true);
-    if (!actions.length || !nextProfile) return;
-    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(nextProfile));
+    if (!actions.length) return;
+    const finalProfile = calculateTasteSwipeProfile(profile, products, actions);
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(finalProfile));
     captureEvent("taste_swipe_completed", { action_count: actions.length, likes: actions.filter((item) => item.decision === "like").length });
     if (!auth.authUser) return;
     setIsSaving(true);
-    try { await saveTasteSwipe(nextProfile, actions); captureEvent("taste_swipe_saved", { action_count: actions.length }); }
+    try { await saveTasteSwipe(finalProfile, actions); captureEvent("taste_swipe_saved", { action_count: actions.length }); }
     catch { /* local profile still preserves the interaction */ }
     finally { setIsSaving(false); }
-  }, [actions, auth.authUser, finished, nextProfile]);
+  }, [actions, auth.authUser, finished, products, profile]);
 
   useEffect(() => {
     if (!deck.length && actions.length) void finish();
@@ -101,5 +125,5 @@ export function TasteSwipePageClient() {
   const visualDecision = exitDecision || (dragX > 18 ? "like" : dragX < -18 ? "pass" : null);
   const auroraStrength = exitDecision ? 1 : Math.min(0.72, Math.abs(dragX) / 160);
   const glow = visualDecision === "like" ? "0 0 18px rgba(56,189,248,.9), 0 0 50px rgba(37,99,235,.7), 0 24px 54px rgba(0,0,0,.45)" : visualDecision === "pass" ? "0 0 18px rgba(251,113,133,.9), 0 0 50px rgba(239,68,68,.65), 0 24px 54px rgba(0,0,0,.45)" : "0 24px 54px rgba(0,0,0,.45)";
-  return <main className="min-h-screen bg-[#0b0b0d] px-4 pb-12 pt-24 text-white"><section className="mx-auto max-w-md"><div className="flex items-center justify-between"><button type="button" onClick={() => void finish()} className="inline-flex items-center gap-1 text-sm font-bold text-gray-400"><ArrowLeft className="h-4 w-4"/> 여기까지</button><span className="text-sm font-bold text-gray-500">{actions.length + 1}장째</span></div><p className="mt-8 text-center text-xs font-bold uppercase text-orange-300">TASTE SWIPE</p><h1 className="mt-2 text-center text-2xl font-bold">지금 이 상품은 어떤가요?</h1><div className="relative mt-7 h-[min(68vh,580px)]"><div className="absolute inset-2 rounded-2xl bg-white/[0.04]"/><div className={`taste-swipe-card-halo ${visualDecision === "like" ? "taste-swipe-card-halo-like" : visualDecision === "pass" ? "taste-swipe-card-halo-pass" : ""}`} style={{ opacity: auroraStrength }}/><div onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} style={{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)`, transition: isDragging ? "none" : "transform 150ms cubic-bezier(.2,.8,.2,1), box-shadow 90ms ease-out", boxShadow: glow }} className="absolute z-10 inset-0 touch-pan-y select-none overflow-hidden rounded-2xl border border-white/10 bg-[#151518]"><img src={current.image || current.thumbnailImage || DEFAULT_PRODUCT_PLACEHOLDER} alt={current.name} onError={fallback} draggable={false} className="h-full w-full object-cover pointer-events-none"/><div className={`taste-swipe-aurora ${visualDecision === "like" ? "taste-swipe-aurora-like" : visualDecision === "pass" ? "taste-swipe-aurora-pass" : ""}`} style={{ opacity: auroraStrength * 0.42 }}/><div className={`absolute left-5 top-5 rounded-md border-2 border-red-200 bg-red-500/20 px-3 py-1.5 text-sm font-black tracking-[0.16em] text-red-100 transition-all ${visualDecision === "pass" ? "scale-100 opacity-100" : "scale-75 opacity-0"}`}>PASS</div><div className={`absolute right-5 top-5 rounded-md border-2 border-blue-100 bg-blue-500/25 px-3 py-1.5 text-sm font-black tracking-[0.16em] text-blue-50 transition-all ${visualDecision === "like" ? "scale-100 opacity-100" : "scale-75 opacity-0"}`}>LIKE</div><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-5 pb-6 pt-24"><p className="text-xs font-bold text-orange-300">{current.brand}</p><p className="mt-1 text-lg font-bold">{current.name}</p><p className="mt-2 text-xs text-gray-300">왼쪽은 패스 · 오른쪽은 좋아요</p></div></div></div><div className="mt-6 grid grid-cols-3 gap-3"><button type="button" disabled={Boolean(exitDecision)} onClick={() => decide("pass")} className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-red-300/50 bg-red-400/10 text-sm font-bold text-red-100 disabled:opacity-50" aria-label="이번엔 아니에요"><X className="h-5 w-5"/> 패스</button><button type="button" disabled={Boolean(exitDecision)} onClick={() => decide("like")} className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-orange-500 text-sm font-bold text-black shadow-lg shadow-orange-500/20 disabled:opacity-50" aria-label="좋아요"><Heart className="h-5 w-5"/> 좋아요</button><button type="button" disabled={Boolean(exitDecision)} onClick={() => void finish()} className="inline-flex h-12 items-center justify-center gap-1.5 rounded-lg border border-white/20 text-sm font-bold text-gray-200 disabled:opacity-50" aria-label="결과 보기"><Check className="h-5 w-5"/> 결과 보기</button></div></section></main>;
+  return <main className="min-h-screen bg-[#0b0b0d] px-4 pb-12 pt-24 text-white"><section className="mx-auto max-w-md"><div className="flex items-center justify-between"><button type="button" onClick={() => void finish()} className="inline-flex items-center gap-1 text-sm font-bold text-gray-400"><ArrowLeft className="h-4 w-4"/> 여기까지</button><span className="text-sm font-bold text-gray-500">{actions.length + 1}장째</span></div><p className="mt-8 text-center text-xs font-bold uppercase text-orange-300">TASTE SWIPE</p><h1 className="mt-2 text-center text-2xl font-bold">지금 이 상품은 어떤가요?</h1><div className="relative mt-7 h-[min(68vh,580px)]"><div className="absolute inset-2 rounded-2xl bg-white/[0.04]"/><div onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} style={{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)`, transition: isDragging ? "none" : "transform 120ms var(--ease-out)", boxShadow: glow }} className="absolute z-10 inset-0 touch-pan-y select-none overflow-hidden rounded-2xl border border-white/10 bg-[#151518]"><img src={current.thumbnailImage || current.image || DEFAULT_PRODUCT_PLACEHOLDER} alt={current.name} onError={fallback} draggable={false} className="h-full w-full object-cover pointer-events-none"/><div className={`absolute left-5 top-5 rounded-md border-2 border-red-200 bg-red-500/20 px-3 py-1.5 text-sm font-black tracking-[0.16em] text-red-100 transition-all ${visualDecision === "pass" ? "scale-100 opacity-100" : "scale-75 opacity-0"}`}>PASS</div><div className={`absolute right-5 top-5 rounded-md border-2 border-blue-100 bg-blue-500/25 px-3 py-1.5 text-sm font-black tracking-[0.16em] text-blue-50 transition-all ${visualDecision === "like" ? "scale-100 opacity-100" : "scale-75 opacity-0"}`}>LIKE</div><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-5 pb-6 pt-24"><p className="text-xs font-bold text-orange-300">{current.brand}</p><p className="mt-1 text-lg font-bold">{current.name}</p><p className="mt-2 text-xs text-gray-300">왼쪽은 패스 · 오른쪽은 좋아요</p></div></div></div><div className="mt-6 grid grid-cols-3 gap-3"><button type="button" disabled={Boolean(exitDecision)} onClick={() => decide("pass")} className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-red-300/50 bg-red-400/10 text-sm font-bold text-red-100 disabled:opacity-50" aria-label="이번엔 아니에요"><X className="h-5 w-5"/> 패스</button><button type="button" disabled={Boolean(exitDecision)} onClick={() => decide("like")} className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-orange-500 text-sm font-bold text-black shadow-lg shadow-orange-500/20 disabled:opacity-50" aria-label="좋아요"><Heart className="h-5 w-5"/> 좋아요</button><button type="button" disabled={Boolean(exitDecision)} onClick={() => void finish()} className="inline-flex h-12 items-center justify-center gap-1.5 rounded-lg border border-white/20 text-sm font-bold text-gray-200 disabled:opacity-50" aria-label="결과 보기"><Check className="h-5 w-5"/> 결과 보기</button></div></section></main>;
 }
