@@ -54,6 +54,14 @@ export interface DigMatchRecommendationGroups {
   revisit: DigMatchRecommendation[];
 }
 
+export type TasteSwipeDecision = "like" | "pass";
+
+export interface TasteSwipeAction {
+  productId: string;
+  decision: TasteSwipeDecision;
+  decidedAt: string;
+}
+
 export const DIG_MATCH_AXES: DigMatchAxis[] = [
   {
     id: "polished_vs_utility",
@@ -137,6 +145,55 @@ function eligibleProducts(products: Product[], presentation: DigMatchPresentatio
       presentation === "all" || targetGender === presentation || targetGender === "unisex" || targetGender === "unknown";
     return matchesPresentation && Boolean(product.image || product.thumbnailImage) && Object.values(tags).some((score) => score >= 0.2);
   });
+}
+
+/** A deliberately mixed deck: most cards reinforce the profile, while every
+ * fifth card keeps the user out of a narrow recommendation bubble. */
+export function buildTasteSwipeDeck(
+  products: Product[],
+  profile: DigMatchProfile | null,
+  presentation: DigMatchPresentation,
+  excludedIds: Set<string>,
+  count = 24,
+  random = Math.random
+) {
+  const candidates = eligibleProducts(products, presentation).filter((product) => !excludedIds.has(product.id));
+  const affinity = (product: Product) => TAGS.reduce((sum, tag) => sum + Number(productTags(product)[tag] || 0) * Math.max(0, profile?.signals[tag]?.score || 0), 0);
+  const ranked = candidates.map((product) => ({ product, score: affinity(product), random: random() }));
+  const familiar = [...ranked].sort((a, b) => b.score - a.score || a.random - b.random);
+  const explore = [...ranked].sort((a, b) => a.score - b.score || a.random - b.random);
+  const result: Product[] = [];
+  const added = new Set<string>();
+  for (let index = 0; result.length < Math.min(count, candidates.length); index += 1) {
+    const source = index % 5 === 4 ? explore : familiar;
+    const candidate = source.find((item) => !added.has(item.product.id));
+    if (!candidate) break;
+    added.add(candidate.product.id);
+    result.push(candidate.product);
+  }
+  return result;
+}
+
+export function calculateTasteSwipeProfile(previous: DigMatchProfile | null, products: Product[], actions: TasteSwipeAction[]): DigMatchProfile {
+  const productById = new Map(products.map((product) => [product.id, product]));
+  const delta = Object.fromEntries(TAGS.map((tag) => [tag, 0])) as Record<StyleTagName, number>;
+  const evidence = Object.fromEntries(TAGS.map((tag) => [tag, 0])) as Record<StyleTagName, number>;
+  for (const action of actions) {
+    const product = productById.get(action.productId);
+    if (!product) continue;
+    const multiplier = action.decision === "like" ? 0.18 : -0.07;
+    addProductSignal(delta, product, multiplier);
+    if (action.decision === "like") for (const tag of TAGS) evidence[tag] += Number(productTags(product)[tag] || 0);
+  }
+  const signals: Partial<Record<StyleTagName, DigMatchSignal>> = {};
+  for (const tag of TAGS) {
+    const prior = previous?.signals[tag] || { score: 0, confidence: 0 };
+    signals[tag] = {
+      score: Math.max(-1, Math.min(1, prior.score + delta[tag])),
+      confidence: Math.min(1, prior.confidence + Math.min(0.12, evidence[tag] * 0.035)),
+    };
+  }
+  return { version: 1, completedSessions: previous?.completedSessions || 0, signals, updatedAt: new Date().toISOString() };
 }
 
 function buildQuestion(

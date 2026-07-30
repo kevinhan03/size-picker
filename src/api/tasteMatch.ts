@@ -1,6 +1,6 @@
 import { supabase, assertSupabaseClient } from "../lib/supabase";
 import { type ApiEnvelope, parseApiJson } from "./shared";
-import type { DigMatchAnswer, DigMatchProfile } from "../utils/digMatch";
+import type { DigMatchAnswer, DigMatchProfile, TasteSwipeAction } from "../utils/digMatch";
 import type { Product } from "../types";
 
 export interface DigMatchHistoryEntry {
@@ -49,5 +49,18 @@ export async function saveDigMatchProfile(profile: DigMatchProfile, answers: Dig
   });
   const payload = await parseApiJson<ApiEnvelope<{ profile?: DigMatchProfile }>>(response, "/api/taste-match/profile");
   if (!response.ok || !payload.ok) throw new Error(payload.error || "취향 프로필을 저장하지 못했습니다.");
+  return true;
+}
+
+export async function saveTasteSwipe(profile: DigMatchProfile, actions: TasteSwipeAction[]) {
+  const token = await getAccessToken();
+  if (!token) return false;
+  const response = await fetch("/api/taste-match/swipes", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ profile, actions }),
+  });
+  const payload = await parseApiJson<ApiEnvelope<Record<string, never>>>(response, "/api/taste-match/swipes");
+  if (!response.ok || !payload.ok) throw new Error(payload.error || "취향 반응을 저장하지 못했습니다.");
   return true;
 }
