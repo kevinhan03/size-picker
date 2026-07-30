@@ -7,6 +7,7 @@ import {
   SUPABASE_STORAGE_BUCKET,
 } from "../config/env.js";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
+import { persistExternalProductImage, removeStoredProductImage } from "../services/product-image-storage.js";
 import { normalizeBrandName } from "./brand-rules.js";
 import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "./size-table.js";
 
@@ -179,7 +180,8 @@ export const insertProductRow = async (input) => {
   assertSupabaseConfig();
   const normalizedImagePath = String(imagePath || "").trim();
   const normalizedImage = String(image || "").trim();
-  const effectiveImagePath = normalizedImagePath || normalizedImage || null;
+  const sourceImagePath = normalizedImagePath || normalizedImage || null;
+  const effectiveImagePath = await persistExternalProductImage(sourceImagePath);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing normalization path.
   const effectiveImage = normalizedImage || normalizedImagePath || "";
   const normalizedSlug = String(slug || "").trim() || null;
@@ -208,28 +210,35 @@ export const insertProductRow = async (input) => {
   const effectiveNormalizedSizeTable = isBottomCategory(category)
     ? parseSizeTable(normalizedSizeTable) || normalizeSizeTableForCategory(category, effectiveSizeTable)
     : null;
-  const { data, error } = await supabase
-    .from(SUPABASE_PRODUCTS_TABLE)
-    .insert({
-      brand: canonicalBrand,
-      name,
-      category,
-      url,
-      image_path: effectiveImagePath,
-      size_table: effectiveSizeTable,
-      normalized_size_table: effectiveNormalizedSizeTable,
-      created_at: createdAt,
-      slug: normalizedSlug,
-      is_instagram: isInstagram,
-      instagram_order: isInstagram ? effectiveInstagramOrder : null,
-      registered_by: registeredBy || null,
-      product_metadata: effectiveProductMetadata,
-    })
-    .select("*")
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from(SUPABASE_PRODUCTS_TABLE)
+      .insert({
+        brand: canonicalBrand,
+        name,
+        category,
+        url,
+        image_path: effectiveImagePath,
+        size_table: effectiveSizeTable,
+        normalized_size_table: effectiveNormalizedSizeTable,
+        created_at: createdAt,
+        slug: normalizedSlug,
+        is_instagram: isInstagram,
+        instagram_order: isInstagram ? effectiveInstagramOrder : null,
+        registered_by: registeredBy || null,
+        product_metadata: effectiveProductMetadata,
+      })
+      .select("*")
+      .single();
 
-  if (error) throw error;
-  return data;
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    if (effectiveImagePath !== sourceImagePath) {
+      await removeStoredProductImage(effectiveImagePath).catch(() => undefined);
+    }
+    throw error;
+  }
 };
 
 export const backfillProductBrands = async () => {

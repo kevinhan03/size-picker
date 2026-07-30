@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { after } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
@@ -15,6 +15,7 @@ import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.j
 import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
 import { embedProductImageById } from "../../../server/services/image-embedding.js";
 import { tagProductStyleById } from "../../../server/services/style-tagging.js";
+import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../server/services/dig-match-products.js";
 
 interface RegisteredUser {
   id: string;
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
         (async () => {
           try {
             const result = await tagProductStyleById(productId);
+            if (result.ok && !result.skipped) revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
             if (!result.ok) {
               console.error("[style-tagging] async product tagging did not complete", { productId, result });
             }
@@ -153,6 +155,7 @@ export async function POST(request: Request) {
       ]);
     });
 
+    revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
     revalidatePath("/", "layout");
     return NextResponse.json(
       {

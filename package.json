@@ -16,6 +16,8 @@
     "backfill:slugs:dry": "node scripts/backfill-slugs.mjs --dry-run",
     "backfill:target-gender": "node scripts/backfill-product-target-gender.mjs",
     "backfill:target-gender:dry": "node scripts/backfill-product-target-gender.mjs --dry-run",
+    "backfill:product-images": "node scripts/backfill-product-images-to-storage.mjs",
+    "backfill:product-images:dry": "node scripts/backfill-product-images-to-storage.mjs --dry-run",
     "classify:target-gender": "node scripts/classify-product-target-gender.mjs",
     "classify:target-gender:vision": "node scripts/classify-product-target-gender.mjs --include-images",
     "analyze:style-reviews": "node scripts/analyze-style-review-feedback.mjs"

@@ -20,12 +20,12 @@ const splitProducts = (all: Product[]) => ({
   featured: sortFeaturedProducts(all.filter((p) => p.isInstagram)),
 });
 
-export function useProducts(initialProducts: Product[] = []) {
+export function useProducts(initialProducts: Product[] = [], { enabled = true }: { enabled?: boolean } = {}) {
   const initial = splitProducts(initialProducts);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>(initial.normal);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>(initial.featured);
-  const [isProductsLoading, setIsProductsLoading] = useState(initialProducts.length === 0);
+  const [isProductsLoading, setIsProductsLoading] = useState(enabled && initialProducts.length === 0);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const didInitRef = useRef(initialProducts.length > 0);
 
@@ -34,6 +34,12 @@ export function useProducts(initialProducts: Product[] = []) {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setIsProductsLoading(false);
+      setProductsError(null);
+      return;
+    }
+
     if (retryTrigger === 0 && didInitRef.current) {
       return;
     }
@@ -64,7 +70,7 @@ export function useProducts(initialProducts: Product[] = []) {
     return () => {
       isActive = false;
     };
-  }, [retryTrigger]);
+  }, [enabled, retryTrigger]);
 
   return {
     products,

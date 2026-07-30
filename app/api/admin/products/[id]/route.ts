@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { verifyAdminRequest } from "../../../../../server/utils/admin-request.js";
 import { SUPABASE_PRODUCTS_TABLE } from "../../../../../server/config/env.js";
 import { assertSupabaseConfig, supabase } from "../../../../../server/lib/supabase.js";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../../../server/utils/brand-rules.js";
 import { removeOldProductImageIfUnused, toProductWriteErrorResponse } from "../../../../../server/utils/product.js";
+import { persistExternalProductImage, removeStoredProductImage } from "../../../../../server/services/product-image-storage.js";
+import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../../server/services/dig-match-products.js";
 import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../../../server/utils/size-table.js";
 
 export async function PATCH(
@@ -24,6 +26,8 @@ export async function PATCH(
     );
   }
 
+  let uploadedImagePath: string | null = null;
+  let didUpdateProduct = false;
   try {
     const body = await request.json();
     const payload: Record<string, unknown> = {};
@@ -42,7 +46,9 @@ export async function PATCH(
     }
     if ("imagePath" in body) {
       const imagePath = String(body?.imagePath || "").trim();
-      payload.image_path = imagePath || null;
+      const storedImagePath = imagePath ? await persistExternalProductImage(imagePath) : null;
+      if (storedImagePath && storedImagePath !== imagePath) uploadedImagePath = storedImagePath;
+      payload.image_path = storedImagePath;
     }
     const nextCategory = "category" in body ? String(body?.category || "").trim() : "";
     if ("sizeTable" in body) {
@@ -101,9 +107,10 @@ export async function PATCH(
         .eq("id", productId)
         .maybeSingle();
 
-      if (existingProductError) throw existingProductError;
-      if (!existingProduct) {
-        return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
+        if (existingProductError) throw existingProductError;
+        if (!existingProduct) {
+          if (uploadedImagePath) await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
+          return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
       }
 
       previousImagePath = String(existingProduct.image_path || "").trim() || null;
@@ -118,8 +125,10 @@ export async function PATCH(
 
     if (error) throw error;
     if (!data) {
+      if (uploadedImagePath) await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
       return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
     }
+    didUpdateProduct = true;
 
     const currentImagePath = String(data.image_path || "").trim() || null;
     if (hasImagePathInPayload && previousImagePath && previousImagePath !== currentImagePath) {
@@ -129,12 +138,16 @@ export async function PATCH(
       });
     }
 
+    revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
     revalidatePath("/", "layout");
     return NextResponse.json({
       ok: true,
       data: { product: data },
     });
   } catch (error: unknown) {
+    if (uploadedImagePath && !didUpdateProduct) {
+      await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
+    }
     const { statusCode, message } = toProductWriteErrorResponse(error, "product update error");
     return NextResponse.json({ ok: false, error: message }, { status: statusCode });
   }
@@ -176,6 +189,7 @@ export async function DELETE(
       updatedProductId: productId,
     });
 
+    revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
     revalidatePath("/", "layout");
     return NextResponse.json({
       ok: true,

@@ -3,6 +3,8 @@ import { verifyAdminRequest } from "../../../../server/utils/admin-request.js";
 import { generateProductSlug, insertProductRow, normalizeProductRow, toProductWriteErrorResponse } from "../../../../server/utils/product.js";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../../server/utils/brand-rules.js";
 import { parseSizeTable } from "../../../../server/utils/size-table.js";
+import { revalidateTag } from "next/cache";
+import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../server/services/dig-match-products.js";
 
 export async function POST(request: Request) {
   const adminError = verifyAdminRequest(request);
@@ -38,6 +40,7 @@ export async function POST(request: Request) {
       createdAt,
       slug,
     });
+    revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
     const product = normalizeProductRow(row);
     return NextResponse.json({ ok: true, data: { product } });
   } catch (error: unknown) {

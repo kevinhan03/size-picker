@@ -1,10 +1,18 @@
 import { supabase, assertSupabaseClient } from "../lib/supabase";
 import { type ApiEnvelope, parseApiJson } from "./shared";
 import type { DigMatchAnswer, DigMatchProfile } from "../utils/digMatch";
+import type { Product } from "../types";
 
 export interface DigMatchHistoryEntry {
   completedAt: string;
   profile: DigMatchProfile;
+}
+
+export async function fetchDigMatchProducts(): Promise<Product[]> {
+  const response = await fetch("/api/dig-match/products", { cache: "no-store" });
+  const payload = await parseApiJson<ApiEnvelope<{ products?: Product[] }>>(response, "/api/dig-match/products");
+  if (!response.ok || !payload.ok) throw new Error(payload.error || "상품 정보를 불러오지 못했습니다.");
+  return Array.isArray(payload.data?.products) ? payload.data.products : [];
 }
 
 async function getAccessToken() {

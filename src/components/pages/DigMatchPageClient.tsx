@@ -1,12 +1,11 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Product images require native fallback source mutation. */
 
-import { type KeyboardEvent, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, Compass, RotateCcw, Sparkles, Undo2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { fetchDigMatchHistory, fetchDigMatchProfile, saveDigMatchProfile, type DigMatchHistoryEntry } from "../../api/tasteMatch";
+import { fetchDigMatchHistory, fetchDigMatchProducts, fetchDigMatchProfile, saveDigMatchProfile, type DigMatchHistoryEntry } from "../../api/tasteMatch";
 import { useAuthContext } from "../../contexts/AuthContext";
-import { useProductsContext } from "../../contexts/ProductsContext";
 import { captureEvent } from "../../utils/analytics";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../../constants";
 import { getProductPageUrl } from "../../utils/product";
@@ -25,7 +24,6 @@ import {
   type DigMatchAnswer,
   type DigMatchChoice,
   type DigMatchProfile,
-  type DigMatchPresentation,
   type DigMatchQuestion,
 } from "../../utils/digMatch";
 import type { Product } from "../../types";
@@ -72,7 +70,7 @@ function ProductChoice({ product, choice, isSelected, isPending, onChoose }: {
       className={`dig-match-choice group relative aspect-[3/4] min-w-0 overflow-hidden rounded-xl border bg-[#151518] text-left transition-[transform,opacity,border-color] duration-150 [transition-timing-function:var(--ease-out)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0b0d] sm:aspect-[4/5] ${isSelected ? "scale-[0.98] border-orange-300 opacity-90" : "border-white/10"} disabled:cursor-wait`}
       aria-label={`${product.brand} ${product.name} 선택`}
     >
-      <img src={product.image || product.thumbnailImage || DEFAULT_PRODUCT_PLACEHOLDER} alt={product.name} onError={handleImageFallback} className="dig-match-choice-image absolute inset-0 h-full w-full object-cover transition-transform duration-[var(--duration-layer-enter)] [transition-timing-function:var(--ease-out)]" />
+      <img src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER} alt={product.name} onError={handleImageFallback} className="dig-match-choice-image absolute inset-0 h-full w-full object-cover transition-transform duration-[var(--duration-layer-enter)] [transition-timing-function:var(--ease-out)]" />
       <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/65 to-transparent px-3 pb-3 pt-14 sm:px-5 sm:pb-5">
         <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-white/65 sm:text-[11px]">{product.brand}</span>
         <span className="mt-1 block line-clamp-2 text-sm font-semibold leading-5 text-white sm:text-base">{product.name}</span>
@@ -95,9 +93,9 @@ function RecommendationGroup({ title, copy, items, onOpen }: { title: string; co
 export function DigMatchPageClient() {
   const router = useRouter();
   const auth = useAuthContext();
-  const { products, isProductsLoading, productsError, retryProductsLoad } = useProductsContext();
-  const [fallbackProducts, setFallbackProducts] = useState<Product[]>([]);
-  const [isFallbackLoading, setIsFallbackLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isProductsLoading, setIsProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("ready");
   const [questions, setQuestions] = useState<DigMatchQuestion[]>([]);
   const [answers, setAnswers] = useState<DigMatchAnswer[]>([]);
@@ -105,12 +103,12 @@ export function DigMatchPageClient() {
   const [profile, setProfile] = useState<DigMatchProfile | null>(null);
   const [previousProfile, setPreviousProfile] = useState<DigMatchProfile | null>(null);
   const [history, setHistory] = useState<DigMatchHistoryEntry[]>([]);
-  const [presentation, setPresentation] = useState<DigMatchPresentation | null>(null);
   const [pendingChoice, setPendingChoice] = useState<DigMatchChoice | null>(null);
   const [undoState, setUndoState] = useState<UndoState | null>(null);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const loadedProfileRef = useRef<DigMatchProfile | null>(null);
+  const productRequestRef = useRef(0);
   const pendingTimerRef = useRef<number | null>(null);
   const undoTimerRef = useRef<number | null>(null);
 
@@ -141,26 +139,40 @@ export function DigMatchPageClient() {
     return () => { active = false; };
   }, [auth.authUser]);
 
-  useEffect(() => {
-    let active = true;
-    void fetch("/api/products").then(async (response) => { const payload = await response.json() as { ok?: boolean; data?: { products?: Product[] } }; return response.ok && payload.ok && Array.isArray(payload.data?.products) ? payload.data.products : []; }).then((loadedProducts) => { if (active) setFallbackProducts(loadedProducts); }).catch(() => undefined).finally(() => { if (active) setIsFallbackLoading(false); });
-    return () => { active = false; };
+  const loadProducts = useCallback(async () => {
+    const requestId = productRequestRef.current + 1;
+    productRequestRef.current = requestId;
+    setIsProductsLoading(true);
+    setProductsError(null);
+    try {
+      const loadedProducts = await fetchDigMatchProducts();
+      if (productRequestRef.current !== requestId) return;
+      setProducts(loadedProducts);
+    } catch (error) {
+      if (productRequestRef.current !== requestId) return;
+      setProductsError(error instanceof Error ? error.message : "상품 정보를 불러오지 못했습니다.");
+    } finally {
+      if (productRequestRef.current === requestId) setIsProductsLoading(false);
+    }
   }, []);
 
-  const availableProducts = products.length > 0 ? products : fallbackProducts;
+  useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
+
+  const availableProducts = products;
   const currentQuestion = questions[questionIndex] || null;
   const result = useMemo(() => {
     if (!profile) return null;
-    return { highlights: getDigMatchHighlights(profile), interpretation: getDigMatchInterpretation(profile, questions, answers, previousProfile), recommendationGroups: getDigMatchRecommendationGroups(availableProducts, profile, questions, answers, presentation || "all") };
-  }, [answers, availableProducts, presentation, previousProfile, profile, questions]);
+    return { highlights: getDigMatchHighlights(profile), interpretation: getDigMatchInterpretation(profile, questions, answers, previousProfile), recommendationGroups: getDigMatchRecommendationGroups(availableProducts, profile, questions, answers) };
+  }, [answers, availableProducts, previousProfile, profile, questions]);
 
   const start = useCallback(() => {
-    if (!presentation) return;
-    const generated = buildDigMatchOpeningQuestions(availableProducts, DIG_MATCH_OPENING_QUESTION_COUNT, Math.random, { presentation });
+    const generated = buildDigMatchOpeningQuestions(availableProducts, DIG_MATCH_OPENING_QUESTION_COUNT, Math.random);
     if (generated.length < DIG_MATCH_OPENING_QUESTION_COUNT) return;
     clearUndo(); clearPendingAnswer(); setQuestions(generated); setAnswers([]); setQuestionIndex(0); setPreviousProfile(loadedProfileRef.current); setScreen("question");
     captureEvent("dig_match_started", { question_count: generated.length, is_authenticated: Boolean(auth.authUser) });
-  }, [auth.authUser, availableProducts, clearPendingAnswer, clearUndo, presentation]);
+  }, [auth.authUser, availableProducts, clearPendingAnswer, clearUndo]);
 
   const complete = useCallback(async (nextAnswers: DigMatchAnswer[]) => {
     const priorProfile = loadedProfileRef.current;
@@ -178,7 +190,7 @@ export function DigMatchPageClient() {
     const nextAnswers = [...answers, { questionId: currentQuestion.id, axisId: currentQuestion.axisId, choice, leftProductId: currentQuestion.left.id, rightProductId: currentQuestion.right.id }];
     captureEvent(choice === "skip" ? "dig_match_question_skipped" : "dig_match_question_answered", { question_index: questionIndex + 1, choice, axis: currentQuestion.axisId });
     const isOpeningComplete = questionIndex + 1 === DIG_MATCH_OPENING_QUESTION_COUNT && questions.length === DIG_MATCH_OPENING_QUESTION_COUNT;
-    const followUps = isOpeningComplete ? buildDigMatchFollowUpQuestions(availableProducts, questions, nextAnswers, 4, Math.random, { presentation: presentation || "all" }) : [];
+    const followUps = isOpeningComplete ? buildDigMatchFollowUpQuestions(availableProducts, questions, nextAnswers, 4, Math.random) : [];
     const isFinal = !followUps.length && questionIndex + 1 >= questions.length;
     setAnswers(nextAnswers);
     if (!isFinal) {
@@ -189,7 +201,7 @@ export function DigMatchPageClient() {
     if (followUps.length) { setQuestions((current) => [...current, ...followUps]); setQuestionIndex((index) => index + 1); captureEvent("dig_match_follow_up_generated", { question_count: followUps.length }); return; }
     if (isFinal) { void complete(nextAnswers); return; }
     setQuestionIndex((index) => index + 1);
-  }, [answers, availableProducts, complete, currentQuestion, presentation, questionIndex, questions]);
+  }, [answers, availableProducts, complete, currentQuestion, questionIndex, questions]);
 
   const answer = useCallback((choice: DigMatchChoice) => {
     if (pendingChoice) return;
@@ -209,22 +221,10 @@ export function DigMatchPageClient() {
     else setScreen("ready");
   }, [answers.length, clearPendingAnswer]);
   const confirmExit = useCallback(() => { clearUndo(); clearPendingAnswer(); setIsExitConfirmOpen(false); setScreen("ready"); }, [clearPendingAnswer, clearUndo]);
-  const selectPresentation = useCallback((value: DigMatchPresentation) => setPresentation(value), []);
-  const onPresentationKeyDown = useCallback((event: KeyboardEvent<HTMLButtonElement>, value: DigMatchPresentation) => {
-    const choices: DigMatchPresentation[] = ["menswear", "womenswear", "all"];
-    const current = choices.indexOf(value);
-    const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
-    if (!direction) return;
-    event.preventDefault();
-    const next = choices[(current + direction + choices.length) % choices.length];
-    setPresentation(next);
-    document.getElementById(`dig-match-presentation-${next}`)?.focus();
-  }, []);
-
   useEffect(() => { if (screen === "result") captureEvent("dig_match_result_viewed", { completed_sessions: profile?.completedSessions || 1 }); }, [profile?.completedSessions, screen]);
 
-  const isLoadingProducts = isProductsLoading && isFallbackLoading;
-  const canStart = Boolean(presentation) && !isLoadingProducts && buildDigMatchQuestions(availableProducts, 12, () => 0.42, { presentation: presentation || "all" }).length >= 12;
+  const isLoadingProducts = isProductsLoading;
+  const canStart = !isLoadingProducts && buildDigMatchQuestions(availableProducts, 12, () => 0.42).length >= 12;
   const progressInsight = getDigMatchProgressInsight(questions.slice(0, questionIndex), answers);
   const isFollowUpPhase = questionIndex >= DIG_MATCH_OPENING_QUESTION_COUNT;
   const phaseTotal = isFollowUpPhase ? Math.max(1, questions.length - DIG_MATCH_OPENING_QUESTION_COUNT) : DIG_MATCH_OPENING_QUESTION_COUNT;
@@ -234,7 +234,7 @@ export function DigMatchPageClient() {
   const selectedTags = result?.highlights.core.slice(0, 3) || result?.highlights.signature.slice(0, 3) || [];
 
   return <main data-dig-match-screen={screen} className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white lg:pt-24"><div className="mx-auto w-full max-w-5xl">
-    {screen === "ready" ? <section className="mx-auto max-w-2xl py-10 sm:py-16"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-orange-300">DIG MATCH</p><h1 className="mt-3 text-3xl font-semibold leading-[1.12] tracking-[-0.035em] sm:text-4xl">더 끌리는 쪽은?</h1><p className="mt-4 max-w-xl text-base leading-7 text-gray-300">약 2분의 비교로, 지금의 취향을 더 선명하게 정리해요.</p><div className="mt-9"><div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="이번 매치에서 볼 상품 범위">{([ ["menswear", "남성 스타일"], ["womenswear", "여성 스타일"], ["all", "구분 없이"] ] as const).map(([value, label]) => <button id={`dig-match-presentation-${value}`} key={value} type="button" role="radio" aria-checked={presentation === value} tabIndex={presentation === null ? (value === "all" ? 0 : -1) : presentation === value ? 0 : -1} onClick={() => selectPresentation(value)} onKeyDown={(event) => onPresentationKeyDown(event, value)} className={`dig-match-presentation-option inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-medium whitespace-nowrap transition-[border-color,color,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 sm:text-sm ${presentation === value ? "border-orange-300 bg-orange-400/[0.08] text-white" : "border-white/10 bg-white/[0.02] text-gray-300"}`}>{presentation === value ? <Check className="h-3.5 w-3.5 text-orange-300" /> : null}{label}</button>)}</div><p className="mt-3 text-sm leading-6 text-gray-400">선택한 범위 안에서 비슷한 조건의 상품을 비교합니다.</p></div><div className="mt-8"><button type="button" disabled={!canStart} onClick={start} className="dig-match-start-button inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-orange-400 px-5 text-sm font-semibold text-black transition-[background-color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0b0d] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-gray-500 sm:w-auto"><Sparkles className="h-4 w-4" />{isLoadingProducts ? "상품 준비 중" : "매치 시작"}</button></div>{profile?.completedSessions ? <p className="mt-5 text-sm leading-6 text-gray-300">지난 매치 이후의 취향 변화도 함께 비교해 드려요.</p> : null}{lastMatchLabel ? <p className="mt-2 text-sm text-gray-400">최근 매치: {lastMatchLabel}</p> : null}{isLoadingProducts ? <p className="mt-4 text-sm text-gray-400">상품을 불러오는 중입니다.</p> : null}{productsError && !fallbackProducts.length ? <button type="button" onClick={retryProductsLoad} className="mt-4 text-sm font-medium text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300">상품 다시 불러오기</button> : null}{presentation && !isLoadingProducts && !canStart && !productsError ? <p className="mt-4 text-sm text-gray-400">선택한 범위에 비교할 상품이 아직 충분하지 않습니다.</p> : null}</section> : null}
+    {screen === "ready" ? <section className="mx-auto max-w-2xl py-10 sm:py-16"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-orange-300">DIG MATCH</p><h1 className="mt-3 text-3xl font-semibold leading-[1.12] tracking-[-0.035em] sm:text-4xl">더 끌리는 쪽은?</h1><p className="mt-4 max-w-xl text-base leading-7 text-gray-300">약 2분의 비교로, 지금의 취향을 더 선명하게 정리해요.</p><div className="mt-8"><button type="button" disabled={!canStart} onClick={start} className="dig-match-start-button inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-orange-400 px-5 text-sm font-semibold text-black transition-[background-color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0b0d] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-gray-500 sm:w-auto"><Sparkles className="h-4 w-4" />{isLoadingProducts ? "상품 준비 중" : "매치 시작"}</button></div>{profile?.completedSessions ? <p className="mt-5 text-sm leading-6 text-gray-300">지난 매치 이후의 취향 변화도 함께 비교해 드려요.</p> : null}{lastMatchLabel ? <p className="mt-2 text-sm text-gray-400">최근 매치: {lastMatchLabel}</p> : null}{isLoadingProducts ? <p className="mt-4 text-sm text-gray-400">상품을 불러오는 중입니다.</p> : null}{productsError ? <button type="button" onClick={() => void loadProducts()} className="mt-4 text-sm font-medium text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300">상품 다시 불러오기</button> : null}{!isLoadingProducts && !canStart && !productsError ? <p className="mt-4 text-sm text-gray-400">비교할 상품이 아직 충분하지 않습니다.</p> : null}</section> : null}
 
     {screen === "question" && currentQuestion ? <section className="mx-auto max-w-4xl"><div className="mb-7 flex items-center justify-between gap-4"><button type="button" onClick={requestExit} className="inline-flex h-11 items-center gap-1.5 text-sm font-medium text-gray-300 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"><ArrowLeft className="h-4 w-4" />나가기</button><span className="text-sm font-medium text-gray-300">{phaseLabel} {phaseIndex} / {phaseTotal}</span></div><div className="mb-8 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full origin-left bg-orange-400 transition-transform duration-150 [transition-timing-function:var(--ease-out)] motion-reduce:transition-opacity" style={{ transform: `scaleX(${phaseIndex / phaseTotal})` }} /></div><p className="text-center text-xs font-semibold uppercase tracking-[0.1em] text-orange-300">{currentQuestion.axisTitle}</p><h1 className="mt-2 text-center text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">지금 더 끌리는 쪽은?</h1>{isFollowUpPhase && phaseIndex === 1 ? <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-6 text-gray-300">취향을 조금 더 선명하게 정리할게요.</p> : null}{progressInsight ? <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-6 text-gray-300"><Compass className="mr-1.5 inline h-4 w-4 text-orange-300" />{progressInsight}</p> : null}<div className="mt-6 grid grid-cols-2 gap-3 sm:mt-7 sm:gap-5"><ProductChoice product={currentQuestion.left} choice="left" isSelected={pendingChoice === "left"} isPending={Boolean(pendingChoice)} onChoose={() => answer("left")} /><ProductChoice product={currentQuestion.right} choice="right" isSelected={pendingChoice === "right"} isPending={Boolean(pendingChoice)} onChoose={() => answer("right")} /></div><div className="mt-5 flex flex-wrap justify-center gap-2"><button type="button" disabled={Boolean(pendingChoice)} onClick={() => answer("both")} className={`h-11 rounded-lg border px-4 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 ${pendingChoice === "both" ? "border-orange-300 bg-orange-400/[0.08] text-white" : "border-white/15 bg-white/[0.04] text-gray-200 hover:border-white/30"}`}>둘 다 좋아요</button><button type="button" disabled={Boolean(pendingChoice)} onClick={() => answer("neither")} className={`h-11 rounded-lg border px-4 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 ${pendingChoice === "neither" ? "border-orange-300 bg-orange-400/[0.08] text-white" : "border-white/15 bg-white/[0.04] text-gray-200 hover:border-white/30"}`}>둘 다 아니에요</button><button type="button" disabled={Boolean(pendingChoice)} onClick={() => answer("skip")} className="h-11 rounded-lg px-3 text-sm font-medium text-gray-400 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300">건너뛰기</button></div>{undoState ? <div role="status" className="fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem)] z-30 mx-auto flex max-w-sm items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#1b1b1f]/95 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md motion-reduce:transition-none sm:bottom-6"><span className="inline-flex min-w-0 items-center gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-orange-300" />선택됨</span><button type="button" onClick={undoLastAnswer} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2 font-medium text-orange-200 transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"><Undo2 className="h-4 w-4" />실행 취소</button></div> : null}</section> : null}
 
