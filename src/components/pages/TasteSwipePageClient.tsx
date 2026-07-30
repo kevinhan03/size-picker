@@ -126,7 +126,7 @@ export function TasteSwipePageClient() {
     <main className="min-h-screen bg-[#0b0b0d] px-4 pb-12 pt-24 text-white">
       <section className="mx-auto max-w-xl py-10">
         <p className="text-xs font-bold uppercase tracking-[0.12em] text-orange-300">TASTE SWIPE</p>
-        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_72%_16%,rgba(37,99,235,0.22),transparent_32%),radial-gradient(circle_at_84%_72%,rgba(249,115,22,0.15),transparent_30%),#121216] p-5 shadow-[0_18px_48px_rgba(0,0,0,0.32)] sm:p-6">
+        <div className="taste-swipe-summary-card mt-4 overflow-hidden rounded-2xl border border-white/10 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.32)] sm:p-6">
           <p className="text-sm font-medium text-gray-400">이번 탐색</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white sm:text-3xl">{strongestSignals[0] ? `이번 탐색에서 ${getDigMatchTagLabel(strongestSignals[0].tag)} 취향이 더 선명해졌어요.` : "선택이 쌓이며 취향이 조금 더 선명해졌어요."}</h1>
           <p className="mt-5 text-sm text-gray-300">{actions.length}장 중 <span className="font-semibold text-orange-300">{sessionLikeCount}개</span>를 좋아했어요.</p>
