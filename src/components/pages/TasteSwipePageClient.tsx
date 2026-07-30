@@ -44,7 +44,6 @@ export function TasteSwipePageClient() {
   const [finished, setFinished] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const pointerStart = useRef<number | null>(null);
-  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seen = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -83,18 +82,12 @@ export function TasteSwipePageClient() {
     if (!deck.length && actions.length) void finish();
   }, [actions.length, deck.length, finish]);
 
-  useEffect(() => () => { if (exitTimer.current) clearTimeout(exitTimer.current); }, []);
-
   const decide = useCallback((decision: "like" | "pass") => {
     if (!current || exitDecision) return;
     const nextActions = [...actions, { productId: current.id, decision, decidedAt: new Date().toISOString() }];
-    setExitDecision(decision);
-    setDragX(decision === "like" ? 620 : -620);
     captureEvent("taste_swipe_decided", { decision, product_id: current.id, card_number: nextActions.length });
-    exitTimer.current = setTimeout(() => {
-      seen.current.add(current.id); saveSeen(seen.current);
-      setActions(nextActions); setDeck((items) => items.slice(1)); setDragX(0); setExitDecision(null);
-    }, 150);
+    seen.current.add(current.id); saveSeen(seen.current);
+    setActions(nextActions); setDeck((items) => items.slice(1)); setDragX(0);
   }, [actions, current, exitDecision]);
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => { if (exitDecision) return; pointerStart.current = event.clientX; setIsDragging(true); event.currentTarget.setPointerCapture(event.pointerId); };
