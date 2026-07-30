@@ -8,7 +8,7 @@ import { DEFAULT_PRODUCT_PLACEHOLDER } from "../../constants";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { captureEvent } from "../../utils/analytics";
-import { buildTasteSwipeDeck, calculateTasteSwipeProfile, getDigMatchRecommendations, getDigMatchTagLabel, parseDigMatchProfile, type DigMatchPresentation, type DigMatchProfile, type TasteSwipeAction } from "../../utils/digMatch";
+import { buildTasteSwipeDeck, calculateTasteSwipeProfile, getDigMatchHighlights, getDigMatchRecommendations, getDigMatchTagLabel, parseDigMatchProfile, type DigMatchPresentation, type DigMatchProfile, type TasteSwipeAction } from "../../utils/digMatch";
 import type { Product } from "../../types";
 
 const PROFILE_KEY = "digbox:dig-match:profile:v1";
@@ -79,6 +79,10 @@ export function TasteSwipePageClient() {
   const current = deck[0] || null;
   const nextProfile = useMemo(() => finished && actions.length ? calculateTasteSwipeProfile(profile, products, actions) : profile, [actions, finished, products, profile]);
   const recommendations = useMemo(() => finished && nextProfile ? getDigMatchRecommendations(products, nextProfile, new Set(actions.map((action) => action.productId)), 3, presentation) : [], [actions, finished, nextProfile, presentation, products]);
+  const highlights = useMemo(() => nextProfile ? getDigMatchHighlights(nextProfile) : null, [nextProfile]);
+  const sessionLikeCount = actions.filter((action) => action.decision === "like").length;
+  const strongestSignals = highlights ? [...highlights.core, ...highlights.signature].filter((item, index, items) => items.findIndex((candidate) => candidate.tag === item.tag) === index).slice(0, 2) : [];
+  const newSignal = profile?.updatedAt ? highlights?.curious[0] : null;
 
   useEffect(() => {
     deck.slice(1, 3).forEach((product) => {
@@ -118,7 +122,28 @@ export function TasteSwipePageClient() {
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => { if (pointerStart.current !== null) setDragX(event.clientX - pointerStart.current); };
   const onPointerEnd = () => { if (dragX >= SWIPE_THRESHOLD) decide("like"); else if (dragX <= -SWIPE_THRESHOLD) decide("pass"); else setDragX(0); pointerStart.current = null; setIsDragging(false); };
 
-  if (finished) return <main className="min-h-screen bg-[#0b0b0d] px-4 pb-12 pt-24 text-white"><section className="mx-auto max-w-xl py-10"><p className="text-xs font-bold uppercase text-orange-400">TASTE SWIPE</p><h1 className="mt-3 text-3xl font-bold">이번 탐색을 반영했어요.</h1><p className="mt-3 text-base leading-7 text-gray-400">좋아요는 취향을 강화하고, ‘이번엔 아니에요’는 더 약하게 반영했습니다.</p><div className="mt-8 space-y-2">{recommendations.map(({ product, reasons }) => <button key={product.id} type="button" onClick={() => router.push(`/products/${product.slug || product.id}`)} className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-2 text-left"><img src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER} alt="" onError={fallback} className="h-16 w-16 rounded object-cover"/><span><span className="block text-xs font-bold text-orange-200">{product.brand}</span><span className="block text-sm font-bold">{product.name}</span><span className="block text-xs text-gray-500">{reasons.map(getDigMatchTagLabel).join(" · ")}</span></span></button>)}</div><div className="mt-8 flex gap-3"><button type="button" onClick={start} className="h-11 rounded-lg bg-orange-500 px-4 text-sm font-bold text-black">계속 탐색하기</button><button type="button" onClick={() => router.push("/dig-match")} className="h-11 rounded-lg border border-white/15 px-4 text-sm font-bold">비교형 매치</button></div>{isSaving && <p className="mt-4 text-sm text-gray-500">저장 중…</p>}</section></main>;
+  if (finished) return (
+    <main className="min-h-screen bg-[#0b0b0d] px-4 pb-12 pt-24 text-white">
+      <section className="mx-auto max-w-xl py-10">
+        <p className="text-xs font-bold uppercase tracking-[0.12em] text-orange-300">TASTE SWIPE</p>
+        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_72%_16%,rgba(37,99,235,0.22),transparent_32%),radial-gradient(circle_at_84%_72%,rgba(249,115,22,0.15),transparent_30%),#121216] p-5 shadow-[0_18px_48px_rgba(0,0,0,0.32)] sm:p-6">
+          <p className="text-sm font-medium text-gray-400">이번 탐색</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white sm:text-3xl">{strongestSignals[0] ? `이번 탐색에서 ${getDigMatchTagLabel(strongestSignals[0].tag)} 취향이 더 선명해졌어요.` : "선택이 쌓이며 취향이 조금 더 선명해졌어요."}</h1>
+          <p className="mt-5 text-sm text-gray-300">{actions.length}장 중 <span className="font-semibold text-orange-300">{sessionLikeCount}개</span>를 좋아했어요.</p>
+          {strongestSignals.length ? <div className="mt-5 grid gap-3 border-t border-white/10 pt-5 sm:grid-cols-2">{strongestSignals.map((signal) => <div key={signal.tag}><p className="text-base font-semibold text-white">{getDigMatchTagLabel(signal.tag)}</p><p className="mt-1 text-sm text-gray-400">{signal.confidence >= 0.35 ? "뚜렷해짐" : "보이는 중"}</p></div>)}</div> : null}
+          {newSignal ? <p className="mt-5 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-gray-200"><span className="text-orange-300">새롭게 보인 취향</span> · {getDigMatchTagLabel(newSignal.tag)}</p> : null}
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button type="button" onClick={start} className="inline-flex h-11 items-center justify-center rounded-lg bg-orange-500 px-5 text-sm font-semibold text-black transition hover:bg-orange-400">새 카드 더 보기</button>
+          {recommendations.length ? <button type="button" onClick={() => document.getElementById("taste-swipe-recommendations")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="inline-flex h-11 items-center justify-center rounded-lg border border-white/15 px-5 text-sm font-medium text-white transition hover:border-white/30">추천 {recommendations.length}개 보기</button> : null}
+        </div>
+
+        {recommendations.length ? <section id="taste-swipe-recommendations" className="mt-10 border-t border-white/10 pt-6"><p className="text-xs font-bold uppercase tracking-[0.12em] text-orange-300">FOR YOU</p><h2 className="mt-2 text-xl font-semibold text-white">지금 취향으로 볼 만한 상품</h2><div className="mt-5 space-y-2">{recommendations.map(({ product, reasons }) => <button key={product.id} type="button" onClick={() => router.push(`/products/${product.slug || product.id}`)} className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2 text-left transition hover:border-white/20"><img src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER} alt="" onError={fallback} className="h-16 w-16 rounded-lg object-cover"/><span className="min-w-0"><span className="block text-xs font-semibold text-orange-200">{product.brand}</span><span className="mt-1 block truncate text-sm font-semibold text-white">{product.name}</span>{reasons.length ? <span className="mt-1 block text-xs text-gray-400">{reasons.map(getDigMatchTagLabel).join(" · ")}</span> : null}</span></button>)}</div></section> : null}
+        {isSaving ? <p className="mt-5 text-sm text-gray-500">취향을 저장하는 중…</p> : null}
+      </section>
+    </main>
+  );
 
   if (!deck.length) return <main className="min-h-screen bg-[#0b0b0d] px-4 pb-12 pt-24 text-white"><section className="mx-auto max-w-xl py-10"><button type="button" onClick={() => router.push("/dig-match")} className="inline-flex items-center gap-1 text-sm font-bold text-gray-400"><ArrowLeft className="h-4 w-4"/> 디그매치</button><p className="mt-8 text-xs font-bold uppercase text-orange-400">TASTE SWIPE</p><h1 className="mt-3 text-3xl font-bold">한 장씩, 빠르게 반응해 보세요.</h1><p className="mt-3 leading-7 text-gray-400">오른쪽은 좋아요, 왼쪽은 이번엔 아니에요. 언제든 멈추고 현재 선택으로 추천을 볼 수 있어요.</p><div className="mt-7 grid grid-cols-3 gap-2">{([['menswear','남성'],['womenswear','여성'],['all','전체']] as const).map(([value,label]) => <button key={value} type="button" onClick={() => setPresentation(value)} className={`h-11 rounded-md border text-sm font-bold ${presentation === value ? "border-orange-400 bg-orange-500/15 text-orange-200" : "border-white/10 text-gray-400"}`}>{label}</button>)}</div><button type="button" disabled={isProductsLoading || !products.length} onClick={start} className="mt-5 inline-flex h-11 items-center gap-2 rounded-lg bg-orange-500 px-5 text-sm font-bold text-black disabled:bg-white/10 disabled:text-gray-500"><Sparkles className="h-4 w-4"/> 탐색 시작</button></section></main>;
 
