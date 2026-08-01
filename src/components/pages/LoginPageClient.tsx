@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoginPage } from "../LoginPage";
 import { useAuthContext } from "../../contexts/AuthContext";
-import { supabase } from "../../lib/supabase";
 import { captureEvent } from "../../utils/analytics";
 import {
   clearAuthContinuation,
@@ -61,17 +60,14 @@ export function LoginPageClient() {
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[calc(4rem+env(safe-area-inset-top)+1rem)] font-sans text-white">
-      {supabase ? (
-        <LoginPage
-          supabase={supabase}
+      <LoginPage
           onSuccess={() => router.refresh()}
           googleAuthError={hasUnregisteredGoogleState ? null : auth.googleAuthError}
           onClearGoogleAuthError={() => auth.setGoogleAuthError(null)}
           initialTab={queryIntent}
           isGuestDigboxSignup={isGuestDigboxSignup}
           isUnregisteredGoogle={isUnregisteredGoogle || hasUnregisteredGoogleQuery || hasUnregisteredGoogleState}
-        />
-      ) : null}
+      />
     </main>
   );
 }

@@ -5,14 +5,17 @@ import type { ClosetSizeSelection, Product } from "../types";
 
 export type ClosetToast = { message: string; type: "success" | "info" | "error" } | null;
 
-export function useCloset(isLoggedIn: boolean) {
+export function useCloset(isLoggedIn: boolean, initialProducts?: Product[]) {
   const router = useRouter();
-  const [closetProducts, setClosetProducts] = useState<Product[]>([]);
-  const [closetIds, setClosetIds] = useState<Set<string>>(new Set());
+  const initialItems = initialProducts ?? [];
+  const [closetProducts, setClosetProducts] = useState<Product[]>(initialItems);
+  const [closetIds, setClosetIds] = useState<Set<string>>(new Set(initialItems.map((product) => product.id)));
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(initialProducts !== undefined);
+  const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<ClosetToast>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(initialProducts !== undefined);
   const hasAnalysisLoadedRef = useRef(false);
   const analysisRequestedRef = useRef(false);
   const isLoadingRef = useRef(false);
@@ -36,6 +39,8 @@ export function useCloset(isLoggedIn: boolean) {
       setClosetProducts([]);
       setClosetIds(new Set());
       hasLoadedRef.current = false;
+      setIsLoaded(false);
+      setError(null);
       hasAnalysisLoadedRef.current = false;
       analysisRequestedRef.current = false;
       return;
@@ -50,12 +55,14 @@ export function useCloset(isLoggedIn: boolean) {
       setClosetProducts(products);
       setClosetIds(new Set(products.map((p) => p.id)));
       hasLoadedRef.current = true;
+      setIsLoaded(true);
+      setError(null);
       if (requestedAnalysis) {
         hasAnalysisLoadedRef.current = true;
         analysisRequestedRef.current = false;
       }
-    } catch {
-      // silent
+    } catch (loadError: unknown) {
+      setError(loadError instanceof Error ? loadError.message : "옷장을 불러오지 못했습니다.");
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
@@ -74,6 +81,14 @@ export function useCloset(isLoggedIn: boolean) {
     void load(includeAnalysis);
   }, [isLoggedIn, load]);
 
+  const hydrate = useCallback((products: Product[]) => {
+    setClosetProducts(products);
+    setClosetIds(new Set(products.map((product) => product.id)));
+    hasLoadedRef.current = true;
+    setIsLoaded(true);
+    setError(null);
+  }, []);
+
   const addToCloset = useCallback(async (productId: string, sizeSelection?: ClosetSizeSelection | null) => {
     if (!isLoggedIn) {
       router.push("/login");
@@ -82,8 +97,7 @@ export function useCloset(isLoggedIn: boolean) {
     if (closetIds.has(productId)) return;
     await apiAdd(productId, sizeSelection);
     setClosetIds((prev) => new Set([...prev, productId]));
-    void load();
-  }, [isLoggedIn, router, closetIds, load]);
+  }, [isLoggedIn, router, closetIds]);
 
   const removeFromCloset = useCallback(async (productId: string) => {
     await apiRemove(productId);
@@ -115,5 +129,5 @@ export function useCloset(isLoggedIn: boolean) {
     }
   }, [isLoggedIn, router, closetIds, addToCloset, showToast]);
 
-  return { closetProducts, closetIds, isLoading, toast, clearToast, addToCloset, removeFromCloset, isInCloset, toggleCloset, reload: load, ensureLoaded };
+  return { closetProducts, closetIds, isLoading, isLoaded, error, toast, clearToast, addToCloset, removeFromCloset, isInCloset, toggleCloset, reload: load, ensureLoaded, hydrate };
 }

@@ -3,7 +3,6 @@
 import { AuthProvider } from "../contexts/AuthContext";
 import { ClosetProvider } from "../contexts/ClosetContext";
 import { DigboxProvider } from "../contexts/DigboxContext";
-import { MySizesProvider } from "../contexts/MySizesContext";
 import { ProductFormProvider } from "../contexts/ProductFormContext";
 import { SearchProvider } from "../contexts/SearchContext";
 import { AppShell } from "./AppShell";
@@ -15,15 +14,13 @@ export function ClientProviders({ children, initialAuth }: { children: React.Rea
     <PostHogProvider>
       <AuthProvider initialState={initialAuth}>
         <ClosetProvider>
-            <MySizesProvider>
-              <DigboxProvider>
+            <DigboxProvider>
               <SearchProvider>
                 <ProductFormProvider>
                   <AppShell>{children}</AppShell>
                 </ProductFormProvider>
               </SearchProvider>
-              </DigboxProvider>
-            </MySizesProvider>
+            </DigboxProvider>
         </ClosetProvider>
       </AuthProvider>
     </PostHogProvider>

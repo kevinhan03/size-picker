@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { ANALYSIS_COLUMNS, PRODUCT_CARD_COLUMNS, normalizeAnalysisProduct, normalizeProductCard, requestLog } from "../../../server/services/catalog";
-import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
+import { RECOMMENDATION_COLUMNS, PRODUCT_CARD_COLUMNS, normalizeAnalysisProduct, normalizeProductCard, requestLog } from "../../../server/services/catalog";
+import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
+import { getClosetProducts } from "../../../server/services/user-collections";
 
 const unauthorized = (msg = "authorization token is required") =>
   NextResponse.json({ ok: false, error: msg }, { status: 401 });
@@ -13,10 +14,6 @@ type ClosetRow = {
   selected_size_row_index?: number | null;
   selected_size_snapshot?: unknown;
 };
-
-function getToken(request: Request) {
-  return String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-}
 
 function normalizeSizeSnapshot(value: unknown) {
   if (!value || typeof value !== "object") return null;
@@ -30,14 +27,21 @@ function normalizeSizeSnapshot(value: unknown) {
 export async function GET(request: Request) {
   const startedAt = Date.now();
   const includeAnalysis = new URL(request.url).searchParams.get("analysis") === "1";
-  const token = getToken(request);
-  if (!token) return unauthorized();
 
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return unauthorized("registered account required");
+
+    if (!includeAnalysis) {
+      const products = await getClosetProducts(user.id);
+      requestLog("/api/closet", request, startedAt, 200);
+      return NextResponse.json(
+        { ok: true, data: { products } },
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
 
     const closetResult = await db
       .from("user_closet_items")
@@ -66,7 +70,7 @@ export async function GET(request: Request) {
 
     const { data: productsData, error: productsError } = await db
       .from("products")
-      .select(includeAnalysis ? ANALYSIS_COLUMNS : PRODUCT_CARD_COLUMNS)
+      .select(includeAnalysis ? RECOMMENDATION_COLUMNS : PRODUCT_CARD_COLUMNS)
       .in("id", productIds);
 
     if (productsError) throw productsError;
@@ -106,13 +110,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const token = getToken(request);
-  if (!token) return unauthorized();
+  if (!hasValidMutationOrigin(request)) {
+    return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
+  }
 
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return unauthorized("registered account required");
 
     const body = await request.json();

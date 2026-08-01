@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
-import { verifyRegisteredBearerToken } from "../../../../server/utils/verify-auth.js";
+import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
 
 const unauthorized = () => NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
-
-function getToken(request: Request) {
-  return String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-}
 
 function parseProfile(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -18,11 +14,9 @@ function parseProfile(value: unknown) {
 }
 
 export async function GET(request: Request) {
-  const token = getToken(request);
-  if (!token) return unauthorized();
   try {
     assertSupabaseConfig();
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return unauthorized();
     const { data, error } = await supabase!
       .from("user_taste_profiles")
@@ -50,11 +44,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const token = getToken(request);
-  if (!token) return unauthorized();
+  if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
   try {
     assertSupabaseConfig();
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return unauthorized();
     const body = await request.json();
     const profile = parseProfile(body?.profile);

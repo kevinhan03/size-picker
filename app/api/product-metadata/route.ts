@@ -5,17 +5,13 @@ import {
   normalizeProductCategory,
   refreshBrandRulesCache,
 } from "../../../server/bootstrap/metadata.js";
-import { getBearerTokenFromRequest } from "../../../server/utils/request-validation.js";
-import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
+import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  const token = getBearerTokenFromRequest(request);
-  if (!token) {
-    return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
-  }
-  const user = await verifyRegisteredBearerToken(token);
+  if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
+  const user = await getRegisteredRequestUser(request);
   if (!user) {
     return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
   }

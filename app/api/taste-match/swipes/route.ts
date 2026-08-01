@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
-import { verifyRegisteredBearerToken } from "../../../../server/utils/verify-auth.js";
+import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
 
 type SwipeRequestAction = { productId: string; decision: "like" | "pass" };
 type SwipeProduct = { id: string; style_tags: unknown; human_style_tags: unknown; tag_review_status: unknown };
 
-function getToken(request: Request) {
-  return String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-}
-
 export async function POST(request: Request) {
-  const token = getToken(request);
-  if (!token) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
+  if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
   try {
     assertSupabaseConfig();
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
     const body = await request.json();
     const profile = body?.profile;

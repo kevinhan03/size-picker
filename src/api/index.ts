@@ -14,9 +14,6 @@ import type {
   SizeTable,
   SubmitProductForm,
 } from '../types';
-import { STORAGE_BUCKET, STORAGE_PREFIX } from '../constants';
-import { getAccessToken } from './auth-client';
-import { getFileExtension } from '../utils/image';
 import { normalizeSizeTable } from '../utils/sizeTable';
 import { parseApiJson, postJson } from './shared';
 
@@ -70,25 +67,12 @@ export const fetchCatalogProductsByIds = async (ids: string[], signal?: AbortSig
 };
 
 export const uploadSubmissionImage = async (file: File): Promise<string> => {
-  const { supabase, assertSupabaseClient } = await import('../lib/supabase');
-  assertSupabaseClient();
-  const extension = getFileExtension(file);
-  const path = `${STORAGE_PREFIX}${crypto.randomUUID()}.${extension}`;
-  const { data, error } = await supabase!.storage.from(STORAGE_BUCKET).upload(path, file, {
-    upsert: false,
-    contentType: file.type || undefined,
-  });
-  if (error || !data?.path) {
-    console.error('[uploadSubmissionImage] upload failed', {
-      errorMessage: error?.message,
-      error,
-      path,
-      bucket: STORAGE_BUCKET,
-      startsWithSubmissions: path.startsWith(STORAGE_PREFIX),
-    });
-    throw new Error(error?.message || 'Image upload failed');
-  }
-  return data.path;
+  const form = new FormData();
+  form.set('file', file);
+  const response = await fetch('/api/uploads/product-image', { method: 'POST', credentials: 'same-origin', body: form });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { path?: string }; error?: string }>(response, '/api/uploads/product-image');
+  if (!response.ok || !payload.ok || !payload.data?.path) throw new Error(payload.error || 'Image upload failed');
+  return payload.data.path;
 };
 
 export const submitProduct = async (form: SubmitProductForm, isInstagram = false): Promise<Product> => {
@@ -106,10 +90,6 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
     throw new Error('상품 사진은 필수입니다.');
   }
 
-  const token = await getAccessToken();
-  if (!token) {
-    throw new Error('Authentication is required');
-  }
   const { response, payload } = await postJson<object, { product?: Product }>(
     '/api/products',
     {
@@ -122,8 +102,7 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
       normalizedSizeTable: form.normalizedSizeTable ?? null,
       productMetadata: form.productMetadata ?? null,
       isInstagram,
-    },
-    { Authorization: `Bearer ${token}` }
+    }
   );
   if (!response.ok || !payload?.ok) {
     console.error('[submitProduct] insert failed', payload?.error);
@@ -136,14 +115,9 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
 };
 
 export const fetchProductMetadataFromUrl = async (url: string): Promise<ProductMetadataPayload> => {
-  const token = await getAccessToken();
-  if (!token) {
-    throw new Error('Authentication is required');
-  }
   const { response, payload } = await postJson<{ url: string }, ProductMetadataPayload>(
     '/api/product-metadata',
-    { url },
-    { Authorization: `Bearer ${token}` }
+    { url }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error || 'Failed to extract metadata from URL');
@@ -155,14 +129,12 @@ export const fetchProductMetadataFromImage = async (
   base64Image: string,
   mimeType = 'image/png'
 ): Promise<ProductMetadataPayload> => {
-  const token = await getAccessToken();
   const { response, payload } = await postJson<
     { imageBase64: string; mimeType: string },
     ProductMetadataPayload
   >(
     '/api/product-metadata-from-image',
-    { imageBase64: base64Image, mimeType },
-    token ? { Authorization: `Bearer ${token}` } : undefined
+    { imageBase64: base64Image, mimeType }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error || 'Failed to extract metadata from image');
@@ -171,11 +143,9 @@ export const fetchProductMetadataFromImage = async (
 };
 
 export const extractSizeTableFromImage = async (base64Image: string, mimeType = 'image/png'): Promise<SizeTable> => {
-  const token = await getAccessToken();
   const { response, payload } = await postJson<{ imageBase64: string; mimeType: string }, unknown>(
     '/api/size-table',
-    { imageBase64: base64Image, mimeType },
-    token ? { Authorization: `Bearer ${token}` } : undefined
+    { imageBase64: base64Image, mimeType }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error ?? 'Failed to extract size table');
@@ -188,37 +158,32 @@ export const extractSizeTableFromImage = async (base64Image: string, mimeType = 
 };
 
 export const removeBackgroundWithGemini = async (base64Image: string): Promise<string> => {
-  const token = await getAccessToken();
   const { response, payload } = await postJson<
     { imageBase64: string; mimeType: string },
     { imageBase64?: string }
   >(
     '/api/remove-bg',
-    { imageBase64: base64Image, mimeType: 'image/png' },
-    token ? { Authorization: `Bearer ${token}` } : undefined
+    { imageBase64: base64Image, mimeType: 'image/png' }
   );
   if (!response.ok || !payload?.ok || !payload?.data?.imageBase64) return base64Image;
   return String(payload.data.imageBase64);
 };
 
 export const fetchClosetItems = async (includeAnalysis = false): Promise<Product[]> => {
-  const token = await getAccessToken();
-  if (!token) return [];
   const response = await fetch(`/api/closet${includeAnalysis ? '?analysis=1' : ''}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; data?: { products?: unknown[] }; error?: string }>(response, '/api/closet');
-  if (!response.ok || !payload?.ok) return [];
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to load closet');
   const rows = Array.isArray(payload?.data?.products) ? payload.data!.products : [];
   return rows.filter((p): p is Product => p !== null && typeof p === 'object');
 };
 
 export const addToCloset = async (productId: string, sizeSelection?: ClosetSizeSelection | null): Promise<void> => {
-  const token = await getAccessToken();
-  if (!token) throw new Error('로그인이 필요합니다.');
   const response = await fetch('/api/closet', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       productId,
       selectedSizeLabel: sizeSelection?.label ?? null,
@@ -231,21 +196,17 @@ export const addToCloset = async (productId: string, sizeSelection?: ClosetSizeS
 };
 
 export const removeFromCloset = async (productId: string): Promise<void> => {
-  const token = await getAccessToken();
-  if (!token) throw new Error('로그인이 필요합니다.');
   const response = await fetch(`/api/closet/${encodeURIComponent(productId)}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/closet/[productId]');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || '옷장 제거 실패');
 };
 
 export const fetchMySizes = async (): Promise<MySizeProfile[]> => {
-  const token = await getAccessToken();
-  if (!token) return [];
   const response = await fetch('/api/my-sizes', {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; data?: { profiles?: unknown[] }; error?: string }>(response, '/api/my-sizes');
   if (!response.ok || !payload?.ok) return [];
@@ -254,12 +215,9 @@ export const fetchMySizes = async (): Promise<MySizeProfile[]> => {
 };
 
 export const createMySize = async (input: MySizeInput): Promise<MySizeProfile> => {
-  const token = await getAccessToken();
-  if (!token) throw new Error('Authentication is required');
   const { response, payload } = await postJson<MySizeInput, { profile?: MySizeProfile }>(
     '/api/my-sizes',
-    input,
-    { Authorization: `Bearer ${token}` }
+    input
   );
   if (!response.ok || !payload?.ok || !payload.data?.profile) {
     throw new Error(payload?.error || 'Failed to create my size');
@@ -268,11 +226,10 @@ export const createMySize = async (input: MySizeInput): Promise<MySizeProfile> =
 };
 
 export const updateMySize = async (id: string, input: MySizeUpdateInput): Promise<MySizeProfile> => {
-  const token = await getAccessToken();
-  if (!token) throw new Error('Authentication is required');
   const response = await fetch(`/api/my-sizes/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
   const payload = await parseApiJson<{ ok?: boolean; data?: { profile?: MySizeProfile }; error?: string }>(response, '/api/my-sizes/[id]');
@@ -283,11 +240,9 @@ export const updateMySize = async (id: string, input: MySizeUpdateInput): Promis
 };
 
 export const deleteMySize = async (id: string): Promise<void> => {
-  const token = await getAccessToken();
-  if (!token) throw new Error('Authentication is required');
   const response = await fetch(`/api/my-sizes/${encodeURIComponent(id)}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/my-sizes/[id]');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to delete my size');
@@ -299,17 +254,15 @@ export const fetchDigboxItems = async (): Promise<Product[]> => {
 };
 
 export const fetchDigboxData = async (includeAnalysis = false): Promise<{ products: Product[]; discoveredDigboxCounts: Record<string, number> }> => {
-  const token = await getAccessToken();
-  if (!token) return { products: [], discoveredDigboxCounts: {} };
   const response = await fetch(`/api/digbox${includeAnalysis ? '?analysis=1' : ''}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{
     ok?: boolean;
     data?: { products?: unknown[]; discoveredDigboxCounts?: Record<string, unknown> };
     error?: string;
   }>(response, '/api/digbox');
-  if (!response.ok || !payload?.ok) return { products: [], discoveredDigboxCounts: {} };
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to load saved products');
   const rows = Array.isArray(payload?.data?.products) ? payload.data!.products : [];
   const counts = payload?.data?.discoveredDigboxCounts;
   const discoveredDigboxCounts: Record<string, number> = {};
@@ -326,11 +279,10 @@ export const fetchDigboxData = async (includeAnalysis = false): Promise<{ produc
 };
 
 export const addToDigbox = async (productId: string): Promise<void> => {
-  const token = await getAccessToken();
-  if (!token) throw new Error('로그인이 필요합니다.');
   const response = await fetch('/api/digbox', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ productId }),
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox');
@@ -338,27 +290,18 @@ export const addToDigbox = async (productId: string): Promise<void> => {
 };
 
 export const removeFromDigbox = async (productId: string): Promise<void> => {
-  const token = await getAccessToken();
-  if (!token) throw new Error('로그인이 필요합니다.');
   const response = await fetch(`/api/digbox/${encodeURIComponent(productId)}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox/[productId]');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || '저장 해제 실패');
 };
 
 export const deleteMyAccount = async (): Promise<void> => {
-  const accessToken = await getAccessToken(true);
-  if (!accessToken) {
-    throw new Error('Authentication is required');
-  }
-
   const response = await fetch('/api/auth/delete-account', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(
     response,
@@ -370,26 +313,18 @@ export const deleteMyAccount = async (): Promise<void> => {
 };
 
 export const cleanupUnregisteredGoogleAccount = async (): Promise<void> => {
-  const token = await getAccessToken();
-  if (!token) return;
   const response = await fetch('/api/auth/cleanup-unregistered', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/auth/cleanup-unregistered');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to clean up incomplete signup');
 };
 
 export const completeMyProfile = async (username: string): Promise<string> => {
-  const accessToken = await getAccessToken(true);
-  if (!accessToken) {
-    throw new Error('Authentication is required');
-  }
-
   const { response, payload } = await postJson<{ username: string }, { username?: string }>(
     '/api/auth/complete-profile',
-    { username },
-    { Authorization: `Bearer ${accessToken}` }
+    { username }
   );
   if (!response.ok || !payload?.ok || !payload.data?.username) {
     throw new Error(payload?.error || 'Failed to complete profile');

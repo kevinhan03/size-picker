@@ -2,6 +2,11 @@ import { notFound } from "next/navigation";
 import type { StyleTagName } from "../../../src/types";
 import { TAGS, type TasteCollectionSource } from "../../../src/utils/tasteGraph";
 import { TasteGraphPageClient } from "../../../src/components/pages/TasteGraphPageClient";
+import { redirect } from "next/navigation";
+import { getInitialAuthState } from "../../../server/auth/user-session";
+import { getTasteAnalysis } from "../../../server/services/taste-analysis";
+import { ClosetProvider } from "../../../src/contexts/ClosetContext";
+import { DigboxProvider } from "../../../src/contexts/DigboxContext";
 
 type TasteSourcePageProps = {
   params: Promise<{ source: string }>;
@@ -19,11 +24,23 @@ export default async function TasteSourcePage({ params, searchParams }: TasteSou
       ? (query.tag as StyleTagName)
       : undefined;
 
+  const auth = await getInitialAuthState();
+  if (!auth.user?.id) redirect("/login");
+  const [closet, digbox] = await Promise.all([
+    getTasteAnalysis(auth.user.id, "closet"),
+    getTasteAnalysis(auth.user.id, "digbox"),
+  ]);
+
   return (
-    <TasteGraphPageClient
-      initialSource={initialSource}
-      initialView={initialView}
-      initialTag={initialTag}
-    />
+    <ClosetProvider initialProducts={closet.products}>
+      <DigboxProvider initialProducts={digbox.products}>
+        <TasteGraphPageClient
+          initialSource={initialSource}
+          initialView={initialView}
+          initialTag={initialTag}
+          initialGraphs={{ closet: closet.graph, digbox: digbox.graph }}
+        />
+      </DigboxProvider>
+    </ClosetProvider>
   );
 }

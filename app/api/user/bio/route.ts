@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
-import { verifyRegisteredBearerToken } from "../../../../server/utils/verify-auth.js";
+import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
 
 const unauthorized = (msg = "authorization token is required") =>
   NextResponse.json({ ok: false, error: msg }, { status: 401 });
 
-function getToken(request: Request) {
-  return String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-}
-
 export async function PATCH(request: Request) {
-  const token = getToken(request);
-  if (!token) return unauthorized();
+  if (!hasValidMutationOrigin(request)) {
+    return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
+  }
 
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return unauthorized("registered account required");
 
     const body = await request.json();

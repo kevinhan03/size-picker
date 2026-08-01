@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DigMatchPageClient } from "../../src/components/pages/DigMatchPageClient";
+import { getDigMatchProducts } from "../../server/services/dig-match-products.js";
 
 export const metadata: Metadata = {
   title: "DIG MATCH | DIGBOX",
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function DigMatchPage() {
-  return <DigMatchPageClient />;
+export default async function DigMatchPage() {
+  const products = await getDigMatchProducts({ limit: 36, seed: "initial" }).catch(() => []);
+  return <DigMatchPageClient initialProducts={products} />;
 }

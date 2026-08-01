@@ -10,7 +10,7 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { useProductDetail } from "../../hooks/useProductDetail";
-import { supabase } from "../../lib/supabase";
+import { useProgressiveList } from "../../hooks/useProgressiveList";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { FilterBar } from "../FilterBar";
 import type { TutorialAnchorRect, TutorialId } from "../OnboardingTutorial";
@@ -18,6 +18,7 @@ import { toPublicUrl } from "../../utils/product";
 import { CollectionSearchField } from "../CollectionSearchField";
 import { CollectionEmptyState } from "../CollectionEmptyState";
 import { PageHeader } from "../PageHeader";
+import { PageState } from "../PageState";
 import type { Product } from "../../types";
 
 const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
@@ -264,29 +265,42 @@ export function DigboxPageClient({
   bio: initialBio = "",
   products: initialProducts,
   discoveredDigboxCounts: initialDiscoveredDigboxCounts = {},
+  hydrateOwner = false,
 }: {
   username: string;
   bio?: string;
   products: Product[];
   discoveredDigboxCounts?: Record<string, number>;
+  hydrateOwner?: boolean;
 }) {
   const auth = useAuthContext();
   const digbox = useDigboxContext();
   const ensureDigboxLoaded = digbox.ensureLoaded;
+  const hydrateDigbox = digbox.hydrate;
+  const isDigboxLoaded = digbox.isLoaded;
   const productModal = useProductModalQuery();
   const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
 
   const isOwner = Boolean(auth.dbUsername && auth.dbUsername === username);
-  const isLoading = auth.isAuthLoading || (isOwner && digbox.isLoading);
-  const products = isOwner && !digbox.isLoading ? digbox.digboxProducts : initialProducts;
-  const discoveredDigboxCounts = isOwner ? digbox.discoveredDigboxCounts : initialDiscoveredDigboxCounts;
+  const isLoading = auth.isAuthLoading || (isOwner && digbox.isLoading && !isDigboxLoaded);
+  const products = isOwner && isDigboxLoaded ? digbox.digboxProducts : initialProducts;
+  const discoveredDigboxCounts = isOwner && isDigboxLoaded ? digbox.discoveredDigboxCounts : initialDiscoveredDigboxCounts;
+
+  useEffect(() => {
+    if (hydrateOwner && isOwner && !isDigboxLoaded) {
+      hydrateDigbox(initialProducts, initialDiscoveredDigboxCounts);
+    }
+  }, [hydrateDigbox, hydrateOwner, initialDiscoveredDigboxCounts, initialProducts, isDigboxLoaded, isOwner]);
 
   useEffect(() => {
     if (isOwner) {
       ensureDigboxLoaded();
-      ensureClosetLoaded();
     }
-  }, [ensureClosetLoaded, ensureDigboxLoaded, isOwner]);
+  }, [ensureDigboxLoaded, isOwner]);
+
+  useEffect(() => {
+    if (isOwner && productModal.productId) ensureClosetLoaded();
+  }, [ensureClosetLoaded, isOwner, productModal.productId]);
 
   useEffect(() => () => {
     if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
@@ -384,11 +398,10 @@ export function DigboxPageClient({
     if (bioSaving) return;
     setBioSaving(true);
     try {
-      const { data: { session } } = await supabase!.auth.getSession();
-      const token = session?.access_token ?? "";
       const res = await fetch("/api/user/bio", {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bio: bioInput }),
       });
       const json = await res.json();
@@ -409,6 +422,8 @@ export function DigboxPageClient({
       return `${p.brand} ${p.name}`.toLowerCase().includes(keyword);
     });
   }, [catFilter, products, searchQuery]);
+  const { visibleCount, sentinelRef } = useProgressiveList(filtered.length, `${catFilter}:${searchQuery}`);
+  const visibleProducts = filtered.slice(0, visibleCount);
 
   const normalizedProduct = useMemo<Product | null>(() => {
     if (!detailedProduct) return null;
@@ -504,6 +519,31 @@ export function DigboxPageClient({
 
   const getDetailDigboxCountLabel = (count: number) =>
     isOwner ? `내가 발굴한 상품을 ${count}명이 저장했어요` : `이 상품을 ${count}명이 저장했어요`;
+
+  if (isOwner && isLoading && products.length === 0) {
+    return (
+      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
+        <PageState kind="loading" title="저장 목록을 불러오고 있어요" description="저장한 상품을 정리하는 중입니다." />
+      </main>
+    );
+  }
+
+  if (isOwner && digbox.error && products.length === 0) {
+    return (
+      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
+        <PageState
+          kind="error"
+          title="저장 목록을 불러오지 못했어요"
+          description="잠시 후 다시 시도해 주세요. 기존 저장 데이터는 그대로 유지됩니다."
+          action={(
+            <button type="button" onClick={() => void digbox.reload()} className="ui-button ui-button-primary px-5 py-2.5">
+              다시 시도
+            </button>
+          )}
+        />
+      </main>
+    );
+  }
 
   return (
     <main
@@ -785,7 +825,7 @@ export function DigboxPageClient({
             )}
           </div>
           <div className="closet-product-grid" style={{ display: "grid" }}>
-            {filtered.map((p) => (
+            {visibleProducts.map((p) => (
               <GridCard
                 key={p.id}
                 product={p}
@@ -796,6 +836,9 @@ export function DigboxPageClient({
               />
             ))}
           </div>
+          {visibleCount < filtered.length ? (
+            <div ref={sentinelRef} className="h-px w-full" aria-hidden="true" />
+          ) : null}
           </>
         )}
       </div>

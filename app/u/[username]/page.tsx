@@ -1,100 +1,34 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { normalizeProductRow } from "../../../server/utils/product.js";
-import { refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
+import { getInitialAuthState } from "../../../server/auth/user-session";
+import { getDigboxProducts } from "../../../server/services/user-collections";
 import { DigboxPageClient } from "../../../src/components/pages/DigboxPageClient";
-import type { Product } from "../../../src/types";
-
-export const revalidate = 60;
 
 interface Props {
   params: Promise<{ username: string }>;
 }
 
-type ClosetRow = {
-  product_id: string;
-  added_at?: string | null;
-};
-
-function buildOtherDigboxCounts(rows: { product_id?: string | null; user_id?: string | null }[]) {
-  const usersByProduct = new Map<string, Set<string>>();
-  for (const row of rows) {
-    const productId = String(row.product_id || "").trim();
-    const userId = String(row.user_id || "").trim();
-    if (!productId || !userId) continue;
-    const users = usersByProduct.get(productId) ?? new Set<string>();
-    users.add(userId);
-    usersByProduct.set(productId, users);
-  }
-  return Object.fromEntries([...usersByProduct.entries()].map(([productId, users]) => [productId, users.size]));
-}
-
-async function fetchUserDigbox(username: string): Promise<{ username: string; bio: string; products: Product[]; discoveredDigboxCounts: Record<string, number> } | null> {
+async function fetchUserDigbox(username: string) {
   const normalizedUsername = decodeURIComponent(username).trim();
   if (!normalizedUsername) return null;
 
   assertSupabaseConfig();
-  const db = supabase!;
-
-  const { data: user, error: userError } = await db
+  const { data: user, error } = await supabase!
     .from("users")
     .select("id, username, bio")
     .ilike("username", normalizedUsername)
     .maybeSingle();
-
-  if (userError) throw userError;
+  if (error) throw error;
   if (!user?.id) return null;
 
-  const closetResult = await db
-    .from("user_digbox_items")
-    .select("product_id, added_at")
-    .eq("user_id", user.id)
-    .order("added_at", { ascending: false });
-
-  if (closetResult.error) throw closetResult.error;
-
-  const closetRows = Array.isArray(closetResult.data) ? (closetResult.data as ClosetRow[]) : [];
-  const productIds = closetRows.map((row) => String(row.product_id || "").trim()).filter(Boolean);
-  const bio = String((user as { bio?: string | null }).bio ?? "").trim();
-
-  if (productIds.length === 0) {
-    return { username: String(user.username || normalizedUsername), bio, products: [], discoveredDigboxCounts: {} };
-  }
-
-  const { data: productsData, error: productsError } = await db
-    .from("products")
-    .select("id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by")
-    .in("id", productIds);
-
-  if (productsError) throw productsError;
-
-  const ownerUsername = String(user.username || normalizedUsername).trim();
-  const discoveredProductIds = (productsData ?? [])
-    .filter((product: { id?: string; registered_by?: string | null }) => String(product.registered_by || "").trim() === ownerUsername)
-    .map((product: { id?: string }) => String(product.id || "").trim())
-    .filter(Boolean);
-
-  let discoveredDigboxCounts: Record<string, number> = {};
-  if (discoveredProductIds.length > 0) {
-    const { data: countRows, error: countError } = await db
-      .from("user_digbox_items")
-      .select("product_id, user_id")
-      .in("product_id", discoveredProductIds)
-      .neq("user_id", user.id);
-
-    if (countError) throw countError;
-    discoveredDigboxCounts = buildOtherDigboxCounts(countRows ?? []);
-  }
-
-  await refreshBrandRulesCache();
-
-  const productMap = new Map((productsData ?? []).map((product: { id: string }) => [String(product.id), product]));
-  const products = productIds
-    .map((id) => normalizeProductRow(productMap.get(id)))
-    .filter((product) => product !== null) as Product[];
-
-  return { username: ownerUsername, bio, products, discoveredDigboxCounts };
+  const collection = await getDigboxProducts(String(user.id));
+  return {
+    userId: String(user.id),
+    username: String(user.username || normalizedUsername),
+    bio: String(user.bio || "").trim(),
+    ...collection,
+  };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -102,21 +36,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const decodedUsername = decodeURIComponent(username).trim();
   return {
     title: "저장한 상품 | DIGBOX",
-    description: `${decodedUsername}의 저장한 상품`,
+    description: `${decodedUsername}님의 저장한 상품`,
   };
 }
 
 export default async function PublicDigboxPage({ params }: Props) {
   const { username } = await params;
-  const digbox = await fetchUserDigbox(username);
+  const [digbox, auth] = await Promise.all([
+    fetchUserDigbox(username),
+    getInitialAuthState(),
+  ]);
   if (!digbox) notFound();
 
+  const isOwner = auth.user?.id === digbox.userId;
   return (
     <DigboxPageClient
       username={digbox.username}
       bio={digbox.bio}
       products={digbox.products}
       discoveredDigboxCounts={digbox.discoveredDigboxCounts}
+      hydrateOwner={isOwner}
     />
   );
 }

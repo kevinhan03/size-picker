@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
-import { verifyRegisteredBearerToken } from "../../../../server/utils/verify-auth.js";
-import { getBearerToken, hydrateRequestDetail } from "../../../../server/utils/outfits.js";
+import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
+import { hydrateRequestDetail } from "../../../../server/utils/outfits.js";
 
 const REQUEST_SELECT = "id,author_id,description,status,accepted_proposal_id,created_at";
 const notFound = () => NextResponse.json({ ok: false, error: "코디 요청을 찾을 수 없습니다." }, { status: 404 });
 
 async function registeredUser(request: Request) {
-  const token = getBearerToken(request);
-  return token ? verifyRegisteredBearerToken(token) : null;
+  return getRegisteredRequestUser(request);
 }
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -29,6 +28,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
   try {
     assertSupabaseConfig();
     const db = supabase!;
@@ -87,6 +87,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
   try {
     assertSupabaseConfig();
     const user = await registeredUser(request);

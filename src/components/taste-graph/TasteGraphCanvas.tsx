@@ -14,13 +14,14 @@ import {
   SIMILAR_TOP_K,
   TAG_LABEL_ZOOM_FADE_END,
   TAG_LABEL_ZOOM_FADE_START,
-  cosineSimilarity,
   createGraph,
+  deserializeTasteGraph,
   tagColor,
   type TasteGraphLink,
   type TasteGraphNode,
   type TasteGraphProduct,
   type TasteGraphState,
+  type SerializedTasteGraphState,
 } from "../../utils/tasteGraph";
 
 interface ProductPanelData {
@@ -121,6 +122,7 @@ function fitCanvasLabel(ctx: CanvasRenderingContext2D, label: string, maxWidth: 
 
 export function TasteGraphCanvas({
   products,
+  graphData,
   initialTag,
   source,
   active = true,
@@ -129,6 +131,7 @@ export function TasteGraphCanvas({
   onReady,
 }: {
   products: Product[];
+  graphData?: SerializedTasteGraphState;
   initialTag?: StyleTagName;
   source: "digbox" | "closet";
   active?: boolean;
@@ -166,7 +169,6 @@ export function TasteGraphCanvas({
     product.tagReviewStatus,
     JSON.stringify(product.styleTags ?? null),
     JSON.stringify(product.humanStyleTags ?? null),
-    String(product.imageEmbedding ?? ""),
   ].join("\u0001")).join("\u0002");
   const productsRef = useRef(products);
   productsRef.current = products;
@@ -221,7 +223,7 @@ export function TasteGraphCanvas({
 
       if (!graphProducts.length) return;
 
-      let graph = graphCacheRef.current.get(graphProducts);
+      let graph = graphData ? deserializeTasteGraph(graphData) : graphCacheRef.current.get(graphProducts);
       if (!graph) {
         graph = createGraph(graphProducts);
         graphCacheRef.current.set(graphProducts, graph);
@@ -542,13 +544,15 @@ export function TasteGraphCanvas({
       };
 
       const getSimilarProducts = (product: TasteGraphProduct) => {
-        if (!product.embedding || !graphStateRef.current) return [];
-        return graphStateRef.current.products
-          .filter((p) => p.id !== product.id && p.embedding)
-          .map((p) => ({ product: p, similarity: cosineSimilarity(product.embedding!, p.embedding!) }))
-          .filter((e): e is { product: TasteGraphProduct; similarity: number } =>
-            Number.isFinite(e.similarity) && e.similarity! >= EMBEDDING_MIN_SIMILARITY
-          )
+        const state = graphStateRef.current;
+        if (!state) return [];
+        return state.embeddingForceLinks
+          .filter((link) => isProductLink(link, product.nodeId) && link.weight >= EMBEDDING_MIN_SIMILARITY)
+          .map((link) => ({
+            product: state.productByNodeId.get(linkSourceId(link) === product.nodeId ? linkTargetId(link) : linkSourceId(link)),
+            similarity: link.weight,
+          }))
+          .filter((entry): entry is { product: TasteGraphProduct; similarity: number } => Boolean(entry.product))
           .sort((a, b) => b.similarity - a.similarity)
           .slice(0, SIMILAR_TOP_K);
       };
@@ -1116,7 +1120,7 @@ export function TasteGraphCanvas({
       graph?._destructor?.();
       void cleanupPromise.then((cleanup) => cleanup?.());
     };
-  }, [initialTag, graphInputSignature]);
+  }, [initialTag, graphData, graphInputSignature]);
 
   useLayoutEffect(() => {
     const graph = graphRef.current;

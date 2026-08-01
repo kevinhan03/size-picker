@@ -338,6 +338,15 @@ export function createGraph(products: Product[]): TasteGraphState {
   };
 }
 
+export type SerializedTasteGraphState = Omit<TasteGraphState, "productByNodeId" | "tagItems"> & {
+  productByNodeId: Array<[string, TasteGraphProduct]>;
+  tagItems: Array<[StyleTagName, { productNodeId: string; weight: number; rank: number }[]]>;
+};
+
+export function deserializeTasteGraph(graph: SerializedTasteGraphState): TasteGraphState {
+  return { ...graph, productByNodeId: new Map(graph.productByNodeId), tagItems: new Map(graph.tagItems) };
+}
+
 export function createEmbeddingForceLinks(products: TasteGraphProduct[]): TasteGraphLink[] {
   const productsWithEmbedding = products.filter((product) => product.embedding);
   const pairMap = new Map<string, TasteGraphLink>();

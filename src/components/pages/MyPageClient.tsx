@@ -1,62 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MyPageView } from "../views/MyPageView";
 import { PageState } from "../PageState";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useMySizesContext } from "../../contexts/MySizesContext";
-import { supabase } from "../../lib/supabase";
 import { changeMyUsername } from "../../api/username";
 import { captureEvent } from "../../utils/analytics";
 import type { DiscoveryProduct } from "../../types";
 
-export function MyPageClient() {
+export function MyPageClient({ initialDiscoveries = [], initialDiscoveryTotalSaveCount = 0 }: { initialDiscoveries?: DiscoveryProduct[]; initialDiscoveryTotalSaveCount?: number }) {
   const router = useRouter();
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
-  const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
-  const { mySizes, createMySize, updateMySize, deleteMySize, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
-  const [discoveredProducts, setDiscoveredProducts] = useState<DiscoveryProduct[]>([]);
-  const [discoveryTotalSaveCount, setDiscoveryTotalSaveCount] = useState(0);
-  const [isDiscoveriesLoading, setIsDiscoveriesLoading] = useState(true);
+  const { closetProducts } = useClosetContext();
+  const { mySizes, createMySize, updateMySize, deleteMySize } = useMySizesContext();
 
   useEffect(() => {
     if (!auth.isAuthLoading && !authUserId) {
       router.replace("/login");
     }
   }, [auth.isAuthLoading, authUserId, router]);
-
-  useEffect(() => {
-    if (authUserId) {
-      ensureClosetLoaded();
-      ensureMySizesLoaded();
-    }
-  }, [authUserId, ensureClosetLoaded, ensureMySizesLoaded]);
-
-  useEffect(() => {
-    if (!authUserId) return;
-    let isActive = true;
-    void (async () => {
-      try {
-        const sessionResult = supabase ? await supabase.auth.getSession() : null;
-        const token = String(sessionResult?.data.session?.access_token || "").trim();
-        if (!token) return;
-        const response = await fetch("/api/my-discoveries", { headers: { Authorization: `Bearer ${token}` } });
-        const payload = await response.json() as { ok?: boolean; data?: { products?: DiscoveryProduct[]; totalSaveCount?: number } };
-        if (isActive && response.ok && payload.ok && Array.isArray(payload.data?.products)) {
-          setDiscoveredProducts(payload.data.products);
-          setDiscoveryTotalSaveCount(Math.max(0, Number(payload.data?.totalSaveCount) || 0));
-        }
-      } catch {
-        // This optional list must not block the rest of My Page.
-      } finally {
-        if (isActive) setIsDiscoveriesLoading(false);
-      }
-    })();
-    return () => { isActive = false; };
-  }, [authUserId]);
 
   if (auth.isAuthLoading || !auth.authUser) {
     return (
@@ -74,9 +40,9 @@ export function MyPageClient() {
     >
       <MyPageView
         username={username}
-        discoveredProducts={discoveredProducts}
-        discoveryTotalSaveCount={discoveryTotalSaveCount}
-        isDiscoveriesLoading={isDiscoveriesLoading}
+        discoveredProducts={initialDiscoveries}
+        discoveryTotalSaveCount={initialDiscoveryTotalSaveCount}
+        isDiscoveriesLoading={false}
         closetProducts={closetProducts}
         mySizes={mySizes}
         onCreateMySize={async (input) => {
@@ -89,8 +55,7 @@ export function MyPageClient() {
           await deleteMySize(id);
         }}
         onLogout={() => {
-          void supabase?.auth.signOut();
-          router.push("/");
+          void auth.signOut("/");
         }}
         onChangeUsername={async (nextUsername) => {
           const result = await changeMyUsername(nextUsername);

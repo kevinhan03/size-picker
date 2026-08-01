@@ -31,13 +31,27 @@ export async function proxy(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+        response.headers.set("Cache-Control", "private, no-store");
       },
     },
   });
   await client.auth.getClaims();
+  response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/).*)",
+    "/api/closet/:path*",
+    "/api/digbox/:path*",
+    "/api/user/bio",
+    "/api/auth/:path*",
+    "/api/my-sizes/:path*",
+    "/api/my-discoveries",
+    "/api/outfit-requests/:path*",
+    "/api/outfit-proposals/:path*",
+    "/api/taste-match/:path*",
+    "/api/uploads/:path*",
+  ],
 };

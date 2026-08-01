@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { AlertCircle, LogIn, UserPlus } from 'lucide-react';
 import { completeMyProfile } from '../api';
@@ -12,7 +11,6 @@ import { readGuestDigbox, requestGuestDigboxImport } from '../utils/guestDigbox'
 type AuthTab = 'login' | 'signup';
 
 interface LoginPageProps {
-  supabase: SupabaseClient;
   onSuccess: () => void;
   initialInfo?: string | null;
   googleAuthError?: string | null;
@@ -24,7 +22,6 @@ interface LoginPageProps {
 
 type PendingSignup = {
   email: string;
-  password: string;
   username: string;
 } | null;
 
@@ -47,7 +44,6 @@ const GoogleIcon = () => (
 );
 
 export const LoginPage = ({
-  supabase,
   onSuccess,
   initialInfo = null,
   googleAuthError,
@@ -103,14 +99,14 @@ export const LoginPage = ({
     setIsSubmitting(true);
     setError(null);
     try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: pendingSignup.email,
-        token,
-        type: 'signup',
+      const response = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingSignup.email, token, username: pendingSignup.username }),
       });
-      if (verifyError) throw verifyError;
+      const payload = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Verification failed');
       if (readGuestDigbox().length) requestGuestDigboxImport();
-      await completeMyProfile(pendingSignup.username);
       sessionStorage.setItem(SIGNUP_VERIFIED_TOAST_KEY, '1');
       setPendingSignup(null);
       setSignupEmail(null);
@@ -122,7 +118,7 @@ export const LoginPage = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [onSuccess, pendingSignup, supabase, verificationCode]);
+  }, [onSuccess, pendingSignup, verificationCode]);
 
   useEffect(() => {
     if (initialInfo) setInfo(initialInfo);
@@ -140,20 +136,10 @@ export const LoginPage = ({
 
   const handleGoogleLogin = async (intent: AuthTab = tab) => {
     setError(null);
-    sessionStorage.setItem('google_oauth_intent', intent);
-    document.cookie = `digbox_oauth_intent=${encodeURIComponent(intent)}; Path=/; Max-Age=600; SameSite=Lax`;
     const continuation = readAuthContinuation();
     if (continuation) saveAuthContinuation({ ...continuation, intent, method: 'google' });
     captureEvent('auth_started', { mode: intent, method: 'google', source: continuation?.source || 'direct', stage: 'submit' });
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (authError) {
-      localStorage.removeItem('google_oauth_intent');
-      document.cookie = 'digbox_oauth_intent=; Path=/; Max-Age=0; SameSite=Lax';
-      setError(getAuthErrorMessage(authError, 'Google 로그인에 실패했습니다. 다시 시도해 주세요.'));
-    }
+    window.location.assign(`/api/auth/oauth/google?intent=${encodeURIComponent(intent)}`);
   };
 
   const handleResendCode = async () => {
@@ -161,11 +147,11 @@ export const LoginPage = ({
     setIsResending(true);
     setError(null);
     try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
-        email: pendingSignup.email,
+      const response = await fetch('/api/auth/resend', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: pendingSignup.email }),
       });
-      if (resendError) throw resendError;
+      const payload = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Resend failed');
       setInfo('인증코드를 다시 보냈습니다. 메일함을 확인해 주세요.');
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err, '인증코드 재전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'));
@@ -208,11 +194,11 @@ export const LoginPage = ({
 
     try {
       if (tab === 'login') {
-        const { error: authError } = await supabase.auth.signInWithPassword({
-          email: trimmedEmail,
-          password: trimmedPassword,
+        const response = await fetch('/api/auth/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: trimmedEmail, password: trimmedPassword }),
         });
-        if (authError) throw authError;
+        const payload = await response.json() as { ok?: boolean; error?: string };
+        if (!response.ok || !payload.ok) throw new Error(payload.error || 'Login failed');
         onSuccess();
       } else {
         const trimmedUsername = username.trim();
@@ -222,21 +208,18 @@ export const LoginPage = ({
           return;
         }
 
-        const { data: signUpData, error: authError } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password: trimmedPassword,
-          options: {
-            data: { username: trimmedUsername },
-          },
+        const response = await fetch('/api/auth/signup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: trimmedEmail, password: trimmedPassword, username: trimmedUsername }),
         });
-        if (authError) throw authError;
-        if (signUpData.session?.access_token) {
+        const payload = await response.json() as { ok?: boolean; data?: { requiresVerification?: boolean }; error?: string };
+        if (!response.ok || !payload.ok) throw new Error(payload.error || 'Signup failed');
+        if (!payload.data?.requiresVerification) {
           if (readGuestDigbox().length) requestGuestDigboxImport();
           await completeMyProfile(trimmedUsername);
           onSuccess();
           return;
         }
-        setPendingSignup({ email: trimmedEmail, password: trimmedPassword, username: trimmedUsername });
+        setPendingSignup({ email: trimmedEmail, username: trimmedUsername });
         setSignupEmail(trimmedEmail);
         setVerificationCode('');
         setIsSignupVerified(false);

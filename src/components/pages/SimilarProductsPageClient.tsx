@@ -71,11 +71,13 @@ function EmptyBehavioralCard({ status }: { status: BehavioralStatus }) {
   return <EmptyRecommendationState {...content} />;
 }
 
-export function SimilarProductsPageClient({ id }: { id: string }) {
-  const [sourceProduct, setSourceProduct] = useState<Product | null>(null);
-  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
-  const [styleProducts, setStyleProducts] = useState<Product[]>([]);
-  const [isRecommendationsLoading, setIsRecommendationsLoading] = useState(true);
+type InitialRecommendationData = { sourceProduct: Product | null; similarProducts: Product[]; styleProducts: Product[] } | null;
+
+export function SimilarProductsPageClient({ id, initialData = null }: { id: string; initialData?: InitialRecommendationData }) {
+  const [sourceProduct, setSourceProduct] = useState<Product | null>(initialData?.sourceProduct || null);
+  const [similarProducts, setSimilarProducts] = useState<Product[]>(initialData?.similarProducts || []);
+  const [styleProducts, setStyleProducts] = useState<Product[]>(initialData?.styleProducts || []);
+  const [isRecommendationsLoading, setIsRecommendationsLoading] = useState(!initialData);
   const [behavioralProducts, setBehavioralProducts] = useState<Product[]>([]);
   const [behavioralStatus, setBehavioralStatus] = useState<BehavioralStatus>("idle");
   const [activeSection, setActiveSection] = useState<RecommendationSection>("similar");
@@ -83,6 +85,7 @@ export function SimilarProductsPageClient({ id }: { id: string }) {
   const numericId = parseNumericId(id);
 
   useEffect(() => {
+    if (initialData?.sourceProduct) return;
     const controller = new AbortController();
     setIsRecommendationsLoading(true);
     fetch(`/api/products/${encodeURIComponent(numericId)}/recommendations`, { signal: controller.signal })
@@ -105,7 +108,7 @@ export function SimilarProductsPageClient({ id }: { id: string }) {
         if (!controller.signal.aborted) setIsRecommendationsLoading(false);
       });
     return () => controller.abort();
-  }, [numericId]);
+  }, [initialData, numericId]);
 
   const normalizedSourceProduct = useMemo(
     () => (sourceProduct ? normalizeProductImages(sourceProduct) : null),

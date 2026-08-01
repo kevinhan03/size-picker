@@ -11,7 +11,7 @@ import {
   toProductWriteErrorResponse,
 } from "../../../server/utils/product.js";
 import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../server/utils/size-table.js";
-import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
+import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
 import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
 import { embedProductImageById } from "../../../server/services/image-embedding.js";
 import { tagProductStyleById } from "../../../server/services/style-tagging.js";
@@ -53,12 +53,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const authorization = String(request.headers.get("authorization") || "").trim();
-    const token = authorization.replace(/^Bearer\s+/i, "").trim();
-    if (!token) {
-      return NextResponse.json({ ok: false, error: "authentication required" }, { status: 401 });
-    }
-    const user = await verifyRegisteredBearerToken(token) as RegisteredUser | null;
+    if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
+    const user = await getRegisteredRequestUser(request) as RegisteredUser | null;
     if (!user) {
       return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
     }

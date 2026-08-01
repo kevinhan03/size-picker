@@ -87,6 +87,13 @@ export type DiscoveryProduct = Product & {
   saveCount: number;
 };
 
+export interface MyPageInitialData {
+  closetProducts: Product[];
+  mySizes: MySizeProfile[];
+  discoveries: DiscoveryProduct[];
+  discoveryTotalSaveCount: number;
+}
+
 export type ProductTargetGender = 'menswear' | 'womenswear' | 'unisex' | 'unknown';
 
 export type StyleTagName =

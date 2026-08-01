@@ -1,4 +1,3 @@
-import { getAccessToken } from "./auth-client";
 import { type ApiEnvelope, parseApiJson } from "./shared";
 import type { DigMatchAnswer, DigMatchProfile, TasteSwipeAction } from "../utils/digMatch";
 import type { Product } from "../types";
@@ -6,6 +5,14 @@ import type { Product } from "../types";
 export interface DigMatchHistoryEntry {
   completedAt: string;
   profile: DigMatchProfile;
+}
+
+export async function fetchDigMatchProfileData(): Promise<{ profile: DigMatchProfile | null; history: DigMatchHistoryEntry[] }> {
+  const response = await fetch("/api/taste-match/profile", { credentials: "same-origin" });
+  if (response.status === 401) return { profile: null, history: [] };
+  const payload = await parseApiJson<ApiEnvelope<{ profile?: DigMatchProfile | null; history?: DigMatchHistoryEntry[] }>>(response, "/api/taste-match/profile");
+  if (!response.ok || !payload.ok) throw new Error(payload.error || "Failed to load taste profile");
+  return { profile: payload.data?.profile || null, history: Array.isArray(payload.data?.history) ? payload.data.history : [] };
 }
 
 export async function fetchDigMatchProducts(): Promise<Product[]> {
@@ -16,29 +23,25 @@ export async function fetchDigMatchProducts(): Promise<Product[]> {
 }
 
 export async function fetchDigMatchProfile(): Promise<DigMatchProfile | null> {
-  const token = await getAccessToken();
-  if (!token) return null;
-  const response = await fetch("/api/taste-match/profile", { headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetch("/api/taste-match/profile", { credentials: "same-origin" });
+  if (response.status === 401) return null;
   const payload = await parseApiJson<ApiEnvelope<{ profile?: DigMatchProfile | null }>>(response, "/api/taste-match/profile");
   if (!response.ok || !payload.ok) throw new Error(payload.error || "취향 프로필을 불러오지 못했습니다.");
   return payload.data?.profile || null;
 }
 
 export async function fetchDigMatchHistory(): Promise<DigMatchHistoryEntry[]> {
-  const token = await getAccessToken();
-  if (!token) return [];
-  const response = await fetch("/api/taste-match/profile", { headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetch("/api/taste-match/profile", { credentials: "same-origin" });
+  if (response.status === 401) return [];
   const payload = await parseApiJson<ApiEnvelope<{ history?: DigMatchHistoryEntry[] }>>(response, "/api/taste-match/profile");
   if (!response.ok || !payload.ok) return [];
   return Array.isArray(payload.data?.history) ? payload.data.history : [];
 }
 
 export async function saveDigMatchProfile(profile: DigMatchProfile, answers: DigMatchAnswer[]) {
-  const token = await getAccessToken();
-  if (!token) return false;
   const response = await fetch("/api/taste-match/profile", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    credentials: "same-origin", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ profile, answers }),
   });
   const payload = await parseApiJson<ApiEnvelope<{ profile?: DigMatchProfile }>>(response, "/api/taste-match/profile");
@@ -47,11 +50,9 @@ export async function saveDigMatchProfile(profile: DigMatchProfile, answers: Dig
 }
 
 export async function saveTasteSwipe(profile: DigMatchProfile, actions: TasteSwipeAction[]) {
-  const token = await getAccessToken();
-  if (!token) return false;
   const response = await fetch("/api/taste-match/swipes", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    credentials: "same-origin", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ profile, actions }),
   });
   const payload = await parseApiJson<ApiEnvelope<Record<string, never>>>(response, "/api/taste-match/swipes");

@@ -13,10 +13,11 @@ import {
 export type DigboxToast = { message: string; type: "success" | "info" | "error" } | null;
 export type GuestSyncStatus = "idle" | "syncing" | "success" | "partial";
 
-export function useDigbox(isLoggedIn: boolean) {
-  const [digboxProducts, setDigboxProducts] = useState<Product[]>([]);
-  const [digboxIds, setDigboxIds] = useState<Set<string>>(new Set());
-  const [discoveredDigboxCounts, setDiscoveredDigboxCounts] = useState<Record<string, number>>({});
+export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], initialCounts: Record<string, number> = {}) {
+  const initialItems = initialProducts ?? [];
+  const [digboxProducts, setDigboxProducts] = useState<Product[]>(initialItems);
+  const [digboxIds, setDigboxIds] = useState<Set<string>>(new Set(initialItems.map((product) => product.id)));
+  const [discoveredDigboxCounts, setDiscoveredDigboxCounts] = useState<Record<string, number>>(initialCounts);
   const [guestIds, setGuestIds] = useState<string[]>([]);
   const [guestProducts, setGuestProducts] = useState<Product[]>([]);
   const [isGuestHydrated, setIsGuestHydrated] = useState(false);
@@ -24,9 +25,11 @@ export function useDigbox(isLoggedIn: boolean) {
   const [isGuestPromptOpen, setIsGuestPromptOpen] = useState(false);
   const [guestSyncStatus, setGuestSyncStatus] = useState<GuestSyncStatus>("idle");
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(initialProducts !== undefined);
+  const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<DigboxToast>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(initialProducts !== undefined);
   const hasAnalysisLoadedRef = useRef(false);
   const analysisRequestedRef = useRef(false);
   const isLoadingRef = useRef(false);
@@ -77,6 +80,8 @@ export function useDigbox(isLoggedIn: boolean) {
       setDigboxIds(new Set());
       setDiscoveredDigboxCounts({});
       hasLoadedRef.current = false;
+      setIsLoaded(false);
+      setError(null);
       hasAnalysisLoadedRef.current = false;
       analysisRequestedRef.current = false;
       return;
@@ -92,12 +97,15 @@ export function useDigbox(isLoggedIn: boolean) {
       setDigboxIds(new Set(loadedProducts.map((product) => product.id)));
       setDiscoveredDigboxCounts(loadedCounts);
       hasLoadedRef.current = true;
+      setIsLoaded(true);
+      setError(null);
       if (requestedAnalysis) {
         hasAnalysisLoadedRef.current = true;
         analysisRequestedRef.current = false;
       }
-    } catch {
+    } catch (loadError: unknown) {
       // Keep the previous collection when a background refresh fails.
+      setError(loadError instanceof Error ? loadError.message : "저장 목록을 불러오지 못했습니다.");
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
@@ -119,6 +127,15 @@ export function useDigbox(isLoggedIn: boolean) {
     if (!isLoggedIn || (hasLoadedRef.current && (!includeAnalysis || hasAnalysisLoadedRef.current))) return;
     void load(includeAnalysis);
   }, [isLoggedIn, load]);
+
+  const hydrate = useCallback((products: Product[], counts: Record<string, number> = {}) => {
+    setDigboxProducts(products);
+    setDigboxIds(new Set(products.map((product) => product.id)));
+    setDiscoveredDigboxCounts(counts);
+    hasLoadedRef.current = true;
+    setIsLoaded(true);
+    setError(null);
+  }, []);
 
   const addServerItem = useCallback(async (productId: string) => {
     await apiAdd(productId);
@@ -178,8 +195,7 @@ export function useDigbox(isLoggedIn: boolean) {
     if (!isLoggedIn || digboxIds.has(productId)) return;
     await addServerItem(productId);
     captureEvent("server_digbox_save_completed", { product_id: productId, logged_in: true });
-    void load();
-  }, [addServerItem, digboxIds, isLoggedIn, load]);
+  }, [addServerItem, digboxIds, isLoggedIn]);
 
   const removeFromDigbox = useCallback(async (productId: string) => {
     await apiRemove(productId);
@@ -255,6 +271,8 @@ export function useDigbox(isLoggedIn: boolean) {
     digboxIds,
     discoveredDigboxCounts,
     isLoading,
+    isLoaded,
+    error,
     toast,
     clearToast,
     addToDigbox,
@@ -263,6 +281,7 @@ export function useDigbox(isLoggedIn: boolean) {
     toggleDigbox,
     reload: load,
     ensureLoaded,
+    hydrate,
     guestIds,
     guestProducts,
     guestCount: guestIds.length,

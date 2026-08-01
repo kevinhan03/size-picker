@@ -12,7 +12,7 @@ import { PageHeader } from "../PageHeader";
 import { PageState } from "../PageState";
 
 type HubScope = Extract<OutfitRequestScope, "open" | "mine" | "proposed">;
-type CachedRequestList = { requests: OutfitRequestSummary[]; total: number };
+type CachedRequestList = { requests: OutfitRequestSummary[]; total: number; nextCursor: string | null };
 
 function getRequestCacheKey(scope: HubScope, mineStatus: OutfitRequestMineStatus) {
   return `${scope}:${scope === "mine" ? mineStatus : "all"}`;
@@ -65,20 +65,23 @@ function relativeTime(value: string) {
   return `${Math.floor(seconds / 86400)}일 전`;
 }
 
-export function OutfitsPageClient({ initialScope = "open" }: { initialScope?: HubScope }) {
+export function OutfitsPageClient({ initialScope = "open", initialData = null }: { initialScope?: HubScope; initialData?: { requests: OutfitRequestSummary[]; total: number; nextCursor: string | null } | null }) {
   const router = useRouter();
   const { authUser, isAuthLoading } = useAuthContext();
   const authUserId = authUser?.id;
   const [scope, setScope] = useState<HubScope>(initialScope);
   const [mineStatus, setMineStatus] = useState<OutfitRequestMineStatus>("all");
-  const [requests, setRequests] = useState<OutfitRequestSummary[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [hasCompletedInitialLoad, setHasCompletedInitialLoad] = useState(false);
+  const [requests, setRequests] = useState<OutfitRequestSummary[]>(initialData?.requests || []);
+  const [total, setTotal] = useState(initialData?.total || 0);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialData?.nextCursor || null);
+  const [loading, setLoading] = useState(!initialData);
+  const [hasCompletedInitialLoad, setHasCompletedInitialLoad] = useState(Boolean(initialData));
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const loadSequenceRef = useRef(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
   const requestCacheRef = useRef(new Map<string, CachedRequestList>());
+  const usedInitialDataRef = useRef(false);
   const statusFilterRef = useRef<HTMLDivElement>(null);
   const [hasMoreStatusFilters, setHasMoreStatusFilters] = useState(false);
 
@@ -88,26 +91,31 @@ export function OutfitsPageClient({ initialScope = "open" }: { initialScope?: Hu
     setHasMoreStatusFilters(element.scrollLeft + element.clientWidth < element.scrollWidth - 1);
   }, []);
 
-  const load = useCallback(async (nextScope: HubScope, nextMineStatus: OutfitRequestMineStatus, offset = 0) => {
+  const load = useCallback(async (nextScope: HubScope, nextMineStatus: OutfitRequestMineStatus, cursor: string | null = null) => {
     const loadSequence = ++loadSequenceRef.current;
-    if (offset === 0) {
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    if (!cursor) {
       setLoading(true);
       setLoadingMore(false);
     }
     else setLoadingMore(true);
     setError("");
     try {
-      const data = await fetchOutfitRequests(nextScope, offset, nextScope === "mine" ? nextMineStatus : "all");
+      const data = await fetchOutfitRequests(nextScope, cursor, nextScope === "mine" ? nextMineStatus : "all", controller.signal);
       if (loadSequence !== loadSequenceRef.current) return;
       const cacheKey = getRequestCacheKey(nextScope, nextMineStatus);
       setRequests((current) => {
-        const nextRequests = offset === 0 ? data.requests : [...current, ...data.requests];
-        requestCacheRef.current.set(cacheKey, { requests: nextRequests, total: data.total });
+        const nextRequests = !cursor ? data.requests : [...current, ...data.requests];
+        requestCacheRef.current.set(cacheKey, { requests: nextRequests, total: data.total, nextCursor: data.nextCursor });
         return nextRequests;
       });
       setTotal(data.total);
+      setNextCursor(data.nextCursor);
     } catch (loadError) {
       if (loadSequence !== loadSequenceRef.current) return;
+      if (loadError instanceof DOMException && loadError.name === "AbortError") return;
       setError(loadError instanceof Error ? loadError.message : "코디 요청을 불러오지 못했습니다.");
     } finally {
       if (loadSequence === loadSequenceRef.current) {
@@ -118,12 +126,15 @@ export function OutfitsPageClient({ initialScope = "open" }: { initialScope?: Hu
     }
   }, []);
 
+  useEffect(() => () => requestControllerRef.current?.abort(), []);
+
   function selectScope(nextScope: HubScope) {
     if (nextScope === scope) return;
     const cached = requestCacheRef.current.get(getRequestCacheKey(nextScope, mineStatus));
     if (cached) {
       setRequests(cached.requests);
       setTotal(cached.total);
+      setNextCursor(cached.nextCursor);
     }
     setLoading(true);
     setScope(nextScope);
@@ -135,6 +146,7 @@ export function OutfitsPageClient({ initialScope = "open" }: { initialScope?: Hu
     if (cached) {
       setRequests(cached.requests);
       setTotal(cached.total);
+      setNextCursor(cached.nextCursor);
     }
     setLoading(true);
     setMineStatus(nextStatus);
@@ -146,9 +158,16 @@ export function OutfitsPageClient({ initialScope = "open" }: { initialScope?: Hu
       router.replace(buildLoginHref("login", "/outfits"));
       return;
     }
+    if (!usedInitialDataRef.current && initialData) {
+      usedInitialDataRef.current = true;
+      requestCacheRef.current.set(getRequestCacheKey(initialScope, "all"), { requests: initialData.requests, total: initialData.total, nextCursor: initialData.nextCursor });
+      setLoading(false);
+      setHasCompletedInitialLoad(true);
+      return;
+    }
     captureEvent("outfit_hub_viewed", { scope, mine_status: scope === "mine" ? mineStatus : undefined });
     void load(scope, mineStatus);
-  }, [authUserId, isAuthLoading, load, mineStatus, router, scope]);
+  }, [authUserId, initialData, initialScope, isAuthLoading, load, mineStatus, router, scope]);
 
   useEffect(() => {
     if (scope !== "mine") {
@@ -290,7 +309,7 @@ export function OutfitsPageClient({ initialScope = "open" }: { initialScope?: Hu
           </div>
         )}
         </div>
-        {requests.length < total && <div className="mt-8 flex justify-center"><button disabled={loading || loadingMore} onClick={() => void load(scope, mineStatus, requests.length)} className="rounded-xl border border-white/15 px-6 py-3 text-sm font-bold text-white/70 hover:border-white/30 disabled:opacity-50">{loadingMore ? "불러오는 중..." : "더 보기"}</button></div>}
+        {nextCursor && requests.length < total && <div className="mt-8 flex justify-center"><button disabled={loading || loadingMore} onClick={() => void load(scope, mineStatus, nextCursor)} className="rounded-xl border border-white/15 px-6 py-3 text-sm font-bold text-white/70 hover:border-white/30 disabled:opacity-50">{loadingMore ? "불러오는 중..." : "더 보기"}</button></div>}
         </div>
       </div>
     </main>

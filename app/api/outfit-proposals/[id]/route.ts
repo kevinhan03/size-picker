@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
-import { verifyRegisteredBearerToken } from "../../../../server/utils/verify-auth.js";
-import { getBearerToken, hydrateRequestDetail, validateProposalInput } from "../../../../server/utils/outfits.js";
+import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
+import { hydrateRequestDetail, validateProposalInput } from "../../../../server/utils/outfits.js";
 
 const notFound = () => NextResponse.json({ ok: false, error: "코디 제안을 찾을 수 없습니다." }, { status: 404 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  const token = getBearerToken(request);
-  if (!token) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
+  if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
 
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
 
     const { id } = await context.params;
@@ -110,13 +109,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
-  const token = getBearerToken(request);
-  if (!token) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
+  if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
 
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
     const { id } = await context.params;
     const { data: proposal, error: proposalError } = await db

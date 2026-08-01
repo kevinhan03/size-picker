@@ -8,9 +8,9 @@ type DigboxContextValue = ReturnType<typeof useDigbox>;
 
 const DigboxContext = createContext<DigboxContextValue | null>(null);
 
-export function DigboxProvider({ children }: { children: React.ReactNode }) {
+export function DigboxProvider({ children, initialProducts, initialCounts = {} }: { children: React.ReactNode; initialProducts?: import("../types").Product[]; initialCounts?: Record<string, number> }) {
   const { authUser, dbUsername } = useAuthContext();
-  const value = useDigbox(Boolean(authUser && dbUsername));
+  const value = useDigbox(Boolean(authUser && dbUsername), initialProducts, initialCounts);
   return <DigboxContext.Provider value={value}>{children}</DigboxContext.Provider>;
 }
 

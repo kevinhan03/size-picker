@@ -7,11 +7,11 @@ import {
 } from "../api";
 import type { MySizeInput, MySizeProfile, MySizeUpdateInput } from "../types";
 
-export function useMySizes(isLoggedIn: boolean) {
-  const [mySizes, setMySizes] = useState<MySizeProfile[]>([]);
+export function useMySizes(isLoggedIn: boolean, initialProfiles?: MySizeProfile[]) {
+  const [mySizes, setMySizes] = useState<MySizeProfile[]>(initialProfiles ?? []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(initialProfiles !== undefined);
   const isLoadingRef = useRef(false);
 
   const load = useCallback(async () => {

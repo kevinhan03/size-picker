@@ -27,6 +27,7 @@ export const postJson = async <TRequest, TResponse>(
 ): Promise<{ response: Response; payload: ApiEnvelope<TResponse> }> => {
   const response = await fetch(endpoint, {
     method: "POST",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json", ...extraHeaders },
     body: JSON.stringify(body),
   });

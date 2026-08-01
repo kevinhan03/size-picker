@@ -1,11 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import type { AuthInitialState } from "../../src/types";
 import { supabase as adminSupabase } from "../lib/supabase.js";
 
 const ANONYMOUS_AUTH: AuthInitialState = { user: null, username: null, needsUsername: false };
 
-export async function getInitialAuthState(): Promise<AuthInitialState> {
+async function loadInitialAuthState(): Promise<AuthInitialState> {
   const cookieStore = await cookies();
   const hasAuthCookie = cookieStore.getAll().some(({ name }) => name.startsWith("sb-") && name.includes("auth-token"));
   if (!hasAuthCookie) return ANONYMOUS_AUTH;
@@ -35,3 +36,5 @@ export async function getInitialAuthState(): Promise<AuthInitialState> {
     needsUsername: !profile?.username,
   };
 }
+
+export const getInitialAuthState = cache(loadInitialAuthState);

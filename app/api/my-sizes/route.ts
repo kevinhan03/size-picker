@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
+import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
 
 const unauthorized = (msg = "authorization token is required") =>
   NextResponse.json({ ok: false, error: msg }, { status: 401 });
@@ -17,10 +17,6 @@ type MySizeRow = {
   fit_note?: string | null;
   created_at?: string | null;
 };
-
-function getToken(request: Request) {
-  return String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-}
 
 function normalizeSizeSnapshot(value: unknown) {
   if (!value || typeof value !== "object") return null;
@@ -49,13 +45,10 @@ function normalizeProfile(row: MySizeRow) {
 }
 
 export async function GET(request: Request) {
-  const token = getToken(request);
-  if (!token) return unauthorized();
-
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return unauthorized("registered account required");
 
     const { data, error } = await db
@@ -78,13 +71,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const token = getToken(request);
-  if (!token) return unauthorized();
+  if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
 
   try {
     assertSupabaseConfig();
     const db = supabase!;
-    const user = await verifyRegisteredBearerToken(token);
+    const user = await getRegisteredRequestUser(request);
     if (!user) return unauthorized("registered account required");
 
     const body = await request.json();

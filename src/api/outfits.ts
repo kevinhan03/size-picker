@@ -1,9 +1,8 @@
-import { getAuthHeaders } from "./auth-client";
 import type { OutfitRequestDetail, OutfitRequestMineStatus, OutfitRequestScope, OutfitRequestSummary } from "../types";
 import { parseApiJson } from "./shared";
 
-async function authHeaders(includeJson = false) {
-  return getAuthHeaders(includeJson);
+function authHeaders(includeJson = false) {
+  return includeJson ? { "Content-Type": "application/json" } : undefined;
 }
 
 async function parseResponse<T>(response: Response, endpoint: string): Promise<T> {
@@ -12,13 +11,13 @@ async function parseResponse<T>(response: Response, endpoint: string): Promise<T
   return payload.data;
 }
 
-export async function fetchOutfitRequests(scope: OutfitRequestScope, offset = 0, mineStatus: OutfitRequestMineStatus = "all") {
-  const endpoint = `/api/outfit-requests?scope=${scope}&status=${mineStatus}&offset=${offset}&limit=20`;
-  const response = await fetch(endpoint, { headers: await authHeaders() });
+export async function fetchOutfitRequests(scope: OutfitRequestScope, cursor: string | null = null, mineStatus: OutfitRequestMineStatus = "all", signal?: AbortSignal) {
+  const endpoint = `/api/outfit-requests?scope=${scope}&status=${mineStatus}&limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+  const response = await fetch(endpoint, { headers: authHeaders(), credentials: "same-origin", signal });
   return parseResponse<{
     requests: OutfitRequestSummary[];
     total: number;
-    nextOffset: number;
+    nextCursor: string | null;
     currentUserId: string;
   }>(response, endpoint);
 }
@@ -27,7 +26,7 @@ export async function createOutfitRequest(input: { description: string; focusPro
   const endpoint = "/api/outfit-requests";
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: await authHeaders(true),
+    headers: authHeaders(true), credentials: "same-origin",
     body: JSON.stringify(input),
   });
   return parseResponse<{ request: OutfitRequestDetail }>(response, endpoint);
@@ -35,7 +34,7 @@ export async function createOutfitRequest(input: { description: string; focusPro
 
 export async function fetchOutfitRequest(id: string) {
   const endpoint = `/api/outfit-requests/${encodeURIComponent(id)}`;
-  const response = await fetch(endpoint, { headers: await authHeaders() });
+  const response = await fetch(endpoint, { headers: authHeaders(), credentials: "same-origin" });
   return parseResponse<{ request: OutfitRequestDetail; currentUserId: string }>(response, endpoint);
 }
 
@@ -43,7 +42,7 @@ export async function updateOutfitRequest(id: string, body: { action: "close" } 
   const endpoint = `/api/outfit-requests/${encodeURIComponent(id)}`;
   const response = await fetch(endpoint, {
     method: "PATCH",
-    headers: await authHeaders(true),
+    headers: authHeaders(true), credentials: "same-origin",
     body: JSON.stringify(body),
   });
   return parseResponse<{ request: OutfitRequestDetail }>(response, endpoint);
@@ -51,7 +50,7 @@ export async function updateOutfitRequest(id: string, body: { action: "close" } 
 
 export async function deleteOutfitRequest(id: string) {
   const endpoint = `/api/outfit-requests/${encodeURIComponent(id)}`;
-  const response = await fetch(endpoint, { method: "DELETE", headers: await authHeaders() });
+  const response = await fetch(endpoint, { method: "DELETE", headers: authHeaders(), credentials: "same-origin" });
   return parseResponse<{ deleted: boolean }>(response, endpoint);
 }
 
@@ -59,7 +58,7 @@ export async function createOutfitProposal(id: string, input: { productIds: stri
   const endpoint = `/api/outfit-requests/${encodeURIComponent(id)}/proposals`;
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: await authHeaders(true),
+    headers: authHeaders(true), credentials: "same-origin",
     body: JSON.stringify(input),
   });
   return parseResponse<{ request: OutfitRequestDetail }>(response, endpoint);
@@ -69,7 +68,7 @@ export async function updateOutfitProposal(id: string, input: { productIds: stri
   const endpoint = `/api/outfit-proposals/${encodeURIComponent(id)}`;
   const response = await fetch(endpoint, {
     method: "PATCH",
-    headers: await authHeaders(true),
+    headers: authHeaders(true), credentials: "same-origin",
     body: JSON.stringify(input),
   });
   return parseResponse<{ request: OutfitRequestDetail }>(response, endpoint);
@@ -77,6 +76,6 @@ export async function updateOutfitProposal(id: string, input: { productIds: stri
 
 export async function deleteOutfitProposal(id: string) {
   const endpoint = `/api/outfit-proposals/${encodeURIComponent(id)}`;
-  const response = await fetch(endpoint, { method: "DELETE", headers: await authHeaders() });
+  const response = await fetch(endpoint, { method: "DELETE", headers: authHeaders(), credentials: "same-origin" });
   return parseResponse<{ deleted: boolean }>(response, endpoint);
 }

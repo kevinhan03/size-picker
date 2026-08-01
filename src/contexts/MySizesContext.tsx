@@ -8,9 +8,9 @@ type MySizesContextValue = ReturnType<typeof useMySizes>;
 
 const MySizesContext = createContext<MySizesContextValue | null>(null);
 
-export function MySizesProvider({ children }: { children: React.ReactNode }) {
+export function MySizesProvider({ children, initialProfiles }: { children: React.ReactNode; initialProfiles?: import("../types").MySizeProfile[] }) {
   const { authUser } = useAuthContext();
-  const value = useMySizes(Boolean(authUser));
+  const value = useMySizes(Boolean(authUser), initialProfiles);
   return <MySizesContext.Provider value={value}>{children}</MySizesContext.Provider>;
 }
 

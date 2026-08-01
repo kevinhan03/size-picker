@@ -1,33 +1,17 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
+import { getRequestAuthUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
 
 export async function POST(request: Request) {
-  const authorization = String(request.headers.get("authorization") || "").trim();
-  const token = authorization.replace(/^Bearer\s+/i, "").trim();
-
-  if (!token) {
-    return NextResponse.json(
-      { ok: false, error: "authorization token is required" },
-      { status: 401 }
-    );
-  }
+  if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
 
   try {
     assertSupabaseConfig();
     const db = supabase!;
 
-    const {
-      data: { user },
-      error: userError,
-    } = await db.auth.getUser(token);
-
-    if (userError || !user) {
-      return NextResponse.json(
-        { ok: false, error: userError?.message || "invalid auth token" },
-        { status: 401 }
-      );
-    }
+    const user = await getRequestAuthUser(request);
+    if (!user) return NextResponse.json({ ok: false, error: "invalid auth session" }, { status: 401 });
 
     const { data: dbUser, error: dbUserError } = await db
       .from("users")

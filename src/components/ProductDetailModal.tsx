@@ -7,7 +7,7 @@ import type { ClosetSizeSelection, MySizeProfile, Product } from "../types";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
-import { useMySizesContext } from "../contexts/MySizesContext";
+import { MySizesProvider, useMySizesContext } from "../contexts/MySizesContext";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useClosetContext } from "../contexts/ClosetContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
@@ -174,7 +174,7 @@ function MySizePickerOverlay({
   );
 }
 
-export function ProductDetailModal({
+function ProductDetailModalContent({
   product,
   closetProduct,
   activeRowIndex,
@@ -843,4 +843,8 @@ export function ProductDetailModal({
     )}
     </>
   );
+}
+
+export function ProductDetailModal(props: ProductDetailModalProps) {
+  return <MySizesProvider><ProductDetailModalContent {...props} /></MySizesProvider>;
 }

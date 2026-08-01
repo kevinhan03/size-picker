@@ -4,13 +4,12 @@
 import { type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, Compass, RotateCcw, Sparkles, Undo2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { fetchDigMatchHistory, fetchDigMatchProducts, fetchDigMatchProfile, saveDigMatchProfile, type DigMatchHistoryEntry } from "../../api/tasteMatch";
+import { fetchDigMatchProducts, fetchDigMatchProfileData, saveDigMatchProfile, type DigMatchHistoryEntry } from "../../api/tasteMatch";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { captureEvent } from "../../utils/analytics";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../../constants";
 import { getProductPageUrl } from "../../utils/product";
 import {
-  buildDigMatchQuestions,
   buildDigMatchFollowUpQuestions,
   buildDigMatchOpeningQuestions,
   calculateDigMatchProfile,
@@ -90,10 +89,10 @@ function RecommendationGroup({ title, copy, items, onOpen }: { title: string; co
   return <section className="border-t border-white/10 py-5"><p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/60">{title}</p><p className="mt-1 text-sm leading-5 text-gray-400">{copy}</p><div className="mt-3 space-y-2">{items.map(({ product, reasons }) => <button key={product.id} type="button" onClick={() => onOpen(product)} className="dig-match-recommendation-row flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/[0.025] p-2 text-left transition-[background-color,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"><img src={product.thumbnailImage || product.image || DEFAULT_PRODUCT_PLACEHOLDER} alt="" onError={handleImageFallback} className="h-14 w-14 rounded-md object-cover" /><span className="min-w-0"><span className="block truncate text-xs font-medium text-white/60">{product.brand}</span><span className="mt-1 block line-clamp-2 text-sm font-semibold text-white">{product.name}</span>{reasons.length ? <span className="mt-1 block text-xs text-gray-400">{reasons.map(getDigMatchTagLabel).join(" · ")}</span> : null}</span><ArrowRight className="ml-auto h-4 w-4 shrink-0 text-white/45" /></button>)}</div></section>;
 }
 
-export function DigMatchPageClient() {
+export function DigMatchPageClient({ initialProducts = [] }: { initialProducts?: Product[] }) {
   const router = useRouter();
   const auth = useAuthContext();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [isProductsLoading, setIsProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("ready");
@@ -134,8 +133,11 @@ export function DigMatchPageClient() {
   useEffect(() => {
     if (!auth.authUser) return;
     let active = true;
-    void fetchDigMatchProfile().then((savedProfile) => { if (active && savedProfile) { loadedProfileRef.current = savedProfile; setProfile(savedProfile); } }).catch(() => undefined);
-    void fetchDigMatchHistory().then((entries) => { if (active) setHistory(entries); }).catch(() => undefined);
+    void fetchDigMatchProfileData().then(({ profile: savedProfile, history: entries }) => {
+      if (!active) return;
+      if (savedProfile) { loadedProfileRef.current = savedProfile; setProfile(savedProfile); }
+      setHistory(entries);
+    }).catch(() => undefined);
     return () => { active = false; };
   }, [auth.authUser]);
 
@@ -157,8 +159,8 @@ export function DigMatchPageClient() {
   }, []);
 
   useEffect(() => {
-    void loadProducts();
-  }, [loadProducts]);
+    if (!initialProducts.length) void loadProducts();
+  }, [initialProducts.length, loadProducts]);
 
   const availableProducts = products;
   const currentQuestion = questions[questionIndex] || null;
@@ -224,7 +226,8 @@ export function DigMatchPageClient() {
   useEffect(() => { if (screen === "result") captureEvent("dig_match_result_viewed", { completed_sessions: profile?.completedSessions || 1 }); }, [profile?.completedSessions, screen]);
 
   const isLoadingProducts = isProductsLoading;
-  const canStart = !isLoadingProducts && buildDigMatchQuestions(availableProducts, 12, () => 0.42).length >= 12;
+  const canStart = !isLoadingProducts
+    && buildDigMatchOpeningQuestions(availableProducts, DIG_MATCH_OPENING_QUESTION_COUNT, () => 0.42).length >= DIG_MATCH_OPENING_QUESTION_COUNT;
   const progressInsight = getDigMatchProgressInsight(questions.slice(0, questionIndex), answers);
   const isFollowUpPhase = questionIndex >= DIG_MATCH_OPENING_QUESTION_COUNT;
   const phaseTotal = isFollowUpPhase ? Math.max(1, questions.length - DIG_MATCH_OPENING_QUESTION_COUNT) : DIG_MATCH_OPENING_QUESTION_COUNT;

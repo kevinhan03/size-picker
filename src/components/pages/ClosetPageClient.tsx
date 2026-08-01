@@ -11,6 +11,7 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { useProductDetail } from "../../hooks/useProductDetail";
+import { useProgressiveList } from "../../hooks/useProgressiveList";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { FilterBar } from "../FilterBar";
 import { PageHeader } from "../PageHeader";
@@ -435,11 +436,14 @@ function DeleteConfirmDialog({
   );
 }
 
-export function ClosetPageClient() {
+export function ClosetPageClient({ initialProducts }: { initialProducts?: Product[] }) {
   const router = useRouter();
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
-  const { closetProducts, removeFromCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
+  const closet = useClosetContext();
+  const { closetProducts, removeFromCloset, ensureLoaded: ensureClosetLoaded } = closet;
+  const hydrateCloset = closet.hydrate;
+  const isClosetLoaded = closet.isLoaded;
   const digbox = useDigboxContext();
   const ensureDigboxLoaded = digbox.ensureLoaded;
   const productModal = useProductModalQuery();
@@ -464,13 +468,25 @@ export function ClosetPageClient() {
   }, [auth.isAuthLoading, authUserId, router]);
 
   useEffect(() => {
+    if (authUserId && initialProducts !== undefined && !isClosetLoaded) {
+      hydrateCloset(initialProducts);
+    }
+  }, [authUserId, hydrateCloset, initialProducts, isClosetLoaded]);
+
+  useEffect(() => {
     if (authUserId) {
       ensureClosetLoaded();
-      ensureDigboxLoaded();
     }
-  }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
+  }, [authUserId, ensureClosetLoaded]);
 
-  const closetItems = useMemo(() => closetProducts, [closetProducts]);
+  useEffect(() => {
+    if (authUserId && productModal.productId) ensureDigboxLoaded();
+  }, [authUserId, ensureDigboxLoaded, productModal.productId]);
+
+  const closetItems = useMemo(
+    () => isClosetLoaded ? closetProducts : (initialProducts ?? closetProducts),
+    [closetProducts, initialProducts, isClosetLoaded],
+  );
 
   const filtered = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -480,6 +496,8 @@ export function ClosetPageClient() {
       return `${p.brand} ${p.name}`.toLowerCase().includes(keyword);
     });
   }, [closetItems, catFilter, searchQuery]);
+  const { visibleCount, sentinelRef } = useProgressiveList(filtered.length, `${catFilter}:${searchQuery}`);
+  const visibleProducts = filtered.slice(0, visibleCount);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing derived collection state.
   const catCounts = useMemo(() => {
@@ -540,6 +558,31 @@ export function ClosetPageClient() {
     return (
       <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
         <PageState kind="loading" title="옷장을 준비하고 있어요" description="계정과 저장한 상품을 확인하는 중입니다." />
+      </main>
+    );
+  }
+
+  if (closet.isLoading && closetItems.length === 0) {
+    return (
+      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
+        <PageState kind="loading" title="옷장을 불러오고 있어요" description="저장한 상품을 정리하는 중입니다." />
+      </main>
+    );
+  }
+
+  if (closet.error && closetItems.length === 0) {
+    return (
+      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
+        <PageState
+          kind="error"
+          title="옷장을 불러오지 못했어요"
+          description="잠시 후 다시 시도해 주세요. 기존 저장 데이터는 그대로 유지됩니다."
+          action={(
+            <button type="button" onClick={() => void closet.reload()} className="ui-button ui-button-primary px-5 py-2.5">
+              다시 시도
+            </button>
+          )}
+        />
       </main>
     );
   }
@@ -801,7 +844,7 @@ export function ClosetPageClient() {
             className="closet-product-grid"
             style={{ display: "grid" }}
           >
-            {filtered.map((p) => (
+            {visibleProducts.map((p) => (
               <GridCard
                 key={p.id}
                 product={p}
@@ -819,7 +862,7 @@ export function ClosetPageClient() {
         {/* List view */}
         {false && viewMode === "list" && filtered.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {filtered.map((p) => (
+            {visibleProducts.map((p) => (
               <ListRow
                 key={p.id}
                 product={p}
@@ -833,6 +876,9 @@ export function ClosetPageClient() {
             ))}
           </div>
         )}
+        {visibleCount < filtered.length ? (
+          <div ref={sentinelRef} className="h-px w-full" aria-hidden="true" />
+        ) : null}
       </div>
 
       {isEditing && selectedIds.size > 0 ? (

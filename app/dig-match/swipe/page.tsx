@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { TasteSwipePageClient } from "../../../src/components/pages/TasteSwipePageClient";
+import { getDigMatchProducts } from "../../../server/services/dig-match-products.js";
 
 export const metadata: Metadata = {
   title: "빠른 취향 탐색 | DIGBOX",
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function TasteSwipePage() {
-  return <TasteSwipePageClient />;
+export default async function TasteSwipePage() {
+  const products = await getDigMatchProducts({ limit: 36, seed: "swipe" }).catch(() => []);
+  return <TasteSwipePageClient initialProducts={products} />;
 }

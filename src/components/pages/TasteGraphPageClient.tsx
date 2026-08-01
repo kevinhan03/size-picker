@@ -14,7 +14,7 @@ import { useProductDetail } from "../../hooks/useProductDetail";
 import { captureEvent } from "../../utils/analytics";
 import { toPublicUrl } from "../../utils/product";
 import type { Product, StyleTagName } from "../../types";
-import type { TasteCollectionSource } from "../../utils/tasteGraph";
+import type { SerializedTasteGraphState, TasteCollectionSource } from "../../utils/tasteGraph";
 import { buildBrandClusters } from "../../utils/brandClusters";
 import { TasteReport } from "../taste-graph/TasteReport";
 import { PageState } from "../PageState";
@@ -42,10 +42,12 @@ export function TasteGraphPageClient({
   initialSource,
   initialView = "products",
   initialTag,
+  initialGraphs,
 }: {
   initialSource?: TasteGraphSource;
   initialView?: TasteGraphView;
   initialTag?: StyleTagName;
+  initialGraphs?: Partial<Record<TasteGraphSource, SerializedTasteGraphState>>;
 }) {
   const router = useRouter();
   const auth = useAuthContext();
@@ -73,14 +75,12 @@ export function TasteGraphPageClient({
   const {
     closetProducts,
     isLoading: isClosetLoading,
-    ensureLoaded: ensureClosetLoaded,
     toggleCloset,
     isInCloset,
   } = useClosetContext();
   const {
     digboxProducts,
     isLoading: isDigboxLoading,
-    ensureLoaded: ensureDigboxLoaded,
     toggleDigbox,
     isInDigbox,
   } = useDigboxContext();
@@ -88,12 +88,6 @@ export function TasteGraphPageClient({
   useEffect(() => {
     if (!auth.isAuthLoading && !authUserId) router.replace("/login");
   }, [auth.isAuthLoading, authUserId, router]);
-
-  useEffect(() => {
-    if (!authUserId) return;
-    ensureClosetLoaded(true);
-    ensureDigboxLoaded(true);
-  }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
 
   useEffect(() => {
     setSelectedSource(initialSource || null);
@@ -259,6 +253,7 @@ export function TasteGraphPageClient({
           <div className={`taste-product-graph-layer ${source === "digbox" ? "active" : ""}`}>
             <TasteGraphCanvas
               products={digboxProducts}
+              graphData={initialGraphs?.digbox}
               initialTag={urlFocus.source === "digbox" ? urlFocus.tag : undefined}
               source="digbox"
               active={isMapOpen && selectedView === "products" && source === "digbox"}
@@ -270,6 +265,7 @@ export function TasteGraphPageClient({
           <div className={`taste-product-graph-layer ${source === "closet" ? "active" : ""}`}>
             <TasteGraphCanvas
               products={closetProducts}
+              graphData={initialGraphs?.closet}
               initialTag={urlFocus.source === "closet" ? urlFocus.tag : undefined}
               source="closet"
               active={isMapOpen && selectedView === "products" && source === "closet"}
