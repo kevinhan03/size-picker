@@ -1,5 +1,3 @@
-import posthog from "posthog-js";
-
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 type PendingAnalyticsEvent = {
   name: string;
@@ -8,21 +6,23 @@ type PendingAnalyticsEvent = {
 
 const MAX_PENDING_EVENTS = 100;
 const pendingEvents: PendingAnalyticsEvent[] = [];
+type AnalyticsClient = { capture: (name: string, properties?: AnalyticsProperties) => void };
+let analyticsClient: AnalyticsClient | null = null;
 
 export function captureEvent(name: string, properties: AnalyticsProperties = {}) {
   if (typeof window === "undefined") return;
-  if (!posthog.__loaded) {
+  if (!analyticsClient) {
     if (pendingEvents.length < MAX_PENDING_EVENTS) {
       pendingEvents.push({ name, properties });
     }
     return;
   }
-  posthog.capture(name, properties);
+  analyticsClient.capture(name, properties);
 }
 
-export function flushPendingAnalyticsEvents() {
-  if (!posthog.__loaded) return;
+export function setAnalyticsClient(client: AnalyticsClient) {
+  analyticsClient = client;
   pendingEvents.splice(0).forEach(({ name, properties }) => {
-    posthog.capture(name, properties);
+    client.capture(name, properties);
   });
 }

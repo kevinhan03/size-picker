@@ -5,24 +5,16 @@ import { ClosetProvider } from "../contexts/ClosetContext";
 import { DigboxProvider } from "../contexts/DigboxContext";
 import { MySizesProvider } from "../contexts/MySizesContext";
 import { ProductFormProvider } from "../contexts/ProductFormContext";
-import { ProductsProvider } from "../contexts/ProductsContext";
 import { SearchProvider } from "../contexts/SearchContext";
-import type { Product } from "../types";
 import { AppShell } from "./AppShell";
 import { PostHogProvider } from "./PostHogProvider";
+import type { AuthInitialState } from "../types";
 
-export function ClientProviders({
-  children,
-  initialProducts = [],
-}: {
-  children: React.ReactNode;
-  initialProducts?: Product[];
-}) {
+export function ClientProviders({ children, initialAuth }: { children: React.ReactNode; initialAuth: AuthInitialState }) {
   return (
     <PostHogProvider>
-      <AuthProvider>
-        <ProductsProvider initialProducts={initialProducts}>
-          <ClosetProvider>
+      <AuthProvider initialState={initialAuth}>
+        <ClosetProvider>
             <MySizesProvider>
               <DigboxProvider>
               <SearchProvider>
@@ -32,8 +24,7 @@ export function ClientProviders({
               </SearchProvider>
               </DigboxProvider>
             </MySizesProvider>
-          </ClosetProvider>
-        </ProductsProvider>
+        </ClosetProvider>
       </AuthProvider>
     </PostHogProvider>
   );

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { verifyAdminRequest } from "../../../../../server/utils/admin-request.js";
 import { SUPABASE_PRODUCTS_TABLE } from "../../../../../server/config/env.js";
@@ -9,6 +9,7 @@ import { removeOldProductImageIfUnused, toProductWriteErrorResponse } from "../.
 import { persistExternalProductImage, removeStoredProductImage } from "../../../../../server/services/product-image-storage.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../../server/services/dig-match-products.js";
 import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../../../server/utils/size-table.js";
+import { invalidatePublicProductCaches } from "../../../../../server/services/catalog-cache";
 
 export async function PATCH(
   request: Request,
@@ -139,7 +140,7 @@ export async function PATCH(
     }
 
     revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
-    revalidatePath("/", "layout");
+    invalidatePublicProductCaches(productId);
     return NextResponse.json({
       ok: true,
       data: { product: data },
@@ -190,7 +191,7 @@ export async function DELETE(
     });
 
     revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
-    revalidatePath("/", "layout");
+    invalidatePublicProductCaches(productId);
     return NextResponse.json({
       ok: true,
       data: { id: productId },

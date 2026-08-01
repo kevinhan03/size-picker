@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useProductsContext } from "../contexts/ProductsContext";
 import { ProductDetailRouteModal } from "./ProductDetailRouteModal";
 import { parseApiJson, type ApiEnvelope } from "../api/shared";
 import type { Product } from "../types";
@@ -12,18 +11,13 @@ function parseNumericId(param: string): string {
 }
 
 export function ProductModalClient({ id }: { id: string }) {
-  const { products } = useProductsContext();
   const router = useRouter();
   const numericId = parseNumericId(id);
-
-  const contextProduct = products.find((p) => String(p.id) === numericId) ?? null;
 
   const [fetchedProduct, setFetchedProduct] = useState<Product | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (contextProduct) return;
-
     const controller = new AbortController();
     const endpoint = `/api/products/${numericId}`;
 
@@ -39,13 +33,13 @@ export function ProductModalClient({ id }: { id: string }) {
       .catch(() => setNotFound(true));
 
     return () => controller.abort();
-  }, [numericId, contextProduct]);
+  }, [numericId]);
 
   useEffect(() => {
     if (notFound) router.back();
   }, [notFound, router]);
 
-  const product = contextProduct ?? fetchedProduct;
+  const product = fetchedProduct;
 
   if (!product) return <div className="fixed inset-0 z-[65] bg-black/80" />;
 

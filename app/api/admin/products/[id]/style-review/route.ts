@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { SUPABASE_PRODUCTS_TABLE } from "../../../../../../server/config/env.js";
 import { assertSupabaseConfig, supabase } from "../../../../../../server/lib/supabase.js";
 import { verifyAdminRequest } from "../../../../../../server/utils/admin-request.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../../../server/services/dig-match-products.js";
+import { invalidatePublicProductCaches } from "../../../../../../server/services/catalog-cache";
 
 const STYLE_TAGS = [
   "casual",
@@ -273,7 +274,7 @@ export async function PATCH(
     if (!data) return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
 
     revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
-    revalidatePath("/", "layout");
+    invalidatePublicProductCaches(productId);
     return NextResponse.json({ ok: true, data: { product: data } });
   } catch (error: unknown) {
     return NextResponse.json(

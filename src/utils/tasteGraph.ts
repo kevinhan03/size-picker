@@ -767,13 +767,15 @@ function categoryPairCompatibility(left: Product, right: Product): number | null
  * signal. Unlike substitute recommendations, it does not require an image
  * embedding and it never treats missing tags as a match.
  */
-export function getCrossCategoryStyleSimilarity(left: Product, right: Product): ProductHybridSimilarity | null {
+export function getCrossCategoryStyleSimilarity(left: Product, right: Product, visualOverride?: number | null): ProductHybridSimilarity | null {
   const style = styleSimilarity(left, right);
   if (style === null) return null;
 
   const leftEmbedding = parseEmbedding(left.imageEmbedding);
   const rightEmbedding = parseEmbedding(right.imageEmbedding);
-  const visual = leftEmbedding && rightEmbedding ? cosineSimilarity(leftEmbedding, rightEmbedding) : null;
+  const visual = typeof visualOverride === "number"
+    ? visualOverride
+    : leftEmbedding && rightEmbedding ? cosineSimilarity(leftEmbedding, rightEmbedding) : null;
   const expression = attributeSimilarity(left, right, EXPRESSION_ATTRIBUTE_KEYS);
   const compatibility = compatibilityAttributeSimilarity(left, right);
   const categoryPair = categoryPairCompatibility(left, right);
@@ -858,11 +860,13 @@ export function getProductHybridSimilarity(left: Product, right: Product): Produ
  * Ranking used only for the similar-products page. It is intentionally more
  * visual than the taste-analysis score, with metadata used as a tie-breaker.
  */
-export function getProductRecommendationSimilarity(left: Product, right: Product): ProductHybridSimilarity | null {
+export function getProductRecommendationSimilarity(left: Product, right: Product, visualOverride?: number | null): ProductHybridSimilarity | null {
   const style = styleSimilarity(left, right);
   const leftEmbedding = parseEmbedding(left.imageEmbedding);
   const rightEmbedding = parseEmbedding(right.imageEmbedding);
-  const visual = leftEmbedding && rightEmbedding ? cosineSimilarity(leftEmbedding, rightEmbedding) : null;
+  const visual = typeof visualOverride === "number"
+    ? visualOverride
+    : leftEmbedding && rightEmbedding ? cosineSimilarity(leftEmbedding, rightEmbedding) : null;
   if (style === null && visual === null) return null;
 
   const shape = attributeSimilarity(left, right, SHAPE_ATTRIBUTE_KEYS);

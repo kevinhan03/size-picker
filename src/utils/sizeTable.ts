@@ -131,7 +131,7 @@ export const getDisplaySizeTable = (product: Product): SizeTable | null => {
     }
     return normalizeSizeTableForCategory(product.category, product.sizeTable || product.normalizedSizeTable || null);
   }
-  return normalizeSizeTable(product.normalizedSizeTable ?? null) || normalizeSizeTableForCategory(product.category, product.sizeTable);
+  return normalizeSizeTable(product.normalizedSizeTable ?? null) || normalizeSizeTableForCategory(product.category, product.sizeTable ?? null);
 };
 
 export const normalizeSizeLabel = (value: unknown): string => normalizeCellText(value).toUpperCase();

@@ -1,4 +1,4 @@
-import { supabase, assertSupabaseClient } from "../lib/supabase";
+import { getAccessToken } from "./auth-client";
 import { type ApiEnvelope, parseApiJson } from "./shared";
 import type { DigMatchAnswer, DigMatchProfile, TasteSwipeAction } from "../utils/digMatch";
 import type { Product } from "../types";
@@ -13,12 +13,6 @@ export async function fetchDigMatchProducts(): Promise<Product[]> {
   const payload = await parseApiJson<ApiEnvelope<{ products?: Product[] }>>(response, "/api/dig-match/products");
   if (!response.ok || !payload.ok) throw new Error(payload.error || "상품 정보를 불러오지 못했습니다.");
   return Array.isArray(payload.data?.products) ? payload.data.products : [];
-}
-
-async function getAccessToken() {
-  assertSupabaseClient();
-  const { data: { session } } = await supabase!.auth.getSession();
-  return String(session?.access_token || "").trim();
 }
 
 export async function fetchDigMatchProfile(): Promise<DigMatchProfile | null> {

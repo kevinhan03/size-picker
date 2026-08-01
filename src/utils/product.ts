@@ -1,6 +1,6 @@
 import type { Product, ProductRow, SizeTable } from '../types';
 import { STORAGE_BUCKET, CATEGORY_OPTIONS, CATEGORY_OPTION_BY_LOWER } from '../constants';
-import { supabase, assertSupabaseClient } from '../lib/supabase';
+import { SUPABASE_URL } from '../constants';
 import { normalizeSizeTable } from './sizeTable';
 
 export const isExternalHttpUrl = (value: string | null | undefined): boolean =>
@@ -63,18 +63,15 @@ export const toPublicUrl = (
 ): string => {
   if (!path) return '';
   if (isExternalHttpUrl(path)) return path;
-  assertSupabaseClient();
-  const result = options
-    ? supabase!.storage.from(STORAGE_BUCKET).getPublicUrl(path, {
-        transform: {
-          width: options.width,
-          height: options.height,
-          resize: options.resize,
-          quality: options.quality,
-        },
-      })
-    : supabase!.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-  return result.data.publicUrl;
+  if (!SUPABASE_URL) return path;
+  const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+  const base = options ? 'render/image/public' : 'object/public';
+  const url = new URL(`${SUPABASE_URL}/storage/v1/${base}/${STORAGE_BUCKET}/${encodedPath}`);
+  if (options?.width) url.searchParams.set('width', String(options.width));
+  if (options?.height) url.searchParams.set('height', String(options.height));
+  if (options?.resize) url.searchParams.set('resize', options.resize);
+  if (options?.quality) url.searchParams.set('quality', String(options.quality));
+  return url.toString();
 };
 
 export const normalizeProduct = (row: ProductRow): Product | null => {

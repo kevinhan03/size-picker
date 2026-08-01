@@ -4,7 +4,6 @@ import {
   getEffectiveProductTargetGender,
   getProductRecommendationSimilarity,
   hasSharedPrimaryStyleTag,
-  parseEmbedding,
 } from "../../src/utils/tasteGraph";
 
 const MIN_VISIBLE_PRODUCTS = 4;
@@ -57,13 +56,14 @@ const diversifyCategories = (candidates: ScoredProduct[]) => {
   return result;
 };
 
-export const buildProductRecommendations = (source: Product, products: Product[]) => {
+export const buildProductRecommendations = (source: Product, products: Product[], visualScores = new Map<string, number>()) => {
   const sourceCategory = normalizeCategory(source.category);
   const similarCandidates = products
     .filter((candidate) => candidate.id !== source.id && normalizeCategory(candidate.category) === sourceCategory)
     .map((candidate) => {
-      if (!parseEmbedding(candidate.imageEmbedding) || hasSharedPrimaryStyleTag(source, candidate) === false) return null;
-      const similarity = getProductRecommendationSimilarity(source, candidate);
+      const visualScore = visualScores.get(candidate.id);
+      if (typeof visualScore !== "number" || hasSharedPrimaryStyleTag(source, candidate) === false) return null;
+      const similarity = getProductRecommendationSimilarity(source, candidate, visualScore);
       return !similarity || similarity.visualSimilarity === null ? null : { product: candidate, similarity: similarity.score };
     })
     .filter((candidate): candidate is ScoredProduct => candidate !== null)
@@ -75,7 +75,7 @@ export const buildProductRecommendations = (source: Product, products: Product[]
     for (const candidate of products) {
       const category = normalizeCategory(candidate.category);
       if (candidate.id === source.id || !STYLE_CATEGORIES.has(category) || category === sourceCategory || !compatibleGender(source, candidate)) continue;
-      const similarity = getCrossCategoryStyleSimilarity(source, candidate);
+      const similarity = getCrossCategoryStyleSimilarity(source, candidate, visualScores.get(candidate.id));
       if (!similarity) continue;
       const scored = { product: candidate, similarity: similarity.score };
       if (hasSharedPrimaryStyleTag(source, candidate) === true) strict.push(scored);
@@ -89,7 +89,7 @@ export const buildProductRecommendations = (source: Product, products: Product[]
     : [...strict, ...fallback.slice(0, MIN_VISIBLE_PRODUCTS - strict.length)];
 
   return {
-    similarProducts: parseEmbedding(source.imageEmbedding) && sourceCategory ? selectNatural(similarCandidates) : [],
+    similarProducts: visualScores.size && sourceCategory ? selectNatural(similarCandidates) : [],
     styleProducts: selectNatural(diversifyCategories(styleCandidates)),
   };
 };

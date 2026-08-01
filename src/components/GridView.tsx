@@ -152,6 +152,7 @@ export function GridView({
                         alt={product.name}
                         className="rounded-[10px] object-contain"
                         loading={vRow.index === 0 ? "eager" : "lazy"}
+                        fetchPriority={vRow.index === 0 ? "high" : "auto"}
                         onError={onImageError}
                       />
                     </div>

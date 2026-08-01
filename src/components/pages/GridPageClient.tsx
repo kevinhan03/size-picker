@@ -2,16 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
+import dynamic from "next/dynamic";
 import { GridView } from "../GridView";
-import { ProductDetailModal } from "../ProductDetailModal";
-import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useGridState } from "../../hooks/useGridState";
+import { useProductDetail } from "../../hooks/useProductDetail";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
+
+const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
+const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
 
 export function GridPageClient() {
   const { products, isProductsLoading } = useProductsContext();
@@ -23,6 +26,7 @@ export function GridPageClient() {
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const detailedProduct = useProductDetail(productModal.productId, selectedProduct);
 
   useEffect(() => {
     ensureClosetLoaded();
@@ -30,14 +34,14 @@ export function GridPageClient() {
   }, [ensureClosetLoaded, ensureDigboxLoaded]);
 
   const normalizedProduct = useMemo<Product | null>(() => {
-    if (!selectedProduct) return null;
-    const imagePath = String(selectedProduct.imagePath || "").trim();
-    const image = imagePath ? toPublicUrl(imagePath) : selectedProduct.image;
+    if (!detailedProduct) return null;
+    const imagePath = String(detailedProduct.imagePath || "").trim();
+    const image = imagePath ? toPublicUrl(imagePath) : detailedProduct.image;
     const thumbnailImage = imagePath
       ? toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 })
-      : selectedProduct.thumbnailImage;
-    return { ...selectedProduct, image, thumbnailImage };
-  }, [selectedProduct]);
+      : detailedProduct.thumbnailImage;
+    return { ...detailedProduct, image, thumbnailImage };
+  }, [detailedProduct]);
 
   useEffect(() => {
     if (!productModal.productId) {

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
-import { SUPABASE_PRODUCTS_TABLE } from "../../../../server/config/env.js";
-import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
-import { refreshBrandRulesCache } from "../../../../server/utils/brand-rules.js";
-import { CATALOG_COLUMNS, normalizeClientProduct, requestLog } from "../../../../server/services/catalog";
+import { getProductDetail, requestLog } from "../../../../server/services/catalog";
 
 export async function GET(
   request: Request,
@@ -17,20 +14,7 @@ export async function GET(
   }
 
   try {
-    assertSupabaseConfig();
-    await refreshBrandRulesCache();
-    const { data, error } = await supabase!
-      .from(SUPABASE_PRODUCTS_TABLE)
-      .select(CATALOG_COLUMNS)
-      .eq("id", productId)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) {
-      return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
-    }
-
-    const product = normalizeClientProduct(data);
+    const product = await getProductDetail(productId);
     if (!product) {
       return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
     }

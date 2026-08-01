@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ClientProviders } from "../src/components/ClientProviders";
+import { getInitialAuthState } from "../server/auth/user-session";
 import "./globals.css";
 
 const siteUrl =
@@ -49,10 +50,11 @@ export default async function RootLayout({
   children: ReactNode;
   modal: ReactNode;
 }>) {
+  const initialAuth = await getInitialAuthState();
   return (
     <html lang="ko" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <ClientProviders>
+        <ClientProviders initialAuth={initialAuth}>
           {children}
           {modal}
         </ClientProviders>

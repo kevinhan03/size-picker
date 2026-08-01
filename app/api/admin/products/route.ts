@@ -3,7 +3,7 @@ import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { getAdminTokenFromCookieHeader, verifyAdminSessionToken } from "../../../../server/auth/admin-session.js";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { SUPABASE_PRODUCTS_TABLE } from "../../../../server/config/env.js";
-import { CATALOG_COLUMNS, normalizeClientProduct, requestLog } from "../../../../server/services/catalog";
+import { normalizeClientProduct, requestLog } from "../../../../server/services/catalog";
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     assertSupabaseConfig();
     const { data, error } = await supabase!
       .from(SUPABASE_PRODUCTS_TABLE)
-      .select(CATALOG_COLUMNS)
+      .select("*")
       .order("created_at", { ascending: false });
     if (error) throw error;
     const products = (data || []).map(normalizeClientProduct).filter(Boolean);

@@ -1,16 +1,8 @@
-import { assertSupabaseClient, supabase } from "../lib/supabase";
+import { getAccessToken } from "./auth-client";
 import { parseApiJson } from "./shared";
 
-async function getAccessToken() {
-  assertSupabaseClient();
-  const { data: { session } } = await supabase!.auth.getSession();
-  const token = String(session?.access_token || "").trim();
-  if (!token) throw new Error("Authentication is required");
-  return token;
-}
-
 export async function checkUsernameAvailability(username: string) {
-  const token = await getAccessToken();
+  const token = await getAccessToken(true);
   const response = await fetch(`/api/auth/username/availability?username=${encodeURIComponent(username)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -20,7 +12,7 @@ export async function checkUsernameAvailability(username: string) {
 }
 
 export async function fetchUsernameSuggestions() {
-  const token = await getAccessToken();
+  const token = await getAccessToken(true);
   const response = await fetch("/api/auth/username/suggestions", { headers: { Authorization: `Bearer ${token}` } });
   const payload = await parseApiJson<{ ok?: boolean; data?: { suggestions?: unknown[] }; error?: string }>(response, "/api/auth/username/suggestions");
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || "추천 사용자 이름을 불러오지 못했어요.");
@@ -28,7 +20,7 @@ export async function fetchUsernameSuggestions() {
 }
 
 export async function changeMyUsername(username: string) {
-  const token = await getAccessToken();
+  const token = await getAccessToken(true);
   const response = await fetch("/api/auth/username", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

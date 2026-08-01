@@ -1,24 +1,9 @@
-import { supabase } from "../lib/supabase";
+import { getAuthHeaders } from "./auth-client";
 import type { OutfitRequestDetail, OutfitRequestMineStatus, OutfitRequestScope, OutfitRequestSummary } from "../types";
 import { parseApiJson } from "./shared";
 
 async function authHeaders(includeJson = false) {
-  const { data, error } = await supabase!.auth.getSession();
-  let session = data.session;
-  if (!session || error) throw new Error("Login is required.");
-
-  if (session.expires_at && session.expires_at * 1000 <= Date.now() + 30_000) {
-    const { data: refreshed, error: refreshError } = await supabase!.auth.refreshSession();
-    if (refreshError || !refreshed.session) throw new Error("Login is required.");
-    session = refreshed.session;
-  }
-
-  const token = String(session.access_token || "").trim();
-  if (!token) throw new Error("로그인이 필요합니다.");
-  return {
-    Authorization: `Bearer ${token}`,
-    ...(includeJson ? { "Content-Type": "application/json" } : {}),
-  };
+  return getAuthHeaders(includeJson);
 }
 
 async function parseResponse<T>(response: Response, endpoint: string): Promise<T> {

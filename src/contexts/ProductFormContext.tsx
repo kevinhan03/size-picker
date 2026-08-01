@@ -6,7 +6,6 @@ import { useProductForm } from "../hooks/useProductForm";
 import { useAuthContext } from "./AuthContext";
 import { useClosetContext } from "./ClosetContext";
 import { useDigboxContext } from "./DigboxContext";
-import { useProductsContext } from "./ProductsContext";
 
 type ProductFormContextValue = ReturnType<typeof useProductForm>;
 
@@ -17,15 +16,11 @@ export function ProductFormProvider({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const auth = useAuthContext();
-  const products = useProductsContext();
   const digbox = useDigboxContext();
   const closet = useClosetContext();
   const value = useProductForm({
     productUrlSet: EMPTY_PRODUCT_URLS,
-    onSubmitSuccess: () => {
-      products.retryProductsLoad();
-      products.setProductsError(null);
-    },
+    onSubmitSuccess: () => router.refresh(),
     onAddToDigbox: digbox.addToDigbox,
     onAddToCloset: closet.addToCloset,
     isLoggedIn: Boolean(auth.authUser) || Boolean(pathname?.startsWith("/admin")),

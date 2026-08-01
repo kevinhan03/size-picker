@@ -17,7 +17,7 @@ export interface Product {
   thumbnailImage?: string;
   imagePath?: string | null;
   slug?: string | null;
-  sizeTable: SizeTable | null;
+  sizeTable?: SizeTable | null;
   normalizedSizeTable?: SizeTable | null;
   createdAt?: string;
   registeredBy?: string | null;
@@ -47,11 +47,40 @@ export interface Product {
   targetGenderReviewedAt?: string | null;
 }
 
-export type ProductCardData = Omit<Product, 'imageEmbedding'>;
+export type ProductCardData = Pick<
+  Product,
+  | 'id'
+  | 'brand'
+  | 'name'
+  | 'category'
+  | 'url'
+  | 'image'
+  | 'thumbnailImage'
+  | 'slug'
+  | 'createdAt'
+  | 'isInstagram'
+  | 'instagramOrder'
+  | 'targetGender'
+>;
+
+export type ProductDetailData = Pick<
+  Product,
+  | keyof ProductCardData
+  | 'imagePath'
+  | 'sizeTable'
+  | 'normalizedSizeTable'
+  | 'registeredBy'
+>;
 
 export interface CatalogPage {
   products: ProductCardData[];
   nextOffset: number | null;
+}
+
+export interface AuthInitialState {
+  user: { id: string; email?: string } | null;
+  username: string | null;
+  needsUsername: boolean;
 }
 
 export type DiscoveryProduct = Product & {

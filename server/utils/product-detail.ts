@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { cache } from "react";
-import { SUPABASE_PRODUCTS_TABLE } from "../config/env.js";
-import { supabase } from "../lib/supabase.js";
-import { CATALOG_COLUMNS, normalizeClientProduct } from "../services/catalog";
+import { getProductDetail } from "../services/catalog";
 
 export function parseNumericId(param: string): string {
   const match = param.match(/^(\d+)/);
@@ -10,15 +8,8 @@ export function parseNumericId(param: string): string {
 }
 
 export const fetchProduct = cache(async (idParam: string) => {
-  if (!supabase) return null;
   const id = parseNumericId(idParam);
-  const { data, error } = await supabase
-    .from(SUPABASE_PRODUCTS_TABLE)
-    .select(CATALOG_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
-  if (error || !data) return null;
-  return normalizeClientProduct(data);
+  return getProductDetail(id);
 });
 
 export function resolveImageUrl(imagePath: string): string {

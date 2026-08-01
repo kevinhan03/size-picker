@@ -20,14 +20,24 @@ const splitProducts = (all: Product[]) => ({
   featured: sortFeaturedProducts(all.filter((p) => p.isInstagram)),
 });
 
-export function useProducts(initialProducts: Product[] = [], { enabled = true, catalog = false }: { enabled?: boolean; catalog?: boolean } = {}) {
+export function useProducts(
+  initialProducts: Product[] = [],
+  {
+    enabled = true,
+    catalog = false,
+    initialNextOffset,
+    initialError = null,
+  }: { enabled?: boolean; catalog?: boolean; initialNextOffset?: number | null; initialError?: string | null } = {},
+) {
   const initial = splitProducts(initialProducts);
-  const [productsError, setProductsError] = useState<string | null>(null);
+  const [productsError, setProductsError] = useState<string | null>(initialError);
   const [products, setProducts] = useState<Product[]>(initial.normal);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>(initial.featured);
   const [isProductsLoading, setIsProductsLoading] = useState(enabled && initialProducts.length === 0);
   const [retryTrigger, setRetryTrigger] = useState(0);
-  const [nextCatalogOffset, setNextCatalogOffset] = useState<number | null>(catalog ? 0 : null);
+  const [nextCatalogOffset, setNextCatalogOffset] = useState<number | null>(
+    catalog ? (initialProducts.length > 0 ? (initialNextOffset ?? null) : 0) : null,
+  );
   const [isLoadingMoreProducts, setIsLoadingMoreProducts] = useState(false);
   const didInitRef = useRef(initialProducts.length > 0);
   const isLoadingMoreRef = useRef(false);

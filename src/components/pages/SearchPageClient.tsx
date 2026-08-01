@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, SyntheticEvent } from "react";
+import dynamic from "next/dynamic";
 import { ArrowUp, ArrowUpRight, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
-import { BrandExplorer, type BrandSummary } from "../BrandExplorer";
+import type { BrandSummary } from "../BrandExplorer";
 import { GridView } from "../GridView";
 import { FilterBar } from "../FilterBar";
-import { ProductDetailModal } from "../ProductDetailModal";
-import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { LegalFooter } from "../LegalFooter";
 import { ProgressiveImage } from "../ProgressiveImage";
-import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
+import type { TutorialAnchorRect, TutorialId } from "../OnboardingTutorial";
+import { parseApiJson, type ApiEnvelope } from "../../api/shared";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
@@ -20,6 +20,11 @@ import { useGridState } from "../../hooks/useGridState";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
+
+const BrandExplorer = dynamic(() => import("../BrandExplorer").then((module) => module.BrandExplorer), { ssr: false });
+const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
+const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
+const OnboardingTutorial = dynamic(() => import("../OnboardingTutorial").then((module) => module.OnboardingTutorial), { ssr: false });
 
 const TUTORIAL_IDS = [
   "search",
@@ -210,6 +215,20 @@ export function SearchPageClient() {
 
     const product = products.find((item) => item.id === productModal.productId);
     if (product) setSelectedProduct(product);
+
+    const controller = new AbortController();
+    const endpoint = `/api/products/${encodeURIComponent(productModal.productId)}`;
+    void fetch(endpoint, { signal: controller.signal })
+      .then((response) => parseApiJson<ApiEnvelope<{ product: Product }>>(response, endpoint))
+      .then((payload) => {
+        if (payload.ok && payload.data?.product) setSelectedProduct(payload.data.product);
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError") && !product) {
+          setSelectedProduct(null);
+        }
+      });
+    return () => controller.abort();
   }, [productModal.productId, products]);
 
   const getAnchorRect = (element: Element): TutorialAnchorRect => {

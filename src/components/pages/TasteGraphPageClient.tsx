@@ -10,18 +10,19 @@ import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
+import { useProductDetail } from "../../hooks/useProductDetail";
 import { captureEvent } from "../../utils/analytics";
 import { toPublicUrl } from "../../utils/product";
 import type { Product, StyleTagName } from "../../types";
 import type { TasteCollectionSource } from "../../utils/tasteGraph";
 import { buildBrandClusters } from "../../utils/brandClusters";
-import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { TasteReport } from "../taste-graph/TasteReport";
 import { PageState } from "../PageState";
 
 const TasteGraphCanvas = dynamic(() => import("../taste-graph/TasteGraphCanvas").then((module) => module.TasteGraphCanvas), { loading: () => <MapLoading />, ssr: false });
 const BrandClusterCanvas = dynamic(() => import("../taste-graph/BrandClusterCanvas").then((module) => module.BrandClusterCanvas), { loading: () => <MapLoading />, ssr: false });
 const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
+const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
 
 type TasteGraphSource = TasteCollectionSource;
 type TasteGraphView = "products" | "brands";
@@ -63,6 +64,7 @@ export function TasteGraphPageClient({
   });
   const productModal = useProductModalQuery();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const detailedProduct = useProductDetail(productModal.productId, selectedProduct);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -108,14 +110,14 @@ export function TasteGraphPageClient({
     [closetProducts, digboxProducts]
   );
   const normalizedProduct = useMemo<Product | null>(() => {
-    if (!selectedProduct) return null;
-    const imagePath = String(selectedProduct.imagePath || "").trim();
-    const image = imagePath ? toPublicUrl(imagePath) : selectedProduct.image;
+    if (!detailedProduct) return null;
+    const imagePath = String(detailedProduct.imagePath || "").trim();
+    const image = imagePath ? toPublicUrl(imagePath) : detailedProduct.image;
     const thumbnailImage = imagePath
       ? toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 })
-      : selectedProduct.thumbnailImage;
-    return { ...selectedProduct, image, thumbnailImage };
-  }, [selectedProduct]);
+      : detailedProduct.thumbnailImage;
+    return { ...detailedProduct, image, thumbnailImage };
+  }, [detailedProduct]);
   const hasBrandClusters = useMemo(() => buildBrandClusters(brandProducts).clusters.length > 1, [brandProducts]);
   const emptyCopy = useMemo(() => source === "closet"
     ? { title: "아직 옷장 상품이 없어요", description: "실제로 가진 상품을 옷장에 넣으면 보유 취향을 그려드릴게요." }

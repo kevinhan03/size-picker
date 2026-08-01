@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { ANALYSIS_COLUMNS, CATALOG_COLUMNS, normalizeAnalysisProduct, normalizeClientProduct, requestLog } from "../../../server/services/catalog";
-import { refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
+import { ANALYSIS_COLUMNS, PRODUCT_CARD_COLUMNS, normalizeAnalysisProduct, normalizeProductCard, requestLog } from "../../../server/services/catalog";
 import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 
 const unauthorized = (msg = "authorization token is required") =>
@@ -9,19 +8,6 @@ const unauthorized = (msg = "authorization token is required") =>
 
 function getToken(request: Request) {
   return String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-}
-
-function buildOtherDigboxCounts(rows: { product_id?: string | null; user_id?: string | null }[]) {
-  const usersByProduct = new Map<string, Set<string>>();
-  for (const row of rows) {
-    const productId = String(row.product_id || "").trim();
-    const userId = String(row.user_id || "").trim();
-    if (!productId || !userId) continue;
-    const users = usersByProduct.get(productId) ?? new Set<string>();
-    users.add(userId);
-    usersByProduct.set(productId, users);
-  }
-  return Object.fromEntries([...usersByProduct.entries()].map(([productId, users]) => [productId, users.size]));
 }
 
 export async function GET(request: Request) {
@@ -51,7 +37,7 @@ export async function GET(request: Request) {
 
     const { data: productsData, error: productsError } = await db
       .from("products")
-      .select(includeAnalysis ? ANALYSIS_COLUMNS : CATALOG_COLUMNS)
+      .select(includeAnalysis ? ANALYSIS_COLUMNS : `${PRODUCT_CARD_COLUMNS},registered_by`)
       .in("id", productIds);
 
     if (productsError) throw productsError;
@@ -74,23 +60,24 @@ export async function GET(request: Request) {
 
     let discoveredDigboxCounts: Record<string, number> = {};
     if (discoveredProductIds.length > 0) {
-      const { data: countRows, error: countError } = await db
-        .from("user_digbox_items")
-        .select("product_id, user_id")
-        .in("product_id", discoveredProductIds)
-        .neq("user_id", user.id);
+      const { data: countRows, error: countError } = await db.rpc("get_digbox_counts", {
+        product_ids: discoveredProductIds,
+      });
 
       if (countError) throw countError;
-      discoveredDigboxCounts = buildOtherDigboxCounts(countRows ?? []);
+      discoveredDigboxCounts = {};
+      for (const row of (countRows ?? []) as Array<{ product_id?: string; save_count?: number | string }>) {
+        const countedProductId = String(row.product_id || "");
+        const count = Math.max(0, Number(row.save_count) - 1);
+        if (countedProductId && count > 0) discoveredDigboxCounts[countedProductId] = count;
+      }
     }
-
-    await refreshBrandRulesCache();
 
     const productMap = new Map(rawProducts.map((p) => [String(p.id), p]));
     const products = productIds
       .map((id: string) => includeAnalysis
         ? normalizeAnalysisProduct(productMap.get(id))
-        : normalizeClientProduct(productMap.get(id)))
+        : normalizeProductCard(productMap.get(id)))
       .filter(Boolean);
 
     requestLog("/api/digbox", request, startedAt, 200);

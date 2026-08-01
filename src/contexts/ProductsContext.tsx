@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { usePathname } from "next/navigation";
 import { useProducts } from "../hooks/useProducts";
 import type { Product } from "../types";
 
@@ -12,15 +11,23 @@ const ProductsContext = createContext<ProductsContextValue | null>(null);
 export function ProductsProvider({
   children,
   initialProducts = [],
+  initialNextOffset,
+  initialError = null,
+  enabled = true,
+  catalog = false,
 }: {
   children: React.ReactNode;
   initialProducts?: Product[];
+  initialNextOffset?: number | null;
+  initialError?: string | null;
+  enabled?: boolean;
+  catalog?: boolean;
 }) {
-  const pathname = usePathname();
-  const isCatalogRoute = pathname === "/";
   const value = useProducts(initialProducts, {
-    enabled: isCatalogRoute,
-    catalog: isCatalogRoute,
+    enabled,
+    catalog,
+    initialNextOffset,
+    initialError,
   });
   return <ProductsContext.Provider value={value}>{children}</ProductsContext.Provider>;
 }

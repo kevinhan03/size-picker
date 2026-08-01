@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { after } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
@@ -16,6 +16,7 @@ import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
 import { embedProductImageById } from "../../../server/services/image-embedding.js";
 import { tagProductStyleById } from "../../../server/services/style-tagging.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../server/services/dig-match-products.js";
+import { invalidatePublicProductCaches } from "../../../server/services/catalog-cache";
 
 interface RegisteredUser {
   id: string;
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
     });
 
     revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
-    revalidatePath("/", "layout");
+    invalidatePublicProductCaches(String(insertedRow?.id || ""));
     return NextResponse.json(
       {
         ok: true,

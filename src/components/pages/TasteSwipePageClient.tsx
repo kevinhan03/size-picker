@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { fetchDigMatchProducts, fetchDigMatchProfile, saveTasteSwipe } from "../../api/tasteMatch";
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../../constants";
 import { useAuthContext } from "../../contexts/AuthContext";
-import { useProductsContext } from "../../contexts/ProductsContext";
 import { captureEvent } from "../../utils/analytics";
 import { buildTasteSwipeDeck, calculateTasteSwipeProfile, getDigMatchHighlights, getDigMatchRecommendations, getDigMatchTagLabel, parseDigMatchProfile, type DigMatchPresentation, type DigMatchProfile, type TasteSwipeAction } from "../../utils/digMatch";
 import type { Product } from "../../types";
@@ -33,10 +32,8 @@ function saveSeen(ids: Set<string>) {
 export function TasteSwipePageClient() {
   const router = useRouter();
   const auth = useAuthContext();
-  const { products: contextProducts, isProductsLoading: isContextProductsLoading } = useProductsContext();
   const [feedProducts, setFeedProducts] = useState<Product[]>([]);
   const [isFeedLoading, setIsFeedLoading] = useState(true);
-  const [feedLoadFailed, setFeedLoadFailed] = useState(false);
   const [profile, setProfile] = useState<DigMatchProfile | null>(null);
   const [presentation, setPresentation] = useState<DigMatchPresentation>("all");
   const [deck, setDeck] = useState<Product[]>([]);
@@ -62,13 +59,13 @@ export function TasteSwipePageClient() {
     let active = true;
     void fetchDigMatchProducts()
       .then((items) => { if (active) setFeedProducts(items); })
-      .catch(() => { if (active) setFeedLoadFailed(true); })
+      .catch(() => undefined)
       .finally(() => { if (active) setIsFeedLoading(false); });
     return () => { active = false; };
   }, []);
 
-  const products = feedProducts.length ? feedProducts : (feedLoadFailed ? contextProducts : []);
-  const isProductsLoading = isFeedLoading || (feedLoadFailed && isContextProductsLoading);
+  const products = feedProducts;
+  const isProductsLoading = isFeedLoading;
 
   const start = useCallback(() => {
     const next = buildTasteSwipeDeck(products, profile, presentation, seen.current, 24);

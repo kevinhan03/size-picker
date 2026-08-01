@@ -5,6 +5,7 @@ import { normalizeBrandName, refreshBrandRulesCache } from "../../../../server/u
 import { parseSizeTable } from "../../../../server/utils/size-table.js";
 import { revalidateTag } from "next/cache";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../server/services/dig-match-products.js";
+import { invalidatePublicProductCaches } from "../../../../server/services/catalog-cache";
 
 export async function POST(request: Request) {
   const adminError = verifyAdminRequest(request);
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       slug,
     });
     revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
+    invalidatePublicProductCaches(String(row?.id || ""));
     const product = normalizeProductRow(row);
     return NextResponse.json({ ok: true, data: { product } });
   } catch (error: unknown) {

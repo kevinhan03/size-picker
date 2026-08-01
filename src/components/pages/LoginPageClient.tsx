@@ -64,7 +64,7 @@ export function LoginPageClient() {
       {supabase ? (
         <LoginPage
           supabase={supabase}
-          onSuccess={() => {}}
+          onSuccess={() => router.refresh()}
           googleAuthError={hasUnregisteredGoogleState ? null : auth.googleAuthError}
           onClearGoogleAuthError={() => auth.setGoogleAuthError(null)}
           initialTab={queryIntent}

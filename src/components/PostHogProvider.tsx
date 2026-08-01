@@ -1,47 +1,45 @@
 "use client";
 
-import posthog from "posthog-js";
-import { PostHogProvider as PHProvider, usePostHog } from "posthog-js/react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
-import { flushPendingAnalyticsEvents } from "../utils/analytics";
+import { Suspense, useEffect } from "react";
+import { captureEvent, setAnalyticsClient } from "../utils/analytics";
 
 function PageViewTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const ph = usePostHog();
-
   useEffect(() => {
     if (pathname) {
       const url = searchParams.toString()
         ? `${pathname}?${searchParams.toString()}`
         : pathname;
-      ph.capture("$pageview", { $current_url: url });
+      captureEvent("$pageview", { $current_url: url });
     }
-  }, [pathname, searchParams, ph]);
+  }, [pathname, searchParams]);
 
   return null;
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
-  const [isPostHogReady, setIsPostHogReady] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
-    const initialize = () => {
+    const initialize = async () => {
       if (cancelled) return;
-      if (!posthog.__loaded) {
-        posthog.init("phc_vU4zvKHs7soZFJmRNncFAxT2asm4pCDnMWByEZWrabXC", {
-          api_host: "https://us.i.posthog.com",
-          capture_pageview: false,
-          capture_pageleave: true,
-          disable_session_recording: true,
-          disable_surveys: true,
-        });
+      try {
+        const { default: posthog } = await import("posthog-js");
+        if (cancelled) return;
+        if (!posthog.__loaded) {
+          posthog.init("phc_vU4zvKHs7soZFJmRNncFAxT2asm4pCDnMWByEZWrabXC", {
+            api_host: "https://us.i.posthog.com",
+            capture_pageview: false,
+            capture_pageleave: true,
+            disable_session_recording: true,
+            disable_surveys: true,
+          });
+        }
+        setAnalyticsClient(posthog);
+      } catch {
+        // Analytics must never delay or break the application shell.
       }
-
-      flushPendingAnalyticsEvents();
-      setIsPostHogReady(true);
     };
 
     const fallbackTimer = window.setTimeout(initialize, 2000);
@@ -59,13 +57,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <PHProvider client={posthog}>
-      {isPostHogReady ? (
-        <Suspense fallback={null}>
-          <PageViewTracker />
-        </Suspense>
-      ) : null}
+    <>
+      <Suspense fallback={null}>
+        <PageViewTracker />
+      </Suspense>
       {children}
-    </PHProvider>
+    </>
   );
 }

@@ -3,22 +3,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Search, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
+import { useProductDetail } from "../../hooks/useProductDetail";
 import { ProgressiveImage } from "../ProgressiveImage";
-import { ProductDetailModal } from "../ProductDetailModal";
 import { FilterBar } from "../FilterBar";
 import { PageHeader } from "../PageHeader";
 import { PageState } from "../PageState";
-import { ImageViewerOverlay } from "../ImageViewerOverlay";
 import { CollectionSearchField } from "../CollectionSearchField";
 import { CollectionEmptyState } from "../CollectionEmptyState";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
+
+const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
+const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing collection constants.
 const CATEGORIES = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
@@ -449,6 +452,7 @@ export function ClosetPageClient() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const detailedProduct = useProductDetail(productModal.productId, selectedProduct);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -487,14 +491,14 @@ export function ClosetPageClient() {
   }, [closetItems]);
 
   const normalizedProduct = useMemo<Product | null>(() => {
-    if (!selectedProduct) return null;
-    const imagePath = String(selectedProduct.imagePath || "").trim();
-    const image = imagePath ? toPublicUrl(imagePath) : selectedProduct.image;
+    if (!detailedProduct) return null;
+    const imagePath = String(detailedProduct.imagePath || "").trim();
+    const image = imagePath ? toPublicUrl(imagePath) : detailedProduct.image;
     const thumbnailImage = imagePath
       ? toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 })
-      : selectedProduct.thumbnailImage;
-    return { ...selectedProduct, image, thumbnailImage };
-  }, [selectedProduct]);
+      : detailedProduct.thumbnailImage;
+    return { ...detailedProduct, image, thumbnailImage };
+  }, [detailedProduct]);
 
   const closetProduct = useMemo(() => {
     if (!normalizedProduct) return null;

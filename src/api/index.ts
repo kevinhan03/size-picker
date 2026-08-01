@@ -15,7 +15,7 @@ import type {
   SubmitProductForm,
 } from '../types';
 import { STORAGE_BUCKET, STORAGE_PREFIX } from '../constants';
-import { supabase, assertSupabaseClient } from '../lib/supabase';
+import { getAccessToken } from './auth-client';
 import { getFileExtension } from '../utils/image';
 import { normalizeSizeTable } from '../utils/sizeTable';
 import { parseApiJson, postJson } from './shared';
@@ -60,7 +60,7 @@ export const searchCatalogProducts = async (query: string, signal?: AbortSignal,
 };
 
 export const fetchCatalogProductsByIds = async (ids: string[], signal?: AbortSignal): Promise<Product[]> => {
-  const uniqueIds = Array.from(new Set(ids.map(String).filter(Boolean))).slice(0, 12);
+  const uniqueIds = Array.from(new Set(ids.map(String).filter(Boolean))).slice(0, 3);
   if (!uniqueIds.length) return [];
   const endpoint = `/api/catalog/by-ids?ids=${encodeURIComponent(uniqueIds.join(','))}`;
   const response = await fetch(endpoint, { signal });
@@ -70,6 +70,7 @@ export const fetchCatalogProductsByIds = async (ids: string[], signal?: AbortSig
 };
 
 export const uploadSubmissionImage = async (file: File): Promise<string> => {
+  const { supabase, assertSupabaseClient } = await import('../lib/supabase');
   assertSupabaseClient();
   const extension = getFileExtension(file);
   const path = `${STORAGE_PREFIX}${crypto.randomUUID()}.${extension}`;
@@ -88,12 +89,6 @@ export const uploadSubmissionImage = async (file: File): Promise<string> => {
     throw new Error(error?.message || 'Image upload failed');
   }
   return data.path;
-};
-
-const getAccessToken = async (): Promise<string> => {
-  assertSupabaseClient();
-  const { data: { session } } = await supabase!.auth.getSession();
-  return String(session?.access_token || '').trim();
 };
 
 export const submitProduct = async (form: SubmitProductForm, isInstagram = false): Promise<Product> => {
@@ -354,11 +349,7 @@ export const removeFromDigbox = async (productId: string): Promise<void> => {
 };
 
 export const deleteMyAccount = async (): Promise<void> => {
-  assertSupabaseClient();
-  const {
-    data: { session },
-  } = await supabase!.auth.getSession();
-  const accessToken = String(session?.access_token || '').trim();
+  const accessToken = await getAccessToken(true);
   if (!accessToken) {
     throw new Error('Authentication is required');
   }
@@ -390,11 +381,7 @@ export const cleanupUnregisteredGoogleAccount = async (): Promise<void> => {
 };
 
 export const completeMyProfile = async (username: string): Promise<string> => {
-  assertSupabaseClient();
-  const {
-    data: { session },
-  } = await supabase!.auth.getSession();
-  const accessToken = String(session?.access_token || '').trim();
+  const accessToken = await getAccessToken(true);
   if (!accessToken) {
     throw new Error('Authentication is required');
   }

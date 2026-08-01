@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { ANALYSIS_COLUMNS, CATALOG_COLUMNS, normalizeAnalysisProduct, normalizeClientProduct, requestLog } from "../../../server/services/catalog";
-import { refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
+import { ANALYSIS_COLUMNS, PRODUCT_CARD_COLUMNS, normalizeAnalysisProduct, normalizeProductCard, requestLog } from "../../../server/services/catalog";
 import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 
 const unauthorized = (msg = "authorization token is required") =>
@@ -67,12 +66,10 @@ export async function GET(request: Request) {
 
     const { data: productsData, error: productsError } = await db
       .from("products")
-      .select(includeAnalysis ? ANALYSIS_COLUMNS : CATALOG_COLUMNS)
+      .select(includeAnalysis ? ANALYSIS_COLUMNS : PRODUCT_CARD_COLUMNS)
       .in("id", productIds);
 
     if (productsError) throw productsError;
-
-    await refreshBrandRulesCache();
 
     const closetMap = new Map(
       (closetData ?? []).map((row: ClosetRow) => [String(row.product_id), row])
@@ -83,7 +80,7 @@ export async function GET(request: Request) {
       .map((id: string) => {
         const product = includeAnalysis
           ? normalizeAnalysisProduct(productMap.get(id))
-          : normalizeClientProduct(productMap.get(id));
+          : normalizeProductCard(productMap.get(id));
         if (!product) return null;
         const closetRow = closetMap.get(String(id));
         return {
