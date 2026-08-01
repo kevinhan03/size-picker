@@ -6,18 +6,16 @@ import { useRouter } from "next/navigation";
 import { ProductDetailModal } from "./ProductDetailModal";
 import { ImageViewerOverlay } from "./ImageViewerOverlay";
 import { useSearchContext } from "../contexts/SearchContext";
-import { useProductsContext } from "../contexts/ProductsContext";
 import { getProductPageUrl } from "../utils/product";
 
 export function SearchResultOverlay() {
   const router = useRouter();
-  const { products } = useProductsContext();
   const search = useSearchContext();
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isImageZoomed, setIsImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const showModal = Boolean(search.result && !products.some((p) => p.id === search.result?.id));
+  const showModal = Boolean(search.result);
 
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.onerror = null;
@@ -40,12 +38,8 @@ export function SearchResultOverlay() {
         onRecommendationClick={(product) => {
           setActiveRowIndex(null);
           setIsImageZoomed(false);
-          if (products.some((item) => item.id === product.id)) {
-            search.setResult(null);
-            router.push(getProductPageUrl(product), { scroll: false });
-            return;
-          }
-          search.setResult(product);
+          search.setResult(null);
+          router.push(getProductPageUrl(product), { scroll: false });
         }}
         onZoomImage={() => setIsImageZoomed(true)}
         onImageError={handleImageLoadError}

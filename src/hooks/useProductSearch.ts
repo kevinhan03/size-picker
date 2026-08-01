@@ -1,37 +1,55 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import { searchCatalogProducts } from '../api';
 import type { Product } from '../types';
 import { generateFallbackResult } from '../utils/product';
 
 const getProductSearchText = (product: Product) =>
   `${product.brand} ${product.name}`.toLowerCase();
 
-interface UseProductSearchParams {
-  allProducts: Product[];
-  onSearchSettled: () => void;
-}
-
-export function useProductSearch({
-  allProducts,
-  onSearchSettled,
-}: UseProductSearchParams) {
+export function useProductSearch() {
   const [query, setQuery] = useState('');
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<Product | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<Product[]>([]);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  const suggestions = useMemo(() => {
-    if (!query) {
-      return [];
+  useEffect(() => {
+    const normalized = query.trim();
+    if (normalized.length < 2) {
+      setSuggestions([]);
+      setIsLoading(false);
+      setError(null);
+      return;
     }
 
-    return allProducts.filter((item) =>
-      getProductSearchText(item).includes(query.toLowerCase())
-    );
-  }, [allProducts, query]);
+    setSuggestions([]);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setIsLoading(true);
+      void searchCatalogProducts(normalized, controller.signal)
+        .then((products) => {
+          setSuggestions(products);
+          setError(null);
+        })
+        .catch((searchError: unknown) => {
+          if (searchError instanceof DOMException && searchError.name === 'AbortError') return;
+          setSuggestions([]);
+          setError(searchError instanceof Error ? searchError.message : '상품 검색에 실패했습니다.');
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setIsLoading(false);
+        });
+    }, 200);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
 
   const shouldHideSearchHero = useMemo(
     () => Boolean(result) && !isLoading,
@@ -57,15 +75,14 @@ export function useProductSearch({
     setError(null);
     setShowSuggestions(false);
 
-    const keyword = term.toLowerCase();
     const found =
       searchItem ||
-      allProducts.find((item) => getProductSearchText(item).includes(keyword)) ||
+      suggestions.find((item) => getProductSearchText(item).includes(term.toLowerCase())) ||
+      suggestions[0] ||
       generateFallbackResult(term);
 
     setResult(found);
     setQuery('');
-    onSearchSettled();
     return found;
   };
 
@@ -88,6 +105,7 @@ export function useProductSearch({
   const clearQuery = () => {
     setQuery('');
     setShowSuggestions(false);
+    setSuggestions([]);
   };
 
   const resetSearch = () => {
@@ -95,6 +113,7 @@ export function useProductSearch({
     setShowSuggestions(false);
     setError(null);
     setResult(null);
+    setSuggestions([]);
   };
 
   return {

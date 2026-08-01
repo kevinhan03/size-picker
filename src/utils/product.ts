@@ -59,7 +59,7 @@ export const isDuplicateProductErrorMessage = (message: string): boolean => {
 
 export const toPublicUrl = (
   path: string | null | undefined,
-  options?: { width?: number; height?: number; quality?: number }
+  options?: { width?: number; height?: number; quality?: number; resize?: 'cover' | 'contain' | 'fill' }
 ): string => {
   if (!path) return '';
   if (isExternalHttpUrl(path)) return path;
@@ -69,6 +69,7 @@ export const toPublicUrl = (
         transform: {
           width: options.width,
           height: options.height,
+          resize: options.resize,
           quality: options.quality,
         },
       })
@@ -89,7 +90,7 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
     category: String(row.category ?? 'Uncategorized'),
     url: String(row.url ?? ''),
     image: toPublicUrl(imagePath),
-    thumbnailImage: toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 }),
+    thumbnailImage: toPublicUrl(imagePath, { width: 320, height: 320, resize: 'contain', quality: 65 }),
     imagePath,
     slug: String(row.slug ?? '').trim() || null,
     sizeTable: normalizeSizeTable(row.size_table),

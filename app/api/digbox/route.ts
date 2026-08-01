@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { normalizeProductRow } from "../../../server/utils/product.js";
+import { ANALYSIS_COLUMNS, CATALOG_COLUMNS, normalizeAnalysisProduct, normalizeClientProduct, requestLog } from "../../../server/services/catalog";
 import { refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
 import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 
@@ -25,6 +25,8 @@ function buildOtherDigboxCounts(rows: { product_id?: string | null; user_id?: st
 }
 
 export async function GET(request: Request) {
+  const startedAt = Date.now();
+  const includeAnalysis = new URL(request.url).searchParams.get("analysis") === "1";
   const token = getToken(request);
   if (!token) return unauthorized();
 
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
 
     const { data: productsData, error: productsError } = await db
       .from("products")
-      .select("id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by,style_tags,style_attributes,human_style_tags,human_style_attributes,tag_review_status")
+      .select(includeAnalysis ? ANALYSIS_COLUMNS : CATALOG_COLUMNS)
       .in("id", productIds);
 
     if (productsError) throw productsError;
@@ -62,10 +64,11 @@ export async function GET(request: Request) {
 
     if (userError) throw userError;
     const username = String(userData?.username || "").trim();
+    const rawProducts = (productsData ?? []) as unknown as Array<{ id?: string; registered_by?: string | null }>;
     const discoveredProductIds = username
-      ? (productsData ?? [])
-          .filter((product: { id?: string; registered_by?: string | null }) => String(product.registered_by || "").trim() === username)
-          .map((product: { id?: string }) => String(product.id || "").trim())
+      ? rawProducts
+          .filter((product) => String(product.registered_by || "").trim() === username)
+          .map((product) => String(product.id || "").trim())
           .filter(Boolean)
       : [];
 
@@ -83,13 +86,17 @@ export async function GET(request: Request) {
 
     await refreshBrandRulesCache();
 
-    const productMap = new Map((productsData ?? []).map((p: { id: string }) => [String(p.id), p]));
+    const productMap = new Map(rawProducts.map((p) => [String(p.id), p]));
     const products = productIds
-      .map((id: string) => normalizeProductRow(productMap.get(id)))
+      .map((id: string) => includeAnalysis
+        ? normalizeAnalysisProduct(productMap.get(id))
+        : normalizeClientProduct(productMap.get(id)))
       .filter(Boolean);
 
-    return NextResponse.json({ ok: true, data: { products, discoveredDigboxCounts } });
+    requestLog("/api/digbox", request, startedAt, 200);
+    return NextResponse.json({ ok: true, data: { products, discoveredDigboxCounts } }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error: unknown) {
+    requestLog("/api/digbox", request, startedAt, 500);
     const message = error instanceof Error ? error.message : "digbox fetch error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }

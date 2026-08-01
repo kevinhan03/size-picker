@@ -47,6 +47,13 @@ export interface Product {
   targetGenderReviewedAt?: string | null;
 }
 
+export type ProductCardData = Omit<Product, 'imageEmbedding'>;
+
+export interface CatalogPage {
+  products: ProductCardData[];
+  nextOffset: number | null;
+}
+
 export type DiscoveryProduct = Product & {
   saveCount: number;
 };

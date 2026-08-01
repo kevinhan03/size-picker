@@ -6,26 +6,8 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "../PageHeader";
 import { ProgressiveImage } from "../ProgressiveImage";
-import { useProductsContext } from "../../contexts/ProductsContext";
 import type { Product } from "../../types";
 import { getProductPageUrl, toPublicUrl } from "../../utils/product";
-import {
-  getCrossCategoryStyleSimilarity,
-  getEffectiveProductTargetGender,
-  getProductRecommendationSimilarity,
-  hasSharedPrimaryStyleTag,
-  parseEmbedding,
-} from "../../utils/tasteGraph";
-
-const MIN_VISIBLE_PRODUCTS = 4;
-const MAX_VISIBLE_PRODUCTS = 24;
-const MIN_QUALITY_SCORE = 0.54;
-const NATURAL_SCORE_GAP = 0.075;
-const STYLE_TIE_BAND = 0.025;
-const STYLE_FALLBACK_MIN_TAG_SIMILARITY = 0.55;
-const STYLE_CATEGORIES = new Set(["top", "bottom", "outer", "shoes"]);
-
-type ScoredProduct = { product: Product; similarity: number };
 type BehavioralStatus = "idle" | "loading" | "ready" | "error";
 type RecommendationSection = "similar" | "style" | "behavioral";
 
@@ -43,10 +25,6 @@ function parseNumericId(param: string): string {
   return param.match(/^\d+/)?.[0] ?? param;
 }
 
-function normalizeCategory(category: string | null | undefined): string {
-  return String(category || "").trim().toLowerCase();
-}
-
 function normalizeProductImages(product: Product): Product {
   const imagePath = String(product.imagePath || "").trim();
   if (!imagePath) return product;
@@ -55,51 +33,6 @@ function normalizeProductImages(product: Product): Product {
     image: toPublicUrl(imagePath),
     thumbnailImage: toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 }),
   };
-}
-
-function selectNaturalRelatedProducts(candidates: ScoredProduct[]): Product[] {
-  const qualified = candidates.filter(({ similarity }) => similarity >= MIN_QUALITY_SCORE);
-  const visible = (qualified.length >= MIN_VISIBLE_PRODUCTS ? qualified : candidates).slice(0, MAX_VISIBLE_PRODUCTS);
-
-  for (let index = MIN_VISIBLE_PRODUCTS; index < visible.length; index += 1) {
-    const previous = visible[index - 1].similarity;
-    const current = visible[index].similarity;
-    if (previous - current >= NATURAL_SCORE_GAP && current < previous * 0.91) {
-      return visible.slice(0, index).map(({ product }) => product);
-    }
-  }
-  return visible.map(({ product }) => product);
-}
-
-function hasCompatibleTargetGender(source: Product, candidate: Product): boolean {
-  const sourceGender = getEffectiveProductTargetGender(source);
-  const candidateGender = getEffectiveProductTargetGender(candidate);
-  if (sourceGender === "unknown" || candidateGender === "unknown") return true;
-  return sourceGender === candidateGender || sourceGender === "unisex" || candidateGender === "unisex";
-}
-
-function diversifyStyleCategories(candidates: ScoredProduct[]): ScoredProduct[] {
-  const result: ScoredProduct[] = [];
-  let index = 0;
-  while (index < candidates.length) {
-    const bandStart = index;
-    const bandScore = candidates[index].similarity;
-    while (index < candidates.length && bandScore - candidates[index].similarity <= STYLE_TIE_BAND) index += 1;
-
-    const remaining = candidates.slice(bandStart, index);
-    const seenCategories = new Set<string>();
-    while (remaining.length) {
-      const nextIndex = remaining.findIndex((entry) => !seenCategories.has(normalizeCategory(entry.product.category)));
-      const [next] = remaining.splice(nextIndex >= 0 ? nextIndex : 0, 1);
-      result.push(next);
-      seenCategories.add(normalizeCategory(next.product.category));
-    }
-  }
-  return result;
-}
-
-function selectStyleProducts(candidates: ScoredProduct[]): Product[] {
-  return selectNaturalRelatedProducts(diversifyStyleCategories(candidates));
 }
 
 function ProductCard({ product, onImageLoadError }: { product: Product; onImageLoadError: (event: SyntheticEvent<HTMLImageElement>) => void }) {
@@ -139,78 +72,45 @@ function EmptyBehavioralCard({ status }: { status: BehavioralStatus }) {
 }
 
 export function SimilarProductsPageClient({ id }: { id: string }) {
-  const { products, isProductsLoading } = useProductsContext();
+  const [sourceProduct, setSourceProduct] = useState<Product | null>(null);
+  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
+  const [styleProducts, setStyleProducts] = useState<Product[]>([]);
+  const [isRecommendationsLoading, setIsRecommendationsLoading] = useState(true);
   const [behavioralProducts, setBehavioralProducts] = useState<Product[]>([]);
   const [behavioralStatus, setBehavioralStatus] = useState<BehavioralStatus>("idle");
   const [activeSection, setActiveSection] = useState<RecommendationSection>("similar");
   const [behavioralRequestedForId, setBehavioralRequestedForId] = useState<string | null>(null);
   const numericId = parseNumericId(id);
-  const sourceProduct = products.find((product) => String(product.id) === numericId) ?? null;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setIsRecommendationsLoading(true);
+    fetch(`/api/products/${encodeURIComponent(numericId)}/recommendations`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("recommendations request failed");
+        const payload = await response.json();
+        if (!payload?.ok || !payload?.data?.sourceProduct) throw new Error("invalid recommendations response");
+        setSourceProduct(normalizeProductImages(payload.data.sourceProduct));
+        setSimilarProducts((payload.data.similarProducts || []).map(normalizeProductImages));
+        setStyleProducts((payload.data.styleProducts || []).map(normalizeProductImages));
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setSourceProduct(null);
+          setSimilarProducts([]);
+          setStyleProducts([]);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsRecommendationsLoading(false);
+      });
+    return () => controller.abort();
+  }, [numericId]);
 
   const normalizedSourceProduct = useMemo(
     () => (sourceProduct ? normalizeProductImages(sourceProduct) : null),
     [sourceProduct]
   );
-
-  const similarProducts = useMemo(() => {
-    if (!sourceProduct || activeSection !== "similar") return [];
-    const sourceCategory = normalizeCategory(sourceProduct.category);
-    if (!parseEmbedding(sourceProduct.imageEmbedding) || !sourceCategory) return [];
-
-    const candidates = products
-      .filter((candidate) => String(candidate.id) !== String(sourceProduct.id))
-      .filter((candidate) => normalizeCategory(candidate.category) === sourceCategory)
-      .map((candidate) => {
-        if (!parseEmbedding(candidate.imageEmbedding)) return null;
-        if (hasSharedPrimaryStyleTag(sourceProduct, candidate) === false) return null;
-        const similarity = getProductRecommendationSimilarity(sourceProduct, candidate);
-        return similarity?.visualSimilarity === null || !similarity ? null : { product: candidate, similarity: similarity.score };
-      })
-      .filter((candidate): candidate is ScoredProduct => candidate !== null)
-      .sort((left, right) => right.similarity - left.similarity);
-
-    return selectNaturalRelatedProducts(candidates);
-  }, [activeSection, products, sourceProduct]);
-
-  const styleProducts = useMemo(() => {
-    if (!sourceProduct || activeSection !== "style") return [];
-    const sourceCategory = normalizeCategory(sourceProduct.category);
-    if (!STYLE_CATEGORIES.has(sourceCategory)) return [];
-
-    const strictCandidates: ScoredProduct[] = [];
-    const fallbackCandidates: ScoredProduct[] = [];
-
-    products
-      .filter((candidate) => String(candidate.id) !== String(sourceProduct.id))
-      .filter((candidate) => {
-        const category = normalizeCategory(candidate.category);
-        return STYLE_CATEGORIES.has(category) && category !== sourceCategory;
-      })
-      .filter((candidate) => hasCompatibleTargetGender(sourceProduct, candidate))
-      .forEach((candidate) => {
-        const sharesPrimaryTag = hasSharedPrimaryStyleTag(sourceProduct, candidate);
-        const similarity = getCrossCategoryStyleSimilarity(sourceProduct, candidate);
-        if (!similarity) return;
-
-        const scoredCandidate = { product: candidate, similarity: similarity.score };
-        if (sharesPrimaryTag === true) {
-          strictCandidates.push(scoredCandidate);
-        } else if ((similarity.styleSimilarity ?? 0) >= STYLE_FALLBACK_MIN_TAG_SIMILARITY) {
-          fallbackCandidates.push(scoredCandidate);
-        }
-      });
-
-    strictCandidates.sort((left, right) => right.similarity - left.similarity);
-    fallbackCandidates.sort((left, right) => right.similarity - left.similarity);
-    const candidates = strictCandidates.length >= MIN_VISIBLE_PRODUCTS
-      ? strictCandidates
-      : [
-          ...strictCandidates,
-          ...fallbackCandidates.slice(0, MIN_VISIBLE_PRODUCTS - strictCandidates.length),
-        ];
-
-    return selectStyleProducts(candidates);
-  }, [activeSection, products, sourceProduct]);
 
   useEffect(() => {
     if (behavioralRequestedForId === numericId) return;
@@ -262,7 +162,7 @@ export function SimilarProductsPageClient({ id }: { id: string }) {
     event.currentTarget.style.display = "none";
   };
 
-  if (isProductsLoading && !sourceProduct) {
+  if (isRecommendationsLoading && !sourceProduct) {
     return <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white" />;
   }
   if (!normalizedSourceProduct) {

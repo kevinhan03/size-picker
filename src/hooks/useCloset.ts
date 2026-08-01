@@ -13,6 +13,8 @@ export function useCloset(isLoggedIn: boolean) {
   const [toast, setToast] = useState<ClosetToast>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(false);
+  const hasAnalysisLoadedRef = useRef(false);
+  const analysisRequestedRef = useRef(false);
   const isLoadingRef = useRef(false);
 
   const showToast = useCallback((t: ClosetToast) => {
@@ -28,26 +30,38 @@ export function useCloset(isLoggedIn: boolean) {
     setToast(null);
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (includeAnalysis = false) => {
+    if (includeAnalysis) analysisRequestedRef.current = true;
     if (!isLoggedIn) {
       setClosetProducts([]);
       setClosetIds(new Set());
       hasLoadedRef.current = false;
+      hasAnalysisLoadedRef.current = false;
+      analysisRequestedRef.current = false;
       return;
     }
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
     setIsLoading(true);
+    let requestedAnalysis = false;
     try {
-      const products = await fetchClosetItems();
+      requestedAnalysis = includeAnalysis || hasAnalysisLoadedRef.current;
+      const products = await fetchClosetItems(requestedAnalysis);
       setClosetProducts(products);
       setClosetIds(new Set(products.map((p) => p.id)));
       hasLoadedRef.current = true;
+      if (requestedAnalysis) {
+        hasAnalysisLoadedRef.current = true;
+        analysisRequestedRef.current = false;
+      }
     } catch {
       // silent
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
+      if (analysisRequestedRef.current && !requestedAnalysis) {
+        window.setTimeout(() => void load(true), 0);
+      }
     }
   }, [isLoggedIn]);
 
@@ -55,9 +69,9 @@ export function useCloset(isLoggedIn: boolean) {
     if (!isLoggedIn) void load();
   }, [isLoggedIn, load]);
 
-  const ensureLoaded = useCallback(() => {
-    if (!isLoggedIn || hasLoadedRef.current) return;
-    void load();
+  const ensureLoaded = useCallback((includeAnalysis = false) => {
+    if (!isLoggedIn || (hasLoadedRef.current && (!includeAnalysis || hasAnalysisLoadedRef.current))) return;
+    void load(includeAnalysis);
   }, [isLoggedIn, load]);
 
   const addToCloset = useCallback(async (productId: string, sizeSelection?: ClosetSizeSelection | null) => {

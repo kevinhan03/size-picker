@@ -67,7 +67,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
 }
 
 export function SearchPageClient() {
-  const { products, isProductsLoading, productsError, retryProductsLoad } = useProductsContext();
+  const { products, isProductsLoading, productsError, retryProductsLoad, hasMoreProducts, isLoadingMoreProducts, loadMoreProducts } = useProductsContext();
   const { authUser, isAuthLoading } = useAuthContext();
   const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const {
@@ -451,8 +451,7 @@ export function SearchPageClient() {
                           >
                             <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-white/10">
                             <ProgressiveImage
-                              src={item.image}
-                              thumbnailSrc={item.thumbnailImage}
+                              src={item.thumbnailImage || item.image}
                               alt={item.name}
                               className="h-full w-full object-cover"
                               onError={handleImageLoadError}
@@ -516,6 +515,9 @@ export function SearchPageClient() {
           onProductClick={handleProductClick}
           onImageError={handleImageLoadError}
           isLoading={isProductsLoading}
+          hasMoreProducts={hasMoreProducts}
+          isLoadingMoreProducts={isLoadingMoreProducts}
+          onLoadMoreProducts={() => void loadMoreProducts()}
         />
       </div>
 

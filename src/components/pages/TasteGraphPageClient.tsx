@@ -89,8 +89,8 @@ export function TasteGraphPageClient({
 
   useEffect(() => {
     if (!authUserId) return;
-    ensureClosetLoaded();
-    ensureDigboxLoaded();
+    ensureClosetLoaded(true);
+    ensureDigboxLoaded(true);
   }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
 
   useEffect(() => {

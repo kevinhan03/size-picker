@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchAllProducts } from "../api";
+import { fetchAllProducts, fetchCatalogProducts } from "../api";
 import type { Product } from "../types";
 
 const getProductTime = (product: Product) => {
@@ -20,14 +20,17 @@ const splitProducts = (all: Product[]) => ({
   featured: sortFeaturedProducts(all.filter((p) => p.isInstagram)),
 });
 
-export function useProducts(initialProducts: Product[] = [], { enabled = true }: { enabled?: boolean } = {}) {
+export function useProducts(initialProducts: Product[] = [], { enabled = true, catalog = false }: { enabled?: boolean; catalog?: boolean } = {}) {
   const initial = splitProducts(initialProducts);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>(initial.normal);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>(initial.featured);
   const [isProductsLoading, setIsProductsLoading] = useState(enabled && initialProducts.length === 0);
   const [retryTrigger, setRetryTrigger] = useState(0);
+  const [nextCatalogOffset, setNextCatalogOffset] = useState<number | null>(catalog ? 0 : null);
+  const [isLoadingMoreProducts, setIsLoadingMoreProducts] = useState(false);
   const didInitRef = useRef(initialProducts.length > 0);
+  const isLoadingMoreRef = useRef(false);
 
   const retryProductsLoad = useCallback(() => {
     setRetryTrigger((prev) => prev + 1);
@@ -49,6 +52,16 @@ export function useProducts(initialProducts: Product[] = [], { enabled = true }:
     const load = async () => {
       setIsProductsLoading(true);
       try {
+        if (catalog) {
+          const loaded = await fetchCatalogProducts(0);
+          if (!isActive) return;
+          const split = splitProducts(loaded.products);
+          setProducts(split.normal);
+          setFeaturedProducts(split.featured);
+          setNextCatalogOffset(loaded.nextOffset);
+          setProductsError(null);
+          return;
+        }
         const loaded = await fetchAllProducts();
         if (!isActive) return;
         const split = splitProducts(loaded);
@@ -70,7 +83,23 @@ export function useProducts(initialProducts: Product[] = [], { enabled = true }:
     return () => {
       isActive = false;
     };
-  }, [enabled, retryTrigger]);
+  }, [catalog, enabled, retryTrigger]);
+
+  const loadMoreProducts = useCallback(async () => {
+    if (!catalog || nextCatalogOffset === null || isLoadingMoreRef.current) return;
+    isLoadingMoreRef.current = true;
+    setIsLoadingMoreProducts(true);
+    try {
+      const loaded = await fetchCatalogProducts(nextCatalogOffset);
+      const split = splitProducts(loaded.products);
+      setProducts((current) => [...current, ...split.normal]);
+      setFeaturedProducts((current) => sortFeaturedProducts([...current, ...split.featured]));
+      setNextCatalogOffset(loaded.nextOffset);
+    } finally {
+      isLoadingMoreRef.current = false;
+      setIsLoadingMoreProducts(false);
+    }
+  }, [catalog, nextCatalogOffset]);
 
   return {
     products,
@@ -79,5 +108,8 @@ export function useProducts(initialProducts: Product[] = [], { enabled = true }:
     productsError,
     setProductsError,
     retryProductsLoad,
+    hasMoreProducts: catalog && nextCatalogOffset !== null,
+    isLoadingMoreProducts,
+    loadMoreProducts,
   };
 }

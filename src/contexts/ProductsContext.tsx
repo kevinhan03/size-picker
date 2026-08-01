@@ -17,9 +17,11 @@ export function ProductsProvider({
   initialProducts?: Product[];
 }) {
   const pathname = usePathname();
-  // Dig Match owns a small, server-selected feed. Keep the context mounted for
-  // shared providers, but never trigger its full catalogue query on this route.
-  const value = useProducts(initialProducts, { enabled: !pathname?.startsWith("/dig-match") });
+  const isCatalogRoute = pathname === "/";
+  const value = useProducts(initialProducts, {
+    enabled: isCatalogRoute,
+    catalog: isCatalogRoute,
+  });
   return <ProductsContext.Provider value={value}>{children}</ProductsContext.Provider>;
 }
 

@@ -1,24 +1,25 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { SUPABASE_PRODUCTS_TABLE } from "../config/env.js";
 import { supabase } from "../lib/supabase.js";
-import { normalizeProductRow } from "../utils/product.js";
+import { CATALOG_COLUMNS, normalizeClientProduct } from "../services/catalog";
 
 export function parseNumericId(param: string): string {
   const match = param.match(/^(\d+)/);
   return match ? match[1] : param;
 }
 
-export async function fetchProduct(idParam: string) {
+export const fetchProduct = cache(async (idParam: string) => {
   if (!supabase) return null;
   const id = parseNumericId(idParam);
   const { data, error } = await supabase
     .from(SUPABASE_PRODUCTS_TABLE)
-    .select("*")
+    .select(CATALOG_COLUMNS)
     .eq("id", id)
     .maybeSingle();
   if (error || !data) return null;
-  return normalizeProductRow(data);
-}
+  return normalizeClientProduct(data);
+});
 
 export function resolveImageUrl(imagePath: string): string {
   if (!imagePath) return "";

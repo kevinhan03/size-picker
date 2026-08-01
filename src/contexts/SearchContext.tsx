@@ -3,7 +3,6 @@
 import { createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { useProductSearch } from "../hooks/useProductSearch";
-import { useProductsContext } from "./ProductsContext";
 import { getProductPageUrl } from "../utils/product";
 import type { Product } from "../types";
 
@@ -15,16 +14,11 @@ const SearchContext = createContext<SearchContextValue | null>(null);
 
 export function SearchProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { products, setProductsError } = useProductsContext();
-
-  const search = useProductSearch({
-    allProducts: products,
-    onSearchSettled: () => setProductsError(null),
-  });
+  const search = useProductSearch();
 
   const handleSearchSubmit = (product: Product | null = null) => {
     const found = search.handleSearch(product);
-    if (found && products.some((item) => item.id === found.id)) {
+    if (found && search.suggestions.some((item) => item.id === found.id)) {
       search.setResult(null);
       router.push(getProductPageUrl(found), { scroll: false });
     }

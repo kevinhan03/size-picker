@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { normalizeProductRow } from "../../../server/utils/product.js";
+import { ANALYSIS_COLUMNS, CATALOG_COLUMNS, normalizeAnalysisProduct, normalizeClientProduct, requestLog } from "../../../server/services/catalog";
 import { refreshBrandRulesCache } from "../../../server/utils/brand-rules.js";
 import { verifyRegisteredBearerToken } from "../../../server/utils/verify-auth.js";
 
@@ -29,6 +29,8 @@ function normalizeSizeSnapshot(value: unknown) {
 }
 
 export async function GET(request: Request) {
+  const startedAt = Date.now();
+  const includeAnalysis = new URL(request.url).searchParams.get("analysis") === "1";
   const token = getToken(request);
   if (!token) return unauthorized();
 
@@ -65,7 +67,7 @@ export async function GET(request: Request) {
 
     const { data: productsData, error: productsError } = await db
       .from("products")
-      .select("id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,style_tags,style_attributes,human_style_tags,human_style_attributes,tag_review_status,tag_review_note,image_embedding")
+      .select(includeAnalysis ? ANALYSIS_COLUMNS : CATALOG_COLUMNS)
       .in("id", productIds);
 
     if (productsError) throw productsError;
@@ -75,10 +77,13 @@ export async function GET(request: Request) {
     const closetMap = new Map(
       (closetData ?? []).map((row: ClosetRow) => [String(row.product_id), row])
     );
-    const productMap = new Map((productsData ?? []).map((p: { id: string }) => [String(p.id), p]));
+    const rawProducts = (productsData ?? []) as unknown as Array<{ id: string }>;
+    const productMap = new Map(rawProducts.map((p) => [String(p.id), p]));
     const products = productIds
       .map((id: string) => {
-        const product = normalizeProductRow(productMap.get(id));
+        const product = includeAnalysis
+          ? normalizeAnalysisProduct(productMap.get(id))
+          : normalizeClientProduct(productMap.get(id));
         if (!product) return null;
         const closetRow = closetMap.get(String(id));
         return {
@@ -94,8 +99,10 @@ export async function GET(request: Request) {
       })
       .filter(Boolean);
 
-    return NextResponse.json({ ok: true, data: { products } });
+    requestLog("/api/closet", request, startedAt, 200);
+    return NextResponse.json({ ok: true, data: { products } }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error: unknown) {
+    requestLog("/api/closet", request, startedAt, 500);
     const message = error instanceof Error ? error.message : "closet fetch error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }

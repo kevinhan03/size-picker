@@ -1,17 +1,36 @@
 "use client";
 
-import type { SyntheticEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { AdminPage } from "../AdminPage";
-import { useProductsContext } from "../../contexts/ProductsContext";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
+import { fetchAllProducts } from "../../api";
+import type { Product } from "../../types";
 
 export function AdminRoutePageClient() {
-  const { productsError, products, featuredProducts, retryProductsLoad } = useProductsContext();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const loadProducts = useCallback(async () => {
+    try {
+      setProducts(await fetchAllProducts());
+      setProductsError(null);
+    } catch (error: unknown) {
+      setProductsError(error instanceof Error ? error.message : "상품 목록을 불러오지 못했습니다.");
+    }
+  }, []);
   const admin = useAdminAuth({
     isAdminPage: true,
-    onProductMutated: () => retryProductsLoad(),
-    onProductDeleted: () => {},
+    onProductMutated: () => void loadProducts(),
+    onProductDeleted: (id) => setProducts((current) => current.filter((product) => product.id !== id)),
   });
+  const featuredProducts = useMemo(
+    () => products.filter((product) => product.isInstagram).sort((left, right) => (left.instagramOrder ?? Number.MAX_SAFE_INTEGER) - (right.instagramOrder ?? Number.MAX_SAFE_INTEGER)),
+    [products],
+  );
+
+  useEffect(() => {
+    if (admin.isAdminAuthenticated) void loadProducts();
+    else setProducts([]);
+  }, [admin.isAdminAuthenticated, loadProducts]);
 
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.onerror = null;

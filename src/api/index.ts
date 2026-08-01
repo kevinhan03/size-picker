@@ -3,13 +3,14 @@ import type {
   BrandBackfillResult,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained as part of the existing API type surface.
   BrandRule,
+  CatalogPage,
   ClosetSizeSelection,
   MySizeInput,
   MySizeProfile,
   MySizeUpdateInput,
   Product,
+  ProductCardData,
   ProductMetadataPayload,
-  ProductRow,
   SizeTable,
   SubmitProductForm,
 } from '../types';
@@ -17,33 +18,55 @@ import { STORAGE_BUCKET, STORAGE_PREFIX } from '../constants';
 import { supabase, assertSupabaseClient } from '../lib/supabase';
 import { getFileExtension } from '../utils/image';
 import { normalizeSizeTable } from '../utils/sizeTable';
-import { normalizeProduct } from '../utils/product';
 import { parseApiJson, postJson } from './shared';
 
-const PRODUCT_SELECT_COLUMNS =
-  'id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,slug,is_instagram,instagram_order,registered_by,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,tagged_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at,image_embedding';
-const TARGET_GENDER_COLUMNS = ',target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at';
-
 export const fetchAllProducts = async (): Promise<Product[]> => {
-  assertSupabaseClient();
-  const queryProducts = (includeTargetGender: boolean) => supabase!
-    .from('products')
-    .select(`${PRODUCT_SELECT_COLUMNS}${includeTargetGender ? TARGET_GENDER_COLUMNS : ''}`)
-    .order('created_at', { ascending: false });
+  const endpoint = '/api/admin/products';
+  const response = await fetch(endpoint, { cache: 'no-store' });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { products?: Product[] }; error?: string }>(response, endpoint);
+  if (!response.ok || !payload.ok) throw new Error(payload.error || '상품 목록을 불러오지 못했습니다.');
+  return Array.isArray(payload.data?.products) ? payload.data.products : [];
+};
 
-  let { data, error } = await queryProducts(true);
+const catalogRequests = new Map<string, Promise<CatalogPage>>();
 
-  // Keep the existing product views usable while a deployment is connected to a
-  // database where the optional Dig Match migration has not been applied yet.
-  if (error && /target_gender|human_target_gender|column .* does not exist/i.test(error.message)) {
-    ({ data, error } = await queryProducts(false));
-  }
+export const fetchCatalogProducts = (offset = 0, limit = 24): Promise<CatalogPage> => {
+  const endpoint = `/api/catalog/products?offset=${encodeURIComponent(offset)}&limit=${encodeURIComponent(limit)}`;
+  const existing = catalogRequests.get(endpoint);
+  if (existing) return existing;
+  const request = (async () => {
+  const response = await fetch(endpoint);
+  const payload = await parseApiJson<{ ok?: boolean; data?: { products?: ProductCardData[]; nextOffset?: number | null }; error?: string }>(response, endpoint);
+  if (!response.ok || !payload.ok) throw new Error(payload.error || "상품 목록을 불러오지 못했습니다.");
+  return {
+    products: Array.isArray(payload.data?.products) ? payload.data.products : [],
+    nextOffset: typeof payload.data?.nextOffset === "number" ? payload.data.nextOffset : null,
+  };
+  })();
+  catalogRequests.set(endpoint, request);
+  void request.then(
+    () => catalogRequests.delete(endpoint),
+    () => catalogRequests.delete(endpoint),
+  );
+  return request;
+};
 
-  if (error) throw new Error(error.message);
-  const rows = Array.isArray(data) ? (data as unknown as ProductRow[]) : [];
-  return rows
-    .map((row) => normalizeProduct(row))
-    .filter((product: Product | null): product is Product => product !== null);
+export const searchCatalogProducts = async (query: string, signal?: AbortSignal, limit = 8): Promise<Product[]> => {
+  const endpoint = `/api/catalog/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}`;
+  const response = await fetch(endpoint, { signal });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { products?: Product[] }; error?: string }>(response, endpoint);
+  if (!response.ok || !payload.ok) throw new Error(payload.error || '상품 검색에 실패했습니다.');
+  return Array.isArray(payload.data?.products) ? payload.data.products : [];
+};
+
+export const fetchCatalogProductsByIds = async (ids: string[], signal?: AbortSignal): Promise<Product[]> => {
+  const uniqueIds = Array.from(new Set(ids.map(String).filter(Boolean))).slice(0, 12);
+  if (!uniqueIds.length) return [];
+  const endpoint = `/api/catalog/by-ids?ids=${encodeURIComponent(uniqueIds.join(','))}`;
+  const response = await fetch(endpoint, { signal });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { products?: Product[] }; error?: string }>(response, endpoint);
+  if (!response.ok || !payload.ok) throw new Error(payload.error || '상품 정보를 불러오지 못했습니다.');
+  return Array.isArray(payload.data?.products) ? payload.data.products : [];
 };
 
 export const uploadSubmissionImage = async (file: File): Promise<string> => {
@@ -183,10 +206,10 @@ export const removeBackgroundWithGemini = async (base64Image: string): Promise<s
   return String(payload.data.imageBase64);
 };
 
-export const fetchClosetItems = async (): Promise<Product[]> => {
+export const fetchClosetItems = async (includeAnalysis = false): Promise<Product[]> => {
   const token = await getAccessToken();
   if (!token) return [];
-  const response = await fetch('/api/closet', {
+  const response = await fetch(`/api/closet${includeAnalysis ? '?analysis=1' : ''}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   const payload = await parseApiJson<{ ok?: boolean; data?: { products?: unknown[] }; error?: string }>(response, '/api/closet');
@@ -280,10 +303,10 @@ export const fetchDigboxItems = async (): Promise<Product[]> => {
   return data.products;
 };
 
-export const fetchDigboxData = async (): Promise<{ products: Product[]; discoveredDigboxCounts: Record<string, number> }> => {
+export const fetchDigboxData = async (includeAnalysis = false): Promise<{ products: Product[]; discoveredDigboxCounts: Record<string, number> }> => {
   const token = await getAccessToken();
   if (!token) return { products: [], discoveredDigboxCounts: {} };
-  const response = await fetch('/api/digbox', {
+  const response = await fetch(`/api/digbox${includeAnalysis ? '?analysis=1' : ''}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   const payload = await parseApiJson<{

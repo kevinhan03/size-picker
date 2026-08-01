@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchDigboxData, addToDigbox as apiAdd, removeFromDigbox as apiRemove } from "../api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchCatalogProductsByIds, fetchDigboxData, addToDigbox as apiAdd, removeFromDigbox as apiRemove } from "../api";
 import type { Product } from "../types";
 import { captureEvent } from "../utils/analytics";
 import {
@@ -13,11 +13,12 @@ import {
 export type DigboxToast = { message: string; type: "success" | "info" | "error" } | null;
 export type GuestSyncStatus = "idle" | "syncing" | "success" | "partial";
 
-export function useDigbox(isLoggedIn: boolean, products: Product[] = []) {
+export function useDigbox(isLoggedIn: boolean) {
   const [digboxProducts, setDigboxProducts] = useState<Product[]>([]);
   const [digboxIds, setDigboxIds] = useState<Set<string>>(new Set());
   const [discoveredDigboxCounts, setDiscoveredDigboxCounts] = useState<Record<string, number>>({});
   const [guestIds, setGuestIds] = useState<string[]>([]);
+  const [guestProducts, setGuestProducts] = useState<Product[]>([]);
   const [isGuestHydrated, setIsGuestHydrated] = useState(false);
   const [isGuestPanelOpen, setIsGuestPanelOpen] = useState(false);
   const [isGuestPromptOpen, setIsGuestPromptOpen] = useState(false);
@@ -26,6 +27,8 @@ export function useDigbox(isLoggedIn: boolean, products: Product[] = []) {
   const [toast, setToast] = useState<DigboxToast>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(false);
+  const hasAnalysisLoadedRef = useRef(false);
+  const analysisRequestedRef = useRef(false);
   const isLoadingRef = useRef(false);
   const syncAttemptedRef = useRef(false);
 
@@ -46,42 +49,61 @@ export function useDigbox(isLoggedIn: boolean, products: Product[] = []) {
   }, []);
 
   useEffect(() => {
-    if (!isGuestHydrated || !products.length || isLoggedIn) return;
-    const validIds = new Set(products.map((product) => product.id));
-    setGuestIds((current) => {
-      const next = current.filter((id) => validIds.has(id));
-      if (next.length !== current.length) writeGuestDigbox(next);
-      return next.length === current.length ? current : next;
-    });
-  }, [isGuestHydrated, isLoggedIn, products]);
+    if (!isGuestHydrated || isLoggedIn || !guestIds.length) {
+      setGuestProducts([]);
+      return;
+    }
+    const controller = new AbortController();
+    void fetchCatalogProductsByIds(guestIds, controller.signal)
+      .then((loaded) => {
+        const validIds = new Set(loaded.map((product) => product.id));
+        const nextIds = guestIds.filter((id) => validIds.has(id));
+        if (nextIds.length !== guestIds.length) {
+          writeGuestDigbox(nextIds);
+          setGuestIds(nextIds);
+        }
+        setGuestProducts(loaded);
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) setGuestProducts([]);
+      });
+    return () => controller.abort();
+  }, [guestIds, isGuestHydrated, isLoggedIn]);
 
-  const guestProducts = useMemo(() => {
-    const productById = new Map(products.map((product) => [product.id, product]));
-    return guestIds.map((id) => productById.get(id)).filter((product): product is Product => Boolean(product));
-  }, [guestIds, products]);
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (includeAnalysis = false) => {
+    if (includeAnalysis) analysisRequestedRef.current = true;
     if (!isLoggedIn) {
       setDigboxProducts([]);
       setDigboxIds(new Set());
       setDiscoveredDigboxCounts({});
       hasLoadedRef.current = false;
+      hasAnalysisLoadedRef.current = false;
+      analysisRequestedRef.current = false;
       return;
     }
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
     setIsLoading(true);
+    let requestedAnalysis = false;
     try {
-      const { products: loadedProducts, discoveredDigboxCounts: loadedCounts } = await fetchDigboxData();
+      requestedAnalysis = includeAnalysis || hasAnalysisLoadedRef.current;
+      const { products: loadedProducts, discoveredDigboxCounts: loadedCounts } = await fetchDigboxData(requestedAnalysis);
       setDigboxProducts(loadedProducts);
       setDigboxIds(new Set(loadedProducts.map((product) => product.id)));
       setDiscoveredDigboxCounts(loadedCounts);
       hasLoadedRef.current = true;
+      if (requestedAnalysis) {
+        hasAnalysisLoadedRef.current = true;
+        analysisRequestedRef.current = false;
+      }
     } catch {
       // Keep the previous collection when a background refresh fails.
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
+      if (analysisRequestedRef.current && !requestedAnalysis) {
+        window.setTimeout(() => void load(true), 0);
+      }
     }
   }, [isLoggedIn]);
 
@@ -93,9 +115,9 @@ export function useDigbox(isLoggedIn: boolean, products: Product[] = []) {
     }
   }, [isLoggedIn, load]);
 
-  const ensureLoaded = useCallback(() => {
-    if (!isLoggedIn || hasLoadedRef.current) return;
-    void load();
+  const ensureLoaded = useCallback((includeAnalysis = false) => {
+    if (!isLoggedIn || (hasLoadedRef.current && (!includeAnalysis || hasAnalysisLoadedRef.current))) return;
+    void load(includeAnalysis);
   }, [isLoggedIn, load]);
 
   const addServerItem = useCallback(async (productId: string) => {

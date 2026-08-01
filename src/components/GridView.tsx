@@ -23,6 +23,9 @@ interface GridViewProps {
   onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
   isInteractionDisabled?: boolean;
   isLoading?: boolean;
+  hasMoreProducts?: boolean;
+  isLoadingMoreProducts?: boolean;
+  onLoadMoreProducts?: () => void;
 }
 
 export function GridView({
@@ -42,8 +45,12 @@ export function GridView({
   onImageError,
   isInteractionDisabled = false,
   isLoading = false,
+  hasMoreProducts = false,
+  isLoadingMoreProducts = false,
+  onLoadMoreProducts,
 }: GridViewProps) {
   const gridRef = useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const [colCount, setColCount] = useState(2);
   const [scrollMargin, setScrollMargin] = useState(0);
 
@@ -57,6 +64,20 @@ export function GridView({
   useLayoutEffect(() => {
     setScrollMargin(gridRef.current?.offsetTop ?? 0);
   }, [filteredGridProducts.length]);
+
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || !hasMoreProducts || !onLoadMoreProducts) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting && !isLoadingMoreProducts) onLoadMoreProducts();
+      },
+      { rootMargin: "400px 0px", threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreProducts, isLoadingMoreProducts, onLoadMoreProducts]);
 
   const rows = useMemo<Product[][]>(() => {
     const result: Product[][] = [];
@@ -127,8 +148,7 @@ export function GridView({
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
                     <div className="absolute inset-3 z-[1] sm:inset-4">
                       <ProgressiveImage
-                        src={product.image}
-                        thumbnailSrc={product.thumbnailImage}
+                        src={product.thumbnailImage || product.image}
                         alt={product.name}
                         className="rounded-[10px] object-contain"
                         loading={vRow.index === 0 ? "eager" : "lazy"}
@@ -154,6 +174,11 @@ export function GridView({
           ))}
         </div>
       )}
+      {hasMoreProducts ? (
+        <div ref={loadMoreSentinelRef} className="flex min-h-16 items-center justify-center pt-5" aria-live="polite">
+          {isLoadingMoreProducts ? <span className="text-sm font-medium text-gray-400">상품을 더 불러오는 중입니다.</span> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

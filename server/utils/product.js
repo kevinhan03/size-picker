@@ -40,12 +40,18 @@ export const toProductWriteErrorResponse = (error, fallbackMessage) => {
   };
 };
 
-const toPublicImageUrl = (value) => {
+const toPublicImageUrl = (value, transform = null) => {
   const normalized = String(value || "").trim();
   if (!normalized) return "";
   if (/^https?:\/\//i.test(normalized)) return normalized;
   if (!SUPABASE_URL || !SUPABASE_STORAGE_BUCKET) return normalized;
-  return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/${normalized}`;
+  if (!transform) return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/${normalized}`;
+  const params = new URLSearchParams();
+  if (transform.width) params.set("width", String(transform.width));
+  if (transform.height) params.set("height", String(transform.height));
+  if (transform.resize) params.set("resize", transform.resize);
+  if (transform.quality) params.set("quality", String(transform.quality));
+  return `${SUPABASE_URL}/storage/v1/render/image/public/${SUPABASE_STORAGE_BUCKET}/${normalized}?${params.toString()}`;
 };
 
 export const normalizeProductRow = (row) => {
@@ -65,7 +71,7 @@ export const normalizeProductRow = (row) => {
     category: String(row.category || "User Uploaded"),
     url: String(row.url || "#"),
     image: toPublicImageUrl(image || imagePath),
-    thumbnailImage: toPublicImageUrl(imagePath || image),
+    thumbnailImage: toPublicImageUrl(imagePath || image, { width: 320, height: 320, resize: "contain", quality: 65 }),
     imagePath: imagePath || null,
     slug: String(row.slug || "").trim() || null,
     sizeTable: parseSizeTable(row.size_table ?? row.sizeTable),
