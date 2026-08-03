@@ -66,7 +66,7 @@ export const buildProductRecommendations = (source: Product, products: Product[]
     .filter((candidate) => candidate.id !== source.id && normalizeCategory(candidate.category) === sourceCategory)
     .map((candidate) => {
       const visualScore = visualScores.get(candidate.id);
-      if (typeof visualScore !== "number" || hasSharedPrimaryStyleTag(source, candidate) === false) return null;
+      if ((visualScores.size && typeof visualScore !== "number") || hasSharedPrimaryStyleTag(source, candidate) === false) return null;
       const similarity = getProductRecommendationSimilarity(source, candidate, visualScore);
       return !similarity || similarity.visualSimilarity === null ? null : { product: candidate, similarity: similarity.score };
     })
@@ -88,36 +88,85 @@ export const buildProductRecommendations = (source: Product, products: Product[]
   }
   strict.sort((left, right) => right.similarity - left.similarity);
   fallback.sort((left, right) => right.similarity - left.similarity);
-  const styleCandidates = strict.length >= MIN_VISIBLE_PRODUCTS
-    ? strict
-    : [...strict, ...fallback.slice(0, MIN_VISIBLE_PRODUCTS - strict.length)];
+  const styleCandidates = [...strict, ...fallback]
+    .sort((left, right) => right.similarity - left.similarity);
 
   return {
-    similarProducts: visualScores.size && sourceCategory ? selectNatural(similarCandidates) : [],
+    similarProducts: sourceCategory ? selectNatural(similarCandidates) : [],
     styleProducts: selectNatural(diversifyCategories(styleCandidates)),
   };
 };
 
-type CandidateRow = { id?: string | number; visual_similarity?: number | string };
+type CandidateRow = {
+  product?: unknown;
+  visual_similarity?: number | string | null;
+};
 
-async function queryProductRecommendationData(productId: string) {
-  assertSupabaseConfig();
-  const { data: candidateRows, error: candidateError } = await supabase!.rpc("get_product_recommendation_candidates", { source_product_id: Number(productId), candidate_limit: 60 });
-  if (candidateError) throw candidateError;
+async function queryLegacyRecommendationCandidates(productId: string) {
+  const { data: legacyRows, error: legacyError } = await supabase!.rpc("get_product_recommendation_candidates", {
+    source_product_id: Number(productId),
+    candidate_limit: 60,
+  });
+  if (legacyError) throw legacyError;
+
   const visualScores = new Map<string, number>();
-  for (const row of (candidateRows || []) as CandidateRow[]) {
+  for (const row of (legacyRows || []) as Array<{ id?: string | number; visual_similarity?: number | string }>) {
     const id = String(row.id || "");
     const score = Number(row.visual_similarity);
     if (id && Number.isFinite(score)) visualScores.set(id, score);
   }
-  const ids = [productId, ...visualScores.keys()];
-  const { data, error } = await supabase!.from(SUPABASE_PRODUCTS_TABLE).select(RECOMMENDATION_COLUMNS).in("id", ids);
+  if (!visualScores.size) return { rows: [] as unknown[], visualScores };
+
+  const { data, error } = await supabase!
+    .from(SUPABASE_PRODUCTS_TABLE)
+    .select(RECOMMENDATION_COLUMNS)
+    .in("id", [...visualScores.keys()]);
   if (error) throw error;
-  const rows = (data || []) as unknown[];
-  const byId = new Map(rows.map((row) => [String((row as { id?: unknown }).id), row]));
-  const source = normalizeAnalysisProduct(byId.get(productId));
+  return { rows: Array.isArray(data) ? data : [], visualScores };
+}
+
+async function queryProductRecommendationData(productId: string) {
+  assertSupabaseConfig();
+  const { data: sourceRow, error: sourceError } = await supabase!
+    .from(SUPABASE_PRODUCTS_TABLE)
+    .select(RECOMMENDATION_COLUMNS)
+    .eq("id", productId)
+    .maybeSingle();
+  if (sourceError) throw sourceError;
+
+  const source = normalizeAnalysisProduct(sourceRow);
   if (!source) return null;
-  const candidates = [...visualScores.keys()].map((id) => normalizeAnalysisProduct(byId.get(id))).filter((product): product is NonNullable<typeof product> => Boolean(product));
+
+  const { data: candidateRows, error: candidateError } = await supabase!.rpc("get_product_recommendation_candidates_v2", {
+    source_product_id: Number(productId),
+    similar_limit: 120,
+    style_limit: 160,
+  });
+
+  const visualScores = new Map<string, number>();
+  const byId = new Map<string, unknown>();
+  if (candidateError?.code === "PGRST202") {
+    const legacy = await queryLegacyRecommendationCandidates(productId);
+    for (const row of legacy.rows) {
+      const id = String((row as { id?: unknown }).id || "");
+      if (id) byId.set(id, row);
+    }
+    for (const [id, score] of legacy.visualScores) visualScores.set(id, score);
+  } else {
+    if (candidateError) throw candidateError;
+    for (const row of (candidateRows || []) as CandidateRow[]) {
+      const product = row.product;
+      const id = String((product as { id?: unknown } | null)?.id || "");
+      if (!id) continue;
+      byId.set(id, product);
+      const score = Number(row.visual_similarity);
+      if (Number.isFinite(score)) visualScores.set(id, score);
+    }
+  }
+  byId.set(source.id, sourceRow);
+  const candidates = [...byId.values()]
+    .map(normalizeAnalysisProduct)
+    .filter((product): product is NonNullable<typeof product> => Boolean(product));
   const recommendations = buildProductRecommendations(source, candidates, visualScores);
   const toCard = (product: typeof source) => normalizeProductCard(byId.get(product.id));
   return {
@@ -129,6 +178,6 @@ async function queryProductRecommendationData(productId: string) {
 
 export const getProductRecommendationData = (productId: string) => unstable_cache(
   () => queryProductRecommendationData(productId),
-  ["product-recommendations-v2", productId],
+  ["product-recommendations-v7", productId],
   { revalidate: 300, tags: ["recommendations", `recommendations:${productId}`] },
 )();

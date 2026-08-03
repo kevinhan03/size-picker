@@ -10,12 +10,14 @@ export const PRODUCT_CARD_COLUMNS = [
 ].join(",");
 
 export const PRODUCT_DETAIL_COLUMNS = [
-  PRODUCT_CARD_COLUMNS, "size_table", "normalized_size_table", "registered_by",
+  PRODUCT_CARD_COLUMNS,
+  "size_table", "normalized_size_table", "registered_by",
+  "style_tags", "style_attributes", "human_style_tags", "human_style_attributes", "tag_review_status",
 ].join(",");
 
 export const RECOMMENDATION_COLUMNS = [
   PRODUCT_CARD_COLUMNS, "style_tags", "style_attributes", "human_style_tags", "human_style_attributes",
-  "human_target_gender",
+  "tag_review_status", "human_target_gender",
 ].join(",");
 
 // Backward-compatible aliases for server-only callers while their response contracts
@@ -52,6 +54,11 @@ export const normalizeProductDetail = (row: unknown): ProductDetailData | null =
     sizeTable: product.sizeTable,
     normalizedSizeTable: product.normalizedSizeTable,
     registeredBy: product.registeredBy,
+    styleTags: product.styleTags,
+    styleAttributes: product.styleAttributes,
+    humanStyleTags: product.humanStyleTags,
+    humanStyleAttributes: product.humanStyleAttributes,
+    tagReviewStatus: product.tagReviewStatus,
   };
 };
 

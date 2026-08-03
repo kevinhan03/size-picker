@@ -9,7 +9,6 @@ import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { MySizesProvider, useMySizesContext } from "../contexts/MySizesContext";
 import { useAuthContext } from "../contexts/AuthContext";
-import { useClosetContext } from "../contexts/ClosetContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
 import { usePresence } from "../hooks/usePresence";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
@@ -21,8 +20,7 @@ import {
 } from "../utils/sizeTable";
 import { captureEvent } from "../utils/analytics";
 import { ClosetIcon } from "./icons/ClosetIcon";
-import { ProductTasteDecisionPanel } from "./taste-graph/ProductTasteDecision";
-import { computeTasteSummary, getProductTasteDecision } from "../utils/tasteGraph";
+import { ProductSummaryDetailsPanel } from "./taste-graph/ProductTasteDecision";
 import { buildLoginHref } from "../utils/authNavigation";
 import { getProductPageUrl } from "../utils/product";
 
@@ -47,6 +45,30 @@ interface ProductDetailModalProps {
   otherDigboxCount?: number;
   otherDigboxCountLabel?: string;
   analyticsSource?: string;
+}
+
+function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
+  if (event.key !== "Tab") return;
+  const focusable = Array.from(
+    event.currentTarget.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  );
+  if (!focusable.length) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const activeElement = document.activeElement;
+  const focusIsInsideDialog = activeElement instanceof Node && event.currentTarget.contains(activeElement);
+  if (event.shiftKey && (!focusIsInsideDialog || activeElement === event.currentTarget || activeElement === first)) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (!focusIsInsideDialog || activeElement === last)) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function getClosetSizeLabel(product?: Product | null): string {
@@ -199,8 +221,9 @@ function ProductDetailModalContent({
 }: ProductDetailModalProps) {
   const router = useRouter();
   const presence = usePresence(true);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const { authUser } = useAuthContext();
-  const { closetProducts, ensureLoaded: ensureClosetLoaded } = useClosetContext();
   const canUseCloset = Boolean(authUser);
   useBodyScrollLock(modalRef);
   const sizeTableTouchStartX = useRef<number | null>(null);
@@ -224,6 +247,7 @@ function ProductDetailModalContent({
   const [selectedMySizeId, setSelectedMySizeId] = useState<string>("");
   const savedClosetProduct = closetProduct || null;
   const savedSizeRowIndex = getClosetSizeRowIndex(savedClosetProduct);
+  const [insightProduct, setInsightProduct] = useState<Product>(product);
   const displaySizeTable = useMemo(() => getDisplaySizeTable(product), [product]);
   const displayProduct = useMemo(
     () => ({ ...product, sizeTable: displaySizeTable }),
@@ -235,17 +259,26 @@ function ProductDetailModalContent({
   }, [ensureMySizesLoaded]);
 
   useEffect(() => {
-    if (authUser) ensureClosetLoaded();
-  }, [authUser, ensureClosetLoaded]);
+    let cancelled = false;
+    setInsightProduct(product);
 
-  const tasteDecision = useMemo(
-    () => (authUser ? getProductTasteDecision(product, closetProducts) : null),
-    [authUser, closetProducts, product]
-  );
-  const hasEnoughTasteData = useMemo(
-    () => computeTasteSummary(closetProducts.filter((item) => String(item.id) !== String(product.id))).taggedCount >= 3,
-    [closetProducts, product.id]
-  );
+    void fetch(`/api/products/${encodeURIComponent(product.id)}`)
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const payload = await response.json() as { ok?: boolean; data?: { product?: Product } };
+        return payload.ok ? payload.data?.product ?? null : null;
+      })
+      .then((detail) => {
+        if (!cancelled && detail?.id === product.id) setInsightProduct(detail);
+      })
+      .catch(() => {
+        // Keep the lightweight catalog product if detail enrichment is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product]);
 
   useEffect(() => {
     return () => {
@@ -286,6 +319,12 @@ function ProductDetailModalContent({
   );
   const isSelectedMySizeSourceProduct = selectedMySize?.sourceProductId === product.id;
   const activeSizeLabel = String(activeProductSnapshot?.row?.[0] ?? "").trim();
+
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    requestAnimationFrame(() => dialogRef.current?.focus());
+    return () => restoreFocusRef.current?.focus();
+  }, []);
 
   const closeMySizePicker = () => {
     setIsMySizePickerOpen(false);
@@ -455,11 +494,20 @@ function ProductDetailModalContent({
     <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
       <div className="ui-layer-scrim absolute inset-0 bg-black/70 backdrop-blur-sm" data-visible={presence.isVisible} onClick={closeModal} />
       <div
-        className="ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex flex-col max-h-[90vh] w-full max-w-4xl rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-detail-modal-title"
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          trapDialogFocus(event);
+          if (event.key === "Escape") closeModal();
+        }}
+        className="ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] outline-none md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
         data-visible={presence.isVisible}
       >
-        <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-3 text-white sm:px-6 sm:py-4">
-          <h3 className="shrink-0 text-base font-bold text-white sm:text-xl">상품 상세</h3>
+        <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-2 text-white sm:px-6 sm:py-3">
+          <h3 id="product-detail-modal-title" className="shrink-0 text-base font-bold text-white sm:text-xl">상품 상세</h3>
           <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
             {!hideCollectionActions && !hideDigboxButton && (
             <div className="group relative">
@@ -472,7 +520,7 @@ function ProductDetailModalContent({
                   onCollectionActionStart?.(getAnchorRect(event));
                   onToggleDigbox?.();
                 }}
-                className={`ui-detail-toolbar-button ui-detail-toolbar-button--digbox inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
+                className={`ui-detail-toolbar-button ui-detail-toolbar-button--digbox inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
                   isInDigbox
                     ? "border-yellow-300/45 bg-yellow-400/[0.11] text-yellow-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                     : "border-white/[0.12] bg-white/[0.045] text-gray-300"
@@ -483,11 +531,6 @@ function ProductDetailModalContent({
                 </svg>
                 <span>{isInDigbox ? "저장됨" : "저장"}</span>
               </button>
-              {showGuestDigboxHint && !isInDigbox && (
-                <p className="pointer-events-none absolute right-0 top-full mt-3 w-52 rounded-xl border border-yellow-300/30 bg-[#17150e]/95 px-3 py-2 text-[11px] font-bold leading-snug text-yellow-100 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-                  마음에 드는 상품은 여기 담아 내 취향을 찾아보세요.
-                </p>
-              )}
             </div>
             )}
             {canUseCloset && !hideCollectionActions && !(hideDigboxButton && isInCloset) && (
@@ -498,7 +541,7 @@ function ProductDetailModalContent({
                 aria-pressed={isInCloset}
                 data-active={isInCloset}
                 onClick={handleClosetClick}
-                className={`ui-detail-toolbar-button ui-detail-toolbar-button--closet inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
+                className={`ui-detail-toolbar-button ui-detail-toolbar-button--closet inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
                   isInCloset
                     ? "border-orange-300/50 bg-orange-500/[0.14] text-orange-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                     : "border-white/[0.12] bg-white/[0.045] text-gray-300"
@@ -513,7 +556,7 @@ function ProductDetailModalContent({
               type="button"
               aria-label="상품 상세 닫기"
               onClick={closeModal}
-              className="ui-detail-toolbar-button ui-detail-toolbar-button--close inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.045] text-gray-300 transition-[background-color,border-color,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+              className="ui-detail-toolbar-button ui-detail-toolbar-button--close inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.045] text-gray-300 transition-[background-color,border-color,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
             >
               <X className="h-4 w-4" />
             </button>
@@ -550,6 +593,7 @@ function ProductDetailModalContent({
                 <span className="text-gray-500">{product.category}</span>
               </div>
               <h4 className="mb-2 text-2xl font-bold text-white">{product.name}</h4>
+              <ProductSummaryDetailsPanel product={insightProduct} />
               <div className="mt-3 space-y-2">
                 {savedClosetProduct ? <SavedSizeSummary product={savedClosetProduct} /> : null}
                 {product.url ? (
@@ -574,25 +618,13 @@ function ProductDetailModalContent({
             </div>
           </div>
 
-          <section className="mt-4" aria-label="상품과 내 취향 인사이트">
-            <ProductTasteDecisionPanel
-              product={product}
-              decision={tasteDecision}
-              isAuthenticated={Boolean(authUser)}
-              hasEnoughTasteData={hasEnoughTasteData}
-            />
-          </section>
+          {showGuestDigboxHint && !isInDigbox ? (
+            <p role="status" className="mt-4 rounded-xl border border-yellow-300/20 bg-yellow-300/[0.06] px-3 py-2 text-xs font-semibold leading-5 text-yellow-100">
+              마음에 드는 상품은 상단의 저장 버튼으로 담아 내 취향을 찾아보세요.
+            </p>
+          ) : null}
 
-          <button
-            type="button"
-            onClick={handleSimilarProductsClick}
-            className="group mt-3 flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-transparent px-4 py-2.5 text-left transition-[background-color,border-color,transform] duration-150 hover:border-white/[0.15] hover:bg-white/[0.035] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
-          >
-            <span className="min-w-0 truncate text-sm font-semibold text-gray-200">추천 상품 둘러보기</span>
-            <ChevronRight className="h-5 w-5 shrink-0 text-gray-500 transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-orange-300" aria-hidden="true" />
-          </button>
-
-          <section className="mt-8" aria-labelledby="size-selection-title">
+          <section className="mt-8 border-t border-white/[0.08] pt-6" aria-labelledby="size-selection-title">
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>
                 <h5 id="size-selection-title" className="text-sm font-bold text-white">사이즈 선택</h5>
@@ -621,7 +653,7 @@ function ProductDetailModalContent({
                 }}
                 aria-expanded={isMySizePickerOpen}
                 aria-label={`비교할 내 상품 변경: ${selectedMySize.brand || "브랜드 미등록"} ${selectedMySize.title}`}
-                className="shrink-0 text-xs font-bold text-orange-300 underline decoration-orange-300/45 underline-offset-4 transition-colors hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
+                className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-bold text-orange-300 underline decoration-orange-300/45 underline-offset-4 transition-[background-color,color] hover:bg-orange-400/[0.08] hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
               >
                 변경
               </button>
@@ -636,7 +668,7 @@ function ProductDetailModalContent({
               <button
                 type="button"
                 onClick={handleMissingMySizeAction}
-                className="ui-size-comparison-action shrink-0 rounded-lg border border-orange-300/45 bg-orange-400/[0.13] px-3 py-1.5 text-xs font-bold text-orange-100 transition-[background-color,border-color,color,transform] duration-150 hover:border-orange-200/70 hover:bg-orange-400/[0.22] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
+                className="ui-size-comparison-action min-h-11 shrink-0 rounded-lg border border-orange-300/45 bg-orange-400/[0.13] px-3 py-1.5 text-xs font-bold text-orange-100 transition-[background-color,border-color,color,transform] duration-150 hover:border-orange-200/70 hover:bg-orange-400/[0.22] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
               >
                 {!authUser ? "로그인하고 등록" : "My Size 등록하기"}
               </button>
@@ -768,7 +800,7 @@ function ProductDetailModalContent({
               <button
                 type="button"
                 onClick={() => setIsExtraMeasurementsOpen((value) => !value)}
-                className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/[0.05] hover:text-white"
+                className="flex min-h-11 w-full items-center justify-between px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/[0.05] hover:text-white"
               >
                 <span>추가 실측 정보</span>
                 <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isExtraMeasurementsOpen ? "rotate-180" : ""}`} />
@@ -808,6 +840,15 @@ function ProductDetailModalContent({
               ) : null}
             </div>
           ) : null}
+
+          <button
+            type="button"
+            onClick={handleSimilarProductsClick}
+            className="group mt-5 flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl border border-white/[0.16] bg-white/[0.08] px-4 py-2.5 text-left shadow-[0_8px_20px_rgba(0,0,0,0.2)] transition-[background-color,border-color,box-shadow,transform] duration-150 hover:border-white/[0.28] hover:bg-white/[0.13] hover:shadow-[0_10px_24px_rgba(0,0,0,0.28)] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+          >
+            <span className="min-w-0 truncate text-sm font-bold text-white">추천 상품 둘러보기</span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-gray-300 transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-white" aria-hidden="true" />
+          </button>
         </div>
         </div>
       </div>

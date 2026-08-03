@@ -988,17 +988,15 @@ function firstKnownStyleAttribute(attributes: Record<string, unknown>, key: stri
     .find((value) => value && value !== "unknown") || null;
 }
 
-/** Produces a short product-only description from reviewed or extracted style attributes. */
-export function describeProductStyle(product: Product): string | null {
+/** Produces a compact, product-only list of confirmed details for a PDP. */
+export function getProductSummaryDetails(product: Product): string[] {
   const attributes = getEffectiveStyleAttributes(product, true);
-  if (!attributes) return null;
-
   const category = String(product.category || "").trim().toLowerCase();
   const typeKey = category === "top" ? "top_type" : category === "outer" ? "outer_type" : null;
-  const typeValue = typeKey ? firstKnownStyleAttribute(attributes, typeKey) : null;
+  const typeValue = attributes && typeKey ? firstKnownStyleAttribute(attributes, typeKey) : null;
   const productLabel = (typeKey && typeValue ? PRODUCT_TYPE_LABELS[typeKey]?.[typeValue] : null)
     || PRODUCT_CATEGORY_LABELS[category]
-    || "상품";
+    || null;
   const silhouetteKey = category === "bottom"
     ? "bottom_silhouette"
     : category === "top"
@@ -1006,17 +1004,16 @@ export function describeProductStyle(product: Product): string | null {
       : category === "outer"
         ? "outer_silhouette"
         : null;
-  const detailKeys = ["color", silhouetteKey, "material", "wash_texture"].filter((key): key is string => Boolean(key));
-  const details = detailKeys
+  const detailKeys = [silhouetteKey, "color", "material"].filter((key): key is string => Boolean(key));
+  const details = attributes ? detailKeys
     .map((key) => {
       const value = firstKnownStyleAttribute(attributes, key);
       return value ? PRODUCT_STYLE_LABELS[key]?.[value] || null : null;
     })
     .filter((detail): detail is string => Boolean(detail))
-    .slice(0, 2);
+    : [];
 
-  if (!details.length) return typeValue ? `${productLabel}예요.` : null;
-  return `${details.join("과 ")}이 돋보이는 ${productLabel}예요.`;
+  return [...new Set([productLabel, ...details].filter(Boolean))].slice(0, 4) as string[];
 }
 
 function averageTagScores(products: Product[]) {

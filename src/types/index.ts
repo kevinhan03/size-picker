@@ -70,6 +70,11 @@ export type ProductDetailData = Pick<
   | 'sizeTable'
   | 'normalizedSizeTable'
   | 'registeredBy'
+  | 'styleTags'
+  | 'styleAttributes'
+  | 'humanStyleTags'
+  | 'humanStyleAttributes'
+  | 'tagReviewStatus'
 >;
 
 export interface CatalogPage {

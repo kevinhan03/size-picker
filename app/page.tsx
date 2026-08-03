@@ -8,7 +8,7 @@ import type { ProductCardData } from "../src/types";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.digbox.co.kr";
 
 export const metadata: Metadata = {
-  title: "상품 탐색 | DIGBOX",
+  title: "DIGBOX | 디그박스",
   description: "좋아하는 옷을 기록하고 공유하며, 서로의 취향에서 새로운 스타일을 발견하는 곳, DIGBOX.",
 };
 
