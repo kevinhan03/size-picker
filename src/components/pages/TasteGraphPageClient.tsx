@@ -74,13 +74,19 @@ export function TasteGraphPageClient({
   const shouldRestoreReportScrollRef = useRef(false);
   const {
     closetProducts,
-    isLoading: isClosetLoading,
+    isLoaded: isClosetLoaded,
+    ensureLoaded: ensureClosetLoaded,
+    error: closetError,
+    reload: reloadCloset,
     toggleCloset,
     isInCloset,
   } = useClosetContext();
   const {
     digboxProducts,
-    isLoading: isDigboxLoading,
+    isLoaded: isDigboxLoaded,
+    ensureLoaded: ensureDigboxLoaded,
+    error: digboxError,
+    reload: reloadDigbox,
     toggleDigbox,
     isInDigbox,
   } = useDigboxContext();
@@ -88,6 +94,12 @@ export function TasteGraphPageClient({
   useEffect(() => {
     if (!auth.isAuthLoading && !authUserId) router.replace("/login");
   }, [auth.isAuthLoading, authUserId, router]);
+
+  useEffect(() => {
+    if (!authUserId) return;
+    ensureDigboxLoaded(true);
+    ensureClosetLoaded(true);
+  }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
 
   useEffect(() => {
     setSelectedSource(initialSource || null);
@@ -224,7 +236,35 @@ export function TasteGraphPageClient({
     </div>
   );
 
-  if (auth.isAuthLoading || !auth.authUser || isClosetLoading || isDigboxLoading) {
+  if (auth.isAuthLoading || !auth.authUser) {
+    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="취향 그래프를 준비하고 있어요" description="저장한 상품을 분석해 나만의 연결을 만드는 중입니다." /></main>;
+  }
+
+  if (closetError || digboxError) {
+    return (
+      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
+        <PageState
+          kind="error"
+          title="취향 그래프를 불러오지 못했어요"
+          description="잠시 후 다시 시도해 주세요. 저장한 상품은 그대로 유지됩니다."
+          action={(
+            <button
+              type="button"
+              onClick={() => {
+                if (closetError) void reloadCloset(true);
+                if (digboxError) void reloadDigbox(true);
+              }}
+              className="ui-button ui-button-primary px-5 py-2.5"
+            >
+              다시 시도
+            </button>
+          )}
+        />
+      </main>
+    );
+  }
+
+  if (!isClosetLoaded || !isDigboxLoaded) {
     return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="취향 그래프를 준비하고 있어요" description="저장한 상품을 분석해 나만의 연결을 만드는 중입니다." /></main>;
   }
 

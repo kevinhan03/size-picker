@@ -424,12 +424,13 @@ function ProductDetailModalContent({
     if (event.pointerType !== "touch") return;
     if (pointerDownTimerRef.current) clearTimeout(pointerDownTimerRef.current);
     pointerDownSelectedRowRef.current = null;
+    const anchorRect = getAnchorRect(event);
 
     pointerDownTimerRef.current = setTimeout(() => {
       pointerDownTimerRef.current = null;
       if (!sizeTableIsScrolling.current) {
         pointerDownSelectedRowRef.current = rowIndex;
-        handleRowClick(rowIndex, getAnchorRect(event));
+        handleRowClick(rowIndex, anchorRect);
       }
     }, 100);
   };
@@ -641,55 +642,17 @@ function ProductDetailModalContent({
           <section className="mt-8 border-t border-white/[0.08] pt-6" aria-labelledby="size-selection-title">
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>
-                <h5 id="size-selection-title" className="text-sm font-bold text-white">사이즈 선택</h5>
-                <p className="mt-1 text-xs font-semibold text-gray-500">행을 선택하면 내 사이즈와 바로 비교할 수 있어요.</p>
+                <h5 id="size-selection-title" className="text-sm font-bold text-white">상품 사이즈표</h5>
+                <p className={`mt-1 text-xs font-semibold ${categoryMySizes.length > 0 ? "text-orange-200" : "text-gray-500"}`}>
+                  {categoryMySizes.length > 0 ? "사이즈 행을 탭해 내 옷과 비교하세요." : "사이즈 행을 탭해 실측을 확인하세요."}
+                </p>
               </div>
               {displaySizeTable?.headers?.length ? (
                 <span className="shrink-0 text-[11px] font-semibold text-gray-500">단위: cm</span>
               ) : null}
             </div>
-          {categoryMySizes.length > 0 && selectedMySize && (
-            <div className="mb-3 flex min-h-11 w-full min-w-0 items-center justify-between gap-3 px-2 py-2">
-              <span className="flex min-w-0 items-center gap-3">
-                <span className="shrink-0 text-xs font-bold text-gray-500">내 기준</span>
-                <span className="min-w-0 truncate text-sm font-bold text-gray-200">
-                  <span className="text-orange-300">{selectedMySize.brand || "브랜드 미등록"}</span>
-                  <span className="text-gray-600" aria-hidden="true"> · </span>
-                  {selectedMySize.title || "저장한 상품"}
-                </span>
-              </span>
-              <button
-                ref={mySizeChangeButtonRef}
-                type="button"
-                onClick={(event) => {
-                  showTutorialOnce("mySizeCompare", getAnchorRect(event));
-                  setIsMySizePickerOpen(true);
-                }}
-                aria-expanded={isMySizePickerOpen}
-                aria-label={`비교할 내 상품 변경: ${selectedMySize.brand || "브랜드 미등록"} ${selectedMySize.title}`}
-                className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-bold text-orange-300 underline decoration-orange-300/45 underline-offset-4 transition-[background-color,color] hover:bg-orange-400/[0.08] hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
-              >
-                변경
-              </button>
-            </div>
-          )}
-          {categoryMySizes.length === 0 && (
-            <div className="ui-size-comparison-result mb-3 flex min-h-12 items-center justify-between gap-3 rounded-xl border border-orange-400/20 bg-orange-500/[0.06] px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-orange-100">My Size가 없어요</p>
-                <p className="mt-0.5 truncate text-xs font-semibold text-orange-100/55">내 옷을 등록하면 바로 비교할 수 있어요.</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleMissingMySizeAction}
-                className="ui-size-comparison-action min-h-11 shrink-0 rounded-lg border border-orange-300/45 bg-orange-400/[0.13] px-3 py-1.5 text-xs font-bold text-orange-100 transition-[background-color,border-color,color,transform] duration-150 hover:border-orange-200/70 hover:bg-orange-400/[0.22] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
-              >
-                {!authUser ? "로그인하고 등록" : "My Size 등록하기"}
-              </button>
-            </div>
-          )}
           <div
-            className="relative touch-manipulation overflow-x-auto overscroll-x-contain rounded-[22px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="relative touch-manipulation overflow-x-auto overscroll-x-contain rounded-[22px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] [scrollbar-width:none] max-[360px]:after:pointer-events-none max-[360px]:after:absolute max-[360px]:after:inset-y-0 max-[360px]:after:right-0 max-[360px]:after:z-[2] max-[360px]:after:w-6 max-[360px]:after:bg-gradient-to-l max-[360px]:after:from-[#1c1c1f] max-[360px]:after:to-transparent max-[360px]:after:content-[''] [&::-webkit-scrollbar]:hidden"
             onTouchStart={handleSizeTableTouchStart}
             onTouchMove={handleSizeTableTouchMove}
             onTouchEnd={handleSizeTableTouchEnd}
@@ -762,52 +725,90 @@ function ProductDetailModalContent({
           </section>
 
           <div className="mt-4" aria-live="polite" aria-atomic="true">
-              {activeRowIndex === null || categoryMySizes.length === 0 ? null : isSelectedMySizeSourceProduct ? (
-                <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-200">
-                  동일한 상품입니다.
+            {activeRowIndex === null ? null : categoryMySizes.length === 0 ? (
+              <div className="ui-size-comparison-result flex min-h-12 items-center justify-between gap-3 border-t border-white/[0.08] pt-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-orange-100">{activeSizeLabel || "선택한 사이즈"}를 내 옷과 비교해보세요.</p>
+                  <p className="mt-0.5 text-xs font-semibold text-orange-100/55">내 옷을 등록하면 바로 비교할 수 있어요.</p>
                 </div>
-              ) : activeRowIndex === null ? null : mySizeComparisons.length > 0 ? (
-                <>
-                <p className="mt-3 text-xs font-semibold text-gray-500">
-                  선택한 상품 사이즈: <span className="font-bold text-orange-200">{activeSizeLabel || "선택한 사이즈"}</span>
-                </p>
-                <div className="mt-3 touch-manipulation overflow-x-auto overscroll-x-contain rounded-xl border border-white/[0.06] bg-black/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <table className="min-w-[420px] table-fixed text-left text-xs sm:min-w-full sm:text-sm">
-                    <colgroup>
-                      <col style={{ width: "96px" }} />
-                      <col style={{ width: "88px" }} />
-                      <col style={{ width: "80px" }} />
-                      <col style={{ width: "72px" }} />
-                    </colgroup>
-                    <thead className="text-[11px] uppercase tracking-wide text-gray-500">
-                      <tr>
-                        <th className="whitespace-nowrap px-3 py-2 font-black">항목</th>
-                        <th className="whitespace-nowrap px-3 py-2 font-black">내 사이즈</th>
-                        <th className="whitespace-nowrap px-3 py-2 font-black">현재 상품</th>
-                        <th className="whitespace-nowrap px-3 py-2 font-black">차이</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mySizeComparisons.map((item) => (
-                        <tr key={item.label} className="border-t border-white/[0.06]">
-                          <td className="whitespace-nowrap px-3 py-2 font-bold text-gray-200">{item.displayLabel}</td>
-                          <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.referenceValue.toFixed(1).replace(/\.0$/, "")}</td>
-                          <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.productValue.toFixed(1).replace(/\.0$/, "")}</td>
-                          <td className={`px-3 py-2 font-black ${item.diff === 0 ? "text-gray-400" : item.diff > 0 ? "text-orange-300" : "text-sky-300"}`}>
-                            {item.diff > 0 ? "+" : ""}{item.diff.toFixed(1).replace(/\.0$/, "")}
-                          </td>
+                <button
+                  type="button"
+                  onClick={handleMissingMySizeAction}
+                  className="ui-size-comparison-action min-h-11 shrink-0 rounded-lg border border-orange-300/45 bg-orange-400/[0.13] px-3 py-1.5 text-xs font-bold text-orange-100 transition-[background-color,border-color,color,transform] duration-150 hover:border-orange-200/70 hover:bg-orange-400/[0.22] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
+                >
+                  {!authUser ? "로그인하고 등록" : "My Size 등록하기"}
+                </button>
+              </div>
+            ) : selectedMySize ? (
+              <>
+                <div className="flex min-h-11 w-full min-w-0 items-center justify-between gap-3 border-t border-white/[0.08] pt-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-500">선택한 상품 사이즈 · <span className="font-bold text-orange-200">{activeSizeLabel || "선택한 사이즈"}</span></p>
+                    <p className="mt-1 min-w-0 truncate text-sm font-bold text-gray-200">
+                      <span className="mr-2 text-xs font-bold text-gray-500">비교 기준</span>
+                      <span className="text-orange-300">{selectedMySize.brand || "브랜드 미등록"}</span>
+                      <span className="text-gray-600" aria-hidden="true"> · </span>
+                      {selectedMySize.title || "저장한 상품"}
+                    </p>
+                  </div>
+                  <button
+                    ref={mySizeChangeButtonRef}
+                    type="button"
+                    onClick={(event) => {
+                      showTutorialOnce("mySizeCompare", getAnchorRect(event));
+                      setIsMySizePickerOpen(true);
+                    }}
+                    aria-expanded={isMySizePickerOpen}
+                    aria-label={`비교 기준 상품 변경: ${selectedMySize.brand || "브랜드 미등록"} ${selectedMySize.title}`}
+                    className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-bold text-orange-300 underline decoration-orange-300/45 underline-offset-4 transition-[background-color,color] hover:bg-orange-400/[0.08] hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
+                  >
+                    변경
+                  </button>
+                </div>
+
+                {isSelectedMySizeSourceProduct ? (
+                  <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-200">
+                    동일한 상품입니다.
+                  </div>
+                ) : mySizeComparisons.length > 0 ? (
+                  <div className="mt-3 touch-manipulation overflow-x-auto overscroll-x-contain rounded-xl border border-white/[0.06] bg-black/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <table className="min-w-[420px] table-fixed text-left text-xs sm:min-w-full sm:text-sm">
+                      <colgroup>
+                        <col style={{ width: "96px" }} />
+                        <col style={{ width: "88px" }} />
+                        <col style={{ width: "80px" }} />
+                        <col style={{ width: "72px" }} />
+                      </colgroup>
+                      <thead className="text-[11px] uppercase tracking-wide text-gray-500">
+                        <tr>
+                          <th className="whitespace-nowrap px-3 py-2 font-black">항목</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-black">내 사이즈</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-black">현재 상품</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-black">차이</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                </>
-              ) : (
-                <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-sm font-semibold text-gray-500">
-                  비교 가능한 공통 실측이 없습니다.
-                </div>
-              )}
-            </div>
+                      </thead>
+                      <tbody>
+                        {mySizeComparisons.map((item) => (
+                          <tr key={item.label} className="border-t border-white/[0.06]">
+                            <td className="whitespace-nowrap px-3 py-2 font-bold text-gray-200">{item.displayLabel}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.referenceValue.toFixed(1).replace(/\.0$/, "")}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.productValue.toFixed(1).replace(/\.0$/, "")}</td>
+                            <td className={`px-3 py-2 font-black ${item.diff === 0 ? "text-gray-400" : item.diff > 0 ? "text-orange-300" : "text-sky-300"}`}>
+                              {item.diff > 0 ? "+" : ""}{item.diff.toFixed(1).replace(/\.0$/, "")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-sm font-semibold text-gray-500">
+                    비교 가능한 공통 실측이 없습니다.
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
 
           {displaySizeTable?.extra?.headers?.length ? (
             <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">

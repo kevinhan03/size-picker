@@ -19,6 +19,7 @@ import { CollectionSearchField } from "../CollectionSearchField";
 import { CollectionEmptyState } from "../CollectionEmptyState";
 import { PageHeader } from "../PageHeader";
 import { PageState } from "../PageState";
+import { CollectionLoadingSkeleton } from "../CollectionLoadingSkeleton";
 import { captureEvent } from "../../utils/analytics";
 import type { Product } from "../../types";
 
@@ -67,7 +68,7 @@ function GridCard({
           event.preventDefault();
           onOpen();
         }}
-        className="digbox-product-card-link relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[22px] text-inherit no-underline"
+        className="digbox-product-card-link relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[22px] text-inherit no-underline transition-transform duration-150 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none"
       >
         <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
@@ -284,7 +285,7 @@ export function DigboxPageClient({
   const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
 
   const isOwner = Boolean(auth.dbUsername && auth.dbUsername === username);
-  const isLoading = auth.isAuthLoading || (isOwner && digbox.isLoading && !isDigboxLoaded);
+  const isLoading = auth.isAuthLoading || (isOwner && !isDigboxLoaded);
   const products = isOwner && isDigboxLoaded ? digbox.digboxProducts : initialProducts;
   const discoveredDigboxCounts = isOwner && isDigboxLoaded ? digbox.discoveredDigboxCounts : initialDiscoveredDigboxCounts;
 
@@ -529,14 +530,6 @@ export function DigboxPageClient({
   const getDetailDigboxCountLabel = (count: number) =>
     isOwner ? `내가 발굴한 상품을 ${count}명이 저장했어요` : `이 상품을 ${count}명이 저장했어요`;
 
-  if (isOwner && isLoading && products.length === 0) {
-    return (
-      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
-        <PageState kind="loading" title="저장 목록을 불러오고 있어요" description="저장한 상품을 정리하는 중입니다." />
-      </main>
-    );
-  }
-
   if (isOwner && digbox.error && products.length === 0) {
     return (
       <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
@@ -552,6 +545,10 @@ export function DigboxPageClient({
         />
       </main>
     );
+  }
+
+  if (isLoading && products.length === 0) {
+    return <CollectionLoadingSkeleton eyebrow="SAVED ITEMS" title="저장한 상품" />;
   }
 
   return (

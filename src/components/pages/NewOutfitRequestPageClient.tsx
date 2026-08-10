@@ -118,10 +118,12 @@ export function NewOutfitRequestPageClient() {
             </section>
 
             <section className="rounded-3xl border border-white/[0.08] bg-[#111114] p-5 sm:p-6">
-              <div className="relative min-h-[3.25rem]">
-                <h2 className="text-sm font-black">함께 고려할 아이템</h2>
-                <p className="mt-2 whitespace-nowrap text-[11px] leading-5 text-white/55 sm:text-xs">코디에 참고할 아이템을 최대 3개 골라주세요.</p>
-                {focusProductIds.length > 0 && <span className="absolute right-0 top-0 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-200">{focusProductIds.length}개 선택됨</span>}
+              <div className="flex min-h-[3.25rem] items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-black">함께 고려할 아이템</h2>
+                  <p className="mt-2 break-keep text-[11px] leading-5 text-white/55 sm:text-xs">코디에 참고할 아이템을 최대 3개 골라주세요.</p>
+                </div>
+                {focusProductIds.length > 0 && <span className="shrink-0 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-200">{focusProductIds.length}개 선택됨</span>}
               </div>
 
               <div className="relative mt-4">

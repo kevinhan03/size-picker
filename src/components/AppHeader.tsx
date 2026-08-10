@@ -208,7 +208,14 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
                 디그매치
               </div>
             </div>
-            {auth.authUser ? (
+            {auth.isAuthLoading ? (
+              <span
+                aria-label="계정 확인 중"
+                className={`flex items-center justify-center rounded-lg ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}
+              >
+                <span className="h-4 w-4 rounded-full bg-white/[0.12] animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+              </span>
+            ) : auth.authUser ? (
               <div className="group relative">
                 <button type="button" aria-label="마이페이지" onClick={() => router.push("/mypage")} className={`flex items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"} ${isMyPage ? "bg-orange-500/[0.08] text-orange-300" : ""}`}>
                   <UserRound className="h-4 w-4" />

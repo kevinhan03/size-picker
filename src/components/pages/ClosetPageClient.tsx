@@ -16,6 +16,7 @@ import { ProgressiveImage } from "../ProgressiveImage";
 import { FilterBar } from "../FilterBar";
 import { PageHeader } from "../PageHeader";
 import { PageState } from "../PageState";
+import { CollectionLoadingSkeleton } from "../CollectionLoadingSkeleton";
 import { CollectionSearchField } from "../CollectionSearchField";
 import { CollectionEmptyState } from "../CollectionEmptyState";
 import { toPublicUrl } from "../../utils/product";
@@ -75,7 +76,7 @@ function GridCard({
           event.preventDefault();
           onOpen();
         }}
-        className="digbox-product-card-link relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[22px] text-inherit no-underline"
+        className="digbox-product-card-link relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[22px] text-inherit no-underline transition-transform duration-150 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none"
       >
         <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
@@ -555,19 +556,11 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
   };
 
   if (auth.isAuthLoading || !auth.authUser) {
-    return (
-      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
-        <PageState kind="loading" title="옷장을 준비하고 있어요" description="계정과 저장한 상품을 확인하는 중입니다." />
-      </main>
-    );
+    return <CollectionLoadingSkeleton eyebrow="WARDROBE" title="내 옷장" />;
   }
 
   if (closet.isLoading && closetItems.length === 0) {
-    return (
-      <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
-        <PageState kind="loading" title="옷장을 불러오고 있어요" description="저장한 상품을 정리하는 중입니다." />
-      </main>
-    );
+    return <CollectionLoadingSkeleton eyebrow="WARDROBE" title="내 옷장" />;
   }
 
   if (closet.error && closetItems.length === 0) {

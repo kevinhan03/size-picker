@@ -207,7 +207,7 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
       <div className="mx-auto max-w-5xl">
         <PageHeader
           eyebrow="STYLE TOGETHER"
-          title="서로의 취향으로 코디를 만드는 곳"
+          title={<span className="break-keep">서로의 취향으로 코디를 만드는 곳</span>}
           description="코디 고민을 올리거나, 다른 회원의 옷으로 코디를 제안해보세요."
           action={<button onClick={() => router.push("/outfits/new")} className="outfit-pressable outfit-primary-action flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-black text-black transition-[background-color,transform] duration-150"><Plus className="h-4 w-4" /> 코디 요청하기</button>}
         />

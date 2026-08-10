@@ -741,7 +741,7 @@ export function MyPageView({
         </div>
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">마이페이지</p>
-          <h1 id="settings-title" className="mt-1 truncate text-2xl font-black leading-tight tracking-[-0.03em] text-white sm:text-[1.75rem]">{username}</h1>
+          <h1 id="settings-title" className="mt-1 break-all text-2xl font-black leading-tight tracking-[-0.03em] text-white sm:text-[1.75rem]">{username}</h1>
         </div>
       </section>
 
@@ -786,7 +786,7 @@ export function MyPageView({
             className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transition-none"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-300"><UserRound className="h-4 w-4" /></span>
-            <span className="min-w-0 flex-1"><span className="block text-sm font-black text-gray-200">사용자 이름 변경</span><span className="mt-0.5 block truncate text-xs font-semibold text-gray-500">현재 {username}</span></span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-black text-gray-200">사용자 이름 변경</span><span className="mt-0.5 block break-all text-xs font-semibold text-gray-500">현재 {username}</span></span>
             <ChevronRight className={`h-4 w-4 shrink-0 text-gray-600 transition-transform ${isUsernameEditorOpen ? "rotate-90" : ""}`} />
           </button>
           {isUsernameEditorOpen && <div className="border-t border-white/10 px-4 py-5"><p className="text-sm font-semibold leading-relaxed text-gray-400">이전 사용자 이름은 14일 동안만 다시 선택할 수 있어요. 그 뒤에는 다른 사용자가 사용할 수 있어요.</p><UsernameSetupForm initialUsername={username} submitLabel="사용자 이름 변경" showSuggestions={false} onSuggestionSelected={() => {}} onSubmit={async (nextUsername) => { try { await onChangeUsername(nextUsername); setIsUsernameEditorOpen(false); } catch (error) { const message = error instanceof Error ? error.message : "사용자 이름을 변경하지 못했어요."; setUsernameChangeError(message); throw error; } }} />{usernameChangeError && <p role="alert" className="mt-3 text-sm font-semibold text-red-300">{usernameChangeError}</p>}</div>}

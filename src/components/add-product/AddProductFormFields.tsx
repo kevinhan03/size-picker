@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { CATEGORY_OPTIONS } from '../../constants';
 import type { useProductForm } from '../../hooks/useProductForm';
-import { normalizeMeasurementLabel, normalizeMeasurementValueForDisplay, normalizeSizeTableForCategory } from '../../utils/sizeTable';
+import { normalizeSizeTableForCategory } from '../../utils/sizeTable';
 import { ProductImageSection } from './ProductImageSection';
 import { SizeTableSection } from './SizeTableSection';
 
@@ -26,22 +26,12 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
   );
 }
 
-function getSizeSummary(selection: ProductForm['closetSizeSelection']) {
-  if (!selection?.snapshot) return '';
-  const label = normalizeMeasurementLabel(selection.snapshot.headers[1] || '');
-  const value = normalizeMeasurementValueForDisplay(selection.snapshot.row[1]);
-  return label && value ? `${label} ${value}` : '';
-}
-
 export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
   const [manualClosetSize, setManualClosetSize] = useState('');
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const categoryMenuRef = useRef<HTMLDivElement | null>(null);
   const sizeRows = form.formData.extractedTable?.rows || [];
   const sizeHeaders = form.formData.extractedTable?.headers || [];
-  const selectedSizeLabel = form.closetSizeSelection?.label || form.closetSizeSelection?.snapshot?.row?.[0] || '';
-  const selectedSizeSummary = getSizeSummary(form.closetSizeSelection);
-
   const selectClosetSize = (rowIndex: number) => {
     const row = sizeRows[rowIndex]?.map((cell) => String(cell ?? '').trim());
     if (!row) return;
@@ -207,23 +197,21 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
               <span className="min-w-0"><span className="block text-sm font-bold">내 옷장에도 추가</span><span className="mt-0.5 block text-xs font-medium text-orange-100/55">보유한 사이즈를 함께 기록</span></span>
             </button>
             {form.addToClosetOnSubmit ? (
-              <div className="ml-8 border-b border-white/10 pb-3 pt-2.5">
+              <div className="ml-8 pb-3 pt-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-bold text-orange-100">보유 사이즈 <span className="font-medium text-orange-100/55">(선택)</span></span>
-                  <button type="button" onClick={() => form.setClosetSizeSelection(null)} className="text-xs font-semibold text-orange-200/70 underline underline-offset-4 hover:text-orange-100">사이즈는 나중에</button>
                 </div>
                 {sizeRows.length ? (
                   <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-5">
                     {sizeRows.map((row, rowIndex) => {
                       const label = String(row[0] ?? '').trim() || `Size ${rowIndex + 1}`;
                       const selected = form.closetSizeSelection?.rowIndex === rowIndex;
-                      return <button key={`${label}-${rowIndex}`} type="button" aria-pressed={selected} onClick={() => selectClosetSize(rowIndex)} className={`h-10 rounded-lg border text-sm font-bold transition ${selected ? 'border-orange-300 bg-orange-500 text-black' : 'border-white/10 bg-white/[0.04] text-gray-200 hover:border-orange-300/50 hover:text-orange-100'}`}>{label}</button>;
+                      return <button key={`${label}-${rowIndex}`} type="button" aria-pressed={selected} onClick={() => selected ? form.setClosetSizeSelection(null) : selectClosetSize(rowIndex)} className={`h-10 rounded-lg border text-sm font-bold transition ${selected ? 'border-orange-300 bg-orange-500 text-black' : 'border-white/10 bg-white/[0.04] text-gray-200 hover:border-orange-300/50 hover:text-orange-100'}`}>{label}</button>;
                     })}
                   </div>
                 ) : (
                   <input value={manualClosetSize} onChange={(event) => { const value = event.target.value; setManualClosetSize(value); form.setClosetSizeSelection(value.trim() ? { label: value.trim(), rowIndex: null, snapshot: null } : null); }} placeholder="예: M, 32, 260, Free" className="mt-2 h-10 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-400" />
                 )}
-                <p className="mt-2 text-xs text-orange-100/60">{selectedSizeLabel ? `${selectedSizeLabel}${selectedSizeSummary ? ` · ${selectedSizeSummary}` : ''}로 내 옷장에 저장됩니다.` : '사이즈는 상품 등록 후에도 선택할 수 있어요.'}</p>
               </div>
             ) : null}
           </div>

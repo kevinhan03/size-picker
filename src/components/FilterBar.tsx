@@ -20,8 +20,7 @@ export function FilterBar({ categoryValue, onCategoryChange, disabled = false, c
 
   return (
     <div className={`dig-filterbar mb-5 w-full ${className}`}>
-      <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="grid w-full grid-cols-6">
+      <div className="grid w-full grid-cols-6">
         {categories.map(({ label, value }) => {
           const active = categoryValue === value;
           return (
@@ -30,13 +29,12 @@ export function FilterBar({ categoryValue, onCategoryChange, disabled = false, c
               type="button"
               disabled={disabled}
               onClick={(event) => onCategoryChange(value, getAnchorRect(event.currentTarget))}
-              className={`h-9 min-w-0 border-b-2 border-r border-white/[0.12] px-2 text-xs font-bold transition last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 disabled:cursor-not-allowed disabled:opacity-45 ${active ? "border-b-orange-300 text-orange-300" : "border-b-transparent text-gray-500 hover:text-white"}`}
+              className={`h-11 min-w-0 border-b-2 border-r border-white/[0.12] px-1.5 text-[11px] font-bold transition-[border-color,color,transform] duration-150 active:scale-[0.98] last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:h-9 sm:px-2 sm:text-xs ${active ? "border-b-orange-300 text-orange-300" : "border-b-transparent text-gray-500 hover:text-white"}`}
             >
               {label}
             </button>
           );
         })}
-        </div>
       </div>
     </div>
   );
