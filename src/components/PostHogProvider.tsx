@@ -27,6 +27,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       try {
         const { default: posthog } = await import("posthog-js");
         if (cancelled) return;
+        if (window.location.hostname !== "www.digbox.co.kr") return;
         if (!posthog.__loaded) {
           posthog.init("phc_vU4zvKHs7soZFJmRNncFAxT2asm4pCDnMWByEZWrabXC", {
             api_host: "https://us.i.posthog.com",

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cleanupUnregisteredGoogleAccount, completeMyProfile, deleteMyAccount } from "../api";
+import { supabase } from "../lib/supabase";
 import type { AuthInitialState } from "../types";
 import { getAuthErrorMessage } from "../utils/authMessage";
 import { normalizeUsername, validateUsername } from "../utils/username";
 
 type AuthUser = { id?: string; email?: string } | null;
+type AuthSessionResponse = { ok?: boolean; data?: AuthInitialState };
 const GOOGLE_SIGNUP_TOAST_KEY = "digbox_google_signup_complete_toast";
 
 export function useAuth(initialState: AuthInitialState) {
@@ -13,6 +15,7 @@ export function useAuth(initialState: AuthInitialState) {
   const [authUser, setAuthUser] = useState<AuthUser>(initialState.user);
   const [dbUsername, setDbUsername] = useState<string | null>(initialState.username);
   const [needsUsername, setNeedsUsername] = useState(initialState.needsUsername);
+  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(supabase));
   const [pendingUsername, setPendingUsername] = useState("");
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isSubmittingUsername, setIsSubmittingUsername] = useState(false);
@@ -25,6 +28,54 @@ export function useAuth(initialState: AuthInitialState) {
     setDbUsername(initialState.username);
     setNeedsUsername(initialState.needsUsername);
   }, [initialState]);
+
+  useEffect(() => {
+    const authClient = supabase;
+    if (!authClient) {
+      setIsAuthLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const applyAnonymousState = () => {
+      if (cancelled) return;
+      setAuthUser(null);
+      setDbUsername(null);
+      setNeedsUsername(false);
+    };
+    const loadSession = async () => {
+      try {
+        const { data } = await authClient.auth.getSession();
+        if (!data.session) {
+          applyAnonymousState();
+          return;
+        }
+        const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+        const payload = await response.json() as AuthSessionResponse;
+        if (!response.ok || !payload.ok || !payload.data?.user) {
+          applyAnonymousState();
+          return;
+        }
+        if (cancelled) return;
+        setAuthUser(payload.data.user);
+        setDbUsername(payload.data.username);
+        setNeedsUsername(payload.data.needsUsername);
+      } catch {
+        applyAnonymousState();
+      } finally {
+        if (!cancelled) setIsAuthLoading(false);
+      }
+    };
+
+    void loadSession();
+    const { data: listener } = authClient.auth.onAuthStateChange(() => {
+      void loadSession();
+    });
+    return () => {
+      cancelled = true;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   const navigateToLogin = useCallback(() => router.push("/login"), [router]);
 
@@ -56,6 +107,7 @@ export function useAuth(initialState: AuthInitialState) {
 
   const signOut = async (destination = "/") => {
     await fetch("/api/auth/logout", { method: "POST" });
+    await supabase?.auth.signOut({ scope: "local" });
     setAuthUser(null);
     setDbUsername(null);
     setNeedsUsername(false);
@@ -91,7 +143,7 @@ export function useAuth(initialState: AuthInitialState) {
   return {
     authUser,
     dbUsername,
-    isAuthLoading: false,
+    isAuthLoading,
     needsUsername,
     pendingUsername,
     setPendingUsername,

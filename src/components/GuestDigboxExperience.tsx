@@ -54,6 +54,10 @@ export function GuestDigboxExperience() {
   useEffect(() => {
     if (digbox.isGuestPromptOpen && digbox.guestCount === digbox.guestLimit && !viewedPromptRef.current) {
       viewedPromptRef.current = true;
+      captureEvent("save_login_gate_shown", {
+        guest_count: digbox.guestCount,
+        source: "guest_digbox_preview",
+      });
       captureEvent("guest_taste_preview_viewed", {
         guest_count: digbox.guestCount,
         tagged_count: summary.taggedCount,

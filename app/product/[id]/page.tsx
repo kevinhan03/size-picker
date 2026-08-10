@@ -14,6 +14,7 @@ import {
 import type { SizeTable } from "../../../src/types";
 
 export const revalidate = 3600;
+export const dynamic = "force-static";
 
 function displayTableCell(value: unknown): string {
   return normalizeMeasurementValueForDisplay(value) || "-";

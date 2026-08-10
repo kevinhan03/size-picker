@@ -19,6 +19,7 @@ import { CollectionSearchField } from "../CollectionSearchField";
 import { CollectionEmptyState } from "../CollectionEmptyState";
 import { PageHeader } from "../PageHeader";
 import { PageState } from "../PageState";
+import { captureEvent } from "../../utils/analytics";
 import type { Product } from "../../types";
 
 const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
@@ -278,6 +279,7 @@ export function DigboxPageClient({
   const ensureDigboxLoaded = digbox.ensureLoaded;
   const hydrateDigbox = digbox.hydrate;
   const isDigboxLoaded = digbox.isLoaded;
+  const savedListViewedRef = useRef(false);
   const productModal = useProductModalQuery();
   const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
 
@@ -297,6 +299,13 @@ export function DigboxPageClient({
       ensureDigboxLoaded();
     }
   }, [ensureDigboxLoaded, isOwner]);
+
+  useEffect(() => {
+    if (isOwner && !isLoading && !savedListViewedRef.current) {
+      savedListViewedRef.current = true;
+      captureEvent("saved_list_viewed", { product_count: products.length, is_owner: true });
+    }
+  }, [isLoading, isOwner, products.length]);
 
   useEffect(() => {
     if (isOwner && productModal.productId) ensureClosetLoaded();

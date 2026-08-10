@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ClientProviders } from "../src/components/ClientProviders";
-import { getInitialAuthState } from "../server/auth/user-session";
 import "./globals.css";
+
+const ANONYMOUS_AUTH = { user: null, username: null, needsUsername: false };
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -43,18 +44,17 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
   modal,
 }: Readonly<{
   children: ReactNode;
   modal: ReactNode;
 }>) {
-  const initialAuth = await getInitialAuthState();
   return (
     <html lang="ko" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <ClientProviders initialAuth={initialAuth}>
+        <ClientProviders initialAuth={ANONYMOUS_AUTH}>
           {children}
           {modal}
         </ClientProviders>

@@ -223,6 +223,7 @@ function ProductDetailModalContent({
   const presence = usePresence(true);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const saveButtonSeenRef = useRef<string | null>(null);
   const { authUser } = useAuthContext();
   const canUseCloset = Boolean(authUser);
   useBodyScrollLock(modalRef);
@@ -233,6 +234,19 @@ function ProductDetailModalContent({
   useEffect(() => {
     captureEvent("product_opened", { product_id: product.id, source: analyticsSource });
   }, [analyticsSource, product.id]);
+
+  useEffect(() => {
+    if (!onToggleDigbox || hideCollectionActions || hideDigboxButton) return;
+    const eventKey = `${product.id}:${analyticsSource}`;
+    if (saveButtonSeenRef.current === eventKey) return;
+    saveButtonSeenRef.current = eventKey;
+    captureEvent("save_button_seen", {
+      product_id: product.id,
+      source: analyticsSource,
+      logged_in: Boolean(authUser),
+      already_saved: Boolean(isInDigbox),
+    });
+  }, [analyticsSource, authUser, hideCollectionActions, hideDigboxButton, isInDigbox, onToggleDigbox, product.id]);
   const sizeTableSuppressClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerDownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerDownSelectedRowRef = useRef<number | null>(null);

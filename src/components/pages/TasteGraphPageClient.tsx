@@ -122,6 +122,7 @@ export function TasteGraphPageClient({
   useEffect(() => {
     if (isMapOpen && source !== "closet" && digboxProducts.length > 0) {
       captureEvent("interest_taste_viewed", { product_count: digboxProducts.length });
+      captureEvent("taste_result_viewed", { product_count: digboxProducts.length, source });
     }
   }, [digboxProducts.length, isMapOpen, source]);
 

@@ -18,9 +18,13 @@ export async function GET(request: NextRequest) {
   try {
     const page = await getCatalogPage(offset, limit);
     requestLog("/api/catalog/products", request, startedAt, 200, request.headers.get("x-vercel-cache") || undefined);
+    const duration = Date.now() - startedAt;
     return NextResponse.json(
       { ok: true, data: page },
-      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
+      { headers: {
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        "Server-Timing": `catalog;dur=${duration}`,
+      } }
     );
   } catch (error: unknown) {
     requestLog("/api/catalog/products", request, startedAt, getErrorStatusCode(error));

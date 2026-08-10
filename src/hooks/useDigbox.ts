@@ -191,10 +191,12 @@ export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], init
     void syncGuestItems();
   }, [syncGuestItems]);
 
-  const addToDigbox = useCallback(async (productId: string) => {
+  const addToDigbox = useCallback(async (productId: string, source = "unknown") => {
     if (!isLoggedIn || digboxIds.has(productId)) return;
     await addServerItem(productId);
-    captureEvent("server_digbox_save_completed", { product_id: productId, logged_in: true });
+    const properties = { product_id: productId, source, logged_in: true };
+    captureEvent("server_digbox_save_completed", properties);
+    captureEvent("save_succeeded", properties);
   }, [addServerItem, digboxIds, isLoggedIn]);
 
   const removeFromDigbox = useCallback(async (productId: string) => {
@@ -227,6 +229,13 @@ export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], init
   );
 
   const toggleDigbox = useCallback(async (productId: string, source = "unknown") => {
+    captureEvent("save_clicked", {
+      product_id: productId,
+      source,
+      logged_in: isLoggedIn,
+      already_saved: isLoggedIn ? digboxIds.has(productId) : guestIds.includes(productId),
+      guest_count: guestIds.length,
+    });
     captureEvent("digbox_save_attempted", {
       product_id: productId,
       source,
@@ -247,9 +256,13 @@ export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], init
       const next = [...guestIds, productId];
       setGuestIds(next);
       writeGuestDigbox(next);
-      captureEvent("guest_digbox_saved", { product_id: productId, guest_count: next.length, source });
+      const properties = { product_id: productId, guest_count: next.length, source, logged_in: false };
+      captureEvent("guest_digbox_saved", properties);
+      captureEvent("save_succeeded", properties);
       showToast({ message: `guest_added_${next.length}`, type: "success" });
-      if (next.length === GUEST_DIGBOX_LIMIT) setIsGuestPromptOpen(true);
+      if (next.length === GUEST_DIGBOX_LIMIT) {
+        setIsGuestPromptOpen(true);
+      }
       return;
     }
 
@@ -258,7 +271,7 @@ export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], init
       return;
     }
     try {
-      await addToDigbox(productId);
+      await addToDigbox(productId, source);
       showToast({ message: "added", type: "success" });
     } catch (error) {
       console.error("[digbox] add failed", error);
