@@ -124,8 +124,44 @@ export const fetchProductsRows = async () => {
 };
 
 const normalizeStoragePath = (value) => {
-  const path = String(value || "").trim();
+  const path = sanitizeDatabaseText(value).trim();
   return path || null;
+};
+
+// PostgreSQL JSON cannot represent NUL or lone UTF-16 surrogate code units.
+// Product metadata comes from third-party pages, so normalize it at the shared
+// database boundary rather than relying on each import or form path to do so.
+const sanitizeDatabaseText = (value) => {
+  const text = String(value ?? "").replace(/\u0000/g, "");
+  let sanitized = "";
+  for (let index = 0; index < text.length; index += 1) {
+    const codeUnit = text.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const nextCodeUnit = text.charCodeAt(index + 1);
+      if (nextCodeUnit >= 0xdc00 && nextCodeUnit <= 0xdfff) {
+        sanitized += text[index] + text[index + 1];
+        index += 1;
+      } else {
+        sanitized += "\uFFFD";
+      }
+      continue;
+    }
+    if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      sanitized += "\uFFFD";
+      continue;
+    }
+    sanitized += text[index];
+  }
+  return sanitized;
+};
+
+const sanitizeDatabaseJson = (value) => {
+  if (typeof value === "string") return sanitizeDatabaseText(value);
+  if (Array.isArray(value)) return value.map(sanitizeDatabaseJson);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nestedValue]) => [sanitizeDatabaseText(key), sanitizeDatabaseJson(nestedValue)])
+  );
 };
 
 const isSubmissionStoragePath = (path) =>
@@ -184,16 +220,16 @@ export const insertProductRow = async (input) => {
     productMetadata = null,
   } = input || {};
   assertSupabaseConfig();
-  const normalizedImagePath = String(imagePath || "").trim();
-  const normalizedImage = String(image || "").trim();
+  const normalizedImagePath = sanitizeDatabaseText(imagePath).trim();
+  const normalizedImage = sanitizeDatabaseText(image).trim();
   const sourceImagePath = normalizedImagePath || normalizedImage || null;
   const effectiveImagePath = await persistExternalProductImage(sourceImagePath);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing normalization path.
   const effectiveImage = normalizedImage || normalizedImagePath || "";
-  const normalizedSlug = String(slug || "").trim() || null;
+  const normalizedSlug = sanitizeDatabaseText(slug).trim() || null;
   const effectiveProductMetadata =
     productMetadata && typeof productMetadata === "object" && !Array.isArray(productMetadata)
-      ? productMetadata
+      ? sanitizeDatabaseJson(productMetadata)
       : null;
   let effectiveInstagramOrder =
     typeof instagramOrder === "number" && Number.isFinite(instagramOrder) ? instagramOrder : null;
@@ -211,27 +247,28 @@ export const insertProductRow = async (input) => {
     effectiveInstagramOrder = Number.isFinite(lastOrder) ? lastOrder + 1 : 1;
   }
 
-  const canonicalBrand = normalizeBrandName(brand);
-  const effectiveSizeTable = parseSizeTable(sizeTable);
-  const effectiveNormalizedSizeTable = isBottomCategory(category)
-    ? parseSizeTable(normalizedSizeTable) || normalizeSizeTableForCategory(category, effectiveSizeTable)
+  const sanitizedCategory = sanitizeDatabaseText(category);
+  const effectiveSizeTable = parseSizeTable(sanitizeDatabaseJson(sizeTable));
+  const effectiveNormalizedSizeTable = isBottomCategory(sanitizedCategory)
+    ? parseSizeTable(sanitizeDatabaseJson(normalizedSizeTable)) || normalizeSizeTableForCategory(sanitizedCategory, effectiveSizeTable)
     : null;
+  const canonicalBrand = normalizeBrandName(sanitizeDatabaseText(brand));
   try {
     const { data, error } = await supabase
       .from(SUPABASE_PRODUCTS_TABLE)
       .insert({
         brand: canonicalBrand,
-        name,
-        category,
-        url,
+        name: sanitizeDatabaseText(name),
+        category: sanitizedCategory,
+        url: sanitizeDatabaseText(url),
         image_path: effectiveImagePath,
         size_table: effectiveSizeTable,
         normalized_size_table: effectiveNormalizedSizeTable,
-        created_at: createdAt,
+        created_at: sanitizeDatabaseText(createdAt),
         slug: normalizedSlug,
         is_instagram: isInstagram,
         instagram_order: isInstagram ? effectiveInstagramOrder : null,
-        registered_by: registeredBy || null,
+        registered_by: sanitizeDatabaseText(registeredBy) || null,
         product_metadata: effectiveProductMetadata,
       })
       .select("*")
