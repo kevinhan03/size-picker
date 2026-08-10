@@ -15,7 +15,7 @@ import type {
   SubmitProductForm,
 } from '../types';
 import { normalizeSizeTable } from '../utils/sizeTable';
-import { parseApiJson, postJson } from './shared';
+import { authenticatedFetch, parseApiJson, postJson } from './shared';
 
 export const fetchAllProducts = async (): Promise<Product[]> => {
   const endpoint = '/api/admin/products';
@@ -69,7 +69,7 @@ export const fetchCatalogProductsByIds = async (ids: string[], signal?: AbortSig
 export const uploadSubmissionImage = async (file: File): Promise<string> => {
   const form = new FormData();
   form.set('file', file);
-  const response = await fetch('/api/uploads/product-image', { method: 'POST', credentials: 'same-origin', body: form });
+  const response = await authenticatedFetch('/api/uploads/product-image', { method: 'POST', body: form });
   const payload = await parseApiJson<{ ok?: boolean; data?: { path?: string }; error?: string }>(response, '/api/uploads/product-image');
   if (!response.ok || !payload.ok || !payload.data?.path) throw new Error(payload.error || 'Image upload failed');
   return payload.data.path;
@@ -170,9 +170,7 @@ export const removeBackgroundWithGemini = async (base64Image: string): Promise<s
 };
 
 export const fetchClosetItems = async (includeAnalysis = false): Promise<Product[]> => {
-  const response = await fetch(`/api/closet${includeAnalysis ? '?analysis=1' : ''}`, {
-    credentials: 'same-origin',
-  });
+  const response = await authenticatedFetch(`/api/closet${includeAnalysis ? '?analysis=1' : ''}`);
   const payload = await parseApiJson<{ ok?: boolean; data?: { products?: unknown[] }; error?: string }>(response, '/api/closet');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to load closet');
   const rows = Array.isArray(payload?.data?.products) ? payload.data!.products : [];
@@ -180,9 +178,8 @@ export const fetchClosetItems = async (includeAnalysis = false): Promise<Product
 };
 
 export const addToCloset = async (productId: string, sizeSelection?: ClosetSizeSelection | null): Promise<void> => {
-  const response = await fetch('/api/closet', {
+  const response = await authenticatedFetch('/api/closet', {
     method: 'POST',
-    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       productId,
@@ -196,18 +193,15 @@ export const addToCloset = async (productId: string, sizeSelection?: ClosetSizeS
 };
 
 export const removeFromCloset = async (productId: string): Promise<void> => {
-  const response = await fetch(`/api/closet/${encodeURIComponent(productId)}`, {
+  const response = await authenticatedFetch(`/api/closet/${encodeURIComponent(productId)}`, {
     method: 'DELETE',
-    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/closet/[productId]');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || '옷장 제거 실패');
 };
 
 export const fetchMySizes = async (): Promise<MySizeProfile[]> => {
-  const response = await fetch('/api/my-sizes', {
-    credentials: 'same-origin',
-  });
+  const response = await authenticatedFetch('/api/my-sizes');
   const payload = await parseApiJson<{ ok?: boolean; data?: { profiles?: unknown[] }; error?: string }>(response, '/api/my-sizes');
   if (!response.ok || !payload?.ok) return [];
   const rows = Array.isArray(payload?.data?.profiles) ? payload.data!.profiles : [];
@@ -226,9 +220,8 @@ export const createMySize = async (input: MySizeInput): Promise<MySizeProfile> =
 };
 
 export const updateMySize = async (id: string, input: MySizeUpdateInput): Promise<MySizeProfile> => {
-  const response = await fetch(`/api/my-sizes/${encodeURIComponent(id)}`, {
+  const response = await authenticatedFetch(`/api/my-sizes/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
@@ -240,9 +233,8 @@ export const updateMySize = async (id: string, input: MySizeUpdateInput): Promis
 };
 
 export const deleteMySize = async (id: string): Promise<void> => {
-  const response = await fetch(`/api/my-sizes/${encodeURIComponent(id)}`, {
+  const response = await authenticatedFetch(`/api/my-sizes/${encodeURIComponent(id)}`, {
     method: 'DELETE',
-    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/my-sizes/[id]');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to delete my size');
@@ -254,9 +246,7 @@ export const fetchDigboxItems = async (): Promise<Product[]> => {
 };
 
 export const fetchDigboxData = async (includeAnalysis = false): Promise<{ products: Product[]; discoveredDigboxCounts: Record<string, number> }> => {
-  const response = await fetch(`/api/digbox${includeAnalysis ? '?analysis=1' : ''}`, {
-    credentials: 'same-origin',
-  });
+  const response = await authenticatedFetch(`/api/digbox${includeAnalysis ? '?analysis=1' : ''}`);
   const payload = await parseApiJson<{
     ok?: boolean;
     data?: { products?: unknown[]; discoveredDigboxCounts?: Record<string, unknown> };
@@ -279,9 +269,8 @@ export const fetchDigboxData = async (includeAnalysis = false): Promise<{ produc
 };
 
 export const addToDigbox = async (productId: string): Promise<void> => {
-  const response = await fetch('/api/digbox', {
+  const response = await authenticatedFetch('/api/digbox', {
     method: 'POST',
-    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ productId }),
   });
@@ -290,18 +279,16 @@ export const addToDigbox = async (productId: string): Promise<void> => {
 };
 
 export const removeFromDigbox = async (productId: string): Promise<void> => {
-  const response = await fetch(`/api/digbox/${encodeURIComponent(productId)}`, {
+  const response = await authenticatedFetch(`/api/digbox/${encodeURIComponent(productId)}`, {
     method: 'DELETE',
-    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox/[productId]');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || '저장 해제 실패');
 };
 
 export const deleteMyAccount = async (): Promise<void> => {
-  const response = await fetch('/api/auth/delete-account', {
+  const response = await authenticatedFetch('/api/auth/delete-account', {
     method: 'POST',
-    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(
     response,
@@ -313,9 +300,8 @@ export const deleteMyAccount = async (): Promise<void> => {
 };
 
 export const cleanupUnregisteredGoogleAccount = async (): Promise<void> => {
-  const response = await fetch('/api/auth/cleanup-unregistered', {
+  const response = await authenticatedFetch('/api/auth/cleanup-unregistered', {
     method: 'POST',
-    credentials: 'same-origin',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/auth/cleanup-unregistered');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to clean up incomplete signup');

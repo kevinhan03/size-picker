@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cleanupUnregisteredGoogleAccount, completeMyProfile, deleteMyAccount } from "../api";
 import { supabase } from "../lib/supabase";
+import { getAuthHeaders } from "../api/shared";
 import type { AuthInitialState } from "../types";
 import { getAuthErrorMessage } from "../utils/authMessage";
 import { normalizeUsername, validateUsername } from "../utils/username";
@@ -50,7 +51,11 @@ export function useAuth(initialState: AuthInitialState) {
           applyAnonymousState();
           return;
         }
-        const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+        const response = await fetch("/api/auth/session", {
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: await getAuthHeaders(),
+        });
         const payload = await response.json() as AuthSessionResponse;
         if (!response.ok || !payload.ok || !payload.data?.user) {
           applyAnonymousState();
