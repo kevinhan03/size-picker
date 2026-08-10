@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Check,
   ChevronDown,
@@ -8,9 +8,7 @@ import {
 } from 'lucide-react';
 import { CATEGORY_OPTIONS } from '../../constants';
 import type { useProductForm } from '../../hooks/useProductForm';
-import type { Product } from '../../types';
 import { normalizeMeasurementLabel, normalizeMeasurementValueForDisplay, normalizeSizeTableForCategory } from '../../utils/sizeTable';
-import { SizeSelectionSheet } from '../SizeSelectionSheet';
 import { ProductImageSection } from './ProductImageSection';
 import { SizeTableSection } from './SizeTableSection';
 
@@ -36,21 +34,20 @@ function getSizeSummary(selection: ProductForm['closetSizeSelection']) {
 }
 
 export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
-  const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
+  const [manualClosetSize, setManualClosetSize] = useState('');
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const categoryMenuRef = useRef<HTMLDivElement | null>(null);
-  const draftProduct = useMemo<Product>(() => ({
-    id: 'draft-product',
-    brand: form.formData.brand.trim() || 'PRODUCT',
-    name: form.formData.name.trim() || '상품',
-    category: form.formData.category.trim() || 'User Uploaded',
-    url: form.formData.url.trim() || '#',
-    image: form.autofilledProductImageUrl || form.formData.productImage || '',
-    sizeTable: form.formData.extractedTable,
-    normalizedSizeTable: form.formData.extractedTable,
-  }), [form.autofilledProductImageUrl, form.formData]);
+  const sizeRows = form.formData.extractedTable?.rows || [];
+  const sizeHeaders = form.formData.extractedTable?.headers || [];
   const selectedSizeLabel = form.closetSizeSelection?.label || form.closetSizeSelection?.snapshot?.row?.[0] || '';
   const selectedSizeSummary = getSizeSummary(form.closetSizeSelection);
+
+  const selectClosetSize = (rowIndex: number) => {
+    const row = sizeRows[rowIndex]?.map((cell) => String(cell ?? '').trim());
+    if (!row) return;
+    const headers = sizeHeaders.map((header) => String(header ?? '').trim());
+    form.setClosetSizeSelection({ label: row[0] || null, rowIndex, snapshot: row[0] ? { headers, row } : null });
+  };
 
   return (
     <>
@@ -172,67 +169,66 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
       <ProductImageSection form={form} />
       <SizeTableSection form={form} />
 
-      <section className="space-y-2">
+      <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
         <div>
-          <span className="text-sm font-semibold text-gray-300">저장 위치</span>
-          <p className="mt-1 text-xs text-gray-500">등록한 상품을 저장할 곳을 선택하세요.</p>
+          <span className="text-sm font-bold text-gray-100">등록 후 저장</span>
+          <p className="mt-1 text-xs leading-5 text-gray-500">나중에 다시 볼 상품은 저장함에, 이미 가진 옷은 내 옷장에 담으세요.</p>
         </div>
-        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-black/10">
+        <div className="space-y-2">
           <button
             type="button"
             aria-pressed={form.addToDigboxOnSubmit}
             onClick={() => form.setAddToDigboxOnSubmit(!form.addToDigboxOnSubmit)}
-            className={`ui-save-location-row flex min-h-14 w-full items-center gap-2 border-r border-white/10 px-3 text-left transition ${form.addToDigboxOnSubmit ? 'bg-yellow-400/[0.07] text-yellow-100' : 'text-gray-300 hover:bg-white/[0.05]'}`}
+            className={`ui-save-location-row flex min-h-16 w-full items-center gap-3 rounded-xl border px-3 text-left transition ${form.addToDigboxOnSubmit ? 'border-yellow-300/30 bg-yellow-400/[0.08] text-yellow-100' : 'border-white/10 bg-black/10 text-gray-300 hover:bg-white/[0.05]'}`}
           >
             <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${form.addToDigboxOnSubmit ? 'border-yellow-300 bg-yellow-400 text-black' : 'border-white/25 text-transparent'}`}>
               <Check aria-hidden="true" className={`h-3.5 w-3.5 transition-all duration-150 ${form.addToDigboxOnSubmit ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`} />
             </span>
-            <span className="min-w-0"><span className="block whitespace-nowrap text-sm font-bold">찜 목록</span><span className="hidden text-xs text-gray-500 sm:block">나중에 살펴볼 상품</span></span>
+            <span className="min-w-0"><span className="block text-sm font-bold">저장함</span><span className="mt-0.5 block text-xs font-medium text-yellow-100/55">나중에 다시 볼 상품</span></span>
           </button>
-          <button
-            type="button"
-            aria-pressed={form.addToClosetOnSubmit}
-            onClick={() => {
-              const next = !form.addToClosetOnSubmit;
-              form.setAddToClosetOnSubmit(next);
-              if (!next) form.setClosetSizeSelection(null);
-            }}
-            className={`ui-save-location-row flex min-h-14 w-full items-center gap-2 px-3 text-left transition ${form.addToClosetOnSubmit ? 'bg-orange-500/[0.07] text-orange-100' : 'text-gray-300 hover:bg-white/[0.05]'}`}
-          >
-            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${form.addToClosetOnSubmit ? 'border-orange-400 bg-orange-500 text-black' : 'border-white/25 text-transparent'}`}>
-              <Check aria-hidden="true" className={`h-3.5 w-3.5 transition-all duration-150 ${form.addToClosetOnSubmit ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`} />
-            </span>
-            <span className="min-w-0"><span className="block whitespace-nowrap text-sm font-bold">내 옷장</span><span className="hidden text-xs text-gray-500 sm:block">보유 사이즈와 함께 저장</span></span>
-          </button>
-          {form.addToClosetOnSubmit ? (
-          <div className="col-span-2 flex items-center justify-between gap-3 border-t border-white/10 bg-white/[0.02] px-3 py-3">
-            <span className="min-w-0">
-              <span className="block text-xs font-semibold text-orange-100">{selectedSizeLabel ? `선택한 사이즈 · ${selectedSizeLabel}` : '사이즈를 선택하세요'}</span>
-              <span className="mt-0.5 block truncate text-xs text-orange-200/70">{selectedSizeLabel ? (selectedSizeSummary || '사이즈표 기준') : '내 옷장에 정확한 보유 사이즈를 남길 수 있어요.'}</span>
-            </span>
+
+          <div className={`overflow-hidden rounded-xl border transition ${form.addToClosetOnSubmit ? 'border-orange-400/30 bg-orange-500/[0.07]' : 'border-white/10 bg-black/10'}`}>
             <button
               type="button"
-              onClick={() => setIsSizeSheetOpen(true)}
-              className="shrink-0 rounded-lg bg-orange-500/15 px-2.5 py-1.5 text-xs font-bold text-orange-200 transition hover:bg-orange-500/25"
+              aria-pressed={form.addToClosetOnSubmit}
+              onClick={() => {
+                const next = !form.addToClosetOnSubmit;
+                form.setAddToClosetOnSubmit(next);
+                if (!next) {
+                  form.setClosetSizeSelection(null);
+                  setManualClosetSize('');
+                }
+              }}
+              className={`ui-save-location-row flex min-h-16 w-full items-center gap-3 px-3 text-left transition ${form.addToClosetOnSubmit ? 'text-orange-100' : 'text-gray-300 hover:bg-white/[0.05]'}`}
             >
-              {selectedSizeLabel ? '변경' : '선택'}
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${form.addToClosetOnSubmit ? 'border-orange-400 bg-orange-500 text-black' : 'border-white/25 text-transparent'}`}>
+                <Check aria-hidden="true" className={`h-3.5 w-3.5 transition-all duration-150 ${form.addToClosetOnSubmit ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`} />
+              </span>
+              <span className="min-w-0"><span className="block text-sm font-bold">내 옷장에도 추가</span><span className="mt-0.5 block text-xs font-medium text-orange-100/55">보유한 사이즈를 함께 기록</span></span>
             </button>
+            {form.addToClosetOnSubmit ? (
+              <div className="border-t border-orange-300/15 px-3 pb-3 pt-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-orange-100">보유 사이즈 <span className="font-medium text-orange-100/55">(선택)</span></span>
+                  <button type="button" onClick={() => form.setClosetSizeSelection(null)} className="text-xs font-semibold text-orange-200/70 underline underline-offset-4 hover:text-orange-100">사이즈는 나중에</button>
+                </div>
+                {sizeRows.length ? (
+                  <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-5">
+                    {sizeRows.map((row, rowIndex) => {
+                      const label = String(row[0] ?? '').trim() || `Size ${rowIndex + 1}`;
+                      const selected = form.closetSizeSelection?.rowIndex === rowIndex;
+                      return <button key={`${label}-${rowIndex}`} type="button" aria-pressed={selected} onClick={() => selectClosetSize(rowIndex)} className={`h-10 rounded-lg border text-sm font-bold transition ${selected ? 'border-orange-300 bg-orange-500 text-black' : 'border-white/10 bg-black/15 text-gray-200 hover:border-orange-300/50 hover:text-orange-100'}`}>{label}</button>;
+                    })}
+                  </div>
+                ) : (
+                  <input value={manualClosetSize} onChange={(event) => { const value = event.target.value; setManualClosetSize(value); form.setClosetSizeSelection(value.trim() ? { label: value.trim(), rowIndex: null, snapshot: null } : null); }} placeholder="예: M, 32, 260, Free" className="mt-2 h-10 w-full rounded-lg border border-white/10 bg-black/15 px-3 text-sm font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-400" />
+                )}
+                <p className="mt-2 text-xs text-orange-100/60">{selectedSizeLabel ? `${selectedSizeLabel}${selectedSizeSummary ? ` · ${selectedSizeSummary}` : ''}로 내 옷장에 저장됩니다.` : '사이즈는 상품 등록 후에도 선택할 수 있어요.'}</p>
+              </div>
+            ) : null}
           </div>
-          ) : null}
         </div>
       </section>
-
-      {isSizeSheetOpen ? (
-        <SizeSelectionSheet
-          product={draftProduct}
-          initialRowIndex={form.closetSizeSelection?.rowIndex ?? null}
-          onClose={() => setIsSizeSheetOpen(false)}
-          onConfirm={(selection) => {
-            form.setClosetSizeSelection(selection);
-            setIsSizeSheetOpen(false);
-          }}
-        />
-      ) : null}
     </>
   );
 }

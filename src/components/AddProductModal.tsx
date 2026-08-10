@@ -41,14 +41,15 @@ export function AddProductModal({ form }: AddProductModalProps) {
 
   if (!presence.isMounted) return null;
   const close = () => presence.requestClose(form.closeModal);
-  const submitLabel = form.addToDigboxOnSubmit && form.addToClosetOnSubmit
-    ? '상품 등록 및 2곳에 저장'
-    : form.addToClosetOnSubmit
-      ? '내 옷장에 추가'
-      : form.addToDigboxOnSubmit
-        ? '찜 목록에 추가'
-        : '상품 등록하기';
+  const submitLabel = '상품 등록하기';
   const inlineMessage = form.submitError || (!form.isFormValid ? form.incompleteMessage : null);
+  const saveSummary = form.addToDigboxOnSubmit && form.addToClosetOnSubmit
+    ? '등록 후 저장함과 내 옷장에 저장됩니다.'
+    : form.addToClosetOnSubmit
+      ? '등록 후 내 옷장에 저장됩니다.'
+      : form.addToDigboxOnSubmit
+        ? '등록 후 저장함에 저장됩니다.'
+        : '상품만 등록됩니다.';
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -62,7 +63,7 @@ export function AddProductModal({ form }: AddProductModalProps) {
           <ModalBody form={form} />
         </div>
         <div className="sticky bottom-0 border-t border-white/10 bg-[#17171a] p-6">
-          {inlineMessage ? <p role="status" className="mb-3 text-xs font-medium text-amber-200">{inlineMessage}</p> : null}
+          <p role="status" className={`mb-3 text-xs font-medium ${inlineMessage ? 'text-amber-200' : 'text-gray-500'}`}>{inlineMessage || saveSummary}</p>
           <div className="flex justify-end gap-3">
           <button onClick={close} disabled={form.isSaving} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 bg-white/[0.06] border border-white/10 hover:bg-white/[0.12] hover:text-white transition disabled:cursor-not-allowed disabled:opacity-40">{'\uCDE8\uC18C'}</button>
           <button onClick={form.handleSubmitProduct} disabled={!form.isFormValid || form.isSaveComplete} className={`min-w-40 justify-center px-5 py-2.5 rounded-xl text-sm font-bold text-black transition flex items-center gap-2 ${!form.isFormValid ? 'bg-gray-700 cursor-not-allowed text-gray-500' : form.isSaveComplete ? 'bg-[#86efac] text-[#14532d]' : 'bg-orange-500 hover:bg-orange-400'}`}>
