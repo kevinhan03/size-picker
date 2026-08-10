@@ -32,7 +32,6 @@ export const ProgressiveImage = ({
       className={className}
       loading={loading}
       fetchPriority={fetchPriority}
-      unoptimized
       placeholder="blur"
       blurDataURL={BLUR_DATA_URL}
       onError={onError}
