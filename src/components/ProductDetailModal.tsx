@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent, PointerEvent, RefObject, SyntheticEvent, TouchEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { ClosetSizeSelection, MySizeProfile, Product } from "../types";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
@@ -94,7 +94,6 @@ function SavedSizeSummary({ product }: { product?: Product | null }) {
 function MySizePickerOverlay({
   open,
   profiles,
-  selectedProfile,
   selectedId,
   query,
   onQueryChange,
@@ -103,7 +102,6 @@ function MySizePickerOverlay({
 }: {
   open: boolean;
   profiles: MySizeProfile[];
-  selectedProfile?: MySizeProfile | null;
   selectedId: string;
   query: string;
   onQueryChange: (query: string) => void;
@@ -123,22 +121,16 @@ function MySizePickerOverlay({
 
   if (!presence.isMounted) return null;
 
-  const otherProfiles = profiles.filter((profile) => profile.id !== selectedId);
-  const selectedSizeLabel = selectedProfile
-    ? String(selectedProfile.sizeLabel || selectedProfile.measurementSnapshot.row?.[0] || "").trim()
-    : "";
-
   return (
-    <div className="fixed inset-0 z-[75] flex items-end justify-center sm:items-center sm:p-4" role="presentation">
+    <div className="fixed inset-0 z-[75] flex items-center justify-center p-4" role="presentation">
       <div className="ui-layer-scrim absolute inset-0 bg-black/72" data-visible={presence.isVisible} onClick={onClose} />
       <section
         aria-label="비교 기준 변경"
         aria-modal="true"
         role="dialog"
-        className="ui-layer-sheet ui-my-size-picker ui-panel relative flex max-h-[min(88dvh,42rem)] w-full max-w-md flex-col rounded-t-3xl px-5 pb-5 pt-3 shadow-[0_-24px_60px_rgba(0,0,0,0.45)] sm:rounded-3xl sm:p-6 sm:shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+        className="ui-layer-modal ui-panel relative flex max-h-[min(80dvh,42rem)] w-full max-w-md flex-col rounded-3xl p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)] sm:p-6"
         data-visible={presence.isVisible}
       >
-        <div className="mx-auto mb-3 h-1 w-9 shrink-0 rounded-full bg-white/[0.16] sm:hidden" aria-hidden="true" />
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-base font-bold text-white">비교 기준 변경</p>
@@ -148,17 +140,6 @@ function MySizePickerOverlay({
             <X className="h-4 w-4" />
           </button>
         </div>
-        {selectedProfile && (
-          <div className="mt-4 rounded-2xl border border-orange-400/30 bg-orange-500/[0.08] px-3 py-3">
-            <p className="text-[10px] font-black uppercase tracking-wide text-orange-300">현재 기준</p>
-            <p className="mt-1 truncate text-[11px] font-black uppercase tracking-wide text-orange-200">{selectedProfile.brand || "브랜드 미등록"}</p>
-            <div className="mt-0.5 flex min-w-0 items-center gap-2">
-              <p className="truncate text-sm font-bold text-white">{selectedProfile.title || "저장한 상품"}</p>
-              {selectedSizeLabel ? <span className="shrink-0 rounded-md bg-orange-400 px-1.5 py-0.5 text-[10px] font-black text-black">{selectedSizeLabel}</span> : null}
-            </div>
-            {selectedProfile.fitNote && <p className="mt-1 truncate text-xs font-semibold text-orange-100/60">{selectedProfile.fitNote}</p>}
-          </div>
-        )}
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
@@ -166,29 +147,36 @@ function MySizePickerOverlay({
           className="mt-5 h-11 w-full rounded-xl border border-white/[0.1] bg-black/25 px-3 text-sm font-semibold text-white outline-none transition-[border-color,background-color] placeholder:text-gray-600 focus:border-orange-400/70 focus:bg-black/35"
         />
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-          {otherProfiles.length > 0 && <p className="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-500">다른 내 옷</p>}
+          {profiles.length > 0 && <p className="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-500">내 옷</p>}
           <div className="grid gap-1">
-          {otherProfiles.length > 0 ? otherProfiles.map((profile) => {
+          {profiles.length > 0 && profiles.map((profile) => {
             const sizeLabel = String(profile.sizeLabel || profile.measurementSnapshot.row?.[0] || "").trim();
             const brand = String(profile.brand || "브랜드 미등록").trim();
+            const isSelected = profile.id === selectedId;
             return (
               <button
                 key={profile.id}
                 type="button"
                 onClick={() => onSelect(profile.id)}
-                className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-transparent bg-transparent px-3 py-3 text-left transition-[background-color,border-color,color] hover:border-white/[0.1] hover:bg-white/[0.045]"
+                aria-current={isSelected ? "true" : undefined}
+                className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-[background-color,border-color,color,transform] active:scale-[0.99] ${
+                  isSelected
+                    ? "border-white/[0.12] bg-white/[0.06]"
+                    : "border-transparent bg-transparent hover:border-white/[0.1] hover:bg-white/[0.045]"
+                }`}
               >
                 <div className="min-w-0">
                   <p className="truncate text-[10px] font-black uppercase tracking-wide text-gray-500">{brand}</p>
                   <p className="truncate text-sm font-bold text-white">{profile.title || "저장한 상품"}</p>
                   <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">{profile.fitNote || "착용감 메모 없음"}</p>
                 </div>
-                {sizeLabel ? <span className="shrink-0 rounded-md bg-white/[0.08] px-2 py-1 text-[11px] font-bold text-gray-300">{sizeLabel}</span> : null}
+                <div className="flex shrink-0 items-center gap-2">
+                  {sizeLabel ? <span className="rounded-md bg-white/[0.08] px-2 py-1 text-[11px] font-bold text-gray-300">{sizeLabel}</span> : null}
+                  {isSelected ? <Check className="h-4 w-4 text-orange-300" aria-label="현재 비교 기준" /> : null}
+                </div>
               </button>
             );
-          }) : (
-            <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] px-3 py-6 text-center text-sm font-semibold text-gray-500">다른 비교 기준이 없습니다.</div>
-          )}
+          })}
           </div>
         </div>
       </section>
@@ -643,7 +631,7 @@ function ProductDetailModalContent({
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>
                 <h5 id="size-selection-title" className="text-sm font-bold text-white">상품 사이즈표</h5>
-                <p className={`mt-1 text-xs font-semibold ${categoryMySizes.length > 0 ? "text-orange-200" : "text-gray-500"}`}>
+                <p className="mt-1 text-xs font-semibold text-gray-500">
                   {categoryMySizes.length > 0 ? "사이즈 행을 탭해 내 옷과 비교하세요." : "사이즈 행을 탭해 실측을 확인하세요."}
                 </p>
               </div>
@@ -741,29 +729,27 @@ function ProductDetailModalContent({
               </div>
             ) : selectedMySize ? (
               <>
-                <div className="flex min-h-11 w-full min-w-0 items-center justify-between gap-3 border-t border-white/[0.08] pt-4">
+                <div className="min-h-11 w-full min-w-0 border-t border-white/[0.08] pt-4">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-gray-500">선택한 상품 사이즈 · <span className="font-bold text-orange-200">{activeSizeLabel || "선택한 사이즈"}</span></p>
-                    <p className="mt-1 min-w-0 truncate text-sm font-bold text-gray-200">
-                      <span className="mr-2 text-xs font-bold text-gray-500">비교 기준</span>
-                      <span className="text-orange-300">{selectedMySize.brand || "브랜드 미등록"}</span>
-                      <span className="text-gray-600" aria-hidden="true"> · </span>
-                      {selectedMySize.title || "저장한 상품"}
-                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-bold text-gray-500">비교 기준</p>
+                      <button
+                        ref={mySizeChangeButtonRef}
+                        type="button"
+                        onClick={(event) => {
+                          showTutorialOnce("mySizeCompare", getAnchorRect(event));
+                          setIsMySizePickerOpen(true);
+                        }}
+                        aria-expanded={isMySizePickerOpen}
+                        aria-label={`비교할 옷 선택: ${selectedMySize.brand || "브랜드 미등록"} ${selectedMySize.title}`}
+                        className="inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-lg px-2 text-xs font-semibold text-gray-400 transition-[background-color,color,transform] hover:bg-white/[0.06] hover:text-gray-100 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
+                      >
+                        비교할 옷 선택 <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                    <p className="mt-0.5 min-w-0 break-words text-xs font-semibold leading-4 text-gray-400">{selectedMySize.brand || "브랜드 미등록"}</p>
+                    <p className="mt-0.5 min-w-0 break-words text-sm font-bold leading-5 text-white">{selectedMySize.title || "저장한 상품"}</p>
                   </div>
-                  <button
-                    ref={mySizeChangeButtonRef}
-                    type="button"
-                    onClick={(event) => {
-                      showTutorialOnce("mySizeCompare", getAnchorRect(event));
-                      setIsMySizePickerOpen(true);
-                    }}
-                    aria-expanded={isMySizePickerOpen}
-                    aria-label={`비교 기준 상품 변경: ${selectedMySize.brand || "브랜드 미등록"} ${selectedMySize.title}`}
-                    className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-bold text-orange-300 underline decoration-orange-300/45 underline-offset-4 transition-[background-color,color] hover:bg-orange-400/[0.08] hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
-                  >
-                    변경
-                  </button>
                 </div>
 
                 {isSelectedMySizeSourceProduct ? (
@@ -879,7 +865,6 @@ function ProductDetailModalContent({
     <MySizePickerOverlay
       open={isMySizePickerOpen}
       profiles={filteredMySizes}
-      selectedProfile={selectedMySize}
       selectedId={selectedMySizeId}
       query={mySizeSearchQuery}
       onQueryChange={setMySizeSearchQuery}

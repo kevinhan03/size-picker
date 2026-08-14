@@ -10,7 +10,13 @@ import { useDigboxContext } from "../contexts/DigboxContext";
 import type { Product } from "../types";
 import { getProductPageUrl, toPublicUrl } from "../utils/product";
 
-export function ProductDetailRouteModal({ product }: { product: Product }) {
+export function ProductDetailRouteModal({
+  product,
+  onClose,
+}: {
+  product: Product;
+  onClose?: () => void;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { closetProducts, toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
@@ -55,7 +61,7 @@ export function ProductDetailRouteModal({ product }: { product: Product }) {
         product={normalizedProduct}
         closetProduct={closetProduct}
         activeRowIndex={activeRowIndex}
-        onClose={() => router.back()}
+        onClose={onClose || (() => router.back())}
         onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
         onRecommendationClick={(nextProduct) => {
           setActiveRowIndex(null);

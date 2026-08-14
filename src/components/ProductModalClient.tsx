@@ -10,7 +10,15 @@ function parseNumericId(param: string): string {
   return param.match(/^(\d+)/)?.[1] ?? param;
 }
 
-export function ProductModalClient({ id }: { id: string }) {
+export function ProductModalClient({
+  id,
+  initialProduct,
+  closeHref,
+}: {
+  id: string;
+  initialProduct?: Product;
+  closeHref?: string;
+}) {
   const router = useRouter();
   const numericId = parseNumericId(id);
 
@@ -18,6 +26,8 @@ export function ProductModalClient({ id }: { id: string }) {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (initialProduct) return;
+
     const controller = new AbortController();
     const endpoint = `/api/products/${numericId}`;
 
@@ -33,15 +43,17 @@ export function ProductModalClient({ id }: { id: string }) {
       .catch(() => setNotFound(true));
 
     return () => controller.abort();
-  }, [numericId]);
+  }, [initialProduct, numericId]);
 
   useEffect(() => {
-    if (notFound) router.back();
-  }, [notFound, router]);
+    if (!notFound) return;
+    if (closeHref) router.replace(closeHref);
+    else router.back();
+  }, [closeHref, notFound, router]);
 
-  const product = fetchedProduct;
+  const product = initialProduct ?? fetchedProduct;
 
   if (!product) return <div className="fixed inset-0 z-[65] bg-black/80" />;
 
-  return <ProductDetailRouteModal product={product} />;
+  return <ProductDetailRouteModal product={product} onClose={closeHref ? () => router.replace(closeHref) : undefined} />;
 }
