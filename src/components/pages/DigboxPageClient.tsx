@@ -22,8 +22,9 @@ import { PageState } from "../PageState";
 import { CollectionLoadingSkeleton } from "../CollectionLoadingSkeleton";
 import { captureEvent } from "../../utils/analytics";
 import type { Product } from "../../types";
+import { loadProductDetailModal } from "../productDetailModalLoader";
 
-const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
+const ProductDetailModal = dynamic(loadProductDetailModal, { ssr: false });
 const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
 const OnboardingTutorial = dynamic(() => import("../OnboardingTutorial").then((module) => module.OnboardingTutorial), { ssr: false });
 
@@ -63,6 +64,9 @@ function GridCard({
     >
       <Link
         href={`?product=${encodeURIComponent(product.id)}`}
+        onMouseEnter={() => { void loadProductDetailModal(); }}
+        onFocus={() => { void loadProductDetailModal(); }}
+        onTouchStart={() => { void loadProductDetailModal(); }}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();

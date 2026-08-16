@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { SUPABASE_PRODUCTS_TABLE } from "../../../../server/config/env.js";
-import { PRODUCT_CARD_COLUMNS, normalizeProductCard, requestLog } from "../../../../server/services/catalog";
+import { RECOMMENDATION_COLUMNS, normalizeAnalysisProduct, requestLog } from "../../../../server/services/catalog";
 
 const MAX_IDS = 3;
 
@@ -23,11 +23,11 @@ export async function GET(request: NextRequest) {
     assertSupabaseConfig();
     const { data, error } = await supabase!
       .from(SUPABASE_PRODUCTS_TABLE)
-      .select(PRODUCT_CARD_COLUMNS)
+      .select(RECOMMENDATION_COLUMNS)
       .in("id", ids);
     if (error) throw error;
     const byId = new Map(((data || []) as unknown[]).map((row: unknown) => {
-      const product = normalizeProductCard(row);
+      const product = normalizeAnalysisProduct(row);
       return [product?.id, product] as const;
     }));
     const products = ids.map((id) => byId.get(id)).filter(Boolean);

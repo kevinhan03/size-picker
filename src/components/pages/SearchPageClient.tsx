@@ -10,19 +10,20 @@ import { FilterBar } from "../FilterBar";
 import { LegalFooter } from "../LegalFooter";
 import { ProgressiveImage } from "../ProgressiveImage";
 import type { TutorialAnchorRect, TutorialId } from "../OnboardingTutorial";
-import { parseApiJson, type ApiEnvelope } from "../../api/shared";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useSearchContext } from "../../contexts/SearchContext";
 import { useGridState } from "../../hooks/useGridState";
+import { useProductDetail } from "../../hooks/useProductDetail";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
+import { loadProductDetailModal } from "../productDetailModalLoader";
 
 const BrandExplorer = dynamic(() => import("../BrandExplorer").then((module) => module.BrandExplorer), { ssr: false });
-const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
+const ProductDetailModal = dynamic(loadProductDetailModal, { ssr: false });
 const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
 const OnboardingTutorial = dynamic(() => import("../OnboardingTutorial").then((module) => module.OnboardingTutorial), { ssr: false });
 
@@ -38,7 +39,6 @@ const TUTORIAL_IDS = [
   "digboxShare",
 ] as const satisfies readonly TutorialId[];
 const TUTORIAL_STORAGE_PREFIX = "sizepicker:tutorial:v2:";
-const GUEST_DIGBOX_FIRST_SAVE_STORAGE_KEY = "sizepicker:guest-digbox-first-save:v1";
 
 const normalizeBrandKey = (brand: string) => brand.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
@@ -99,11 +99,12 @@ export function SearchPageClient() {
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const [brandFilter, setBrandFilter] = useState("");
   const [isBrandExplorerOpen, setIsBrandExplorerOpen] = useState(false);
-  const [showGuestSaveHint, setShowGuestSaveHint] = useState(false);
   const [showGuestDetailSaveHint, setShowGuestDetailSaveHint] = useState(false);
   const [isScrollTopVisible, setIsScrollTopVisible] = useState(false);
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const gridModalRef = useRef<HTMLDivElement>(null);
+  const hasShownGuestDetailSaveHint = useRef(false);
+  const detailedProduct = useProductDetail(productModal.productId, selectedProduct);
 
   useEffect(() => {
     ensureClosetLoaded();
@@ -117,15 +118,6 @@ export function SearchPageClient() {
     window.addEventListener("scroll", updateScrollTopVisibility, { passive: true });
     return () => window.removeEventListener("scroll", updateScrollTopVisibility);
   }, []);
-
-  useEffect(() => {
-    const shouldShowHint = !isAuthLoading && !authUser && isGuestHydrated && guestCount === 0 && products.length > 0;
-    if (!shouldShowHint || window.localStorage.getItem(GUEST_DIGBOX_FIRST_SAVE_STORAGE_KEY)) {
-      setShowGuestSaveHint(false);
-      return;
-    }
-    setShowGuestSaveHint(true);
-  }, [authUser, guestCount, isAuthLoading, isGuestHydrated, products.length]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -145,14 +137,14 @@ export function SearchPageClient() {
   }, []);
 
   const normalizedProduct = useMemo<Product | null>(() => {
-    if (!selectedProduct) return null;
-    const imagePath = String(selectedProduct.imagePath || "").trim();
-    const image = imagePath ? toPublicUrl(imagePath) : selectedProduct.image;
+    if (!detailedProduct) return null;
+    const imagePath = String(detailedProduct.imagePath || "").trim();
+    const image = imagePath ? toPublicUrl(imagePath) : detailedProduct.image;
     const thumbnailImage = imagePath
       ? toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 })
-      : selectedProduct.thumbnailImage;
-    return { ...selectedProduct, image, thumbnailImage };
-  }, [selectedProduct]);
+      : detailedProduct.thumbnailImage;
+    return { ...detailedProduct, image, thumbnailImage };
+  }, [detailedProduct]);
 
   const brandFilteredProducts = useMemo(
     () => (brandFilter ? grid.filteredGridProducts.filter((product) => normalizeBrandKey(product.brand) === normalizeBrandKey(brandFilter)) : grid.filteredGridProducts),
@@ -216,19 +208,6 @@ export function SearchPageClient() {
     const product = products.find((item) => item.id === productModal.productId);
     if (product) setSelectedProduct(product);
 
-    const controller = new AbortController();
-    const endpoint = `/api/products/${encodeURIComponent(productModal.productId)}`;
-    void fetch(endpoint, { signal: controller.signal })
-      .then((response) => parseApiJson<ApiEnvelope<{ product: Product }>>(response, endpoint))
-      .then((payload) => {
-        if (payload.ok && payload.data?.product) setSelectedProduct(payload.data.product);
-      })
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === "AbortError") && !product) {
-          setSelectedProduct(null);
-        }
-      });
-    return () => controller.abort();
   }, [productModal.productId, products]);
 
   const getAnchorRect = (element: Element): TutorialAnchorRect => {
@@ -314,7 +293,8 @@ export function SearchPageClient() {
   };
 
   const handleProductClick = (product: Product, anchorRect?: TutorialAnchorRect) => {
-    if (!isAuthLoading && !authUser && isGuestHydrated && guestCount === 0 && !window.localStorage.getItem(GUEST_DIGBOX_FIRST_SAVE_STORAGE_KEY)) {
+    if (!isAuthLoading && !authUser && isGuestHydrated && guestCount === 0 && !hasShownGuestDetailSaveHint.current) {
+      hasShownGuestDetailSaveHint.current = true;
       setShowGuestDetailSaveHint(true);
     }
     setSelectedProduct(product);
@@ -503,11 +483,6 @@ export function SearchPageClient() {
       />
 
       <div className="w-full max-w-7xl dig-grid">
-        {!isAuthLoading && !authUser && showGuestSaveHint && (
-          <p className="mb-4 rounded-xl border border-yellow-300/20 bg-yellow-400/[0.07] px-4 py-3 text-center text-sm font-semibold text-yellow-100">
-            마음에 드는 상품을 열어 저장하면 내 취향을 찾아드려요.
-          </p>
-        )}
         {brandFilter && (
           <div className="mb-4 flex items-center justify-between gap-3 px-0.5 text-sm sm:text-base">
             <p className="min-w-0 truncate font-semibold text-white">
@@ -581,10 +556,6 @@ export function SearchPageClient() {
           isInCloset={isInCloset(normalizedProduct.id)}
           onToggleDigbox={() => {
             setShowGuestDetailSaveHint(false);
-            if (!authUser && !isInDigbox(normalizedProduct.id)) {
-              window.localStorage.setItem(GUEST_DIGBOX_FIRST_SAVE_STORAGE_KEY, "true");
-              setShowGuestSaveHint(false);
-            }
             toggleDigbox(normalizedProduct.id, "home_product_detail");
           }}
           isInDigbox={isInDigbox(normalizedProduct.id)}

@@ -9,17 +9,16 @@ import { captureEvent } from "../utils/analytics";
 import { buildLoginHref, saveAuthContinuation } from "../utils/authNavigation";
 import {
   computeTasteSummary,
+  describeTasteCollection,
   getEffectiveStyleTags,
   normalizeStyleTags,
   selectTopTags,
-  tagColor,
+  styleTagLabel,
 } from "../utils/tasteGraph";
 import { ProgressiveImage } from "./ProgressiveImage";
 
 const getCurrentPath = () =>
   typeof window === "undefined" ? "/" : `${window.location.pathname}${window.location.search}${window.location.hash}`;
-
-const formatTag = (tag: string) => tag.replace(/_/g, " ");
 
 export function GuestDigboxExperience() {
   const router = useRouter();
@@ -31,25 +30,33 @@ export function GuestDigboxExperience() {
 
   const summary = useMemo(() => computeTasteSummary(digbox.guestProducts), [digbox.guestProducts]);
   const topTaste = summary.entries.slice(0, 3);
+  const interpretation = useMemo(
+    () => describeTasteCollection(digbox.guestProducts, summary),
+    [digbox.guestProducts, summary]
+  );
   const tasteHeadline = topTaste
     .slice(0, 2)
-    .map((entry) => formatTag(entry.tag))
-    .join(" × ");
-  const productTaste = useMemo(
-    () =>
-      digbox.guestProducts.map((product) => ({
-        product,
-        tags: selectTopTags(normalizeStyleTags(getEffectiveStyleTags(product).tags), 2, {
-          enforceSecondThreshold: false,
-        }),
-      })),
-    [digbox.guestProducts]
-  );
-  const fallback = useMemo(() => {
-    const brands = [...new Set(digbox.guestProducts.map((product) => product.brand).filter(Boolean))].slice(0, 2);
-    const categories = [...new Set(digbox.guestProducts.map((product) => product.category).filter(Boolean))].slice(0, 2);
-    return { brands, categories };
+    .map((entry) => styleTagLabel(entry.tag))
+    .join(" · ");
+  const repeatedTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const product of digbox.guestProducts) {
+      const tags = selectTopTags(normalizeStyleTags(getEffectiveStyleTags(product).tags), 2, { enforceSecondThreshold: false });
+      for (const [tag] of tags) counts.set(tag, (counts.get(tag) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .filter(([, count]) => count >= 2)
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 3)
+      .map(([tag, count]) => ({ label: styleTagLabel(tag as Parameters<typeof styleTagLabel>[0]), count }));
   }, [digbox.guestProducts]);
+  const moodTags = repeatedTags.length
+    ? repeatedTags.slice(0, 2)
+    : topTaste.slice(0, 2).map((entry) => ({
+      label: styleTagLabel(entry.tag),
+      count: 0,
+    }));
+  const strongestRepeatedCount = repeatedTags[0]?.count ?? 0;
 
   useEffect(() => {
     if (digbox.isGuestPromptOpen && digbox.guestCount === digbox.guestLimit && !viewedPromptRef.current) {
@@ -94,12 +101,12 @@ export function GuestDigboxExperience() {
       <button
         type="button"
         onClick={() => digbox.setIsGuestPanelOpen(true)}
-        className="fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[82] flex -translate-x-1/2 items-center gap-2 rounded-full border border-yellow-400/30 bg-[#15140f]/95 px-4 py-2.5 text-sm font-black text-yellow-300 shadow-[0_14px_36px_rgba(0,0,0,0.5)] backdrop-blur-xl transition hover:border-yellow-300/60 hover:bg-[#201e12] sm:bottom-[1.25rem]"
+        className="guest-digbox-progress-button fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[82] flex -translate-x-1/2 items-center gap-2 rounded-full border border-yellow-400/30 bg-[#15140f]/95 px-4 py-2.5 text-sm font-black text-yellow-300 shadow-[0_14px_36px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-[transform,border-color,background-color] duration-[var(--duration-press)] hover:border-yellow-300/60 hover:bg-[#201e12] sm:bottom-[1.25rem]"
       >
         <Star className="h-4 w-4 fill-current" />
         {digbox.guestCount === digbox.guestLimit
           ? "내 취향 미리보기"
-          : `내가 고른 아이템 ${digbox.guestCount}/${digbox.guestLimit}`}
+          : `취향 만들기 ${digbox.guestCount}/${digbox.guestLimit}`}
       </button>
 
       {isOpen && (
@@ -120,25 +127,52 @@ export function GuestDigboxExperience() {
               <X className="h-5 w-5" />
             </button>
 
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-yellow-400">Temporary saved items</p>
+            <p className="text-[11px] font-black tracking-[0.12em] text-yellow-400">임시 저장 · {digbox.guestCount}/{digbox.guestLimit}</p>
             <h2 id="guest-digbox-title" className="mt-2 pr-10 text-xl font-black">
               {digbox.guestCount === 0
                 ? "마음에 드는 아이템을 3개 골라보세요"
                 : digbox.guestCount === digbox.guestLimit
-                  ? "관심 취향이 보이기 시작했습니다"
+                  ? "당신의 첫 DIG 결과"
                   : "마음에 든 상품을 모으고 있어요"}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-gray-400">
               {digbox.guestCount === 0
                 ? "상품 카드의 별을 눌러 관심 있는 아이템을 담아보세요."
                 : digbox.guestCount === digbox.guestLimit
-                  ? "선택한 아이템 3개에서 공통된 무드를 찾았습니다. 가입하면 이 취향과 저장한 상품을 보관하고, 더 맞는 아이템을 추천받을 수 있습니다."
+                  ? "세 상품에서 반복된 스타일 코드를 찾았어요."
                   : "고른 아이템으로 취향을 만들고 있어요. 3개가 되면 공통 무드를 보여드려요."}
             </p>
 
+            {digbox.guestCount === digbox.guestLimit && (
+              <section className="mt-5 rounded-2xl border border-sky-400/20 bg-sky-400/[0.07] p-4" aria-label="첫 DIG 결과">
+                <p className="text-xs font-black text-sky-300">스타일 무드</p>
+                {digbox.guestProducts.length === digbox.guestCount && topTaste.length ? (
+                  <>
+                    <p className="mt-2 text-lg font-black leading-snug text-white">
+                      {interpretation?.title || `${tasteHeadline} 무드`}
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-sky-100/80">
+                      {strongestRepeatedCount >= 2
+                        ? `고른 ${digbox.guestCount}개 중 ${strongestRepeatedCount}개에서 반복된 무드예요.`
+                        : "고른 상품에서 공통된 스타일을 찾았어요."}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {moodTags.map(({ label }) => (
+                        <span key={label} className="rounded-full border border-sky-300/25 bg-sky-300/[0.08] px-2.5 py-1.5 text-xs font-bold text-sky-100">
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm leading-relaxed text-gray-300">{digbox.guestProducts.length < digbox.guestCount ? "스타일 태그를 불러오는 중이에요." : "스타일 태그가 없는 상품이 있어 무드를 정리하지 못했어요."}</p>
+                )}
+              </section>
+            )}
+
             <div className="mt-5 space-y-2">
               {digbox.guestProducts.map((product) => (
-                <div key={product.id} className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-2.5">
+                <div key={product.id} className="flex items-center gap-3 rounded-2xl border border-white/[0.055] bg-white/[0.025] p-2.5">
                   <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-white/[0.05]">
                     <ProgressiveImage
                       src={product.thumbnailImage || product.image}
@@ -155,7 +189,7 @@ export function GuestDigboxExperience() {
                     type="button"
                     onClick={() => digbox.removeGuestItem(product.id)}
                     aria-label={`${product.name} 임시 저장 목록에서 삭제`}
-                    className="rounded-xl p-2 text-gray-600 transition hover:bg-red-500/10 hover:text-red-300"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-600 transition-[background-color,color,transform] hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -164,70 +198,7 @@ export function GuestDigboxExperience() {
             </div>
 
             {digbox.guestCount === digbox.guestLimit && (
-              <div className="mt-5 rounded-2xl border border-sky-400/20 bg-sky-400/[0.07] p-4">
-                <p className="text-xs font-black text-sky-300">관심 취향 미리보기</p>
-                {topTaste.length ? (
-                  <div className="mt-3">
-                    <p className="text-lg font-black capitalize text-white">{tasteHeadline}</p>
-
-                    <div className="mt-4 space-y-2.5">
-                      {topTaste.map((entry) => {
-                        const colors = tagColor(entry.tag);
-                        return (
-                          <div key={entry.tag} className="grid grid-cols-[92px_1fr_36px] items-center gap-2 text-xs">
-                            <span className="truncate font-bold capitalize text-white">{formatTag(entry.tag)}</span>
-                            <span className="h-2 overflow-hidden rounded-full bg-white/10">
-                              <span
-                                className="block h-full rounded-full"
-                                style={{ width: `${entry.percent}%`, backgroundColor: colors.bright }}
-                              />
-                            </span>
-                            <span className="text-right font-black text-sky-200">{Math.round(entry.percent)}%</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-5 border-t border-white/10 pt-4">
-                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-400">아이템별 태그</p>
-                      <div className="mt-2.5 space-y-2">
-                        {productTaste.map(({ product, tags }) => (
-                          <div key={product.id} className="rounded-xl bg-black/20 px-3 py-2.5">
-                            <p className="truncate text-xs font-bold text-white">{product.name}</p>
-                            {tags.length ? (
-                              <div className="mt-2 flex flex-wrap gap-1.5">
-                                {tags.map(([tag, score]) => {
-                                  const colors = tagColor(tag);
-                                  return (
-                                    <span
-                                      key={tag}
-                                      className="rounded-full border px-2 py-1 text-[10px] font-bold capitalize"
-                                      style={{
-                                        borderColor: `${colors.bright}66`,
-                                        color: colors.bright,
-                                        backgroundColor: `${colors.base}18`,
-                                      }}
-                                    >
-                                      {formatTag(tag)} {Math.round(score * 100)}%
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="mt-1 text-[11px] text-gray-400">{product.brand} · {product.category}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mt-2 text-sm leading-relaxed text-gray-300">
-                    {fallback.brands.length ? `관심 브랜드 · ${fallback.brands.join(" · ")}` : `담은 상품 ${digbox.guestCount}개`}
-                    {fallback.categories.length ? ` / ${fallback.categories.join(" · ")}` : ""}
-                  </p>
-                )}
-              </div>
+              <p className="mt-5 text-center text-xs font-semibold leading-5 text-gray-400">지금은 첫 발견이에요. 가입하면 저장한 상품이 쌓일수록 색·소재·실루엣까지 반영한 취향 그래프로 이어져요.</p>
             )}
 
             <button
@@ -235,7 +206,7 @@ export function GuestDigboxExperience() {
               onClick={digbox.guestCount === digbox.guestLimit ? startSignup : close}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-4 py-3.5 text-sm font-black text-black transition hover:bg-yellow-300"
             >
-              {digbox.guestCount === digbox.guestLimit ? "가입하고 내 저장 목록에 보관" : "계속 둘러보기"}
+              {digbox.guestCount === digbox.guestLimit ? "가입하고 이 취향 이어가기" : "계속 둘러보기"}
               <ArrowRight className="h-4 w-4" />
             </button>
           </section>

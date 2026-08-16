@@ -306,6 +306,11 @@ body {
   [data-pressable="true"]:not([aria-disabled="true"]):active {
     transform: scale(0.97);
   }
+
+  /* Keep centered floating controls anchored while providing press feedback. */
+  button.guest-digbox-progress-button:not(:disabled):active {
+    transform: translateX(-50%) scale(0.97);
+  }
 }
 
 /* Full-width setting rows stay anchored to their dividers; color, not scale, confirms the tap. */

@@ -12,8 +12,9 @@ import { useProductDetail } from "../../hooks/useProductDetail";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
+import { loadProductDetailModal } from "../productDetailModalLoader";
 
-const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
+const ProductDetailModal = dynamic(loadProductDetailModal, { ssr: false });
 const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
 
 export function GridPageClient() {

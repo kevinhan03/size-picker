@@ -24,7 +24,7 @@ import { ProductSummaryDetailsPanel } from "./taste-graph/ProductTasteDecision";
 import { buildLoginHref } from "../utils/authNavigation";
 import { getProductPageUrl } from "../utils/product";
 
-interface ProductDetailModalProps {
+export interface ProductDetailModalProps {
   product: Product;
   closetProduct?: Product | null;
   activeRowIndex: number | null;
@@ -249,7 +249,6 @@ function ProductDetailModalContent({
   const [selectedMySizeId, setSelectedMySizeId] = useState<string>("");
   const savedClosetProduct = closetProduct || null;
   const savedSizeRowIndex = getClosetSizeRowIndex(savedClosetProduct);
-  const [insightProduct, setInsightProduct] = useState<Product>(product);
   const displaySizeTable = useMemo(() => getDisplaySizeTable(product), [product]);
   const displayProduct = useMemo(
     () => ({ ...product, sizeTable: displaySizeTable }),
@@ -259,28 +258,6 @@ function ProductDetailModalContent({
   useEffect(() => {
     ensureMySizesLoaded();
   }, [ensureMySizesLoaded]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setInsightProduct(product);
-
-    void fetch(`/api/products/${encodeURIComponent(product.id)}`)
-      .then(async (response) => {
-        if (!response.ok) return null;
-        const payload = await response.json() as { ok?: boolean; data?: { product?: Product } };
-        return payload.ok ? payload.data?.product ?? null : null;
-      })
-      .then((detail) => {
-        if (!cancelled && detail?.id === product.id) setInsightProduct(detail);
-      })
-      .catch(() => {
-        // Keep the lightweight catalog product if detail enrichment is unavailable.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [product]);
 
   useEffect(() => {
     return () => {
@@ -534,6 +511,13 @@ function ProductDetailModalContent({
                 </svg>
                 <span>{isInDigbox ? "저장됨" : "저장"}</span>
               </button>
+              {showGuestDigboxHint && !isInDigbox ? (
+                <div role="status" className="pointer-events-none absolute right-0 top-[calc(100%+0.65rem)] z-20 w-60 rounded-xl border border-yellow-300/30 bg-[#282014] px-3 py-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.34)]">
+                  <span className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-yellow-300/30 bg-[#282014]" aria-hidden="true" />
+                  <p className="relative text-xs font-black text-yellow-200">지금 끌리는 상품을 담아보세요</p>
+                  <p className="relative mt-1 text-[11px] font-semibold leading-4 text-gray-300"><span className="block">3개를 담으면, 고른 상품의</span><span className="block">공통 스타일 무드를 찾아드려요.</span></p>
+                </div>
+              ) : null}
             </div>
             )}
             {canUseCloset && !hideCollectionActions && !(hideDigboxButton && isInCloset) && (
@@ -596,7 +580,7 @@ function ProductDetailModalContent({
                 <span className="text-gray-500">{product.category}</span>
               </div>
               <h4 className="mb-2 text-2xl font-bold text-white">{product.name}</h4>
-              <ProductSummaryDetailsPanel product={insightProduct} />
+              <ProductSummaryDetailsPanel product={product} />
               <div className="mt-3 space-y-2">
                 {savedClosetProduct ? <SavedSizeSummary product={savedClosetProduct} /> : null}
                 {product.url ? (
@@ -620,13 +604,6 @@ function ProductDetailModalContent({
               )}
             </div>
           </div>
-
-          {showGuestDigboxHint && !isInDigbox ? (
-            <p role="status" className="mt-4 rounded-xl border border-yellow-300/20 bg-yellow-300/[0.06] px-3 py-2 text-xs font-semibold leading-5 text-yellow-100">
-              마음에 드는 상품은 상단의 저장 버튼으로 담아 내 취향을 찾아보세요.
-            </p>
-          ) : null}
-
           <section className="mt-8 border-t border-white/[0.08] pt-6" aria-labelledby="size-selection-title">
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>

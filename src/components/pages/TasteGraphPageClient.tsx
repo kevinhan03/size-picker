@@ -14,6 +14,7 @@ import { useProductDetail } from "../../hooks/useProductDetail";
 import { captureEvent } from "../../utils/analytics";
 import { toPublicUrl } from "../../utils/product";
 import type { Product, StyleTagName } from "../../types";
+import { loadProductDetailModal } from "../productDetailModalLoader";
 import type { SerializedTasteGraphState, TasteCollectionSource } from "../../utils/tasteGraph";
 import { buildBrandClusters } from "../../utils/brandClusters";
 import { TasteReport } from "../taste-graph/TasteReport";
@@ -21,7 +22,7 @@ import { PageState } from "../PageState";
 
 const TasteGraphCanvas = dynamic(() => import("../taste-graph/TasteGraphCanvas").then((module) => module.TasteGraphCanvas), { loading: () => <MapLoading />, ssr: false });
 const BrandClusterCanvas = dynamic(() => import("../taste-graph/BrandClusterCanvas").then((module) => module.BrandClusterCanvas), { loading: () => <MapLoading />, ssr: false });
-const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
+const ProductDetailModal = dynamic(loadProductDetailModal, { ssr: false });
 const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
 
 type TasteGraphSource = TasteCollectionSource;

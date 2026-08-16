@@ -1,8 +1,9 @@
 "use client";
 
-import { type MouseEvent, type SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { ProgressiveImage } from "./ProgressiveImage";
+import { loadProductDetailModal } from "./productDetailModalLoader";
 import type { TutorialAnchorRect } from "./OnboardingTutorial";
 import type { Product } from "../types";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
@@ -94,8 +95,8 @@ export function GridView({
     scrollMargin,
   });
 
-  const getAnchorRect = (event: MouseEvent<HTMLElement>): TutorialAnchorRect => {
-    const rect = event.currentTarget.getBoundingClientRect();
+  const getAnchorRect = (element: HTMLElement): TutorialAnchorRect => {
+    const rect = element.getBoundingClientRect();
     return {
       top: rect.top,
       right: rect.right,
@@ -142,7 +143,22 @@ export function GridView({
                 return (
                   <div
                     key={product.id}
-                    onClick={(event) => onProductClick(product, getAnchorRect(event))}
+                    onClick={(event) => {
+                      if (isInteractionDisabled) return;
+                      onProductClick(product, getAnchorRect(event.currentTarget));
+                    }}
+                    onPointerEnter={() => { void loadProductDetailModal(); }}
+                    onPointerDown={() => { void loadProductDetailModal(); }}
+                    onFocus={() => { void loadProductDetailModal(); }}
+                    onKeyDown={(event) => {
+                      if (isInteractionDisabled) return;
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      onProductClick(product, getAnchorRect(event.currentTarget));
+                    }}
+                    role="button"
+                    tabIndex={isInteractionDisabled ? -1 : 0}
+                    aria-disabled={isInteractionDisabled || undefined}
                     className={`ui-product-card ui-card-lift relative flex h-full flex-col overflow-hidden rounded-[22px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(25,25,29,0.98),rgba(15,15,18,0.98))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-transform duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.98] ${
                       isInteractionDisabled
                         ? "cursor-default"

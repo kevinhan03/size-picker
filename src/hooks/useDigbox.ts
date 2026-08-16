@@ -259,7 +259,6 @@ export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], init
       const properties = { product_id: productId, guest_count: next.length, source, logged_in: false };
       captureEvent("guest_digbox_saved", properties);
       captureEvent("save_succeeded", properties);
-      showToast({ message: `guest_added_${next.length}`, type: "success" });
       if (next.length === GUEST_DIGBOX_LIMIT) {
         setIsGuestPromptOpen(true);
       }

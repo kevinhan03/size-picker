@@ -205,9 +205,6 @@ function DigboxToast() {
 
   const isLoginRequired = visibleToast.message === "login_required";
   const isAdded = visibleToast.message === "added" || visibleToast.message === "guest_synced";
-  const guestAddedCount = visibleToast.message.startsWith("guest_added_")
-    ? Number(visibleToast.message.replace("guest_added_", ""))
-    : 0;
   const isGuestSyncPartial = visibleToast.message === "guest_sync_partial";
 
   return (
@@ -225,9 +222,7 @@ function DigboxToast() {
 
         <div className="min-w-0 flex-1">
           <p className="font-bold text-white">
-            {guestAddedCount
-              ? `임시 저장 ${guestAddedCount}/3`
-              : isGuestSyncPartial
+            {isGuestSyncPartial
               ? "일부 상품을 옮기지 못했어요"
               : visibleToast.message === "guest_synced"
               ? "임시 상품을 내 저장 목록에 저장했어요"
@@ -238,13 +233,7 @@ function DigboxToast() {
               : "이미 저장한 상품이에요"}
           </p>
           <p className="truncate text-xs text-gray-400">
-            {guestAddedCount === 1
-              ? "2개 더 담으면 관심 취향을 볼 수 있어요"
-              : guestAddedCount === 2
-              ? "관심 취향이 만들어지고 있어요"
-              : guestAddedCount === 3
-              ? "가입하면 지금 담은 상품을 그대로 보관할 수 있어요"
-              : isGuestSyncPartial
+            {isGuestSyncPartial
               ? "임시 저장 목록에서 다시 시도할 수 있어요"
               : visibleToast.message === "guest_synced"
               ? "원래 보던 상품에서 계속 디깅해보세요"
@@ -267,7 +256,7 @@ function DigboxToast() {
           >
             다시 시도
           </button>
-        ) : guestAddedCount ? null : isLoginRequired ? (
+        ) : isLoginRequired ? (
           <Link
             href="/login"
             onClick={clearToast}

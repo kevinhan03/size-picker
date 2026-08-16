@@ -981,6 +981,11 @@ const PRODUCT_TYPE_LABELS: Record<string, Record<string, string>> = {
 
 const PRODUCT_CATEGORY_LABELS: Record<string, string> = { top: "상의", bottom: "하의", outer: "아우터", acc: "액세서리" };
 
+const PRODUCT_DETAIL_LABELS: Record<string, string> = {
+  pleats: "플리츠 디테일",
+  "cargo-pockets": "카고 포켓",
+};
+
 function firstKnownStyleAttribute(attributes: Record<string, unknown>, key: string) {
   const values = Array.isArray(attributes[key]) ? attributes[key] : [attributes[key]];
   return values
@@ -1012,8 +1017,12 @@ export function getProductSummaryDetails(product: Product): string[] {
     })
     .filter((detail): detail is string => Boolean(detail))
     : [];
+  const detailValue = attributes ? firstKnownStyleAttribute(attributes, "details") : null;
+  const detailLabel = detailValue
+    ? PRODUCT_DETAIL_LABELS[detailValue] || detailValue.replace(/[-_]+/g, " ")
+    : null;
 
-  return [...new Set([productLabel, ...details].filter(Boolean))].slice(0, 4) as string[];
+  return [...new Set([productLabel, ...details, detailLabel].filter(Boolean))].slice(0, 5) as string[];
 }
 
 function averageTagScores(products: Product[]) {

@@ -21,8 +21,9 @@ import { CollectionSearchField } from "../CollectionSearchField";
 import { CollectionEmptyState } from "../CollectionEmptyState";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
+import { loadProductDetailModal } from "../productDetailModalLoader";
 
-const ProductDetailModal = dynamic(() => import("../ProductDetailModal").then((module) => module.ProductDetailModal), { ssr: false });
+const ProductDetailModal = dynamic(loadProductDetailModal, { ssr: false });
 const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing collection constants.
@@ -71,6 +72,9 @@ function GridCard({
     >
       <Link
         href={href}
+        onMouseEnter={() => { void loadProductDetailModal(); }}
+        onFocus={() => { void loadProductDetailModal(); }}
+        onTouchStart={() => { void loadProductDetailModal(); }}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();
