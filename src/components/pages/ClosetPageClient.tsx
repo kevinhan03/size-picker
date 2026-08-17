@@ -468,7 +468,7 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
 
   useEffect(() => {
     if (!auth.isAuthLoading && !authUserId) {
-      router.replace("/login");
+      router.replace("/closet");
     }
   }, [auth.isAuthLoading, authUserId, router]);
 
@@ -618,12 +618,14 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
       }}
     >
       <div style={{ width: "100%", maxWidth: 1280 }}>
+        <div className="mx-auto w-full max-w-[70rem]">
         <PageHeader eyebrow="WARDROBE" title="내 옷장" />
 
         <div className="mt-[var(--page-header-content-gap)]">
           <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel="옷장 상품 검색" />
         </div>
         <FilterBar categoryValue={catFilter} onCategoryChange={(value) => setCatFilter(value)} disabled={isEditing} />
+        </div>
 
         {/* Toolbar */}
         <div

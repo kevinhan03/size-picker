@@ -1,16 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import type { Product, StyleTagName } from "../../types";
 import { buildBrandClusters } from "../../utils/brandClusters";
 import {
   compareTasteCollections,
+  computeTasteShift,
   computeTasteSummary,
   describeTasteCollection,
   styleTagLabel,
   tagColor,
   type TasteCollectionSource,
+  type TasteCollectionComparison,
+  type TasteShift,
 } from "../../utils/tasteGraph";
 
 type MapTarget = { source?: TasteCollectionSource; tag?: StyleTagName };
@@ -21,6 +25,44 @@ type CategoryTaste = {
   productCount: number;
   tags: StyleTagName[];
 };
+
+type TasteConclusion = {
+  title: string;
+  description: string;
+};
+
+function getTasteConclusion(comparison: TasteCollectionComparison): TasteConclusion | null {
+  const aspiration = comparison.aspirations[0];
+  const saturated = comparison.saturated;
+
+  if (aspiration && saturated) {
+    return {
+      title: `${styleTagLabel(aspiration.tag)}을 더 자주 저장하지만, 옷장에는 ${styleTagLabel(saturated.tag)} 비중이 더 높아요.`,
+      description: "새롭게 끌리는 방향과 실제로 자주 선택하는 방향이 함께 보여요.",
+    };
+  }
+
+  if (aspiration) {
+    return {
+      title: `${styleTagLabel(aspiration.tag)}이 지금 새롭게 끌리는 취향이에요.`,
+      description: "저장한 상품에서는 자주 보이지만, 옷장에는 아직 적게 쌓여 있어요.",
+    };
+  }
+
+  if (comparison.shared) {
+    return {
+      title: `${styleTagLabel(comparison.shared.tag)}은 좋아하고 실제로도 자주 입는 취향이에요.`,
+      description: "저장한 상품과 옷장에서 같은 방향이 반복되고 있어요.",
+    };
+  }
+
+  const strongest = comparison.digbox.entries[0] || comparison.closet.entries[0];
+  if (!strongest) return null;
+  return {
+    title: `${styleTagLabel(strongest.tag)}이 지금 가장 선명한 취향이에요.`,
+    description: "더 많은 상품을 저장할수록 나만의 취향 방향이 또렷해져요.",
+  };
+}
 
 export function TasteReport({
   closetProducts,
@@ -34,6 +76,7 @@ export function TasteReport({
   onOpenBrandMap?: () => void;
 }) {
   const comparison = compareTasteCollections(closetProducts, digboxProducts);
+  const conclusion = getTasteConclusion(comparison);
   const canCompare = comparison.closet.taggedCount > 0 && comparison.digbox.taggedCount > 0;
   const categoryTastes = getCategoryTastes([...digboxProducts, ...closetProducts]);
   const brandProducts = Array.from(new globalThis.Map([...digboxProducts, ...closetProducts].map((product) => [product.id, product])).values());
@@ -52,15 +95,28 @@ export function TasteReport({
         description={<>저장한 상품과 옷장 {recordCount}개를 바탕으로 정리했어요.</>}
       />
 
+      {conclusion ? (
+        <section className="taste-report-conclusion" aria-labelledby="taste-conclusion-title">
+          <p>YOUR TASTE, NOW</p>
+          <h2 id="taste-conclusion-title">{conclusion.title}</h2>
+          <span>{conclusion.description}</span>
+          <Link href="/" className="taste-report-conclusion-link">
+            새로운 상품 디깅하기 <ArrowRight aria-hidden="true" />
+          </Link>
+        </section>
+      ) : null}
+
+      <TasteShiftSection
+        digboxShift={computeTasteShift(digboxProducts, "digbox")}
+        closetShift={computeTasteShift(closetProducts, "closet")}
+      />
+
       <section className="taste-report-details" aria-labelledby="taste-evidence-title">
         <div className="taste-report-evidence-header">
           <div>
             <p>TASTE CHECK</p>
             <h2 id="taste-evidence-title">저장한 취향과 옷장 취향</h2>
           </div>
-          <button type="button" onClick={() => onOpenMap()}>
-            취향 그래프 보기 <ArrowRight aria-hidden="true" />
-          </button>
         </div>
         <div className="taste-report-details-content">
           {canCompare && comparison.saturated ? (
@@ -72,6 +128,9 @@ export function TasteReport({
             <TasteSourceSection source="digbox" title="저장한 상품" products={digboxProducts} />
             <TasteSourceSection source="closet" title="옷장" products={closetProducts} />
           </div>
+          <button type="button" className="taste-report-graph-button" onClick={() => onOpenMap()}>
+            취향 그래프 보기 <ArrowRight aria-hidden="true" />
+          </button>
           {categoryTastes.length > 0 ? (
             <section className="taste-report-categories" aria-labelledby="taste-categories-title">
               <div>
@@ -142,14 +201,36 @@ export function TasteReport({
       ) : null}
 
       <style jsx>{`
-        .taste-report { --taste-space-1: .5rem; --taste-space-2: .75rem; --taste-space-3: 1rem; --taste-space-4: 1.5rem; --taste-space-5: 2rem; --taste-section-gap: clamp(2rem, 4vw, 3rem); box-sizing: border-box; width: min(100%, 70rem); min-height: 100vh; margin: 0 auto; padding: var(--page-header-top) var(--app-main-px) var(--app-main-pb); background: #000; color: #f5f5f6; font-family: var(--font-sans); }
+        .taste-report { --taste-space-1: .5rem; --taste-space-2: .75rem; --taste-space-3: 1rem; --taste-space-4: 1.5rem; --taste-space-5: 2rem; --taste-section-gap: clamp(2rem, 4vw, 3rem); box-sizing: border-box; width: min(100%, calc(70rem + var(--app-main-px) + var(--app-main-px))); min-height: 100vh; margin: 0 auto; padding: var(--page-header-top) var(--app-main-px) var(--app-main-pb); background: #000; color: #f5f5f6; font-family: var(--font-sans); }
+        .taste-report-conclusion { margin-top: var(--page-header-content-gap); padding: var(--taste-space-4); border: 1px solid rgba(249,115,22,.28); border-radius: .875rem; background: #141519; }
+        .taste-report-conclusion > p { margin: 0; color: #fdba74; font-size: .625rem; font-weight: 850; letter-spacing: .1em; }
+        .taste-report-conclusion h2 { margin: .5rem 0 0; color: #f8fafc; font-size: clamp(1.25rem, 2.5vw, 1.625rem); font-weight: 780; letter-spacing: -.03em; line-height: 1.35; }
+        .taste-report-conclusion > span { display: block; max-width: 38rem; margin-top: .625rem; color: #b8c0cc; font-size: .875rem; font-weight: 600; line-height: 1.6; }
+        :global(a.taste-report-conclusion-link) { display: inline-flex; min-height: 2.75rem; align-items: center; justify-content: center; gap: .4rem; margin-top: var(--taste-space-4); padding: .5rem 1rem; border-radius: .75rem; background: #f97316; color: #17120e; font-size: .8125rem; font-weight: 800; line-height: 1; text-decoration: none; }
+        :global(a.taste-report-conclusion-link svg) { flex: 0 0 auto; width: .9rem; height: .9rem; }
+        :global(a.taste-report-conclusion-link:focus-visible) { outline: 2px solid #fdba74; outline-offset: 3px; }
+        :global(.taste-shift) { margin-top: var(--taste-section-gap); padding-top: var(--taste-space-4); border-top: 1px solid rgba(255,255,255,.12); }
+        :global(.taste-shift-header > p) { margin: 0; color: #7f8998; font-size: .625rem; font-weight: 800; letter-spacing: .1em; }
+        :global(.taste-shift-header h2) { margin: .375rem 0 0; font-size: clamp(1.25rem, 2vw, 1.5rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.25; }
+        :global(.taste-shift-header > span) { display: block; margin-top: .625rem; color: #aeb7c4; font-size: .8125rem; font-weight: 600; line-height: 1.55; }
+        :global(.taste-shift-cards) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--taste-space-3); margin-top: var(--taste-space-4); }
+        :global(.taste-shift-card) { min-width: 0; padding: var(--taste-space-4); border: 1px solid rgba(255,255,255,.11); border-radius: .875rem; background: #141519; }
+        :global(.taste-shift-card > p) { margin: 0; color: #f2a56c; font-size: .625rem; font-weight: 820; letter-spacing: .1em; }
+        :global(.taste-shift-card h3) { margin: .5rem 0 0; color: #f5f5f6; font-size: 1.0625rem; font-weight: 760; letter-spacing: -.025em; line-height: 1.4; }
+        :global(.taste-shift-card > span) { display: block; margin-top: .5rem; color: #9ea8b7; font-size: .75rem; font-weight: 650; }
+        :global(.taste-shift-change) { display: grid; gap: .5rem; margin: var(--taste-space-3) 0 0; }
+        :global(.taste-shift-change div) { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; color: #c9d0da; font-size: .8125rem; font-weight: 650; }
+        :global(.taste-shift-change strong) { color: #f5f5f6; font-weight: 760; }
+        :global(.taste-shift-change em) { color: #8f99a8; font-size: .75rem; font-style: normal; font-variant-numeric: tabular-nums; }
+        :global(.taste-shift-empty) { color: #aeb7c4; font-size: .875rem; font-weight: 600; line-height: 1.55; }
         .taste-report-evidence-header p { margin: 0; color: #7f8998; font-size: .625rem; font-weight: 800; letter-spacing: .1em; }
-        .taste-report-details { margin-top: var(--page-header-content-gap); }
+        .taste-report-details { position: relative; margin-top: var(--taste-section-gap); }
         .taste-report-evidence-header { display: flex; align-items: end; justify-content: space-between; gap: var(--taste-space-4); }
         .taste-report-evidence-header h2 { margin: .375rem 0 0; font-size: clamp(1.25rem, 2vw, 1.5rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.25; }
-        .taste-report-evidence-header button, .taste-report-brands button { display: inline-flex; min-height: 2.75rem; flex: 0 0 auto; align-items: center; gap: .35rem; padding: .5rem .25rem; border: 0; border-radius: .5rem; background: transparent; color: #c9d0da; cursor: pointer; font: inherit; font-size: .8125rem; font-weight: 700; white-space: nowrap; }
-        .taste-report-evidence-header button :global(svg), .taste-report-brands button :global(svg) { width: .9rem; height: .9rem; color: #f2a56c; }
-        .taste-report-evidence-header button :global(svg):last-child, .taste-report-brands button :global(svg):last-child { margin-left: .125rem; }
+        .taste-report-graph-button, .taste-report-brands button { display: inline-flex; min-height: 2.75rem; flex: 0 0 auto; align-items: center; gap: .35rem; padding: .5rem .25rem; border: 0; border-radius: .5rem; background: transparent; color: #c9d0da; cursor: pointer; font: inherit; font-size: .8125rem; font-weight: 700; white-space: nowrap; }
+        .taste-report-graph-button { position: absolute; top: 0; right: 0; }
+        .taste-report-graph-button :global(svg), .taste-report-brands button :global(svg) { width: .9rem; height: .9rem; color: #f2a56c; }
+        .taste-report-graph-button :global(svg):last-child, .taste-report-brands button :global(svg):last-child { margin-left: .125rem; }
         .taste-report-details-content { padding-top: var(--taste-space-4); }
         .taste-report-saturated { margin: 0; color: #aeb7c4; font-size: .8125rem; font-weight: 600; line-height: 1.55; }
         .taste-report-saturated strong { color: #f5f5f6; font-weight: 750; }
@@ -182,11 +263,84 @@ export function TasteReport({
         .taste-brand-tags { display: flex; flex-wrap: wrap; gap: .35rem .6rem; margin-top: .45rem; }
         .taste-brand-tags span { display: inline-flex; align-items: center; gap: .25rem; color: #b9c0cc; font-size: .6875rem; font-weight: 650; white-space: nowrap; }
         .taste-brand-tags i { width: .35rem; height: .35rem; border-radius: 999px; }
-        @media (hover: hover) and (pointer: fine) { .taste-report-evidence-header button:hover, .taste-report-brands button:hover { background: rgba(255,255,255,.06); color: #fff; } }
-        @media (prefers-reduced-motion: no-preference) { .taste-report-evidence-header button, .taste-report-brands button { transition: transform var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out); } .taste-report-evidence-header button:active, .taste-report-brands button:active { transform: scale(.98); } }
-        @media (max-width: 700px) { .taste-report-sources, .taste-report-categories, .taste-brand-list { grid-template-columns: 1fr; } .taste-report-evidence-header, .taste-report-brands { align-items: stretch; flex-direction: column; } .taste-report-evidence-header button, .taste-report-brands button { align-self: flex-start; } }
+        @media (hover: hover) and (pointer: fine) { :global(a.taste-report-conclusion-link:hover) { background: #fb923c; } .taste-report-graph-button:hover, .taste-report-brands button:hover { background: rgba(255,255,255,.06); color: #fff; } }
+        @media (prefers-reduced-motion: no-preference) { :global(a.taste-report-conclusion-link), .taste-report-graph-button, .taste-report-brands button { transition: transform var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out); } :global(a.taste-report-conclusion-link:active), .taste-report-graph-button:active, .taste-report-brands button:active { transform: scale(.98); } }
+        @media (max-width: 700px) { .taste-report-sources, .taste-report-categories, .taste-brand-list, :global(.taste-shift-cards) { grid-template-columns: 1fr; } .taste-report-evidence-header, .taste-report-brands { align-items: stretch; flex-direction: column; } :global(a.taste-report-conclusion-link) { display: flex; width: 100%; } .taste-report-graph-button { position: static; align-self: flex-start; margin-top: var(--taste-space-4); } .taste-report-brands button { align-self: flex-start; } }
       `}</style>
     </main>
+  );
+}
+
+function TasteShiftSection({ digboxShift, closetShift }: { digboxShift: TasteShift; closetShift: TasteShift }) {
+  return (
+    <section className="taste-shift" aria-labelledby="taste-shift-title">
+      <div className="taste-shift-header">
+        <p>TASTE SHIFT</p>
+        <h2 id="taste-shift-title">취향의 변화</h2>
+        <span>저장 흐름 전체를 보되, 최근 선택을 더 반영했어요.</span>
+      </div>
+      <div className="taste-shift-cards">
+        <TasteShiftCard title="저장한 상품" shift={digboxShift} />
+        <TasteShiftCard title="옷장" shift={closetShift} />
+      </div>
+    </section>
+  );
+}
+
+function TasteShiftCard({ title, shift }: { title: string; shift: TasteShift }) {
+  if (!shift.eligibleCount) {
+    return (
+      <article className="taste-shift-card">
+        <p>{title.toUpperCase()}</p>
+        <h3>아직 읽을 취향 기록이 없어요.</h3>
+        <span className="taste-shift-empty">스타일이 분석된 상품을 추가하면 이곳에서 흐름을 보여드려요.</span>
+      </article>
+    );
+  }
+
+  const currentTop = shift.current.entries[0] || null;
+  if (shift.confidence === "early") {
+    return (
+      <article className="taste-shift-card">
+        <p>{title.toUpperCase()}</p>
+        <h3>{currentTop ? `아직 초기 신호예요. 지금은 ${styleTagLabel(currentTop.tag)} 쪽에 더 끌리고 있어요.` : "아직 초기 신호예요."}</h3>
+        <span>시간 기록이 있는 스타일 상품 {shift.eligibleCount}개 기준</span>
+        {currentTop ? (
+          <div className="taste-shift-change" aria-label={`${title} 현재 취향`}>
+            <div>
+              <strong>{styleTagLabel(currentTop.tag)}</strong>
+              <em>현재 {Math.round(currentTop.percent)}%</em>
+            </div>
+          </div>
+        ) : null}
+      </article>
+    );
+  }
+
+  const primary = shift.primary;
+  const titleCopy = primary
+    ? primary.change > 0
+      ? `최근에는 ${styleTagLabel(primary.tag)}한 스타일에 더 끌리고 있어요.`
+      : `최근에는 ${styleTagLabel(primary.tag)} 비중이 조금 줄었어요.`
+    : "처음부터 최근까지 취향이 비교적 꾸준해요.";
+  const rows = [primary, shift.secondary].filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+
+  return (
+    <article className="taste-shift-card">
+      <p>{title.toUpperCase()}</p>
+      <h3>{titleCopy}</h3>
+      <span>최근 저장 흐름을 더 반영한 결과예요.</span>
+      {rows.length ? (
+        <div className="taste-shift-change" aria-label={`${title} 취향 변화`}>
+          {rows.map((entry) => (
+            <div key={entry.tag}>
+              <strong>{styleTagLabel(entry.tag)}</strong>
+              <em>{Math.round(entry.baselinePercent)}% → {Math.round(entry.currentPercent)}%</em>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </article>
   );
 }
 

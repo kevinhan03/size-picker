@@ -101,6 +101,7 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
       } catch { return null; }
     })(),
     createdAt: row.created_at ? String(row.created_at) : undefined,
+    collectionAddedAt: row.collection_added_at ? String(row.collection_added_at) : null,
     registeredBy: row.registered_by ? String(row.registered_by) : null,
     isInstagram: Boolean(row.is_instagram),
     instagramOrder: typeof row.instagram_order === 'number' ? row.instagram_order : null,

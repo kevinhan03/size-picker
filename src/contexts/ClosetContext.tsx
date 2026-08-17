@@ -8,9 +8,19 @@ type ClosetContextValue = ReturnType<typeof useCloset>;
 
 const ClosetContext = createContext<ClosetContextValue | null>(null);
 
-export function ClosetProvider({ children, initialProducts }: { children: React.ReactNode; initialProducts?: import("../types").Product[] }) {
+export function ClosetProvider({
+  children,
+  initialProducts,
+  initialAnalysisLoaded = false,
+  refreshAnalysisAfterMutation = false,
+}: {
+  children: React.ReactNode;
+  initialProducts?: import("../types").Product[];
+  initialAnalysisLoaded?: boolean;
+  refreshAnalysisAfterMutation?: boolean;
+}) {
   const { authUser } = useAuthContext();
-  const value = useCloset(Boolean(authUser), initialProducts);
+  const value = useCloset(Boolean(authUser), initialProducts, { initialAnalysisLoaded, refreshAnalysisAfterMutation });
   return <ClosetContext.Provider value={value}>{children}</ClosetContext.Provider>;
 }
 

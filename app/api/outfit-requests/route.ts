@@ -19,22 +19,19 @@ export async function GET(request: Request) {
   const startedAt = Date.now();
   try {
     const user = await getRegisteredRequestUser(request);
-    if (!user) {
-      requestLog("/api/outfit-requests", request, startedAt, 401);
-      return unauthorized();
-    }
 
     const url = new URL(request.url);
-    const scope = ["open", "completed", "mine", "proposed"].includes(url.searchParams.get("scope") || "")
+    const requestedScope = ["open", "completed", "mine", "proposed"].includes(url.searchParams.get("scope") || "")
       ? String(url.searchParams.get("scope"))
       : "open";
+    const scope = user ? requestedScope : "open";
     const status = ["open", "accepted", "closed"].includes(url.searchParams.get("status") || "")
       ? String(url.searchParams.get("status"))
       : "all";
     const cursor = url.searchParams.get("cursor");
     const limit = Math.min(20, Math.max(1, Number.parseInt(url.searchParams.get("limit") || "20", 10) || 20));
 
-    const data = await listOutfitRequests(user.id, scope as "open" | "completed" | "mine" | "proposed", cursor, status as "all" | "open" | "accepted" | "closed", limit);
+    const data = await listOutfitRequests(user?.id || null, scope as "open" | "completed" | "mine" | "proposed", cursor, status as "all" | "open" | "accepted" | "closed", limit);
     requestLog("/api/outfit-requests", request, startedAt, 200);
     return NextResponse.json({ ok: true, data });
   } catch (error: unknown) {

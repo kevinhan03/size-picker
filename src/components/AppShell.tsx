@@ -225,7 +225,7 @@ function DigboxToast() {
             {isGuestSyncPartial
               ? "일부 상품을 옮기지 못했어요"
               : visibleToast.message === "guest_synced"
-              ? "임시 상품을 내 저장 목록에 저장했어요"
+              ? "선택한 3개 아이템을 내 DIGBOX에 저장했어요"
               : isLoginRequired
               ? "로그인이 필요해요"
               : isAdded
@@ -236,7 +236,7 @@ function DigboxToast() {
             {isGuestSyncPartial
               ? "임시 저장 목록에서 다시 시도할 수 있어요"
               : visibleToast.message === "guest_synced"
-              ? "원래 보던 상품에서 계속 디깅해보세요"
+              ? "내 저장 목록에서 확인하거나 계속 디깅해보세요"
               : isLoginRequired
               ? "저장 기능은 로그인 후 사용할 수 있어요"
               : isAdded
@@ -270,7 +270,7 @@ function DigboxToast() {
             onClick={handleViewDigbox}
             className="flex-shrink-0 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-yellow-300"
           >
-            보기
+            내 DIGBOX 보기
           </button>
         ) : (
           <button

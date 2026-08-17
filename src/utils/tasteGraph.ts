@@ -420,6 +420,28 @@ export interface TasteCollectionComparison {
   recommendations: TasteInsightRecommendation[];
 }
 
+export type TasteShiftDirection = "rising" | "falling" | "steady";
+
+export type TasteShiftConfidence = "early" | "established";
+
+export interface TasteShiftEntry {
+  tag: StyleTagName;
+  baselinePercent: number;
+  currentPercent: number;
+  change: number;
+}
+
+export interface TasteShift {
+  source: TasteCollectionSource;
+  eligibleCount: number;
+  confidence: TasteShiftConfidence;
+  baseline: TasteSummary;
+  current: TasteSummary;
+  direction: TasteShiftDirection;
+  primary: TasteShiftEntry | null;
+  secondary: TasteShiftEntry | null;
+}
+
 export type ProductTasteDecisionKind = "new_direction" | "core_match" | "overlap";
 
 export interface ProductTasteDecision {
@@ -596,6 +618,113 @@ export function computeTasteSummary(products: Product[]): TasteSummary {
     .sort((a, b) => b.percent - a.percent);
 
   return { entries, taggedCount, totalCount: products.length };
+}
+
+const TASTE_SHIFT_EARLY_SIGNAL_MAX_PRODUCTS = 3;
+const TASTE_SHIFT_HALF_LIFE_PRODUCTS = 12;
+const TASTE_SHIFT_MIN_CHANGE = 8;
+const TASTE_SHIFT_DECAY = Math.pow(0.5, 1 / TASTE_SHIFT_HALF_LIFE_PRODUCTS);
+
+function hasTimelineStyleData(product: Product) {
+  return Boolean(
+    product.collectionAddedAt &&
+    Number.isFinite(Date.parse(product.collectionAddedAt)) &&
+    selectTopTags(normalizeStyleTags(getEffectiveStyleTags(product).tags)).length
+  );
+}
+
+function getTimelineStyleContribution(product: Product) {
+  const topTags = selectTopTags(normalizeStyleTags(getEffectiveStyleTags(product).tags));
+  const scoreTotal = topTags.reduce((sum, [, score]) => sum + score, 0) || 1;
+  return new Map<StyleTagName, number>(topTags.map(([tag, score]) => [tag, score / scoreTotal]));
+}
+
+function summaryFromTasteWeights(weights: Map<StyleTagName, number>, productCount: number): TasteSummary {
+  const total = Array.from(weights.values()).reduce((sum, value) => sum + value, 0) || 1;
+  const entries = TAGS.map((tag) => ({ tag, percent: ((weights.get(tag) || 0) / total) * 100 }))
+    .filter((entry) => entry.percent > 0)
+    .sort((left, right) => right.percent - left.percent);
+
+  return { entries, taggedCount: productCount, totalCount: productCount };
+}
+
+export function computeTasteShift(products: Product[], source: TasteCollectionSource): TasteShift {
+  const timelineProducts = products
+    .filter(hasTimelineStyleData)
+    .sort((left, right) => {
+      const timeDifference = Date.parse(left.collectionAddedAt!) - Date.parse(right.collectionAddedAt!);
+      return timeDifference || String(left.id).localeCompare(String(right.id));
+    });
+  const eligibleCount = timelineProducts.length;
+  const emptySummary: TasteSummary = { entries: [], taggedCount: 0, totalCount: 0 };
+  if (!eligibleCount) {
+    return {
+      source,
+      eligibleCount,
+      confidence: "early",
+      baseline: emptySummary,
+      current: emptySummary,
+      direction: "steady",
+      primary: null,
+      secondary: null,
+    };
+  }
+
+  // Every product remains in the accumulated state. A product's influence halves
+  // after roughly 12 later additions, so the current trend follows recent digging
+  // without discarding the user's earlier history.
+  const weightedTotals = new Map<StyleTagName, number>(TAGS.map((tag) => [tag, 0]));
+  const firstContribution = getTimelineStyleContribution(timelineProducts[0]);
+  for (const tag of TAGS) {
+    weightedTotals.set(tag, firstContribution.get(tag) || 0);
+  }
+  const baseline = summaryFromTasteWeights(weightedTotals, 1);
+
+  for (const product of timelineProducts.slice(1)) {
+    const contribution = getTimelineStyleContribution(product);
+    for (const tag of TAGS) {
+      const previous = weightedTotals.get(tag) || 0;
+      const next = contribution.get(tag) || 0;
+      weightedTotals.set(tag, previous * TASTE_SHIFT_DECAY + next * (1 - TASTE_SHIFT_DECAY));
+    }
+  }
+
+  const current = summaryFromTasteWeights(weightedTotals, eligibleCount);
+  const baselineByTag = new Map(baseline.entries.map((entry) => [entry.tag, entry.percent]));
+  const currentByTag = new Map(current.entries.map((entry) => [entry.tag, entry.percent]));
+  const changes = TAGS.map((tag) => ({
+    tag,
+    baselinePercent: baselineByTag.get(tag) || 0,
+    currentPercent: currentByTag.get(tag) || 0,
+    change: (currentByTag.get(tag) || 0) - (baselineByTag.get(tag) || 0),
+  }));
+  const rising = [...changes].sort((left, right) => right.change - left.change)[0] || null;
+  const falling = [...changes].sort((left, right) => left.change - right.change)[0] || null;
+  const strongest = [rising, falling]
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+    .sort((left, right) => Math.abs(right.change) - Math.abs(left.change))[0] || null;
+  const confidence: TasteShiftConfidence = eligibleCount <= TASTE_SHIFT_EARLY_SIGNAL_MAX_PRODUCTS ? "early" : "established";
+  const hasMeaningfulChange = Boolean(
+    confidence === "established" && strongest && Math.abs(strongest.change) >= TASTE_SHIFT_MIN_CHANGE
+  );
+  const direction: TasteShiftDirection = !hasMeaningfulChange
+    ? "steady"
+    : strongest!.change > 0 ? "rising" : "falling";
+  const secondary = hasMeaningfulChange
+    ? direction === "rising" && falling && falling.change <= -TASTE_SHIFT_MIN_CHANGE ? falling :
+      direction === "falling" && rising && rising.change >= TASTE_SHIFT_MIN_CHANGE ? rising : null
+    : null;
+
+  return {
+    source,
+    eligibleCount,
+    confidence,
+    baseline,
+    current,
+    direction,
+    primary: hasMeaningfulChange ? strongest : null,
+    secondary,
+  };
 }
 
 export function compareTasteCollections(closetProducts: Product[], digboxProducts: Product[]): TasteCollectionComparison {

@@ -294,7 +294,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
   const { authUser, isAuthLoading } = useAuthContext();
   const authUserId = authUser?.id;
   const [outfitRequest, setOutfitRequest] = useState<OutfitRequestDetail | null>(null);
-  const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [category, setCategory] = useState("");
   const [visibleProductCount, setVisibleProductCount] = useState(SHARED_CLOSET_PAGE_SIZE);
@@ -335,12 +335,8 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
 
   useEffect(() => {
     if (isAuthLoading) return;
-    if (!authUserId) {
-      router.replace(buildLoginHref("login", `/outfits/${requestId}`));
-      return;
-    }
     void load(true);
-  }, [authUserId, isAuthLoading, load, requestId, router]);
+  }, [isAuthLoading, load]);
 
   useEffect(() => {
     if (!requestMenuOpen) return;
@@ -418,10 +414,10 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
   const displayedProducts = visibleProducts.slice(0, visibleProductCount);
   const hiddenProductCount = Math.max(0, visibleProducts.length - displayedProducts.length);
   const nextProductCount = Math.min(SHARED_CLOSET_PAGE_SIZE, hiddenProductCount);
-  const isOwner = Boolean(outfitRequest && currentUserId === outfitRequest.authorId);
-  const myProposal = outfitRequest?.proposals.find((proposal) => proposal.authorId === currentUserId) || null;
+  const isOwner = Boolean(authUserId && outfitRequest && currentUserId === outfitRequest.authorId);
+  const myProposal = authUserId ? outfitRequest?.proposals.find((proposal) => proposal.authorId === currentUserId) || null : null;
   const isEditingMyProposal = Boolean(myProposal && editingProposalId === myProposal.id);
-  const canComposeProposal = Boolean(!isOwner && outfitRequest?.status === "open" && (!myProposal || isEditingMyProposal));
+  const canComposeProposal = Boolean(authUserId && !isOwner && outfitRequest?.status === "open" && (!myProposal || isEditingMyProposal));
   const selectionTrayPresence = usePresence(canComposeProposal && selectedProducts.length > 0);
   const selectionTrayCount = selectedProducts.length || (selectionTrayPresence.isMounted ? 1 : 0);
   const acceptedProposal = outfitRequest?.proposals.find((proposal) => proposal.id === outfitRequest.acceptedProposalId) || null;
@@ -500,6 +496,10 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
   }
 
   async function submitProposal(confirmed = false) {
+    if (!authUserId) {
+      router.push(buildLoginHref("login", `/outfits/${requestId}`));
+      return;
+    }
     if (selectedIds.length < 2 || explanation.trim().length < 10 || working) return;
     const focusProductIds = outfitRequest?.focusProductIds || [];
     const matchedFocusItemCount = focusProductIds.filter((id) => selectedIds.includes(id)).length;
@@ -601,7 +601,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
     finally { setWorking(false); }
   }
 
-  if (isAuthLoading || loading || (!authUser && !error)) return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="코디 요청을 준비하고 있어요" description="요청과 제안 내용을 불러오는 중입니다." /></main>;
+  if (isAuthLoading || loading) return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="코디 요청을 준비하고 있어요" description="요청과 제안 내용을 불러오는 중입니다." /></main>;
   if (!outfitRequest) return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="error" title="코디 요청을 찾을 수 없어요" description={error || "요청이 삭제되었거나 더 이상 볼 수 없습니다."} action={<button type="button" onClick={returnToOutfits} className="rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-bold text-black">목록으로 돌아가기</button>} /></main>;
 
   const otherProposals = outfitRequest.proposals.filter((proposal) => proposal.id !== myProposal?.id);
@@ -761,6 +761,21 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
               <span className="text-sm font-bold">아이템 {nextProductCount}개 더 보기</span>
               <span className="mt-0.5 text-xs font-semibold text-white/35">{hiddenProductCount}개 남음</span>
             </button>
+          )}
+          {!authUserId && outfitRequest.status === "open" && (
+            <section className="mt-5 rounded-2xl border border-orange-400/20 bg-orange-400/[0.07] p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+              <div>
+                <p className="font-black text-orange-100">이 옷장으로 코디를 제안해보세요</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-white/55">로그인하면 아이템을 골라 나만의 코디를 제안할 수 있어요.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(buildLoginHref("login", `/outfits/${requestId}`))}
+                className="outfit-detail-pressable mt-3 min-h-11 w-full shrink-0 rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition-[background-color,transform] hover:bg-orange-400 sm:mt-0 sm:w-auto"
+              >
+                로그인하고 제안하기
+              </button>
+            </section>
           )}
           {selectionTrayPresence.isMounted && (
             <aside aria-label="코디 선택 상태" data-visible={selectionTrayPresence.isVisible} className="outfit-detail-selection-tray fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-white/15 bg-[#161619]/95 p-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)] backdrop-blur sm:sticky sm:bottom-4 sm:inset-x-auto sm:mt-5 sm:max-w-3xl">

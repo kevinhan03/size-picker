@@ -7,6 +7,7 @@ import { validateUsername } from '../utils/username';
 import { captureEvent } from '../utils/analytics';
 import { readAuthContinuation, saveAuthContinuation } from '../utils/authNavigation';
 import { readGuestDigbox, requestGuestDigboxImport } from '../utils/guestDigbox';
+import type { AuthEntryContext } from '../utils/authNavigation';
 
 type AuthTab = 'login' | 'signup';
 
@@ -18,7 +19,26 @@ interface LoginPageProps {
   initialTab?: AuthTab;
   isGuestDigboxSignup?: boolean;
   isUnregisteredGoogle?: boolean;
+  authEntryContext?: AuthEntryContext;
 }
+
+const authEntryCopy: Record<AuthEntryContext, { eyebrow: string; title: string; description: string }> = {
+  taste: {
+    eyebrow: 'MY TASTE',
+    title: '내 취향을 계속 쌓아볼까요?',
+    description: '저장과 옷장 기록이 쌓일수록 취향의 변화와 새로운 방향을 더 정확히 보여드려요.',
+  },
+  closet: {
+    eyebrow: 'MY WARDROBE',
+    title: '내 옷장은 계정에 연결돼요',
+    description: '보유 상품과 사이즈 정보를 저장하고, 코디에 바로 활용할 수 있어요.',
+  },
+  saved: {
+    eyebrow: 'MY SAVED',
+    title: '저장한 상품을 계속 모아볼까요?',
+    description: '지금 고른 상품을 보관하고, 어떤 기기에서도 이어서 볼 수 있어요.',
+  },
+};
 
 type PendingSignup = {
   email: string;
@@ -51,6 +71,7 @@ export const LoginPage = ({
   initialTab = 'login',
   isGuestDigboxSignup = false,
   isUnregisteredGoogle = false,
+  authEntryContext,
 }: LoginPageProps) => {
   const [tab, setTab] = useState<AuthTab>(initialTab);
   const [email, setEmail] = useState('');
@@ -66,6 +87,7 @@ export const LoginPage = ({
   const [isResending, setIsResending] = useState(false);
   const [isSignupVerified, setIsSignupVerified] = useState(false);
   const verificationCodeInputRef = useRef<HTMLInputElement>(null);
+  const entryCopy = authEntryContext ? authEntryCopy[authEntryContext] : null;
 
   useEffect(() => {
     if (!signupEmail) return;
@@ -312,11 +334,12 @@ export const LoginPage = ({
       <div className="mx-auto mt-4 w-full max-w-md">
         <div className="rounded-2xl border border-white/10 bg-[#151518] p-6 shadow-[0_12px_32px_rgba(0,0,0,0.36)] sm:p-8">
           <div className="mb-6">
+            {entryCopy ? <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#f2a56c]">{entryCopy.eyebrow}</p> : null}
             <h1 className="text-xl font-bold tracking-[-0.02em] text-white">
-              {tab === 'login' ? '다시 만나 반가워요' : '새 계정 만들기'}
+              {entryCopy?.title || (tab === 'login' ? '다시 만나 반가워요' : '새 계정 만들기')}
             </h1>
             <p className="mt-1.5 text-sm leading-6 text-gray-300">
-              {tab === 'login' ? '내 취향과 저장한 아이템을 이어서 확인하세요.' : '취향을 기록하고 나만의 스타일을 만들어 보세요.'}
+              {entryCopy?.description || (tab === 'login' ? '내 취향과 저장한 아이템을 이어서 확인하세요.' : '취향을 기록하고 나만의 스타일을 만들어 보세요.')}
             </p>
           </div>
 
@@ -325,23 +348,23 @@ export const LoginPage = ({
               type="button"
               onClick={() => switchTab('login')}
               aria-pressed={tab === 'login'}
-              className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-bold transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transform-none motion-reduce:transition-none ${
+              className={`group flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-bold transition-[background-color,color] duration-[var(--duration-press)] ease-[var(--ease-out)] active:!scale-100 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transition-none ${
                 tab === 'login' ? 'bg-orange-500 text-black' : 'text-gray-400 hover:text-gray-200'
               }`}
             >
               <LogIn className="h-4 w-4" />
-              로그인
+              <span className="inline-block transition-transform duration-[var(--duration-press)] ease-[var(--ease-out)] group-active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none">로그인</span>
             </button>
             <button
               type="button"
               onClick={() => switchTab('signup')}
               aria-pressed={tab === 'signup'}
-              className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-bold transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transform-none motion-reduce:transition-none ${
+              className={`group flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-bold transition-[background-color,color] duration-[var(--duration-press)] ease-[var(--ease-out)] active:!scale-100 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transition-none ${
                 tab === 'signup' ? 'bg-orange-500 text-black' : 'text-gray-400 hover:text-gray-200'
               }`}
             >
               <UserPlus className="h-4 w-4" />
-              회원가입
+              <span className="inline-block transition-transform duration-[var(--duration-press)] ease-[var(--ease-out)] group-active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none">회원가입</span>
             </button>
           </div>
 

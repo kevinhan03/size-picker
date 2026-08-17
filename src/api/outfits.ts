@@ -18,7 +18,7 @@ export async function fetchOutfitRequests(scope: OutfitRequestScope, cursor: str
     requests: OutfitRequestSummary[];
     total: number;
     nextCursor: string | null;
-    currentUserId: string;
+    currentUserId: string | null;
   }>(response, endpoint);
 }
 
@@ -35,7 +35,7 @@ export async function createOutfitRequest(input: { description: string; focusPro
 export async function fetchOutfitRequest(id: string) {
   const endpoint = `/api/outfit-requests/${encodeURIComponent(id)}`;
   const response = await fetch(endpoint, { headers: authHeaders(), credentials: "same-origin" });
-  return parseResponse<{ request: OutfitRequestDetail; currentUserId: string }>(response, endpoint);
+  return parseResponse<{ request: OutfitRequestDetail; currentUserId: string | null }>(response, endpoint);
 }
 
 export async function updateOutfitRequest(id: string, body: { action: "close" } | { action: "accept"; proposalId: string }) {

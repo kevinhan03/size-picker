@@ -3,9 +3,8 @@ import type { ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ClientProviders } from "../src/components/ClientProviders";
+import { getInitialAuthState } from "../server/auth/user-session";
 import "./globals.css";
-
-const ANONYMOUS_AUTH = { user: null, username: null, needsUsername: false };
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -44,17 +43,19 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
   modal,
 }: Readonly<{
   children: ReactNode;
   modal: ReactNode;
 }>) {
+  // Keep protected server pages and the first client render in the same auth state.
+  const initialAuth = await getInitialAuthState();
   return (
     <html lang="ko" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <ClientProviders initialAuth={ANONYMOUS_AUTH}>
+        <ClientProviders initialAuth={initialAuth}>
           {children}
           {modal}
         </ClientProviders>

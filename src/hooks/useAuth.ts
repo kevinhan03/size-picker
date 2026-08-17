@@ -16,7 +16,9 @@ export function useAuth(initialState: AuthInitialState) {
   const [authUser, setAuthUser] = useState<AuthUser>(initialState.user);
   const [dbUsername, setDbUsername] = useState<string | null>(initialState.username);
   const [needsUsername, setNeedsUsername] = useState(initialState.needsUsername);
-  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(supabase));
+  // A server-confirmed user can render protected initial data immediately.
+  // The client still refreshes the session in the background below.
+  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(supabase) && !initialState.user);
   const [pendingUsername, setPendingUsername] = useState("");
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isSubmittingUsername, setIsSubmittingUsername] = useState(false);

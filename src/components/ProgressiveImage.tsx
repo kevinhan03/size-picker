@@ -4,6 +4,19 @@ import type { SyntheticEvent } from "react";
 const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMyMjIiLz48L3N2Zz4=";
 
+const shouldBypassImageOptimizer = (src: string) => {
+  try {
+    const url = new URL(src);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+    const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+      : "";
+    return url.hostname !== supabaseHostname && url.hostname !== "images.unsplash.com";
+  } catch {
+    return false;
+  }
+};
+
 interface ProgressiveImageProps {
   src: string;
   thumbnailSrc?: string;
@@ -29,6 +42,7 @@ export const ProgressiveImage = ({
       src={src}
       alt={alt}
       fill
+      unoptimized={shouldBypassImageOptimizer(src)}
       className={className}
       loading={loading}
       fetchPriority={fetchPriority}

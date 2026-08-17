@@ -5,7 +5,11 @@ import type { ClosetSizeSelection, Product } from "../types";
 
 export type ClosetToast = { message: string; type: "success" | "info" | "error" } | null;
 
-export function useCloset(isLoggedIn: boolean, initialProducts?: Product[]) {
+export function useCloset(
+  isLoggedIn: boolean,
+  initialProducts?: Product[],
+  options: { initialAnalysisLoaded?: boolean; refreshAnalysisAfterMutation?: boolean } = {}
+) {
   const router = useRouter();
   const initialItems = initialProducts ?? [];
   const [closetProducts, setClosetProducts] = useState<Product[]>(initialItems);
@@ -16,7 +20,8 @@ export function useCloset(isLoggedIn: boolean, initialProducts?: Product[]) {
   const [toast, setToast] = useState<ClosetToast>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(initialProducts !== undefined);
-  const hasAnalysisLoadedRef = useRef(false);
+  const hasAnalysisLoadedRef = useRef(Boolean(options.initialAnalysisLoaded));
+  const refreshAnalysisAfterMutation = options.refreshAnalysisAfterMutation === true;
   const analysisRequestedRef = useRef(false);
   const isLoadingRef = useRef(false);
 
@@ -97,7 +102,8 @@ export function useCloset(isLoggedIn: boolean, initialProducts?: Product[]) {
     if (closetIds.has(productId)) return;
     await apiAdd(productId, sizeSelection);
     setClosetIds((prev) => new Set([...prev, productId]));
-  }, [isLoggedIn, router, closetIds]);
+    if (refreshAnalysisAfterMutation) await load(true);
+  }, [closetIds, isLoggedIn, load, refreshAnalysisAfterMutation, router]);
 
   const removeFromCloset = useCallback(async (productId: string) => {
     await apiRemove(productId);
@@ -107,7 +113,8 @@ export function useCloset(isLoggedIn: boolean, initialProducts?: Product[]) {
       return next;
     });
     setClosetProducts((prev) => prev.filter((p) => p.id !== productId));
-  }, []);
+    if (refreshAnalysisAfterMutation) await load(true);
+  }, [load, refreshAnalysisAfterMutation]);
 
   const isInCloset = useCallback((productId: string) => closetIds.has(productId), [closetIds]);
 

@@ -20,6 +20,8 @@ export interface Product {
   sizeTable?: SizeTable | null;
   normalizedSizeTable?: SizeTable | null;
   createdAt?: string;
+  /** When this product was saved to a user's collection, distinct from catalog registration time. */
+  collectionAddedAt?: string | null;
   registeredBy?: string | null;
   isInstagram?: boolean;
   instagramOrder?: number | null;
@@ -177,6 +179,7 @@ export interface ProductRow {
   size_table?: unknown;
   normalized_size_table?: unknown;
   created_at?: string | null;
+  collection_added_at?: string | null;
   image_path?: string | null;
   slug?: string | null;
   is_instagram?: boolean | null;

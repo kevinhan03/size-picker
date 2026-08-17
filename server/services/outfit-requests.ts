@@ -1,6 +1,7 @@
 import type { OutfitRequestMineStatus, OutfitRequestScope, OutfitRequestSummary, Product } from "../../src/types";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { normalizeProductRow } from "../utils/product.js";
+import { hydrateRequestSummaries } from "../utils/outfits.js";
 
 type CursorPayload = { createdAt: string; id: string };
 type SummaryRpcRow = { summary?: Record<string, unknown>; total_count?: number | string; sort_created_at?: string; sort_id?: string };
@@ -37,13 +38,43 @@ function normalizeSummary(value: Record<string, unknown>): OutfitRequestSummary 
   };
 }
 
-export async function listOutfitRequests(userId: string, scope: OutfitRequestScope, cursor: string | null = null, mineStatus: OutfitRequestMineStatus = "all", limit = 20) {
+export async function listOutfitRequests(userId: string | null, scope: OutfitRequestScope, cursor: string | null = null, mineStatus: OutfitRequestMineStatus = "all", limit = 20) {
   assertSupabaseConfig();
   const decoded = decodeCursor(cursor);
   if (cursor && !decoded) throw new Error("invalid cursor");
+  const pageLimit = Math.min(20, Math.max(1, limit));
+
+  if (!userId) {
+    let query = supabase!
+      .from("outfit_requests")
+      .select("id,author_id,description,status,accepted_proposal_id,created_at", { count: "exact" })
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(pageLimit + 1);
+
+    if (decoded) {
+      query = query.or(`created_at.lt.${decoded.createdAt},and(created_at.eq.${decoded.createdAt},id.lt.${decoded.id})`);
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+    const rows = (data || []) as Array<Record<string, unknown>>;
+    const hasMore = rows.length > pageLimit;
+    const pageRows = rows.slice(0, pageLimit);
+    const requests = await hydrateRequestSummaries(supabase!, pageRows);
+    const last = pageRows.at(-1);
+    return {
+      requests,
+      total: count ?? pageRows.length,
+      nextCursor: hasMore ? encodeCursor(String(last?.created_at || ""), String(last?.id || "")) : null,
+      currentUserId: null,
+    };
+  }
+
   const result = await supabase!.rpc("list_outfit_request_summaries", {
     target_user_id: userId, request_scope: scope, mine_status: mineStatus,
-    cursor_created_at: decoded?.createdAt || null, cursor_id: decoded?.id || null, page_limit: Math.min(20, Math.max(1, limit)),
+    cursor_created_at: decoded?.createdAt || null, cursor_id: decoded?.id || null, page_limit: pageLimit,
   });
   if (result.error) throw result.error;
   const rows = (result.data || []) as SummaryRpcRow[];
@@ -51,7 +82,7 @@ export async function listOutfitRequests(userId: string, scope: OutfitRequestSco
   const last = rows.at(-1);
   return {
     requests, total: Number(rows[0]?.total_count) || 0,
-    nextCursor: requests.length === Math.min(20, Math.max(1, limit)) ? encodeCursor(last?.sort_created_at, last?.sort_id) : null,
+    nextCursor: requests.length === pageLimit ? encodeCursor(last?.sort_created_at, last?.sort_id) : null,
     currentUserId: userId,
   };
 }

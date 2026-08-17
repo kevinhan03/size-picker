@@ -1,4 +1,5 @@
 export type AuthIntent = "login" | "signup";
+export type AuthEntryContext = "taste" | "closet" | "saved";
 
 export type AuthContinuation = {
   intent: AuthIntent;
@@ -60,7 +61,8 @@ export function clearAuthContinuation() {
   }
 }
 
-export function buildLoginHref(intent: AuthIntent, returnTo: string): string {
+export function buildLoginHref(intent: AuthIntent, returnTo: string, context?: AuthEntryContext): string {
   const params = new URLSearchParams({ intent, returnTo: sanitizeReturnTo(returnTo) });
+  if (context) params.set("context", context);
   return `/login?${params.toString()}`;
 }

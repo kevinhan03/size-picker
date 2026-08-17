@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
-import { useDigboxContext } from "../contexts/DigboxContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
 import { buildLoginHref } from "../utils/authNavigation";
 import {
@@ -19,7 +18,6 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuthContext();
-  const digbox = useDigboxContext();
   const productForm = useProductFormContext();
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isIconOnlyActions, setIsIconOnlyActions] = useState(false);
@@ -57,8 +55,8 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
   const isMyPage = pathname === "/mypage";
   const compactActions = isIconOnlyActions;
   const headerFrameClass = isCompactViewport
-    ? "h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-6xl px-4 pt-[env(safe-area-inset-top)]"
-    : "h-16 w-full max-w-6xl px-4";
+    ? "h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-[calc(70rem+var(--app-main-px)+var(--app-main-px))] px-[var(--app-main-px)] pt-[env(safe-area-inset-top)]"
+    : "h-16 w-full max-w-[calc(70rem+var(--app-main-px)+var(--app-main-px))] px-[var(--app-main-px)]";
 
   function navigate(destination: PrimaryNavigationDestination) {
     if (destination === "digging") {
@@ -66,7 +64,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
       return;
     }
     if (destination === "outfits") {
-      router.push(auth.authUser ? "/outfits" : buildLoginHref("login", "/outfits"));
+      router.push("/outfits");
       return;
     }
     if (destination === "taste") {
@@ -78,7 +76,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
       return;
     }
     if (!auth.authUser) {
-      digbox.setIsGuestPanelOpen(true);
+      router.push("/saved");
       return;
     }
     router.push(auth.dbUsername ? `/u/${encodeURIComponent(auth.dbUsername)}` : "/mypage");

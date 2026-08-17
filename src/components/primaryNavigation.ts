@@ -23,6 +23,6 @@ export function getPrimaryNavigationDestination(pathname: string): PrimaryNaviga
   if (pathname.startsWith("/outfits")) return "outfits";
   if (pathname.startsWith("/taste")) return "taste";
   if (pathname.startsWith("/closet")) return "closet";
-  if (pathname.startsWith("/u/")) return "digbox";
+  if (pathname === "/saved" || pathname.startsWith("/u/")) return "digbox";
   return null;
 }

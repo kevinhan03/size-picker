@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { RECOMMENDATION_COLUMNS, PRODUCT_CARD_COLUMNS, normalizeAnalysisProduct, normalizeProductCard, requestLog } from "../../../server/services/catalog";
+import { ANALYSIS_COLUMNS, PRODUCT_CARD_COLUMNS, normalizeAnalysisProduct, normalizeProductCard, requestLog } from "../../../server/services/catalog";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
 import { getClosetProducts } from "../../../server/services/user-collections";
 
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
 
     const { data: productsData, error: productsError } = await db
       .from("products")
-      .select(includeAnalysis ? RECOMMENDATION_COLUMNS : PRODUCT_CARD_COLUMNS)
+      .select(includeAnalysis ? ANALYSIS_COLUMNS : PRODUCT_CARD_COLUMNS)
       .in("id", productIds);
 
     if (productsError) throw productsError;
@@ -89,6 +89,7 @@ export async function GET(request: Request) {
         const closetRow = closetMap.get(String(id));
         return {
           ...product,
+          ...(includeAnalysis ? { collectionAddedAt: closetRow?.added_at ? String(closetRow.added_at) : null } : {}),
           closetSelectedSizeLabel: String(closetRow?.selected_size_label || "").trim() || null,
           closetSelectedSizeRowIndex:
             typeof closetRow?.selected_size_row_index === "number" &&

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { RECOMMENDATION_COLUMNS, PRODUCT_CARD_COLUMNS, normalizeAnalysisProduct, normalizeProductCard, requestLog } from "../../../server/services/catalog";
+import { ANALYSIS_COLUMNS, PRODUCT_CARD_COLUMNS, normalizeAnalysisProduct, normalizeProductCard, requestLog } from "../../../server/services/catalog";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
 import { getDigboxProducts } from "../../../server/services/user-collections";
 
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 
     const { data: productsData, error: productsError } = await db
       .from("products")
-      .select(includeAnalysis ? RECOMMENDATION_COLUMNS : `${PRODUCT_CARD_COLUMNS},registered_by`)
+      .select(includeAnalysis ? ANALYSIS_COLUMNS : `${PRODUCT_CARD_COLUMNS},registered_by`)
       .in("id", productIds);
 
     if (productsError) throw productsError;
@@ -78,10 +78,21 @@ export async function GET(request: Request) {
     }
 
     const productMap = new Map(rawProducts.map((p) => [String(p.id), p]));
+    const addedAtByProductId = new Map(
+      (digboxData ?? []).map((row: { product_id: string; added_at?: string | null }) => [
+        String(row.product_id),
+        row.added_at ? String(row.added_at) : null,
+      ])
+    );
     const products = productIds
-      .map((id: string) => includeAnalysis
-        ? normalizeAnalysisProduct(productMap.get(id))
-        : normalizeProductCard(productMap.get(id)))
+      .map((id: string) => {
+        const product = includeAnalysis
+          ? normalizeAnalysisProduct(productMap.get(id))
+          : normalizeProductCard(productMap.get(id));
+        return product && includeAnalysis
+          ? { ...product, collectionAddedAt: addedAtByProductId.get(String(id)) || null }
+          : product;
+      })
       .filter(Boolean);
 
     requestLog("/api/digbox", request, startedAt, 200);

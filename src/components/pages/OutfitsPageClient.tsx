@@ -69,6 +69,7 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
   const router = useRouter();
   const { authUser, isAuthLoading } = useAuthContext();
   const authUserId = authUser?.id;
+  const isGuest = !authUserId;
   const [scope, setScope] = useState<HubScope>(initialScope);
   const [mineStatus, setMineStatus] = useState<OutfitRequestMineStatus>("all");
   const [requests, setRequests] = useState<OutfitRequestSummary[]>(initialData?.requests || []);
@@ -130,6 +131,10 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
 
   function selectScope(nextScope: HubScope) {
     if (nextScope === scope) return;
+    if (isGuest && nextScope !== "open") {
+      router.push(buildLoginHref("login", `/outfits?tab=${nextScope}`));
+      return;
+    }
     const cached = requestCacheRef.current.get(getRequestCacheKey(nextScope, mineStatus));
     if (cached) {
       setRequests(cached.requests);
@@ -154,10 +159,6 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
 
   useEffect(() => {
     if (isAuthLoading) return;
-    if (!authUserId) {
-      router.replace(buildLoginHref("login", "/outfits"));
-      return;
-    }
     if (!usedInitialDataRef.current && initialData) {
       usedInitialDataRef.current = true;
       requestCacheRef.current.set(getRequestCacheKey(initialScope, "all"), { requests: initialData.requests, total: initialData.total, nextCursor: initialData.nextCursor });
@@ -188,9 +189,17 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
     };
   }, [scope, updateStatusFilterHint]);
 
-  if (isAuthLoading || (!authUser && !error)) {
+  if (isAuthLoading) {
     return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="코디 요청을 준비하고 있어요" description="요청과 제안 상태를 불러오는 중입니다." /></main>;
   }
+
+  const startRequest = () => {
+    if (!authUserId) {
+      router.push(buildLoginHref("login", "/outfits/new"));
+      return;
+    }
+    router.push("/outfits/new");
+  };
 
   const emptyState = scope === "open"
     ? {
@@ -204,16 +213,16 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
 
   return (
     <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto w-full max-w-[70rem]">
         <PageHeader
           eyebrow="STYLE TOGETHER"
           title={<span className="break-keep">서로의 취향으로 코디를 만드는 곳</span>}
           description="코디 고민을 올리거나, 다른 회원의 옷으로 코디를 제안해보세요."
-          action={<button onClick={() => router.push("/outfits/new")} className="outfit-pressable outfit-primary-action flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-black text-black transition-[background-color,transform] duration-150"><Plus className="h-4 w-4" /> 코디 요청하기</button>}
+          action={<button onClick={startRequest} className="outfit-pressable outfit-primary-action flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-black text-black transition-[background-color,transform] duration-150"><Plus className="h-4 w-4" /> 코디 요청하기</button>}
         />
 
-        <div className="mt-[var(--page-header-content-gap)] grid grid-cols-3 gap-1 border-b border-white/[0.08]">
-          {tabs.map((tab) => (
+        <div className={`mt-[var(--page-header-content-gap)] grid gap-1 border-b border-white/[0.08] ${isGuest ? "grid-cols-1" : "grid-cols-3"}`}>
+          {(isGuest ? tabs.filter((tab) => tab.value === "open") : tabs).map((tab) => (
             <button key={tab.value} type="button" aria-pressed={scope === tab.value} onClick={() => selectScope(tab.value)} className={`outfit-pressable outfit-tab min-h-11 border-b-2 px-4 py-2 text-sm font-black transition-[border-color,color,transform] duration-150 ${scope === tab.value ? "border-orange-400 text-orange-200" : "border-transparent text-white/45"}`}>{tab.label}</button>
           ))}
         </div>
@@ -264,7 +273,7 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
             <h2 className="mt-5 text-lg font-bold">{emptyState.title}</h2>
             <p className="mt-2 text-sm text-white/45">{emptyState.description}</p>
             {scope === "mine" && mineEmptyStates[mineStatus].ctaLabel && (
-              <button onClick={() => router.push("/outfits/new")} className="outfit-pressable outfit-primary-action mt-6 rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-black transition-[background-color,transform] duration-150">
+              <button onClick={startRequest} className="outfit-pressable outfit-primary-action mt-6 rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-black transition-[background-color,transform] duration-150">
                 {mineEmptyStates[mineStatus].ctaLabel}
               </button>
             )}

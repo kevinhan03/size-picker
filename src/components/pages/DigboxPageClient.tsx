@@ -567,6 +567,7 @@ export function DigboxPageClient({
       }}
     >
       <div style={{ width: "100%", maxWidth: 1280 }}>
+        <div className="mx-auto w-full max-w-[70rem]">
         <PageHeader
           eyebrow="SAVED ITEMS"
           title={isOwner ? "저장한 상품" : `${username} 님이 저장한 상품`}
@@ -730,6 +731,7 @@ export function DigboxPageClient({
 
         {/* Category filter */}
         <FilterBar categoryValue={catFilter} onCategoryChange={(value) => setCatFilter(value)} disabled={isEditing} />
+        </div>
 
         {/* Toolbar */}
         <div className="hidden">

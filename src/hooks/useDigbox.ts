@@ -13,7 +13,12 @@ import {
 export type DigboxToast = { message: string; type: "success" | "info" | "error" } | null;
 export type GuestSyncStatus = "idle" | "syncing" | "success" | "partial";
 
-export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], initialCounts: Record<string, number> = {}) {
+export function useDigbox(
+  isLoggedIn: boolean,
+  initialProducts?: Product[],
+  initialCounts: Record<string, number> = {},
+  options: { initialAnalysisLoaded?: boolean; refreshAnalysisAfterMutation?: boolean } = {}
+) {
   const initialItems = initialProducts ?? [];
   const [digboxProducts, setDigboxProducts] = useState<Product[]>(initialItems);
   const [digboxIds, setDigboxIds] = useState<Set<string>>(new Set(initialItems.map((product) => product.id)));
@@ -30,7 +35,8 @@ export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], init
   const [toast, setToast] = useState<DigboxToast>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(initialProducts !== undefined);
-  const hasAnalysisLoadedRef = useRef(false);
+  const hasAnalysisLoadedRef = useRef(Boolean(options.initialAnalysisLoaded));
+  const refreshAnalysisAfterMutation = options.refreshAnalysisAfterMutation === true;
   const analysisRequestedRef = useRef(false);
   const isLoadingRef = useRef(false);
   const syncAttemptedRef = useRef(false);
@@ -194,10 +200,11 @@ export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], init
   const addToDigbox = useCallback(async (productId: string, source = "unknown") => {
     if (!isLoggedIn || digboxIds.has(productId)) return;
     await addServerItem(productId);
+    if (refreshAnalysisAfterMutation) await load(true);
     const properties = { product_id: productId, source, logged_in: true };
     captureEvent("server_digbox_save_completed", properties);
     captureEvent("save_succeeded", properties);
-  }, [addServerItem, digboxIds, isLoggedIn]);
+  }, [addServerItem, digboxIds, isLoggedIn, load, refreshAnalysisAfterMutation]);
 
   const removeFromDigbox = useCallback(async (productId: string) => {
     await apiRemove(productId);
@@ -213,9 +220,11 @@ export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], init
       delete next[productId];
       return next;
     });
-  }, []);
+    if (refreshAnalysisAfterMutation) await load(true);
+  }, [load, refreshAnalysisAfterMutation]);
 
   const removeGuestItem = useCallback((productId: string) => {
+    setIsGuestPromptOpen(false);
     setGuestIds((current) => {
       const next = current.filter((id) => id !== productId);
       writeGuestDigbox(next);

@@ -4,7 +4,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useDigboxContext } from "../contexts/DigboxContext";
 import { captureEvent } from "../utils/analytics";
-import { buildLoginHref } from "../utils/authNavigation";
 import {
   getPrimaryNavigationDestination,
   primaryNavigationItems,
@@ -21,10 +20,10 @@ export function MobileBottomNav() {
   function navigate(destination: PrimaryNavigationDestination) {
     captureEvent("mobile_nav_clicked", { destination, is_authenticated: Boolean(auth.authUser) });
     if (destination === "digging") return void router.push("/");
-    if (destination === "outfits") return void router.push(auth.authUser ? "/outfits" : buildLoginHref("login", "/outfits"));
+    if (destination === "outfits") return void router.push("/outfits");
     if (destination === "taste") return void router.push("/taste");
     if (destination === "closet") return void router.push("/closet");
-    if (!auth.authUser) return void digbox.setIsGuestPanelOpen(true);
+    if (!auth.authUser) return void router.push("/saved");
     router.push(auth.dbUsername ? `/u/${encodeURIComponent(auth.dbUsername)}` : "/mypage");
   }
 

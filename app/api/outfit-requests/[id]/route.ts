@@ -14,13 +14,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   try {
     assertSupabaseConfig();
     const user = await registeredUser(request);
-    if (!user) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
     const { id } = await context.params;
     const { data, error } = await supabase!.from("outfit_requests").select(REQUEST_SELECT).eq("id", id).maybeSingle();
     if (error) throw error;
     if (!data) return notFound();
     const outfitRequest = await hydrateRequestDetail(supabase!, data);
-    return NextResponse.json({ ok: true, data: { request: outfitRequest, currentUserId: user.id } });
+    return NextResponse.json({ ok: true, data: { request: outfitRequest, currentUserId: user?.id || null } });
   } catch (error: unknown) {
     console.error("[outfits] detail failed", error);
     return NextResponse.json({ ok: false, error: "코디 요청을 불러오지 못했습니다." }, { status: 500 });

@@ -85,6 +85,7 @@ export const normalizeProductRow = (row) => {
       } catch { return null; }
     })(),
     createdAt: row.created_at || row.createdAt || null,
+    collectionAddedAt: row.collection_added_at || row.collectionAddedAt || null,
     registeredBy: row.registered_by ? String(row.registered_by) : null,
     isInstagram: Boolean(row.is_instagram),
     instagramOrder: typeof row.instagram_order === "number" ? row.instagram_order : null,

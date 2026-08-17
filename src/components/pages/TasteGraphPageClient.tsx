@@ -39,6 +39,12 @@ function sourcePath(source: TasteGraphSource) {
   return source === "digbox" ? "saved" : "closet";
 }
 
+function graphMatchesProducts(graph: SerializedTasteGraphState | undefined, products: Product[]) {
+  if (!graph || graph.products.length !== products.length) return false;
+  const productIds = new Set(products.map((product) => product.id));
+  return graph.products.every((product) => productIds.has(product.id));
+}
+
 export function TasteGraphPageClient({
   initialSource,
   initialView = "products",
@@ -76,7 +82,6 @@ export function TasteGraphPageClient({
   const {
     closetProducts,
     isLoaded: isClosetLoaded,
-    ensureLoaded: ensureClosetLoaded,
     error: closetError,
     reload: reloadCloset,
     toggleCloset,
@@ -85,7 +90,6 @@ export function TasteGraphPageClient({
   const {
     digboxProducts,
     isLoaded: isDigboxLoaded,
-    ensureLoaded: ensureDigboxLoaded,
     error: digboxError,
     reload: reloadDigbox,
     toggleDigbox,
@@ -93,14 +97,8 @@ export function TasteGraphPageClient({
   } = useDigboxContext();
 
   useEffect(() => {
-    if (!auth.isAuthLoading && !authUserId) router.replace("/login");
+    if (!auth.isAuthLoading && !authUserId) router.replace("/taste");
   }, [auth.isAuthLoading, authUserId, router]);
-
-  useEffect(() => {
-    if (!authUserId) return;
-    ensureDigboxLoaded(true);
-    ensureClosetLoaded(true);
-  }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
 
   useEffect(() => {
     setSelectedSource(initialSource || null);
@@ -112,6 +110,14 @@ export function TasteGraphPageClient({
 
   const source = selectedSource ?? urlFocus.source ?? "digbox";
   const activeProducts = source === "closet" ? closetProducts : digboxProducts;
+  const digboxGraphData = useMemo(
+    () => graphMatchesProducts(initialGraphs?.digbox, digboxProducts) ? initialGraphs?.digbox : undefined,
+    [digboxProducts, initialGraphs?.digbox]
+  );
+  const closetGraphData = useMemo(
+    () => graphMatchesProducts(initialGraphs?.closet, closetProducts) ? initialGraphs?.closet : undefined,
+    [closetProducts, initialGraphs?.closet]
+  );
   const brandProducts = useMemo(
     () => Array.from(new Map([...digboxProducts, ...closetProducts].map((product) => [product.id, product])).values()),
     [closetProducts, digboxProducts]
@@ -295,7 +301,7 @@ export function TasteGraphPageClient({
           <div className={`taste-product-graph-layer ${source === "digbox" ? "active" : ""}`}>
             <TasteGraphCanvas
               products={digboxProducts}
-              graphData={initialGraphs?.digbox}
+              graphData={digboxGraphData}
               initialTag={urlFocus.source === "digbox" ? urlFocus.tag : undefined}
               source="digbox"
               active={isMapOpen && selectedView === "products" && source === "digbox"}
@@ -307,7 +313,7 @@ export function TasteGraphPageClient({
           <div className={`taste-product-graph-layer ${source === "closet" ? "active" : ""}`}>
             <TasteGraphCanvas
               products={closetProducts}
-              graphData={initialGraphs?.closet}
+              graphData={closetGraphData}
               initialTag={urlFocus.source === "closet" ? urlFocus.tag : undefined}
               source="closet"
               active={isMapOpen && selectedView === "products" && source === "closet"}
