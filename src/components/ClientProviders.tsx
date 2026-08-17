@@ -7,28 +7,32 @@ import { CollectionBootstrapProvider } from "../contexts/CollectionBootstrapCont
 import { NavigationProgressProvider } from "../contexts/NavigationProgressContext";
 import { ProductFormProvider } from "../contexts/ProductFormContext";
 import { SearchProvider } from "../contexts/SearchContext";
+import { LocaleProvider } from "../contexts/LocaleContext";
 import { AppShell } from "./AppShell";
 import { PostHogProvider } from "./PostHogProvider";
 import { NavigationPrefetcher } from "./NavigationPrefetcher";
 import type { AuthInitialState } from "../types";
+import type { Locale } from "../i18n/locale";
 
-export function ClientProviders({ children, initialAuth }: { children: React.ReactNode; initialAuth: AuthInitialState }) {
+export function ClientProviders({ children, initialAuth, initialLocale }: { children: React.ReactNode; initialAuth: AuthInitialState; initialLocale: Locale }) {
   return (
     <PostHogProvider>
-      <AuthProvider initialState={initialAuth}>
-        <CollectionBootstrapProvider>
-          <NavigationPrefetcher />
-          <ClosetProvider>
-            <DigboxProvider>
-              <SearchProvider>
-                <ProductFormProvider>
-                  <NavigationProgressProvider><AppShell>{children}</AppShell></NavigationProgressProvider>
-                </ProductFormProvider>
-              </SearchProvider>
-            </DigboxProvider>
-          </ClosetProvider>
-        </CollectionBootstrapProvider>
-      </AuthProvider>
+      <LocaleProvider initialLocale={initialLocale}>
+        <AuthProvider initialState={initialAuth}>
+          <CollectionBootstrapProvider>
+            <NavigationPrefetcher />
+            <ClosetProvider>
+              <DigboxProvider>
+                <SearchProvider>
+                  <ProductFormProvider>
+                    <NavigationProgressProvider><AppShell>{children}</AppShell></NavigationProgressProvider>
+                  </ProductFormProvider>
+                </SearchProvider>
+              </DigboxProvider>
+            </ClosetProvider>
+          </CollectionBootstrapProvider>
+        </AuthProvider>
+      </LocaleProvider>
     </PostHogProvider>
   );
 }

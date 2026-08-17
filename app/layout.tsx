@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ClientProviders } from "../src/components/ClientProviders";
 import type { AuthInitialState } from "../src/types";
+import { getLocale, LOCALE_COOKIE_NAME } from "../src/i18n/locale";
 import "./globals.css";
 
 const siteUrl =
@@ -45,17 +47,19 @@ export const viewport: Viewport = {
 
 const anonymousAuth: AuthInitialState = { user: null, username: null, needsUsername: false };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
   modal,
 }: Readonly<{
   children: ReactNode;
   modal: ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const initialLocale = getLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang={initialLocale} suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <ClientProviders initialAuth={anonymousAuth}>
+        <ClientProviders initialAuth={anonymousAuth} initialLocale={initialLocale}>
           {children}
           {modal}
         </ClientProviders>

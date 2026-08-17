@@ -5,7 +5,9 @@ import type { ClosetSizeSelection, Product } from "../types";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { usePresence } from "../hooks/usePresence";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
+import { useLocaleContext } from "../contexts/LocaleContext";
 import {
+  displayMeasurementLabel,
   getDisplaySizeTable,
   normalizeMeasurementLabel,
   normalizeMeasurementValueForDisplay,
@@ -42,6 +44,7 @@ export function SizeSelectionSheet({
   onClose: () => void;
   onConfirm: (selection: ClosetSizeSelection | null) => void;
 }) {
+  const { t } = useLocaleContext();
   const sizeTable = useMemo(() => getDisplaySizeTable(product), [product]);
   const rows = useMemo(() => sizeTable?.rows ?? [], [sizeTable]);
   const headers = useMemo(() => sizeTable?.headers ?? [], [sizeTable]);
@@ -169,7 +172,7 @@ export function SizeSelectionSheet({
     return headers
       .slice(1)
       .map((header, index) => ({
-        label: normalizeMeasurementLabel(header) || String(header ?? "").trim(),
+        label: displayMeasurementLabel(normalizeMeasurementLabel(header) || String(header ?? "").trim()),
         value: normalizeMeasurementValueForDisplay(selectedRow[index + 1]),
       }))
       .filter(({ label, value }) => label && value);
@@ -182,13 +185,13 @@ export function SizeSelectionSheet({
     .map(({ label, value }) => `${label} ${value}`)
     .join(' · ');
   const selectionHint = hasSizeTable
-    ? '사이즈를 선택하면 주요 치수를 확인할 수 있어요.'
-    : '입력한 사이즈는 내 옷장에 함께 저장됩니다.';
+    ? t("size.selectHint")
+    : t("size.manualHint");
   const confirmLabel = canConfirm
-    ? `${selectedSizeLabel} 선택 완료`
+    ? t("size.confirm", { size: selectedSizeLabel })
     : hasSizeTable
-      ? '사이즈를 선택하세요'
-      : '사이즈를 입력하세요';
+      ? t("size.choose")
+      : t("size.enter");
 
   return isPortalReady ? createPortal(
     (
@@ -206,21 +209,21 @@ export function SizeSelectionSheet({
           onPointerMove={onDragMove}
           onPointerUp={onDragEnd}
           onPointerCancel={onDragEnd}
-          aria-label="사이즈 선택 시트 닫기"
+          aria-label={t("size.sheetClose")}
         >
           <span className="h-1 w-10 rounded-full bg-white/25" />
         </div>
         <div className="sticky top-0 z-10 -mx-5 mb-5 bg-[#111114] px-5 py-3 sm:-mx-6 sm:px-6">
           <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="truncate text-lg font-bold">보유 사이즈 선택</h3>
+            <h3 className="truncate text-lg font-bold">{t("size.title")}</h3>
             {product.brand ? <p className="mt-1 truncate text-xs font-semibold tracking-wide text-white/40">{product.brand}</p> : null}
             <p className="mt-0.5 truncate text-sm font-semibold text-white/85">{product.name}</p>
           </div>
           <button
             type="button"
             onClick={closeSheet}
-            aria-label="사이즈 선택 닫기"
+            aria-label={t("size.close")}
             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-gray-400 transition hover:bg-white/[0.1] hover:text-white"
           >
             <X className="h-4 w-4" />
@@ -252,13 +255,13 @@ export function SizeSelectionSheet({
           </div>
         ) : (
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-sm font-bold text-white">사이즈표가 없는 상품입니다</p>
-            <p className="mt-1 text-sm text-gray-400">보유 사이즈를 직접 입력해주세요.</p>
-            <label className="mb-2 mt-4 block text-xs font-bold uppercase tracking-wide text-gray-500">보유 사이즈</label>
+            <p className="text-sm font-bold text-white">{t("size.noTable")}</p>
+            <p className="mt-1 text-sm text-gray-400">{t("size.noTableDescription")}</p>
+            <label className="mb-2 mt-4 block text-xs font-bold uppercase tracking-wide text-gray-500">{t("size.owned")}</label>
             <input
               value={manualSize}
               onChange={(event) => setManualSize(event.target.value)}
-              placeholder="예: M, 32, 260, Free"
+              placeholder={t("size.example")}
               autoFocus
               className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-gray-600 focus:border-orange-500/70"
             />
@@ -269,7 +272,7 @@ export function SizeSelectionSheet({
           {canConfirm ? (
             <p className="text-sm leading-6 text-white/55">
               <span className="font-bold text-white">{selectedSizeLabel}</span>
-              <span>{measurementSummary ? ` · ${measurementSummary}` : ` · ${hasSizeTable ? '선택한 사이즈로 내 옷장에 저장됩니다.' : '직접 입력한 보유 사이즈입니다.'}`}</span>
+              <span>{measurementSummary ? ` · ${measurementSummary}` : ` · ${hasSizeTable ? t("size.saveSelected") : t("size.manualDescription")}`}</span>
             </p>
           ) : <p className="text-xs text-gray-500">{selectionHint}</p>}
         </div>
@@ -280,7 +283,7 @@ export function SizeSelectionSheet({
             onClick={() => onConfirm(null)}
             className="h-12 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-sm font-bold text-gray-300 transition hover:bg-white/[0.09] hover:text-white"
           >
-            사이즈 없이 저장
+            {t("size.saveWithout")}
           </button>
           <button
             type="button"

@@ -8,6 +8,7 @@ import { getAuthErrorMessage } from "../utils/authMessage";
 import { normalizeUsername, validateUsername } from "../utils/username";
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "../utils/authCache";
 import { clearCollectionSnapshot } from "../utils/collectionCache";
+import { useLocaleContext } from "../contexts/LocaleContext";
 
 type AuthUser = { id?: string; email?: string } | null;
 type AuthSessionResponse = { ok?: boolean; data?: AuthInitialState };
@@ -18,6 +19,7 @@ export function useAuth(initialState: AuthInitialState) {
   const [cachedInitialState] = useState<AuthInitialState | null>(() => initialState.user ? null : readAuthSnapshot());
   // The first client render must match the anonymous static HTML emitted by the
   // root layout. Apply a browser-only snapshot only after hydration.
+  const { t } = useLocaleContext();
   const [authUser, setAuthUser] = useState<AuthUser>(initialState.user);
   const authUserRef = useRef<AuthUser>(initialState.user);
   const [dbUsername, setDbUsername] = useState<string | null>(initialState.username);
@@ -160,7 +162,7 @@ export function useAuth(initialState: AuthInitialState) {
       await signOut("/login");
       return true;
     } catch (error: unknown) {
-      setDeleteAccountError(getAuthErrorMessage(error, "계정을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요."));
+      setDeleteAccountError(getAuthErrorMessage(error, t("mypage.deleteAccountError")));
       return false;
     } finally {
       setIsDeletingAccount(false);

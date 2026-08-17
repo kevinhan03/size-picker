@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { useProductDetail } from "../../hooks/useProductDetail";
 import { useProgressiveList } from "../../hooks/useProgressiveList";
@@ -61,6 +62,7 @@ function GridCard({
   onOpen: () => void;
   href: string;
 }) {
+  const { t } = useLocaleContext();
   const [imgOk, setImgOk] = useState(true);
   const imageSrc = product.image || product.thumbnailImage || "";
   const showInlineDelete = false;
@@ -118,7 +120,7 @@ function GridCard({
       {isEditing && (
         <button
           type="button"
-          aria-label="상품 선택"
+          aria-label={t("common.selectProduct")}
           onClick={onSelect}
           className="absolute inset-0 z-10 rounded-[22px] bg-transparent"
         />
@@ -128,7 +130,7 @@ function GridCard({
       {showInlineDelete && (
       <button
         type="button"
-        aria-label="옷장에서 삭제"
+        aria-label={t("common.removeFromCloset")}
         onClick={(e) => {
           e.stopPropagation();
           onDelete();
@@ -161,6 +163,7 @@ function ListRow({
   onOpen: () => void;
   href: string;
 }) {
+  const { t } = useLocaleContext();
   const [hover, setHover] = useState(false);
   const [imgOk, setImgOk] = useState(true);
   const showInlineDelete = false;
@@ -187,7 +190,7 @@ function ListRow({
       {isEditing && (
       <button
         type="button"
-        aria-label="상품 선택"
+        aria-label={t("common.selectProduct")}
         onClick={onSelect}
         style={{
           flexShrink: 0,
@@ -342,6 +345,7 @@ function DeleteConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useLocaleContext();
   return (
     <div
       style={{
@@ -396,12 +400,10 @@ function DeleteConfirmDialog({
           </svg>
         </div>
         <h3 style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
-          옷장에서 삭제할까요?
+          {t("closet.deleteConfirmTitle")}
         </h3>
         <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
-          이 아이템을 내 옷장에서 삭제합니다.
-          <br />
-          나중에 다시 추가할 수 있습니다.
+          {t("closet.deleteConfirmDescription")}
         </p>
         <div style={{ display: "flex", gap: 10 }}>
           <button
@@ -418,7 +420,7 @@ function DeleteConfirmDialog({
               cursor: "pointer",
             }}
           >
-            취소
+            {t("common.cancel")}
           </button>
           <button
             onClick={onConfirm}
@@ -434,7 +436,7 @@ function DeleteConfirmDialog({
               cursor: "pointer",
             }}
           >
-            삭제
+            {t("common.delete")}
           </button>
         </div>
       </div>
@@ -443,6 +445,7 @@ function DeleteConfirmDialog({
 }
 
 export function ClosetPageClient({ initialProducts }: { initialProducts?: Product[] }) {
+  const { t } = useLocaleContext();
   const router = useRouter();
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
@@ -561,11 +564,11 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
   };
 
   if (auth.isAuthLoading || !auth.authUser) {
-    return <CollectionLoadingSkeleton eyebrow="WARDROBE" title="내 옷장" />;
+    return <CollectionLoadingSkeleton eyebrow="WARDROBE" title={t("closet.title")} />;
   }
 
   if (closet.isLoading && closetItems.length === 0) {
-    return <CollectionLoadingSkeleton eyebrow="WARDROBE" title="내 옷장" />;
+    return <CollectionLoadingSkeleton eyebrow="WARDROBE" title={t("closet.title")} />;
   }
 
   if (closet.error && closetItems.length === 0) {
@@ -573,11 +576,11 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
       <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
         <PageState
           kind="error"
-          title="옷장을 불러오지 못했어요"
-          description="잠시 후 다시 시도해 주세요. 기존 저장 데이터는 그대로 유지됩니다."
+          title={t("closet.loadError")}
+          description={t("closet.loadErrorDescription")}
           action={(
             <button type="button" onClick={() => void closet.reload()} className="ui-button ui-button-primary px-5 py-2.5">
-              다시 시도
+              {t("common.retry")}
             </button>
           )}
         />
@@ -620,10 +623,10 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
     >
       <div style={{ width: "100%", maxWidth: 1280 }}>
         <div className="mx-auto w-full max-w-[70rem]">
-        <PageHeader eyebrow="WARDROBE" title="내 옷장" />
+        <PageHeader eyebrow="WARDROBE" title={t("closet.title")} />
 
         <div className="mt-[var(--page-header-content-gap)]">
-          <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel="옷장 상품 검색" />
+          <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("closet.search")} />
         </div>
         <FilterBar categoryValue={catFilter} onCategoryChange={(value) => setCatFilter(value)} disabled={isEditing} />
         </div>
@@ -832,9 +835,9 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
         {filtered.length > 0 ? (
           <div className="mb-3 flex items-center justify-between gap-3">
             <p aria-live="polite" className={`text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
-              {isEditing ? (selectedIds.size ? `${selectedIds.size}개 선택됨` : "옷장에서 삭제할 상품을 선택하세요.") : (searchQuery.trim() ? `${filtered.length}개 검색 결과` : `옷장 상품 ${filtered.length}개`)}
+              {isEditing ? (selectedIds.size ? t("closet.selected", { count: selectedIds.size }) : t("closet.selectToDelete")) : (searchQuery.trim() ? t("closet.searchResults", { count: filtered.length }) : t("closet.productCount", { count: filtered.length }))}
             </p>
-            {!isEditing ? <button type="button" onClick={() => setIsEditing(true)} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">옷장에서 삭제</button> : <button type="button" onClick={() => { setSelectedIds(new Set()); setIsEditing(false); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">취소</button>}
+            {!isEditing ? <button type="button" onClick={() => setIsEditing(true)} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">{t("closet.delete")}</button> : <button type="button" onClick={() => { setSelectedIds(new Set()); setIsEditing(false); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">{t("common.cancel")}</button>}
           </div>
         ) : null}
 
@@ -883,10 +886,10 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
 
       {isEditing && selectedIds.size > 0 ? (
         <div className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
-          <p className="min-w-0 text-sm font-bold text-white"><span className="text-orange-300">{selectedIds.size}개</span> 선택됨</p>
+          <p className="min-w-0 text-sm font-bold text-white">{t("closet.selected", { count: selectedIds.size })}</p>
           <div className="flex shrink-0 items-center gap-2">
-            <button type="button" onClick={() => { setSelectedIds(new Set()); setIsEditing(false); }} className="h-10 rounded-xl px-3 text-sm font-bold text-gray-300 transition hover:bg-white/[0.06] hover:text-white">취소</button>
-            <button type="button" onClick={() => setConfirmBatchDelete(true)} className="h-10 rounded-xl bg-red-500 px-4 text-sm font-bold text-white transition hover:bg-red-400">선택한 상품을 옷장에서 삭제</button>
+            <button type="button" onClick={() => { setSelectedIds(new Set()); setIsEditing(false); }} className="h-10 rounded-xl px-3 text-sm font-bold text-gray-300 transition hover:bg-white/[0.06] hover:text-white">{t("common.cancel")}</button>
+            <button type="button" onClick={() => setConfirmBatchDelete(true)} className="h-10 rounded-xl bg-red-500 px-4 text-sm font-bold text-white transition hover:bg-red-400">{t("closet.removeSelected")}</button>
           </div>
         </div>
       ) : null}

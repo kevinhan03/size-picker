@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { useProductDetail } from "../../hooks/useProductDetail";
 import { captureEvent } from "../../utils/analytics";
@@ -34,7 +35,8 @@ type MapTarget = { source?: TasteCollectionSource; tag?: StyleTagName };
 const SOURCE_ORDER: readonly TasteGraphSource[] = ["digbox", "closet"];
 
 function MapLoading() {
-  return <div className="flex h-full items-center justify-center text-sm font-semibold text-gray-400">취향 그래프를 준비하고 있어요.</div>;
+  const { t } = useLocaleContext();
+  return <div className="flex h-full items-center justify-center text-sm font-semibold text-gray-400">{t("tasteGraph.loading")}</div>;
 }
 
 function sourcePath(source: TasteGraphSource) {
@@ -58,6 +60,7 @@ export function TasteGraphPageClient({
   initialTag?: StyleTagName;
   initialGraphs?: Partial<Record<TasteGraphSource, SerializedTasteGraphState>>;
 }) {
+  const { t } = useLocaleContext();
   const router = useRouter();
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
@@ -153,10 +156,10 @@ export function TasteGraphPageClient({
   }, [detailedProduct]);
   const hasBrandClusters = useMemo(() => buildBrandClusters(brandProducts).clusters.length > 1, [brandProducts]);
   const emptyCopy = useMemo(() => source === "closet"
-    ? { title: "아직 옷장 상품이 없어요", description: "실제로 가진 상품을 옷장에 넣으면 보유 취향을 그려드릴게요." }
+    ? { title: t("tasteGraph.empty.closet.title"), description: t("tasteGraph.empty.closet.description") }
     : source === "digbox"
-      ? { title: "아직 저장한 상품이 없어요", description: "마음에 드는 상품을 저장하면 관심 취향을 그려드릴게요." }
-      : { title: "아직 취향을 읽을 상품이 없어요", description: "상품을 저장하거나 옷장에 추가하면 스타일 섬이 자라기 시작해요." }, [source]);
+      ? { title: t("tasteGraph.empty.saved.title"), description: t("tasteGraph.empty.saved.description") }
+      : { title: t("tasteGraph.empty.title"), description: t("tasteGraph.empty.description") }, [source, t]);
 
   useEffect(() => {
     if (!isMapOpen || !authUserId || graphs[source] || graphRequestsRef.current.has(source)) return;
@@ -166,11 +169,11 @@ export function TasteGraphPageClient({
         setGraphLoadError(null);
       })
       .catch((error: unknown) => {
-        setGraphLoadError(error instanceof Error ? error.message : "취향 분석을 불러오지 못했습니다.");
+        setGraphLoadError(error instanceof Error ? error.message : t("tasteGraph.analysisLoadFailed"));
       })
       .finally(() => graphRequestsRef.current.delete(source));
     graphRequestsRef.current.set(source, request);
-  }, [authUserId, graphs, isMapOpen, source]);
+  }, [authUserId, graphs, isMapOpen, source, t]);
 
   useEffect(() => {
     if (isMapOpen && source !== "closet" && digboxProducts.length > 0) {
@@ -266,11 +269,11 @@ export function TasteGraphPageClient({
   };
 
   const renderSourceToggle = () => (
-    <div className="taste-source-toggle" aria-label="그래프 데이터 선택">
+    <div className="taste-source-toggle" aria-label={t("tasteGraph.dataToggle")}>
       <span className="taste-source-thumb" style={{ transform: `translateX(${SOURCE_ORDER.indexOf(source) * 100}%)` }} aria-hidden="true" />
       {SOURCE_ORDER.map((value) => (
         <button key={value} type="button" className={`taste-source-button ${source === value ? "active" : ""}`} onClick={() => selectSource(value)}>
-          {value === "digbox" ? "저장" : "옷장"}
+          {value === "digbox" ? t("tasteGraph.saved") : t("tasteGraph.closet")}
           <span>{value === "digbox" ? digboxProducts.length : closetProducts.length}</span>
         </button>
       ))}
@@ -278,7 +281,7 @@ export function TasteGraphPageClient({
   );
 
   if (auth.isAuthLoading || !auth.authUser) {
-    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="취향 그래프를 준비하고 있어요" description="저장한 상품을 분석해 나만의 연결을 만드는 중입니다." /></main>;
+    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title={t("tasteGraph.loading")} description={t("tasteGraph.loadingDescription")} /></main>;
   }
 
   if (closetError || digboxError) {
@@ -286,8 +289,8 @@ export function TasteGraphPageClient({
       <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
         <PageState
           kind="error"
-          title="취향 그래프를 불러오지 못했어요"
-          description="잠시 후 다시 시도해 주세요. 저장한 상품은 그대로 유지됩니다."
+          title={t("tasteGraph.loadError")}
+          description={t("tasteGraph.loadErrorDescription")}
           action={(
             <button
               type="button"
@@ -297,7 +300,7 @@ export function TasteGraphPageClient({
               }}
               className="ui-button ui-button-primary px-5 py-2.5"
             >
-              다시 시도
+              {t("common.retry")}
             </button>
           )}
         />
@@ -306,19 +309,19 @@ export function TasteGraphPageClient({
   }
 
   if (graphLoadError && isMapOpen) {
-    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="error" title="취향 그래프를 불러오지 못했어요" description={graphLoadError} action={<button type="button" onClick={() => { setGraphLoadError(null); setGraphs((current) => { const next = { ...current }; delete next[source]; return next; }); }} className="ui-button ui-button-primary px-5 py-2.5">다시 시도</button>} /></main>;
+    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="error" title={t("tasteGraph.loadError")} description={graphLoadError} action={<button type="button" onClick={() => { setGraphLoadError(null); setGraphs((current) => { const next = { ...current }; delete next[source]; return next; }); }} className="ui-button ui-button-primary px-5 py-2.5">{t("common.retry")}</button>} /></main>;
   }
 
   if (!isClosetLoaded || !isDigboxLoaded) {
-    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="취향 그래프를 준비하고 있어요" description="저장한 상품을 분석해 나만의 연결을 만드는 중입니다." /></main>;
+    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title={t("tasteGraph.loading")} description={t("tasteGraph.loadingDescription")} /></main>;
   }
 
   if (!closetProducts.length && !digboxProducts.length) {
-    return <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-6 pt-[var(--app-main-pt)] text-center text-white"><span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-300"><Network className="h-7 w-7" /></span><div><h1 className="text-xl font-black">아직 취향을 읽을 상품이 없어요</h1><p className="mt-2 text-sm font-semibold leading-6 text-gray-400">상품을 저장하거나 옷장에 추가하면 취향의 중심을 보여드릴게요.</p></div><Link href="/" className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition hover:bg-orange-400"><Plus className="h-4 w-4" />상품 둘러보기</Link></main>;
+    return <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-6 pt-[var(--app-main-pt)] text-center text-white"><span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-300"><Network className="h-7 w-7" /></span><div><h1 className="text-xl font-black">{t("tasteGraph.empty.title")}</h1><p className="mt-2 text-sm font-semibold leading-6 text-gray-400">{t("tasteGraph.empty.description")}</p></div><Link href="/" className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition hover:bg-orange-400"><Plus className="h-4 w-4" />{t("tasteGraph.browse")}</Link></main>;
   }
 
   if (isMapOpen && !activeProducts.length) {
-    return <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-6 pt-[var(--app-main-pt)] text-center text-white"><button type="button" onClick={closeMap} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300"><ArrowLeft className="h-4 w-4" />요약으로 돌아가기</button><p className="text-xl font-black">{emptyCopy.title}</p><p className="max-w-sm text-sm font-semibold leading-6 text-gray-400">{emptyCopy.description}</p></main>;
+    return <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-6 pt-[var(--app-main-pt)] text-center text-white"><button type="button" onClick={closeMap} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300"><ArrowLeft className="h-4 w-4" />{t("tasteGraph.backToSummary")}</button><p className="text-xl font-black">{emptyCopy.title}</p><p className="max-w-sm text-sm font-semibold leading-6 text-gray-400">{emptyCopy.description}</p></main>;
   }
 
   return (
@@ -327,7 +330,7 @@ export function TasteGraphPageClient({
     <main className={`taste-graph-page taste-graph-layout ${!isMapOpen ? "taste-graph-layout--standby" : ""}`} aria-hidden={!isMapOpen}>
       <header className="taste-graph-toolbar">
         <button type="button" onClick={closeMap} className="taste-map-back">
-          <ArrowLeft className="h-4 w-4" />요약으로
+          <ArrowLeft className="h-4 w-4" />{t("tasteGraph.summary")}
         </button>
         {selectedView === "products" ? renderSourceToggle() : null}
       </header>

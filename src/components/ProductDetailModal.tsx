@@ -9,11 +9,13 @@ import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { MySizesProvider, useMySizesContext } from "../contexts/MySizesContext";
 import { useAuthContext } from "../contexts/AuthContext";
+import { useLocaleContext } from "../contexts/LocaleContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
 import { usePresence } from "../hooks/usePresence";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
 import {
   compareMeasurementSnapshots,
+  displayMeasurementLabel,
   displayTableCell,
   getDisplaySizeTable,
   isPrimaryColumnHeader,
@@ -83,12 +85,13 @@ function getClosetSizeRowIndex(product?: Product | null): number | null {
 }
 
 function SavedSizeSummary({ product }: { product?: Product | null }) {
+  const { t } = useLocaleContext();
   const label = getClosetSizeLabel(product);
   if (!label) return null;
 
   return (
     <p className="flex items-baseline gap-2 text-sm">
-      <span className="text-xs font-semibold text-gray-500">보유 사이즈</span>
+      <span className="text-xs font-semibold text-gray-500">{t("comparison.ownedSize")}</span>
       <span className="font-bold text-gray-100">{label}</span>
     </p>
   );
@@ -111,6 +114,7 @@ function MySizePickerOverlay({
   onSelect: (profileId: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useLocaleContext();
   const presence = usePresence(open);
 
   useEffect(() => {
@@ -128,7 +132,7 @@ function MySizePickerOverlay({
     <div className="fixed inset-0 z-[75] flex items-center justify-center p-4" role="presentation">
       <div className="ui-layer-scrim absolute inset-0 bg-black/72" data-visible={presence.isVisible} onClick={onClose} />
       <section
-        aria-label="비교 기준 변경"
+        aria-label={t("comparison.changeReference")}
         aria-modal="true"
         role="dialog"
         className="ui-layer-modal ui-panel relative flex max-h-[min(80dvh,42rem)] w-full max-w-md flex-col rounded-3xl p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)] sm:p-6"
@@ -136,25 +140,25 @@ function MySizePickerOverlay({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-base font-bold text-white">비교 기준 변경</p>
-            <p className="mt-1 text-xs font-semibold text-gray-500">현재 상품과 비교할 내 옷을 선택하세요.</p>
+            <p className="text-base font-bold text-white">{t("comparison.changeReference")}</p>
+            <p className="mt-1 text-xs font-semibold text-gray-500">{t("comparison.changeReferenceDescription")}</p>
           </div>
-          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-[background-color,color] hover:bg-white/[0.07] hover:text-white" aria-label="비교 기준 변경 닫기">
+          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-[background-color,color] hover:bg-white/[0.07] hover:text-white" aria-label={t("comparison.closeChangeReference")}>
             <X className="h-4 w-4" />
           </button>
         </div>
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="브랜드, 상품명 또는 메모 검색"
+          placeholder={t("comparison.search")}
           className="mt-5 h-11 w-full rounded-xl border border-white/[0.1] bg-black/25 px-3 text-sm font-semibold text-white outline-none transition-[border-color,background-color] placeholder:text-gray-600 focus:border-orange-400/70 focus:bg-black/35"
         />
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-          {profiles.length > 0 && <p className="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-500">내 옷</p>}
+          {profiles.length > 0 && <p className="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-500">{t("comparison.myItems")}</p>}
           <div className="grid gap-1">
           {profiles.length > 0 && profiles.map((profile) => {
             const sizeLabel = String(profile.sizeLabel || profile.measurementSnapshot.row?.[0] || "").trim();
-            const brand = String(profile.brand || "브랜드 미등록").trim();
+            const brand = String(profile.brand || t("comparison.unregisteredBrand")).trim();
             const isSelected = profile.id === selectedId;
             return (
               <button
@@ -170,12 +174,12 @@ function MySizePickerOverlay({
               >
                 <div className="min-w-0">
                   <p className="truncate text-[10px] font-black uppercase tracking-wide text-gray-500">{brand}</p>
-                  <p className="truncate text-sm font-bold text-white">{profile.title || "저장한 상품"}</p>
-                  <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">{profile.fitNote || "착용감 메모 없음"}</p>
+                  <p className="truncate text-sm font-bold text-white">{profile.title || t("comparison.savedProduct")}</p>
+                  <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">{profile.fitNote || t("comparison.noFitNote")}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {sizeLabel ? <span className="rounded-md bg-white/[0.08] px-2 py-1 text-[11px] font-bold text-gray-300">{sizeLabel}</span> : null}
-                  {isSelected ? <Check className="h-4 w-4 text-orange-300" aria-label="현재 비교 기준" /> : null}
+                  {isSelected ? <Check className="h-4 w-4 text-orange-300" aria-label={t("comparison.currentReference")} /> : null}
                 </div>
               </button>
             );
@@ -218,6 +222,7 @@ function ProductDetailModalContent({
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const saveButtonSeenRef = useRef<string | null>(null);
   const { authUser } = useAuthContext();
+  const { t, locale } = useLocaleContext();
   const canUseCloset = Boolean(authUser);
   useBodyScrollLock(modalRef);
   const sizeTableTouchStartX = useRef<number | null>(null);
@@ -492,13 +497,13 @@ function ProductDetailModalContent({
         data-visible={presence.isVisible}
       >
         <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-2 text-white sm:px-6 sm:py-3">
-          <h3 id="product-detail-modal-title" className="shrink-0 text-base font-bold text-white sm:text-xl">상품 상세</h3>
+          <h3 id="product-detail-modal-title" className="shrink-0 text-base font-bold text-white sm:text-xl">{t("product.detail")}</h3>
           <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
             {!hideCollectionActions && !hideDigboxButton && (
             <div className="group relative">
               <button
                 type="button"
-                aria-label={isInDigbox ? "저장됨" : "저장하기"}
+                aria-label={isInDigbox ? t("product.saved") : t("product.save")}
                 aria-pressed={isInDigbox}
                 data-active={isInDigbox}
                 onClick={(event) => {
@@ -514,13 +519,13 @@ function ProductDetailModalContent({
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill={isInDigbox ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                 </svg>
-                <span>{isInDigbox ? "저장됨" : "저장"}</span>
+                <span>{isInDigbox ? t("product.saved") : t("product.save")}</span>
               </button>
               {showGuestDigboxHint && !isInDigbox ? (
                 <div role="status" className="pointer-events-none absolute right-0 top-[calc(100%+0.65rem)] z-20 w-60 rounded-xl border border-yellow-300/30 bg-[#282014] px-3 py-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.34)]">
                   <span className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-yellow-300/30 bg-[#282014]" aria-hidden="true" />
-                  <p className="relative text-xs font-black text-yellow-200">지금 끌리는 상품을 담아보세요</p>
-                  <p className="relative mt-1 text-[11px] font-semibold leading-4 text-gray-300"><span className="block">3개를 담으면, 고른 상품의</span><span className="block">공통 스타일 무드를 찾아드려요.</span></p>
+                  <p className="relative text-xs font-black text-yellow-200">{t("product.guestHintTitle")}</p>
+                  <p className="relative mt-1 text-[11px] font-semibold leading-4 text-gray-300">{t("product.guestHintBody")}</p>
                 </div>
               ) : null}
             </div>
@@ -529,7 +534,7 @@ function ProductDetailModalContent({
             <div className="group relative">
               <button
                 type="button"
-                aria-label={isInCloset ? "옷장에 있음" : "옷장"}
+                aria-label={isInCloset ? t("product.inCloset") : t("product.closet")}
                 aria-pressed={isInCloset}
                 data-active={isInCloset}
                 onClick={handleClosetClick}
@@ -540,13 +545,13 @@ function ProductDetailModalContent({
                 }`}
               >
                 <ClosetIcon className="h-4 w-4" />
-                <span>{isInCloset ? "옷장에 있음" : "옷장"}</span>
+                <span>{isInCloset ? t("product.inCloset") : t("product.closet")}</span>
               </button>
             </div>
             )}
             <button
               type="button"
-              aria-label="상품 상세 닫기"
+              aria-label={t("product.close")}
               onClick={closeModal}
               className="ui-detail-toolbar-button ui-detail-toolbar-button--close inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.045] text-gray-300 transition-[background-color,border-color,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
             >
@@ -595,16 +600,16 @@ function ProductDetailModalContent({
                     rel="noopener noreferrer"
                     className="inline-flex items-center text-sm text-gray-400 transition-colors hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
                   >
-                    공식 홈페이지 <ExternalLink className="ml-1 h-3 w-3" />
+                    {t("product.official")} <ExternalLink className="ml-1 h-3 w-3" />
                   </a>
                 ) : (
-                  <span className="text-sm text-gray-600">URL 없음</span>
+                  <span className="text-sm text-gray-600">{t("product.noUrl")}</span>
                 )}
               </div>
               {(product.registeredBy || otherDigboxCount > 0) && (
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-gray-500">
-                  {product.registeredBy && <span>발굴한 사람: <span className="text-gray-200">{product.registeredBy}</span></span>}
-                  {otherDigboxCount > 0 && <span>{otherDigboxCountLabel || `이 발굴 상품을 ${otherDigboxCount}명이 저장했어요`}</span>}
+                  {product.registeredBy && <span>{t("product.discoveredBy")} <span className="text-gray-200">{product.registeredBy}</span></span>}
+                  {otherDigboxCount > 0 && <span>{otherDigboxCountLabel || t("digbox.discoveredByOther", { count: otherDigboxCount })}</span>}
                 </div>
               )}
             </div>
@@ -612,13 +617,11 @@ function ProductDetailModalContent({
           <section className="mt-8 border-t border-white/[0.08] pt-6" aria-labelledby="size-selection-title">
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>
-                <h5 id="size-selection-title" className="text-sm font-bold text-white">상품 사이즈표</h5>
-                <p className="mt-1 text-xs font-semibold text-gray-500">
-                  {categoryMySizes.length > 0 ? "사이즈 행을 탭해 내 옷과 비교하세요." : "사이즈 행을 탭해 실측을 확인하세요."}
-                </p>
+                <h5 id="size-selection-title" className="text-sm font-bold text-white">{t("product.sizeSelection")}</h5>
+                <p className="mt-1 text-xs font-semibold text-gray-500">{t("product.sizeHint")}</p>
               </div>
               {displaySizeTable?.headers?.length ? (
-                <span className="shrink-0 text-[11px] font-semibold text-gray-500">단위: cm</span>
+                <span className="shrink-0 text-[11px] font-semibold text-gray-500">{t("product.unit")}</span>
               ) : null}
             </div>
           <div
@@ -639,7 +642,7 @@ function ProductDetailModalContent({
                         className={`whitespace-nowrap bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018))] px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 sm:text-sm ${index === 0 ? "border-r border-white/[0.04]" : ""}`}
                         style={{ color: isPrimaryColumnHeader(header) ? "#E5E7EB" : "#9CA3AF" }}
                       >
-                        {String(header)}
+                        {displayMeasurementLabel(String(header))}
                       </th>
                     ))}
                   </tr>
@@ -660,7 +663,7 @@ function ProductDetailModalContent({
                         onKeyDown={(event) => handleSizeTableRowKeyDown(event, rowIndex)}
                         tabIndex={0}
                         aria-selected={isActiveRow}
-                        aria-label={`${String(row[0] ?? "사이즈")}${isSavedRow ? " 보유 사이즈" : ""} ${isActiveRow ? "선택됨" : "선택"}`}
+                        aria-label={`${String(row[0] ?? t("mysize.sizeFallback"))}${isSavedRow ? ` ${t("comparison.ownedSize")}` : ""} ${isActiveRow ? t("mysize.selected") : t("addProduct.select")}`}
                         className="group cursor-pointer outline-none focus-visible:[&>td]:bg-white/[0.075] focus-visible:[&>td:first-child]:rounded-l-lg focus-visible:[&>td:last-child]:rounded-r-lg"
                       >
                         {row.map((cell, cellIndex) => {
@@ -689,7 +692,7 @@ function ProductDetailModalContent({
                 </tbody>
               </table>
             ) : (
-              <div className="px-6 py-8 text-center text-gray-300">표시할 사이즈표 데이터가 없습니다.</div>
+              <div className="px-6 py-8 text-center text-gray-300">{t("product.noSizeData")}</div>
             )}
           </div>
           </section>
@@ -698,15 +701,15 @@ function ProductDetailModalContent({
             {activeRowIndex === null ? null : categoryMySizes.length === 0 ? (
               <div className="ui-size-comparison-result flex min-h-12 items-center justify-between gap-3 border-t border-white/[0.08] pt-4">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-orange-100">{activeSizeLabel || "선택한 사이즈"}를 내 옷과 비교해보세요.</p>
-                  <p className="mt-0.5 text-xs font-semibold text-orange-100/55">내 옷을 등록하면 바로 비교할 수 있어요.</p>
+                  <p className="text-sm font-bold text-orange-100">{t("product.compareSizePrompt", { size: activeSizeLabel || t("size.choose") })}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-orange-100/55">{t("product.noMySizeHint")}</p>
                 </div>
                 <button
                   type="button"
                   onClick={handleMissingMySizeAction}
                   className="ui-size-comparison-action min-h-11 shrink-0 rounded-lg border border-orange-300/45 bg-orange-400/[0.13] px-3 py-1.5 text-xs font-bold text-orange-100 transition-[background-color,border-color,color,transform] duration-150 hover:border-orange-200/70 hover:bg-orange-400/[0.22] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
                 >
-                  {!authUser ? "로그인하고 등록" : "My Size 등록하기"}
+                  {!authUser ? t("product.loginAndAdd") : t("product.addMySize")}
                 </button>
               </div>
             ) : selectedMySize ? (
@@ -714,7 +717,7 @@ function ProductDetailModalContent({
                 <div className="min-h-11 w-full min-w-0 border-t border-white/[0.08] pt-4">
                   <div className="min-w-0">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-bold text-gray-500">비교 기준</p>
+                      <p className="text-xs font-bold text-gray-500">{t("comparison.referenceLabel")}</p>
                       <button
                         ref={mySizeChangeButtonRef}
                         type="button"
@@ -723,20 +726,20 @@ function ProductDetailModalContent({
                           setIsMySizePickerOpen(true);
                         }}
                         aria-expanded={isMySizePickerOpen}
-                        aria-label={`비교할 옷 선택: ${selectedMySize.brand || "브랜드 미등록"} ${selectedMySize.title}`}
+                        aria-label={t("comparison.selectReferenceAria", { brand: selectedMySize.brand || t("comparison.unregisteredBrand"), title: selectedMySize.title })}
                         className="inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-lg px-2 text-xs font-semibold text-gray-400 transition-[background-color,color,transform] hover:bg-white/[0.06] hover:text-gray-100 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
                       >
-                        비교할 옷 선택 <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                        {t("comparison.selectReference")} <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                     </div>
-                    <p className="mt-0.5 min-w-0 break-words text-xs font-semibold leading-4 text-gray-400">{selectedMySize.brand || "브랜드 미등록"}</p>
-                    <p className="mt-0.5 min-w-0 break-words text-sm font-bold leading-5 text-white">{selectedMySize.title || "저장한 상품"}</p>
+                    <p className="mt-0.5 min-w-0 break-words text-xs font-semibold leading-4 text-gray-400">{selectedMySize.brand || t("comparison.unregisteredBrand")}</p>
+                    <p className="mt-0.5 min-w-0 break-words text-sm font-bold leading-5 text-white">{selectedMySize.title || t("comparison.savedProduct")}</p>
                   </div>
                 </div>
 
                 {isSelectedMySizeSourceProduct ? (
                   <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-200">
-                    동일한 상품입니다.
+                    {t("product.sameProduct")}
                   </div>
                 ) : mySizeComparisons.length > 0 ? (
                   <div className="mt-3 touch-manipulation overflow-x-auto overscroll-x-contain rounded-xl border border-white/[0.06] bg-black/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -749,16 +752,16 @@ function ProductDetailModalContent({
                       </colgroup>
                       <thead className="text-[11px] uppercase tracking-wide text-gray-500">
                         <tr>
-                          <th className="whitespace-nowrap px-3 py-2 font-black">항목</th>
-                          <th className="whitespace-nowrap px-3 py-2 font-black">내 사이즈</th>
-                          <th className="whitespace-nowrap px-3 py-2 font-black">현재 상품</th>
-                          <th className="whitespace-nowrap px-3 py-2 font-black">차이</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-black">{t("product.item")}</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-black">{t("product.mySize")}</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-black">{t("product.currentProduct")}</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-black">{t("product.difference")}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {mySizeComparisons.map((item) => (
                           <tr key={item.label} className="border-t border-white/[0.06]">
-                            <td className="whitespace-nowrap px-3 py-2 font-bold text-gray-200">{item.displayLabel}</td>
+                            <td className="whitespace-nowrap px-3 py-2 font-bold text-gray-200">{locale === "en" ? displayMeasurementLabel(item.label) : item.displayLabel}</td>
                             <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.referenceValue.toFixed(1).replace(/\.0$/, "")}</td>
                             <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.productValue.toFixed(1).replace(/\.0$/, "")}</td>
                             <td className={`px-3 py-2 font-black ${item.diff === 0 ? "text-gray-400" : item.diff > 0 ? "text-orange-300" : "text-sky-300"}`}>
@@ -771,7 +774,7 @@ function ProductDetailModalContent({
                   </div>
                 ) : (
                   <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-sm font-semibold text-gray-500">
-                    비교 가능한 공통 실측이 없습니다.
+                    {t("product.noComparableMeasurements")}
                   </div>
                 )}
               </>
@@ -794,7 +797,7 @@ function ProductDetailModalContent({
                 onClick={() => setIsExtraMeasurementsOpen((value) => !value)}
                 className="flex min-h-11 w-full items-center justify-between px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/[0.05] hover:text-white"
               >
-                <span>추가 실측 정보</span>
+                <span>{t("product.extraMeasurements")}</span>
                 <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isExtraMeasurementsOpen ? "rotate-180" : ""}`} />
               </button>
               {isExtraMeasurementsOpen ? (
@@ -808,7 +811,7 @@ function ProductDetailModalContent({
                             className={`whitespace-nowrap bg-white/[0.04] px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 ${index === 0 ? "border-r border-white/[0.04]" : ""}`}
                             style={{ color: isPrimaryColumnHeader(header) ? "#E5E7EB" : "#9CA3AF" }}
                           >
-                            {header}
+                            {displayMeasurementLabel(String(header))}
                           </th>
                         ))}
                       </tr>
@@ -838,7 +841,7 @@ function ProductDetailModalContent({
             onClick={handleSimilarProductsClick}
             className="group mt-5 flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl border border-white/[0.16] bg-white/[0.08] px-4 py-2.5 text-left shadow-[0_8px_20px_rgba(0,0,0,0.2)] transition-[background-color,border-color,box-shadow,transform] duration-150 hover:border-white/[0.28] hover:bg-white/[0.13] hover:shadow-[0_10px_24px_rgba(0,0,0,0.28)] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
           >
-            <span className="min-w-0 truncate text-sm font-bold text-white">추천 상품 둘러보기</span>
+            <span className="min-w-0 truncate text-sm font-bold text-white">{t("product.browseRecommendations")}</span>
             <ChevronRight className="h-5 w-5 shrink-0 text-gray-300 transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-white" aria-hidden="true" />
           </button>
         </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { usePresence } from "../hooks/usePresence";
+import { useLocaleContext } from "../contexts/LocaleContext";
 
 interface ImageViewerOverlayProps {
   open: boolean;
@@ -13,6 +14,7 @@ interface ImageViewerOverlayProps {
 
 /** Shared image layer with an interruptible exit transition. */
 export function ImageViewerOverlay({ open, src, alt, onClose }: ImageViewerOverlayProps) {
+  const { t } = useLocaleContext();
   const presence = usePresence(open);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
@@ -56,11 +58,11 @@ export function ImageViewerOverlay({ open, src, alt, onClose }: ImageViewerOverl
       className="fixed inset-0 z-[75] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={`${alt} 확대 보기`}
+      aria-label={t("imageViewer.dialog", { image: alt })}
     >
       <button
         type="button"
-        aria-label="확대 이미지 닫기"
+        aria-label={t("imageViewer.close")}
         onClick={close}
         className="ui-layer-scrim absolute inset-0 cursor-zoom-out bg-black/90 backdrop-blur-sm"
         data-visible={presence.isVisible}
@@ -68,7 +70,7 @@ export function ImageViewerOverlay({ open, src, alt, onClose }: ImageViewerOverl
       <div className="ui-layer-modal relative z-10 flex h-[63vh] w-full max-w-6xl items-center justify-center" data-visible={presence.isVisible}>
         <button
           type="button"
-          aria-label="확대 이미지 닫기"
+          aria-label={t("imageViewer.close")}
           onClick={close}
           className="flex h-full w-full cursor-zoom-out items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         >
@@ -79,7 +81,7 @@ export function ImageViewerOverlay({ open, src, alt, onClose }: ImageViewerOverl
       <button
         ref={closeButtonRef}
         type="button"
-        aria-label="확대 이미지 닫기"
+        aria-label={t("imageViewer.close")}
         onClick={close}
         className="ui-layer-modal absolute right-5 top-5 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white shadow-lg transition-colors hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         data-visible={presence.isVisible}

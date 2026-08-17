@@ -1,4 +1,7 @@
+"use client";
+
 import { Check, Maximize2 } from "lucide-react";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 import type { Product } from "../../types";
 import { OutfitImageFrame } from "./OutfitImageFrame";
 
@@ -21,6 +24,7 @@ export function OutfitProductTile({
   onClick?: () => void;
   onPreview?: () => void;
 }) {
+  const { t } = useLocaleContext();
   const selectionDisabled = selectable && selectionLimitReached && !selected;
   const className = `outfit-detail-product-tile group min-w-0 overflow-hidden rounded-2xl border-2 text-left transition-[border-color,background-color,transform] duration-150 ${selectable ? "outfit-detail-product-tile-selectable " : ""}${selectionDisabled ? "opacity-45 " : ""}${
     selected
@@ -64,7 +68,7 @@ export function OutfitProductTile({
           <button type="button" onClick={onClick} aria-pressed={selected} disabled={selectionDisabled} className="outfit-detail-pressable outfit-detail-product-select block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400 disabled:cursor-not-allowed">
             {image}
           </button>
-          <button type="button" onClick={onPreview} aria-label={`${product.brand} ${product.name} 미리보기`} className="outfit-detail-pressable outfit-detail-product-preview absolute bottom-2 right-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-white shadow-md backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+          <button type="button" onClick={onPreview} aria-label={t("outfits.detail.previewProduct", { product: `${product.brand} ${product.name}` })} className="outfit-detail-pressable outfit-detail-product-preview absolute bottom-2 right-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-white shadow-md backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
             <Maximize2 className="h-4 w-4" />
           </button>
         </div>

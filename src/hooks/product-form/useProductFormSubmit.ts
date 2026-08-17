@@ -2,6 +2,8 @@ import { isDuplicateProductErrorMessage, isOptionalMetadataCategory } from "../.
 import { submitProduct } from "../../api";
 import { buildSubmitProductPayload, getProductFormFlags, getSubmitValidationError } from "./helpers";
 import type { AddProductFormData, ClosetSizeSelection, ProductTaggingMetadata } from "../../types";
+import { useLocaleContext } from "../../contexts/LocaleContext";
+import type { MessageKey } from "../../i18n/messages";
 
 interface ProductFormSubmitState {
   formData: AddProductFormData;
@@ -34,11 +36,11 @@ interface UseProductFormSubmitOptions {
   onLoginRequired?: () => void;
 }
 
-function getSuccessMessage(addToDigbox: boolean, addToCloset: boolean) {
-  if (addToDigbox && addToCloset) return "상품이 등록되고 저장 목록과 옷장에 담겼습니다.";
-  if (addToDigbox) return "상품이 등록되고 저장 목록에 담겼습니다.";
-  if (addToCloset) return "상품이 등록되고 옷장에 담겼습니다.";
-  return "상품이 등록되었습니다.";
+function getSuccessMessage(addToDigbox: boolean, addToCloset: boolean, t: (key: MessageKey) => string) {
+  if (addToDigbox && addToCloset) return t("addProduct.successBoth");
+  if (addToDigbox) return t("addProduct.successSavedOnly");
+  if (addToCloset) return t("addProduct.successClosetOnly");
+  return t("addProduct.successDefault");
 }
 
 export function useProductFormSubmit({
@@ -49,6 +51,7 @@ export function useProductFormSubmit({
   isLoggedIn = true,
   onLoginRequired,
 }: UseProductFormSubmitOptions) {
+  const { t } = useLocaleContext();
   const isSizeTableOptionalCategory = isOptionalMetadataCategory(state.formData.category);
 
   const flags = getProductFormFlags({
@@ -61,7 +64,7 @@ export function useProductFormSubmit({
     isProcessingImage: state.isProcessingImage,
     isAnalyzingTable: state.isAnalyzingTable,
     isSaving: state.isSaving,
-  });
+  }, t);
 
   const handleSubmitProduct = async () => {
     if (!isLoggedIn) {
@@ -76,7 +79,7 @@ export function useProductFormSubmit({
       hasCategory: Boolean(state.formData.category.trim()),
       hasValidatedSizeTable: Boolean(state.formData.extractedTable),
       isSizeTableOptionalCategory,
-    });
+    }, t);
 
     if (validationError) {
       state.setSubmitError(validationError);
@@ -107,12 +110,12 @@ export function useProductFormSubmit({
         }
         await Promise.all(collectionAdds);
         state.showSubmitToast({
-          message: getSuccessMessage(state.addToDigboxOnSubmit, state.addToClosetOnSubmit),
+          message: getSuccessMessage(state.addToDigboxOnSubmit, state.addToClosetOnSubmit, t),
           type: "success",
         });
       } catch (collectionError) {
         console.error("[handleSubmitProduct] collection add failed", collectionError);
-        state.showSubmitToast({ message: "상품은 등록됐지만 담기에 실패했습니다.", type: "error" });
+        state.showSubmitToast({ message: t("addProduct.collectionAddFailed"), type: "error" });
       }
 
       state.setIsSaveComplete(true);
@@ -120,13 +123,13 @@ export function useProductFormSubmit({
       state.closeModal();
       onSubmitSuccess();
     } catch (submitError: unknown) {
-      const message = submitError instanceof Error ? submitError.message : "Submission failed.";
+      const message = submitError instanceof Error ? submitError.message : t("addProduct.submitFailedGeneric");
       console.error("[handleSubmitProduct] submit failed", submitError);
       if (isDuplicateProductErrorMessage(message)) {
         state.setShowDuplicateProductModal(true);
         return;
       }
-      state.setSubmitError(`상품 등록에 실패했습니다. ${message}`);
+      state.setSubmitError(t("addProduct.submitFailed", { message }));
     } finally {
       state.setIsSaving(false);
     }

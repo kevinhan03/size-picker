@@ -8,6 +8,7 @@ import { Search, X } from "lucide-react";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { useProductDetail } from "../../hooks/useProductDetail";
 import { useProgressiveList } from "../../hooks/useProgressiveList";
@@ -49,6 +50,7 @@ function GridCard({
   onSelect: () => void;
   onOpen: () => void;
 }) {
+  const { t } = useLocaleContext();
   const [imgOk, setImgOk] = useState(true);
   const imageSrc = product.image || product.thumbnailImage || "";
 
@@ -95,7 +97,7 @@ function GridCard({
         <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
           <div className="mb-1 flex items-center gap-2">
             <div className="min-w-0 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
-            {product.digboxSizeDecision?.label ? <span className="shrink-0 rounded-md border border-orange-300/30 bg-orange-400/[0.12] px-1.5 py-0.5 text-[10px] font-black text-orange-100">구매 {product.digboxSizeDecision.label}</span> : null}
+            {product.digboxSizeDecision?.label ? <span className="shrink-0 rounded-md border border-orange-300/30 bg-orange-400/[0.12] px-1.5 py-0.5 text-[10px] font-black text-orange-100">{t("digbox.purchasedSizeBadge", { label: product.digboxSizeDecision.label })}</span> : null}
           </div>
           <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
           <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
@@ -105,7 +107,7 @@ function GridCard({
       {isEditing && (
         <button
           type="button"
-          aria-label={selected ? "상품 선택 해제" : "상품 선택"}
+          aria-label={selected ? t("common.deselectProduct") : t("common.selectProduct")}
           aria-pressed={selected}
           onClick={onSelect}
           className="absolute inset-0 z-10 rounded-[22px] bg-transparent"
@@ -151,7 +153,7 @@ function ListRow({
       {isEditing && (
         <button
           type="button"
-          aria-label="?곹뭹 ?좏깮"
+          aria-label={selected ? t("common.deselectProduct") : t("common.selectProduct")}
           onClick={onSelect}
           style={{
             flexShrink: 0,
@@ -282,6 +284,7 @@ export function DigboxPageClient({
   discoveredDigboxCounts?: Record<string, number>;
   hydrateOwner?: boolean;
 }) {
+  const { t } = useLocaleContext();
   const auth = useAuthContext();
   const digbox = useDigboxContext();
   const ensureDigboxLoaded = digbox.ensureLoaded;
@@ -510,7 +513,7 @@ export function DigboxPageClient({
 
     setSelectedIds(new Set(failedIds));
     setIsEditing(failedIds.length > 0);
-    if (failedIds.length) setRemovalError("일부 상품을 저장 목록에서 삭제하지 못했어요. 다시 시도해주세요.");
+    if (failedIds.length) setRemovalError(t("saved.removeFailed"));
     setIsRemoving(false);
   };
 
@@ -522,7 +525,7 @@ export function DigboxPageClient({
     const results = await Promise.allSettled(removalUndoProducts.map((product) => digbox.addToDigbox(product.id)));
     const failedCount = results.filter((result) => result.status === "rejected").length;
     if (failedCount) {
-      setRemovalError("일부 상품을 다시 저장하지 못했어요. 다시 시도해주세요.");
+      setRemovalError(t("saved.restoreFailed"));
     } else {
       if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
       setRemovalUndoProducts(null);
@@ -535,18 +538,18 @@ export function DigboxPageClient({
     isOwner ? `${count}명이 저장했어요` : `${count}명이 저장했어요`;
 
   const getDetailDigboxCountLabel = (count: number) =>
-    isOwner ? `내가 발굴한 상품을 ${count}명이 저장했어요` : `이 상품을 ${count}명이 저장했어요`;
+    isOwner ? t("digbox.discoveredByOwner", { count }) : t("digbox.discoveredByOther", { count });
 
   if (isOwner && digbox.error && products.length === 0) {
     return (
       <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
         <PageState
           kind="error"
-          title="저장 목록을 불러오지 못했어요"
-          description="잠시 후 다시 시도해 주세요. 기존 저장 데이터는 그대로 유지됩니다."
+          title={t("saved.loadError")}
+          description={t("closet.loadErrorDescription")}
           action={(
             <button type="button" onClick={() => void digbox.reload()} className="ui-button ui-button-primary px-5 py-2.5">
-              다시 시도
+              {t("common.retry")}
             </button>
           )}
         />
@@ -555,7 +558,7 @@ export function DigboxPageClient({
   }
 
   if (isLoading && products.length === 0) {
-    return <CollectionLoadingSkeleton eyebrow="SAVED ITEMS" title="저장한 상품" />;
+    return <CollectionLoadingSkeleton eyebrow="SAVED ITEMS" title={t("saved.title")} />;
   }
 
   return (
@@ -573,7 +576,7 @@ export function DigboxPageClient({
         <div className="mx-auto w-full max-w-[70rem]">
         <PageHeader
           eyebrow="SAVED ITEMS"
-          title={isOwner ? "저장한 상품" : `${username} 님이 저장한 상품`}
+          title={isOwner ? t("saved.title") : t("saved.userTitle", { username })}
           description={!isOwner && !isBioEditing && bio ? bio : undefined}
           titleAccessory={isOwner ? (
             <div style={{ position: "relative" }}>
@@ -590,7 +593,7 @@ export function DigboxPageClient({
                   border: "1px solid rgba(255,255,255,0.08)",
                   cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
                 }}
-                aria-label="메뉴"
+                aria-label={t("saved.menu")}
               >
                 {[0, 1, 2].map((i) => (
                   <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(156,163,175,0.8)" }} />
@@ -610,7 +613,7 @@ export function DigboxPageClient({
                   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void saveBio(); }
                   if (e.key === "Escape") setIsBioEditing(false);
                 }}
-                placeholder="간단한 소개를 입력하세요 (최대 160자)"
+                placeholder={t("saved.bioPlaceholder")}
                 rows={2}
                 style={{
                   width: "100%", padding: "10px 12px", borderRadius: 10,
@@ -627,14 +630,14 @@ export function DigboxPageClient({
                   disabled={bioSaving}
                   style={{ padding: "6px 16px", borderRadius: 8, background: "#F97316", border: "none", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                 >
-                  {bioSaving ? "저장 중..." : "저장"}
+                  {bioSaving ? t("saved.saved") : t("common.save")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsBioEditing(false)}
                   style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(255,255,255,0.06)", border: "none", color: "#9ca3af", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                 >
-                  취소
+                  {t("common.cancel")}
                 </button>
                 <span style={{ marginLeft: "auto", fontSize: 11, color: "#4b5563" }}>{bioInput.length}/160</span>
               </div>
@@ -643,7 +646,7 @@ export function DigboxPageClient({
 
         {/* 복사 완료 토스트 */}
         <div className={isBioEditing ? "mt-6" : "mt-[var(--page-header-content-gap)]"}>
-          <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel="저장한 상품 검색" />
+          <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("saved.search")} />
         </div>
 
         {copied && (
@@ -656,7 +659,7 @@ export function DigboxPageClient({
             boxShadow: "0 18px 48px rgba(0,0,0,0.55)", backdropFilter: "blur(20px)",
             whiteSpace: "nowrap",
           }}>
-            🔗 링크가 복사되었어요
+            🔗 {t("saved.linkCopied")}
           </div>
         )}
 
@@ -698,8 +701,8 @@ export function DigboxPageClient({
                   </svg>
                 </div>
                 <div style={{ textAlign: "left" }}>
-                  <p style={{ color: "#e5e7eb", fontSize: 14, fontWeight: 600, margin: 0 }}>공유</p>
-                  <p style={{ color: "#6b7280", fontSize: 12, margin: "2px 0 0" }}>링크를 복사해서 공유해요</p>
+                  <p style={{ color: "#e5e7eb", fontSize: 14, fontWeight: 600, margin: 0 }}>{t("saved.share")}</p>
+                  <p style={{ color: "#6b7280", fontSize: 12, margin: "2px 0 0" }}>{t("saved.shareHint")}</p>
                 </div>
               </button>
 
@@ -723,8 +726,8 @@ export function DigboxPageClient({
                     </svg>
                   </div>
                   <div style={{ textAlign: "left" }}>
-                    <p style={{ color: "#e5e7eb", fontSize: 14, fontWeight: 600, margin: 0 }}>소개 수정</p>
-                    <p style={{ color: "#6b7280", fontSize: 12, margin: "2px 0 0" }}>내 저장 목록 소개글을 바꿔요</p>
+                    <p style={{ color: "#e5e7eb", fontSize: 14, fontWeight: 600, margin: 0 }}>{t("saved.editBio")}</p>
+                    <p style={{ color: "#6b7280", fontSize: 12, margin: "2px 0 0" }}>{t("saved.editBioHint")}</p>
                   </div>
                 </button>
               )}
@@ -825,17 +828,17 @@ export function DigboxPageClient({
           <div className="mb-3 flex items-center justify-between gap-3">
             <p aria-live="polite" className={`text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
               {isEditing
-                ? (selectedIds.size ? `${selectedIds.size}개 선택됨` : "저장 목록에서 삭제할 상품을 선택하세요.")
-                : (searchQuery.trim() ? `${filtered.length}개 검색 결과` : `저장한 상품 ${filtered.length}개`)}
+                ? (selectedIds.size ? t("saved.selected", { count: selectedIds.size }) : t("saved.selectToDelete"))
+                : (searchQuery.trim() ? t("saved.searchResults", { count: filtered.length }) : t("saved.productCount", { count: filtered.length }))}
             </p>
             {isOwner && !isEditing && (
               <button type="button" onClick={() => { setRemovalError(null); setIsEditing(true); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
-                저장 목록에서 삭제
+                {t("saved.delete")}
               </button>
             )}
             {isOwner && isEditing && (
               <button type="button" onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
-                취소
+                {t("common.cancel")}
               </button>
             )}
           </div>
@@ -860,13 +863,13 @@ export function DigboxPageClient({
 
       {isOwner && isEditing && selectedIds.size > 0 && (
         <div className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
-          <p className="min-w-0 text-sm font-bold text-white"><span className="text-orange-300">{selectedIds.size}개</span> 선택됨</p>
+          <p className="min-w-0 text-sm font-bold text-white">{t("saved.selected", { count: selectedIds.size })}</p>
           <div className="flex shrink-0 items-center gap-2">
             <button type="button" onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }} className="h-10 rounded-xl px-3 text-sm font-bold text-gray-300 transition hover:bg-white/[0.06] hover:text-white">
-              취소
+              {t("common.cancel")}
             </button>
             <button type="button" disabled={isRemoving} onClick={() => void removeSelected()} className="h-10 rounded-xl bg-red-500 px-4 text-sm font-bold text-white transition hover:bg-red-400 disabled:cursor-wait disabled:bg-red-500/50">
-              {isRemoving ? "저장 목록에서 삭제 중…" : "선택한 상품을 저장 목록에서 삭제"}
+              {isRemoving ? t("saved.deleting") : t("saved.deleteSelected")}
             </button>
           </div>
         </div>
@@ -874,9 +877,9 @@ export function DigboxPageClient({
 
       {removalUndoProducts?.length ? (
         <div role="status" className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 px-4 py-3 text-sm shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
-          <p className="min-w-0 font-semibold text-white">상품 {removalUndoProducts.length}개를 저장 목록에서 삭제했어요.</p>
+          <p className="min-w-0 font-semibold text-white">{t("saved.deleted", { count: removalUndoProducts.length })}</p>
           <button type="button" disabled={isUndoingRemoval} onClick={() => void undoRemoval()} className="shrink-0 font-bold text-orange-300 transition hover:text-orange-200 disabled:cursor-wait disabled:text-orange-300/50">
-            {isUndoingRemoval ? "되돌리는 중…" : "되돌리기"}
+            {isUndoingRemoval ? t("common.undoing") : t("common.undo")}
           </button>
         </div>
       ) : null}

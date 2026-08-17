@@ -14,6 +14,7 @@ import { useClosetContext } from "../contexts/ClosetContext";
 import { useDigboxContext } from "../contexts/DigboxContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
 import { useSearchContext } from "../contexts/SearchContext";
+import { useLocaleContext } from "../contexts/LocaleContext";
 import { readAuthContinuation, saveAuthContinuation } from "../utils/authNavigation";
 import { MOTION_DURATION_MS } from "../utils/motion";
 
@@ -22,6 +23,7 @@ const GOOGLE_SIGNUP_TOAST_KEY = "digbox_google_signup_complete_toast";
 
 function GoogleSignupWelcomeToast() {
   const pathname = usePathname();
+  const { t } = useLocaleContext();
   const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -40,7 +42,7 @@ function GoogleSignupWelcomeToast() {
   }, [pathname]);
 
   if (!mounted) return null;
-  return <div className="pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 sm:bottom-6"><div role="status" className={`rounded-2xl border border-emerald-400/25 bg-[#111114]/95 px-4 py-3 text-center text-sm font-bold text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] [transition-timing-function:var(--ease-out)] motion-reduce:transition-opacity motion-reduce:duration-[var(--duration-reduced)] ${visible ? "duration-[var(--duration-layer-enter)] translate-y-0 opacity-100" : "duration-[var(--duration-layer-exit)] translate-y-3 opacity-0 motion-reduce:translate-y-0"}`}>가입을 완료했어요. DIGBOX에 오신 것을 환영해요!</div></div>;
+  return <div className="pointer-events-none fixed bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 sm:bottom-6"><div role="status" className={`rounded-2xl border border-emerald-400/25 bg-[#111114]/95 px-4 py-3 text-center text-sm font-bold text-white shadow-[0_18px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[transform,opacity] [transition-timing-function:var(--ease-out)] motion-reduce:transition-opacity motion-reduce:duration-[var(--duration-reduced)] ${visible ? "duration-[var(--duration-layer-enter)] translate-y-0 opacity-100" : "duration-[var(--duration-layer-exit)] translate-y-3 opacity-0 motion-reduce:translate-y-0"}`}>{t("toast.signupWelcome")}</div></div>;
 }
 
 const AddProductModal = dynamic(
@@ -54,6 +56,7 @@ const SearchResultOverlay = dynamic(
 
 function ClosetToast() {
   const { toast, clearToast } = useClosetContext();
+  const { t } = useLocaleContext();
   const [visibleToast, setVisibleToast] = useState(toast);
   const [isVisible, setIsVisible] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,10 +111,10 @@ function ClosetToast() {
 
         <div className="min-w-0 flex-1">
           <p className="font-bold text-white">
-            {isLoginRequired ? "로그인이 필요해요" : isAdded ? "옷장에 추가했어요" : "이미 옷장에 있어요"}
+            {isLoginRequired ? t("toast.loginRequired") : isAdded ? t("toast.closetAdded") : t("toast.closetExists")}
           </p>
           <p className="truncate text-xs text-gray-400">
-            {isLoginRequired ? "옷장 기능은 로그인 후 사용할 수 있어요" : isAdded ? "상품을 My Closet에서 볼 수 있어요" : "My Closet에 저장된 상품이에요"}
+            {isLoginRequired ? t("toast.closetLoginHint") : isAdded ? t("toast.closetAddedHint") : t("toast.closetExistsHint")}
           </p>
         </div>
 
@@ -121,7 +124,7 @@ function ClosetToast() {
             onClick={clearToast}
             className="flex-shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-orange-400"
           >
-            로그인
+            {t("toast.login")}
           </Link>
         ) : isAdded ? (
           <Link
@@ -129,13 +132,13 @@ function ClosetToast() {
             onClick={clearToast}
             className="flex-shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-orange-400"
           >
-            보기
+            {t("toast.view")}
           </Link>
         ) : (
           <button
             type="button"
             onClick={clearToast}
-            aria-label="알림 닫기"
+            aria-label={t("toast.close")}
             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-white/10 hover:text-white"
           >
             <X className="h-3.5 w-3.5" />
@@ -150,6 +153,7 @@ function DigboxToast() {
   const { toast, clearToast, guestCount, retryGuestSync } = useDigboxContext();
   const auth = useAuthContext();
   const router = useRouter();
+  const { t } = useLocaleContext();
   const usernameRef = useRef(auth.dbUsername);
   const [visibleToast, setVisibleToast] = useState(toast);
   const [isVisible, setIsVisible] = useState(false);
@@ -223,25 +227,25 @@ function DigboxToast() {
         <div className="min-w-0 flex-1">
           <p className="font-bold text-white">
             {isGuestSyncPartial
-              ? "일부 상품을 옮기지 못했어요"
+              ? t("toast.guestSyncPartial")
               : visibleToast.message === "guest_synced"
-              ? "선택한 3개 아이템을 내 DIGBOX에 저장했어요"
+              ? t("toast.guestSyncedFull")
               : isLoginRequired
-              ? "로그인이 필요해요"
+              ? t("toast.loginRequired")
               : isAdded
-              ? "저장했어요"
-              : "이미 저장한 상품이에요"}
+              ? t("toast.saved")
+              : t("toast.alreadySaved")}
           </p>
           <p className="truncate text-xs text-gray-400">
             {isGuestSyncPartial
-              ? "임시 저장 목록에서 다시 시도할 수 있어요"
+              ? t("toast.guestSyncPartialHint")
               : visibleToast.message === "guest_synced"
-              ? "내 저장 목록에서 확인하거나 계속 디깅해보세요"
+              ? t("toast.guestSyncedFullHint")
               : isLoginRequired
-              ? "저장 기능은 로그인 후 사용할 수 있어요"
+              ? t("toast.saveLoginHint")
               : isAdded
-              ? "내 저장 목록에서 확인할 수 있어요"
-              : "이미 디깅한 상품이에요"}
+              ? t("toast.savedHint")
+              : t("toast.alreadySavedHint")}
           </p>
         </div>
 
@@ -254,7 +258,7 @@ function DigboxToast() {
             }}
             className="flex-shrink-0 rounded-lg bg-red-400 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-red-300"
           >
-            다시 시도
+            {t("common.retry")}
           </button>
         ) : isLoginRequired ? (
           <Link
@@ -262,7 +266,7 @@ function DigboxToast() {
             onClick={clearToast}
             className="flex-shrink-0 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-yellow-300"
           >
-            로그인
+            {t("toast.login")}
           </Link>
         ) : isAdded ? (
           <button
@@ -270,13 +274,13 @@ function DigboxToast() {
             onClick={handleViewDigbox}
             className="flex-shrink-0 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-yellow-300"
           >
-            내 DIGBOX 보기
+            {t("toast.view")}
           </button>
         ) : (
           <button
             type="button"
             onClick={clearToast}
-            aria-label="알림 닫기"
+            aria-label={t("toast.close")}
             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-white/10 hover:text-white"
           >
             <X className="h-3.5 w-3.5" />
@@ -290,6 +294,7 @@ function DigboxToast() {
 function ProductSubmitToast() {
   const { submitToast, clearSubmitToast } = useProductFormContext();
   const [visibleToast, setVisibleToast] = useState(submitToast);
+  const { t } = useLocaleContext();
   const [isVisible, setIsVisible] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -336,7 +341,7 @@ function ProductSubmitToast() {
         <button
           type="button"
           onClick={clearSubmitToast}
-          aria-label="알림 닫기"
+          aria-label={t("toast.close")}
           className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-white/10 hover:text-white"
         >
           <X className="h-3.5 w-3.5" />
@@ -348,6 +353,7 @@ function ProductSubmitToast() {
 
 function SignupVerifiedToast() {
   const pathname = usePathname();
+  const { t } = useLocaleContext();
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
 
@@ -378,8 +384,8 @@ function SignupVerifiedToast() {
         }`}
       >
         <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-400">DIGBOX</p>
-        <h2 className="mt-2 text-lg font-black text-white">이메일 인증이 완료되었습니다</h2>
-        <p className="mt-2 text-sm font-semibold text-gray-400">회원가입이 완료되었어요.</p>
+        <h2 className="mt-2 text-lg font-black text-white">{t("toast.emailVerified")}</h2>
+        <p className="mt-2 text-sm font-semibold text-gray-400">{t("toast.signupComplete")}</p>
       </div>
     </div>
   );

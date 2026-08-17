@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, LogIn, Plus, Sparkles, UserRound } from "lucide-react";
+import { ArrowLeft, LogIn, Plus, UserRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -8,7 +8,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
 import { useNavigationProgress } from "../contexts/NavigationProgressContext";
+import { useLocaleContext } from "../contexts/LocaleContext";
 import { buildLoginHref } from "../utils/authNavigation";
+import { getAlternateLocale } from "../i18n/locale";
 import {
   getPrimaryNavigationDestination,
   primaryNavigationItems,
@@ -21,6 +23,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
   const auth = useAuthContext();
   const productForm = useProductFormContext();
   const { startNavigation } = useNavigationProgress();
+  const { locale, setLocale, t } = useLocaleContext();
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isIconOnlyActions, setIsIconOnlyActions] = useState(false);
   const [hiddenOnCompact, setHiddenOnCompact] = useState(false);
@@ -94,6 +97,13 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
     productForm.openModal();
   }
 
+  const alternateLocale = getAlternateLocale(locale);
+  const alternateLocaleLabel = alternateLocale === "en" ? "English" : "한국어";
+
+  function changeGuestLocale() {
+    void setLocale(alternateLocale);
+  }
+
   const desktopNavClass = (active: boolean) =>
     `flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 transition ${
       active
@@ -106,13 +116,13 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
     return (
       <header className="app-header-motion pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center border-b border-white/[0.08] bg-black/80 backdrop-blur-xl transition-transform duration-[var(--duration-popover)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none">
         <div className={`pointer-events-auto flex items-center justify-between ${headerFrameClass}`}>
-          <Link href="/" aria-label="DIGBOX 홈으로" className="flex min-w-0 items-center gap-2 rounded-xl text-base font-bold tracking-tight text-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+          <Link href="/" aria-label={t("header.home")} className="flex min-w-0 items-center gap-2 rounded-xl text-base font-bold tracking-tight text-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
             <Image src="/digbox-mark.png" alt="" width={40} height={40} className="h-8 w-8 object-contain lg:h-9 lg:w-9" />
             <span className="font-bold tracking-tight">DIGBOX</span>
           </Link>
           <Link href="/" className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-semibold text-gray-300 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transform-none motion-reduce:transition-none">
             <ArrowLeft className="h-3.5 w-3.5" />
-            홈으로
+            {t("header.goHome")}
           </Link>
         </div>
       </header>
@@ -126,7 +136,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
           <div
             role="link"
             tabIndex={0}
-            aria-label="DIGBOX 디깅으로 이동"
+            aria-label={t("header.home")}
             onClick={() => { if (pathname !== "/") startNavigation(); router.push("/"); }}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -147,97 +157,73 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
         </div>
 
         {!isAdmin && (
-          <nav aria-label="주요 메뉴" className="hidden items-center gap-1 lg:flex">
-            {primaryNavigationItems.map(({ destination, label, icon: Icon }) => (
+          <nav aria-label="Primary navigation" className="hidden items-center gap-1 lg:flex">
+            {primaryNavigationItems.map(({ destination, labelKey, icon: Icon }) => (
               <button
                 key={destination}
                 type="button"
                 aria-current={activeDestination === destination ? "page" : undefined}
-                aria-label={label}
+                aria-label={t(labelKey)}
                 onClick={() => navigate(destination)}
                 className={desktopNavClass(activeDestination === destination)}
               >
                 <Icon className="h-5 w-5" />
-                <span className="text-xs font-bold">{label}</span>
+                <span className="text-xs font-bold">{t(labelKey)}</span>
               </button>
             ))}
-            <div className="group relative hidden">
-              <button
-                type="button"
-                aria-current={pathname.startsWith("/dig-match") ? "page" : undefined}
-                aria-label="디그매치"
-                onClick={() => router.push(auth.authUser ? "/dig-match" : buildLoginHref("login", "/dig-match"))}
-                className={desktopNavClass(pathname.startsWith("/dig-match"))}
-              >
-                <Sparkles className="h-5 w-5" />
-              </button>
-              <div className={tooltipClass}>
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                디그매치
-              </div>
-            </div>
           </nav>
         )}
 
         {!isAdmin && (
           <div className={`flex items-center justify-end ${compactActions ? "gap-0" : "gap-1"}`}>
             <div className="group relative">
-              <button type="button" onClick={openProductForm} aria-label="상품 추가" className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg px-2 text-gray-400 transition-[width,background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11 px-0" : "h-10 w-[4.5rem]"}`}>
+              <button type="button" onClick={openProductForm} aria-label={t("header.addProduct")} className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg px-2 text-gray-400 transition-[width,background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11 px-0" : "h-10 w-[4.5rem]"}`}>
                 <Plus className="h-4 w-4" />
-                <span className={`overflow-hidden whitespace-nowrap text-xs font-bold transition-[max-width,margin,opacity] duration-[var(--duration-popover)] ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-10 opacity-100"}`}>상품</span>
+                <span className={`overflow-hidden whitespace-nowrap text-xs font-bold transition-[max-width,margin,opacity] duration-[var(--duration-popover)] ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-10 opacity-100"}`}>{t("header.product")}</span>
               </button>
               <div className={tooltipClass}>
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                상품 추가
-              </div>
-            </div>
-            <div className="group relative">
-              <button
-                type="button"
-                aria-current={pathname.startsWith("/dig-match") ? "page" : undefined}
-                aria-label="디그매치"
-                onClick={() => router.push(auth.authUser ? "/dig-match" : buildLoginHref("login", "/dig-match"))}
-                className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg px-2 text-xs font-bold transition-[width,background-color,color] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11 px-0" : "h-10 w-[6.75rem]"} ${
-                  pathname.startsWith("/dig-match")
-                    ? "bg-orange-500/[0.08] text-orange-300"
-                    : "text-gray-400 hover:bg-white/[0.06] hover:text-white"
-                }`}
-              >
-                <Sparkles className="h-4 w-4" />
-                <span className={`overflow-hidden whitespace-nowrap transition-[max-width,margin,opacity] duration-[var(--duration-popover)] ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1.5 max-w-16 opacity-100"}`}>디그매치</span>
-              </button>
-              <div className={tooltipClass}>
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                디그매치
+                {t("header.addProduct")}
               </div>
             </div>
             {auth.isAuthLoading ? (
               <span
-                aria-label="계정 확인 중"
+                aria-label={t("header.checkingAccount")}
                 className={`flex items-center justify-center rounded-lg ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}
               >
                 <span className="h-4 w-4 rounded-full bg-white/[0.12] animate-pulse motion-reduce:animate-none" aria-hidden="true" />
               </span>
             ) : auth.authUser ? (
               <div className="group relative">
-                <button type="button" aria-label="마이페이지" onClick={() => router.push("/mypage")} className={`flex items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"} ${isMyPage ? "bg-orange-500/[0.08] text-orange-300" : ""}`}>
+                <button type="button" aria-label={t("header.myPage")} onClick={() => router.push("/mypage")} className={`flex items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"} ${isMyPage ? "bg-orange-500/[0.08] text-orange-300" : ""}`}>
                   <UserRound className="h-4 w-4" />
                 </button>
                 <div className={tooltipClass}>
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                  마이페이지
+                  {t("header.myPage")}
                 </div>
               </div>
             ) : (
-              <div className="group relative">
-                <button type="button" aria-label="로그인" onClick={() => router.push("/login")} className={`flex items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}>
-                  <LogIn className="h-4 w-4" />
-                </button>
-                <div className={tooltipClass}>
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                  로그인
+              <>
+                <div className="group relative">
+                  <button type="button" aria-label={t("header.login")} onClick={() => router.push("/login")} className={`flex items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}>
+                    <LogIn className="h-4 w-4" />
+                  </button>
+                  <div className={tooltipClass}>
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
+                    {t("header.login")}
+                  </div>
                 </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={changeGuestLocale}
+                  aria-label={t("header.changeLanguage", { language: alternateLocaleLabel })}
+                  title={t("header.changeLanguage", { language: alternateLocaleLabel })}
+                  className={`flex shrink-0 items-center justify-center rounded-lg text-gray-400 transition-[background-color,color,transform] duration-150 ease-out hover:bg-white/[0.06] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 motion-reduce:transform-none ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}
+                >
+                  <Image src="/icons/language-globe-white.png" alt="" width={20} height={20} className="h-5 w-5 object-contain" />
+                </button>
+              </>
             )}
           </div>
         )}

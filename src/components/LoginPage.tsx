@@ -8,6 +8,8 @@ import { captureEvent } from '../utils/analytics';
 import { readAuthContinuation, saveAuthContinuation } from '../utils/authNavigation';
 import { readGuestDigbox, requestGuestDigboxImport } from '../utils/guestDigbox';
 import type { AuthEntryContext } from '../utils/authNavigation';
+import { useLocaleContext } from '../contexts/LocaleContext';
+import type { MessageKey } from '../i18n/messages';
 
 type AuthTab = 'login' | 'signup';
 
@@ -22,22 +24,18 @@ interface LoginPageProps {
   authEntryContext?: AuthEntryContext;
 }
 
-const authEntryCopy: Record<AuthEntryContext, { eyebrow: string; title: string; description: string }> = {
-  taste: {
-    eyebrow: 'MY TASTE',
-    title: '내 취향을 계속 쌓아볼까요?',
-    description: '저장과 옷장 기록이 쌓일수록 취향의 변화와 새로운 방향을 더 정확히 보여드려요.',
-  },
-  closet: {
-    eyebrow: 'MY WARDROBE',
-    title: '내 옷장은 계정에 연결돼요',
-    description: '보유 상품과 사이즈 정보를 저장하고, 코디에 바로 활용할 수 있어요.',
-  },
-  saved: {
-    eyebrow: 'MY SAVED',
-    title: '저장한 상품을 계속 모아볼까요?',
-    description: '지금 고른 상품을 보관하고, 어떤 기기에서도 이어서 볼 수 있어요.',
-  },
+const getAuthEntryCopy = (
+  context: AuthEntryContext,
+  t: (key: MessageKey) => string
+): { eyebrow: string; title: string; description: string } => {
+  switch (context) {
+    case 'taste':
+      return { eyebrow: 'MY TASTE', title: t("auth.entryTasteTitle"), description: t("auth.entryTasteDescription") };
+    case 'closet':
+      return { eyebrow: 'MY WARDROBE', title: t("auth.entryClosetTitle"), description: t("auth.entryClosetDescription") };
+    case 'saved':
+      return { eyebrow: 'MY SAVED', title: t("auth.entrySavedTitle"), description: t("auth.entrySavedDescription") };
+  }
 };
 
 type PendingSignup = {
@@ -47,10 +45,10 @@ type PendingSignup = {
 
 const SIGNUP_VERIFIED_TOAST_KEY = 'digbox_signup_verified_toast';
 
-const checkSignupUsernameAvailability = async (username: string) => {
+const checkSignupUsernameAvailability = async (username: string, t: (key: MessageKey) => string) => {
   const response = await fetch(`/api/auth/username/availability?username=${encodeURIComponent(username)}`);
   const payload = await response.json() as { ok?: boolean; data?: { available?: boolean; reason?: string | null }; error?: string };
-  if (!response.ok || !payload.ok) throw new Error(payload.error || '사용자 이름을 확인하지 못했어요. 다시 시도해 주세요.');
+  if (!response.ok || !payload.ok) throw new Error(payload.error || t("auth.usernameCheckError"));
   return { available: Boolean(payload.data?.available), reason: payload.data?.reason || null };
 };
 
@@ -73,6 +71,9 @@ export const LoginPage = ({
   isUnregisteredGoogle = false,
   authEntryContext,
 }: LoginPageProps) => {
+  const { t } = useLocaleContext();
+  const tRef = useRef(t);
+  tRef.current = t;
   const [tab, setTab] = useState<AuthTab>(initialTab);
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -87,7 +88,7 @@ export const LoginPage = ({
   const [isResending, setIsResending] = useState(false);
   const [isSignupVerified, setIsSignupVerified] = useState(false);
   const verificationCodeInputRef = useRef<HTMLInputElement>(null);
-  const entryCopy = authEntryContext ? authEntryCopy[authEntryContext] : null;
+  const entryCopy = authEntryContext ? getAuthEntryCopy(authEntryContext, t) : null;
 
   useEffect(() => {
     if (!signupEmail) return;
@@ -108,13 +109,13 @@ export const LoginPage = ({
     if (!pendingSignup) {
       setSignupEmail(null);
       setTab('login');
-      setInfo('이메일 인증이 완료되었습니다. 로그인해 주세요.');
+      setInfo(tRef.current("auth.verificationComplete"));
       return;
     }
 
     const token = verificationCode.trim().replace(/\s/g, '');
     if (!token) {
-      setError('메일에 표시된 인증코드를 입력해 주세요.');
+      setError(tRef.current("auth.enterCode"));
       return;
     }
 
@@ -136,7 +137,7 @@ export const LoginPage = ({
       setIsSignupVerified(false);
       onSuccess();
     } catch (err: unknown) {
-      setError(getAuthErrorMessage(err, '인증코드가 올바르지 않거나 만료되었습니다. 다시 확인해 주세요.'));
+      setError(getAuthErrorMessage(err, tRef.current("auth.codeInvalidOrExpired")));
     } finally {
       setIsSubmitting(false);
     }
@@ -174,9 +175,9 @@ export const LoginPage = ({
       });
       const payload = await response.json() as { ok?: boolean; error?: string };
       if (!response.ok || !payload.ok) throw new Error(payload.error || 'Resend failed');
-      setInfo('인증코드를 다시 보냈습니다. 메일함을 확인해 주세요.');
+      setInfo(t("auth.codeResent"));
     } catch (err: unknown) {
-      setError(getAuthErrorMessage(err, '인증코드 재전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'));
+      setError(getAuthErrorMessage(err, t("auth.resendFailed")));
     } finally {
       setIsResending(false);
     }
@@ -187,7 +188,7 @@ export const LoginPage = ({
     const trimmedPassword = password;
 
     if (!trimmedEmail) {
-      setError('이메일을 입력해 주세요.');
+      setError(t("auth.enterEmail"));
       return;
     }
     if (tab === 'signup') {
@@ -198,11 +199,11 @@ export const LoginPage = ({
       }
     }
     if (!trimmedPassword) {
-      setError('비밀번호를 입력해 주세요.');
+      setError(t("auth.enterPassword"));
       return;
     }
     if (tab === 'signup' && password !== passwordConfirm) {
-      setError('비밀번호가 일치하지 않습니다.');
+      setError(t("auth.passwordMismatch"));
       return;
     }
 
@@ -224,9 +225,9 @@ export const LoginPage = ({
         onSuccess();
       } else {
         const trimmedUsername = username.trim();
-        const { available, reason } = await checkSignupUsernameAvailability(trimmedUsername);
+        const { available, reason } = await checkSignupUsernameAvailability(trimmedUsername, t);
         if (!available) {
-          setError(reason || '이미 사용 중인 사용자 이름입니다. 다른 사용자 이름을 사용해 주세요.');
+          setError(reason || t("auth.usernameTaken"));
           return;
         }
 
@@ -262,33 +263,30 @@ export const LoginPage = ({
           <div role="dialog" aria-modal="true" aria-labelledby="email-verification-title" className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-8 text-center shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-400">DIGBOX</p>
             <h2 id="email-verification-title" className="mt-3 text-lg font-bold text-white">
-              {isSignupVerified ? '이메일 인증이 완료되었습니다' : '이메일 인증이 필요해요'}
+              {isSignupVerified ? t("auth.emailVerified") : t("auth.emailVerificationRequired")}
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-gray-300">
               {isSignupVerified ? (
-                '가입이 완료되었습니다. DIGBOX로 이동합니다.'
+                t("auth.signupComplete")
               ) : (
-                <>
-                  <span className="font-semibold text-orange-400">{signupEmail}</span> 주소로 인증코드를 보냈습니다.
-                  메일에 표시된 코드를 입력하면 바로 가입이 완료됩니다.
-                </>
+                t("auth.codeSent", { email: signupEmail })
               )}
             </p>
             {!isSignupVerified && (
               <p className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs leading-relaxed text-gray-400">
-                이미 가입한 이메일이라면 인증코드가 새로 발송되지 않을 수 있습니다. 이 경우 로그인으로 이용해 주세요.
+                {t("auth.codeAlreadyRegistered")}
               </p>
             )}
             <input
               ref={verificationCodeInputRef}
-              aria-label="인증코드 입력"
+              aria-label={t("auth.verificationCode")}
               value={verificationCode}
               onChange={(event) => setVerificationCode(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter') void handleCompleteEmailSignup(); }}
               disabled={isSignupVerified}
               inputMode="numeric"
               autoComplete="one-time-code"
-              placeholder="인증코드 입력"
+              placeholder={t("auth.verificationCode")}
               className="mt-5 w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-center text-lg font-black tracking-[0.2em] text-white placeholder-gray-500 placeholder:text-sm placeholder:font-semibold placeholder:tracking-normal transition-[border-color,box-shadow] duration-150 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus-visible:ring-orange-400 motion-reduce:transition-none"
             />
             {error && (
@@ -301,7 +299,7 @@ export const LoginPage = ({
               disabled={isSubmitting || isSignupVerified}
               className="mt-6 w-full rounded-xl bg-orange-500 py-3 text-sm font-bold text-black transition-[background-color,transform,box-shadow] duration-150 hover:bg-orange-400 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400 disabled:active:scale-100 motion-reduce:transform-none motion-reduce:transition-none"
             >
-              {isSignupVerified ? '완료되었습니다' : isSubmitting ? '확인 중...' : '가입 완료'}
+              {isSignupVerified ? t("auth.complete") : isSubmitting ? t("auth.checking") : t("auth.completeSignup")}
             </button>
             <button
               type="button"
@@ -309,7 +307,7 @@ export const LoginPage = ({
               disabled={isResending || isSignupVerified}
               className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-gray-300 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.08] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] disabled:active:scale-100 motion-reduce:transform-none motion-reduce:transition-none"
             >
-              {isResending ? '재전송 중...' : '인증코드 다시 보내기'}
+              {isResending ? t("auth.resending") : t("auth.resendCode")}
             </button>
             <button
               type="button"
@@ -325,7 +323,7 @@ export const LoginPage = ({
               }}
               className="mt-2 w-full rounded-lg py-2 text-xs font-semibold text-gray-500 transition-[color,transform] duration-150 hover:text-gray-300 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:active:scale-100 motion-reduce:transform-none motion-reduce:transition-none"
             >
-              로그인으로 이동
+              {t("auth.goToLogin")}
             </button>
           </div>
         </div>
@@ -336,10 +334,10 @@ export const LoginPage = ({
           <div className="mb-6">
             {entryCopy ? <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#f2a56c]">{entryCopy.eyebrow}</p> : null}
             <h1 className="text-xl font-bold tracking-[-0.02em] text-white">
-              {entryCopy?.title || (tab === 'login' ? '다시 만나 반가워요' : '새 계정 만들기')}
+              {entryCopy?.title || (tab === 'login' ? t("auth.welcomeBack") : t("auth.createAccount"))}
             </h1>
             <p className="mt-1.5 text-sm leading-6 text-gray-300">
-              {entryCopy?.description || (tab === 'login' ? '내 취향과 저장한 아이템을 이어서 확인하세요.' : '취향을 기록하고 나만의 스타일을 만들어 보세요.')}
+              {entryCopy?.description || (tab === 'login' ? t("auth.loginDescription") : t("auth.signupDescription"))}
             </p>
           </div>
 
@@ -353,7 +351,7 @@ export const LoginPage = ({
               }`}
             >
               <LogIn className="h-4 w-4" />
-              <span className="inline-block transition-transform duration-[var(--duration-press)] ease-[var(--ease-out)] group-active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none">로그인</span>
+              <span className="inline-block transition-transform duration-[var(--duration-press)] ease-[var(--ease-out)] group-active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none">{t("auth.login")}</span>
             </button>
             <button
               type="button"
@@ -364,7 +362,7 @@ export const LoginPage = ({
               }`}
             >
               <UserPlus className="h-4 w-4" />
-              <span className="inline-block transition-transform duration-[var(--duration-press)] ease-[var(--ease-out)] group-active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none">회원가입</span>
+              <span className="inline-block transition-transform duration-[var(--duration-press)] ease-[var(--ease-out)] group-active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none">{t("auth.signup")}</span>
             </button>
           </div>
 
@@ -374,22 +372,22 @@ export const LoginPage = ({
                 <div className="flex gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-400/15 text-orange-300"><AlertCircle className="h-4.5 w-4.5" /></span>
                   <div>
-                    <h2 id="unregistered-google-title" className="text-sm font-black text-orange-100">가입된 Google 계정이 아니에요</h2>
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-300">이 Google 계정으로는 아직 DIGBOX를 시작하지 않았어요. 처음이라면 회원가입으로 계속해 주세요.</p>
+                    <h2 id="unregistered-google-title" className="text-sm font-black text-orange-100">{t("auth.unregisteredGoogleTitle")}</h2>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-gray-300">{t("auth.unregisteredGoogleDescription")}</p>
                   </div>
                 </div>
               </section>
             )}
             {tab === 'signup' && isGuestDigboxSignup && (
               <div className="rounded-xl border border-orange-400/25 bg-orange-400/[0.08] px-4 py-3">
-                <p className="text-sm font-black text-orange-300">선택한 아이템을 내 저장 목록에 보관합니다</p>
+                <p className="text-sm font-black text-orange-300">{t("auth.guestSavedTitle")}</p>
                 <p className="mt-1 text-xs leading-relaxed text-gray-300">
-                  가입을 완료하면 관심 취향을 이어서 보고, 더 잘 맞는 아이템을 추천받을 수 있습니다.
+                  {t("auth.guestSavedDescription")}
                 </p>
               </div>
             )}
             <div>
-              <label htmlFor="auth-email" className="mb-1.5 block text-sm font-medium text-gray-300">이메일</label>
+              <label htmlFor="auth-email" className="mb-1.5 block text-sm font-medium text-gray-300">{t("auth.email")}</label>
               <input
                 id="auth-email"
                 type="email"
@@ -403,45 +401,45 @@ export const LoginPage = ({
 
             {tab === 'signup' && (
               <div>
-                <label htmlFor="auth-username" className="mb-1.5 block text-sm font-medium text-gray-300">사용자 이름</label>
+                <label htmlFor="auth-username" className="mb-1.5 block text-sm font-medium text-gray-300">{t("auth.username")}</label>
                 <input
                   id="auth-username"
                   type="text"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   onKeyDown={(event) => { if (event.key === 'Enter') void handleSubmit(); }}
-                  placeholder="사용자 이름을 입력해 주세요"
+                  placeholder={t("auth.usernamePlaceholder")}
                   className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder-gray-500 transition-[border-color,box-shadow] duration-150 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus-visible:ring-orange-400 motion-reduce:transition-none"
                 />
                 <p className="mt-1.5 text-xs font-medium text-gray-500">
-                  영문, 숫자, 밑줄(_), 마침표(.)만 사용해 3-20자로 입력해 주세요.
+                  {t("auth.usernameHint")}
                 </p>
               </div>
             )}
 
             <div>
-              <label htmlFor="auth-password" className="mb-1.5 block text-sm font-medium text-gray-300">비밀번호</label>
+              <label htmlFor="auth-password" className="mb-1.5 block text-sm font-medium text-gray-300">{t("auth.password")}</label>
               <input
                 id="auth-password"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 onKeyDown={(event) => { if (event.key === 'Enter') void handleSubmit(); }}
-                placeholder={tab === 'signup' ? '8자 이상 입력해 주세요' : '비밀번호 입력'}
+                placeholder={tab === 'signup' ? t("auth.passwordSignupPlaceholder") : t("auth.passwordPlaceholder")}
                 className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder-gray-500 transition-[border-color,box-shadow] duration-150 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus-visible:ring-orange-400 motion-reduce:transition-none"
               />
             </div>
 
             {tab === 'signup' && (
               <div>
-                <label htmlFor="auth-password-confirm" className="mb-1.5 block text-sm font-medium text-gray-300">비밀번호 확인</label>
+                <label htmlFor="auth-password-confirm" className="mb-1.5 block text-sm font-medium text-gray-300">{t("auth.confirmPassword")}</label>
                 <input
                   id="auth-password-confirm"
                   type="password"
                   value={passwordConfirm}
                   onChange={(event) => setPasswordConfirm(event.target.value)}
                   onKeyDown={(event) => { if (event.key === 'Enter') void handleSubmit(); }}
-                  placeholder="비밀번호를 다시 입력해 주세요"
+                  placeholder={t("auth.confirmPasswordPlaceholder")}
                   className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder-gray-500 transition-[border-color,box-shadow] duration-150 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus-visible:ring-orange-400 motion-reduce:transition-none"
                 />
               </div>
@@ -467,7 +465,7 @@ export const LoginPage = ({
                   : 'bg-orange-500 text-black hover:bg-orange-400'
               }`}
             >
-              {isSubmitting ? (tab === 'login' ? '로그인 중...' : '가입 중...') : (tab === 'login' ? '로그인' : '회원가입')}
+              {isSubmitting ? (tab === 'login' ? t("auth.loggingIn") : t("auth.signingUp")) : (tab === 'login' ? t("auth.login") : t("auth.signup"))}
             </button>
 
             <div className="relative my-2">
@@ -475,7 +473,7 @@ export const LoginPage = ({
                 <div className="w-full border-t border-white/10" />
               </div>
               <div className="relative flex justify-center">
-                <span className="bg-[#1a1a1a] px-3 text-xs text-gray-500">또는</span>
+                <span className="bg-[#1a1a1a] px-3 text-xs text-gray-500">{t("auth.or")}</span>
               </div>
             </div>
 
@@ -491,20 +489,20 @@ export const LoginPage = ({
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-gray-900 transition-[background-color,transform,box-shadow] duration-150 hover:bg-gray-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] motion-reduce:transform-none motion-reduce:transition-none"
             >
               <GoogleIcon />
-              {tab === 'login' ? 'Google로 로그인' : 'Google로 회원가입'}
+              {tab === 'login' ? t("auth.loginWithGoogle") : t("auth.signupWithGoogle")}
             </button>
 
             {tab === 'signup' && (
               <p className="text-center text-[11px] font-medium leading-5 text-gray-500">
-                회원가입을 계속하면{' '}
+                {t("auth.termsPrefix")}{' '}
                 <Link href="/terms" className="font-bold text-gray-300 underline underline-offset-2 hover:text-orange-300">
-                  이용약관
+                  {t("footer.terms")}
                 </Link>
-                에 동의하고{' '}
+                {' '}{t("auth.termsMiddle")}{' '}
                 <Link href="/privacy" className="font-bold text-gray-300 underline underline-offset-2 hover:text-orange-300">
-                  개인정보 처리방침
+                  {t("footer.privacy")}
                 </Link>
-                을 확인한 것으로 봅니다.
+                {t("auth.termsSuffix")}
               </p>
             )}
           </div>

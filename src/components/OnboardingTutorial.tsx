@@ -2,6 +2,7 @@
 
 import { ChevronRight, X } from "lucide-react";
 import { useMemo } from "react";
+import { useLocaleContext } from "../contexts/LocaleContext";
 
 interface TutorialStep {
   title: string;
@@ -77,6 +78,18 @@ const TUTORIAL_STEPS: Record<TutorialId, TutorialStep> = {
   },
 };
 
+const TUTORIAL_STEPS_EN: Record<TutorialId, TutorialStep> = {
+  search: { title: "Find products by search", description: "Enter a brand or product name to see matching brands and product suggestions right away.", action: "Got it" },
+  filters: { title: "Narrow it down with filters", description: "Combine category and brand filters to quickly find exactly what you want to see.", action: "Got it" },
+  detail: { title: "Product details", description: "Open a product to check its size chart and find products with similar sizes.", action: "Great" },
+  collection: { title: "Save interests and owned items separately", description: "Save products you like to understand your taste, and add products you own to your Closet to manage sizes.", action: "Let's start" },
+  sizeSelection: { title: "Save an owned size", description: "Saving the size you own improves future My Size comparisons and recommendations.", action: "Got it" },
+  sizeRecommendations: { title: "Find similar sizes", description: "Select a size-chart row to see products with similar sizes below.", action: "Got it" },
+  mySizeCompare: { title: "Compare with My Size", description: "Compare measurements from an item that fits well with the current product right away.", action: "Great" },
+  mySizeSetup: { title: "Save My Size", description: "Save a Closet product that fits well to My Size for measurement comparisons on other products.", action: "Let's start" },
+  digboxShare: { title: "Share your saved list", description: "Copy your saved-list link to share products you discovered with others.", action: "Share it" },
+};
+
 interface OnboardingTutorialProps {
   tutorialId: TutorialId;
   anchorRect?: TutorialAnchorRect | null;
@@ -84,7 +97,8 @@ interface OnboardingTutorialProps {
 }
 
 export function OnboardingTutorial({ tutorialId, anchorRect, onClose }: OnboardingTutorialProps) {
-  const step = TUTORIAL_STEPS[tutorialId];
+  const { locale, t } = useLocaleContext();
+  const step = (locale === "en" ? TUTORIAL_STEPS_EN : TUTORIAL_STEPS)[tutorialId];
   const position = useMemo(() => {
     const width = 288;
     const estimatedHeight = 180;
@@ -133,7 +147,7 @@ export function OnboardingTutorial({ tutorialId, anchorRect, onClose }: Onboardi
       <button
         onClick={onClose}
         className="absolute right-4 top-4 rounded-full p-1.5 text-gray-400 transition hover:bg-white/10 hover:text-white"
-        aria-label="튜토리얼 닫기"
+        aria-label={t("common.close")}
       >
         <X className="h-5 w-5" />
       </button>

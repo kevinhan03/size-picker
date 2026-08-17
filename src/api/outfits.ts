@@ -1,5 +1,6 @@
 import type { OutfitRequestDetail, OutfitRequestMineStatus, OutfitRequestScope, OutfitRequestSummary } from "../types";
 import { parseApiJson } from "./shared";
+import { apiMessage } from "./apiMessage";
 
 function authHeaders(includeJson = false) {
   return includeJson ? { "Content-Type": "application/json" } : undefined;
@@ -7,7 +8,7 @@ function authHeaders(includeJson = false) {
 
 async function parseResponse<T>(response: Response, endpoint: string): Promise<T> {
   const payload = await parseApiJson<{ ok?: boolean; data?: T; error?: string }>(response, endpoint);
-  if (!response.ok || !payload.ok || !payload.data) throw new Error(payload.error || "요청을 처리하지 못했습니다.");
+  if (!response.ok || !payload.ok || !payload.data) throw new Error(payload.error || apiMessage('outfitRequestsLoadFailed'));
   return payload.data;
 }
 

@@ -3,6 +3,7 @@ import { fetchCatalogProductsByIds, fetchDigboxData, addToDigbox as apiAdd, remo
 import { useCollectionBootstrap } from "../contexts/CollectionBootstrapContext";
 import type { DigboxSizeDecisionInput, Product } from "../types";
 import { captureEvent } from "../utils/analytics";
+import { useLocaleContext } from "../contexts/LocaleContext";
 import {
   clearGuestDigboxImportRequest,
   GUEST_DIGBOX_LIMIT,
@@ -21,6 +22,9 @@ export function useDigbox(
   options: { initialAnalysisLoaded?: boolean; refreshAnalysisAfterMutation?: boolean } = {}
 ) {
   const bootstrap = useCollectionBootstrap();
+  const { t } = useLocaleContext();
+  const tRef = useRef(t);
+  tRef.current = t;
   const initialItems = initialProducts ?? [];
   const [digboxProducts, setDigboxProducts] = useState<Product[]>(initialItems);
   const [digboxIds, setDigboxIds] = useState<Set<string>>(new Set(initialItems.map((product) => product.id)));
@@ -115,7 +119,7 @@ export function useDigbox(
       }
     } catch (loadError: unknown) {
       // Keep the previous collection when a background refresh fails.
-      setError(loadError instanceof Error ? loadError.message : "저장 목록을 불러오지 못했습니다.");
+      setError(loadError instanceof Error ? loadError.message : tRef.current("saved.loadError"));
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);

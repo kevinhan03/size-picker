@@ -6,6 +6,7 @@ import { ProgressiveImage } from "./ProgressiveImage";
 import { loadProductDetailModal } from "./productDetailModalLoader";
 import type { TutorialAnchorRect } from "./OnboardingTutorial";
 import type { Product } from "../types";
+import { useLocaleContext } from "../contexts/LocaleContext";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
 import { CATEGORY_OPTIONS } from "../constants";
 
@@ -50,6 +51,7 @@ export function GridView({
   isLoadingMoreProducts = false,
   onLoadMoreProducts,
 }: GridViewProps) {
+  const { t } = useLocaleContext();
   const gridRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const [colCount, setColCount] = useState(2);
@@ -111,11 +113,11 @@ export function GridView({
     <div className={`w-full max-w-7xl ${isInteractionDisabled ? "pointer-events-none" : ""}`}>
 
       {isLoading && allProducts.length === 0 ? (
-        <div className="py-20 text-center text-gray-500">상품을 불러오는 중입니다.</div>
+        <div className="py-20 text-center text-gray-500">{t("grid.loading")}</div>
       ) : allProducts.length === 0 ? (
-        <div className="py-20 text-center text-gray-500">등록된 상품이 없습니다.</div>
+        <div className="py-20 text-center text-gray-500">{t("grid.empty")}</div>
       ) : filteredGridProducts.length === 0 ? (
-        <div className="py-20 text-center text-gray-500">검색 조건에 맞는 상품이 없습니다.</div>
+        <div className="py-20 text-center text-gray-500">{t("grid.noResults")}</div>
       ) : (
         <div
           ref={gridRef}
@@ -199,7 +201,7 @@ export function GridView({
       )}
       {hasMoreProducts ? (
         <div ref={loadMoreSentinelRef} className="flex min-h-16 items-center justify-center pt-5" aria-live="polite">
-          {isLoadingMoreProducts ? <span className="text-sm font-medium text-gray-400">상품을 더 불러오는 중입니다.</span> : null}
+          {isLoadingMoreProducts ? <span className="text-sm font-medium text-gray-400">{t("grid.loadingMore")}</span> : null}
         </div>
       ) : null}
     </div>

@@ -21,7 +21,6 @@ import {
   fetchProductMetadataFromUrl,
   removeBackgroundWithGemini,
 } from "../../api";
-import { DUPLICATE_PRODUCT_MESSAGE } from "../../constants";
 import {
   applyCaptureAutofill,
   applyUrlAutofill,
@@ -29,6 +28,7 @@ import {
   getCaptureProductImageNotice,
   hasEmptyCaptureAutofillResult,
 } from "./helpers";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 
 interface ProductFormAutofillState {
   formData: AddProductFormData;
@@ -72,6 +72,7 @@ interface UseProductFormAutofillOptions {
 }
 
 export function useProductFormAutofill({ state, productUrlSet }: UseProductFormAutofillOptions) {
+  const { t } = useLocaleContext();
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>, type: "product" | "chart") => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -93,7 +94,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         } catch (bgError) {
           console.error("[handleFileUpload] remove bg failed, using original image", bgError);
           state.setProductPhotoFile(file);
-          state.setProductImageNotice("배경 제거에 실패했습니다. 원본 이미지를 사용합니다.");
+          state.setProductImageNotice(t("addProduct.bgRemoveFailed"));
         } finally {
           state.setIsProcessingImage(false);
         }
@@ -122,7 +123,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
           extractedTable: normalizeSizeTableForCategory(prev.category, rawTable),
         }));
       } catch (extractError: unknown) {
-        const message = extractError instanceof Error ? extractError.message : "Size table extraction failed.";
+        const message = extractError instanceof Error ? extractError.message : t("addProduct.sizeTableExtractFailed");
         alert(`${message} (check /api/size-table server logs)`);
       } finally {
         state.setIsAnalyzingTable(false);
@@ -132,7 +133,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
 
   const handleDroppedFile = (file: File, type: "product" | "chart") => {
     if (!file.type.startsWith("image/")) {
-      state.setAutoFillError("이미지 파일만 업로드할 수 있습니다.");
+      state.setAutoFillError(t("addProduct.imageFilesOnly"));
       return;
     }
 
@@ -153,7 +154,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         } catch (bgError) {
           console.error("[handleDroppedFile] remove bg failed, using original image", bgError);
           state.setProductPhotoFile(file);
-          state.setProductImageNotice("배경 제거에 실패했습니다. 원본 이미지를 사용합니다.");
+          state.setProductImageNotice(t("addProduct.bgRemoveFailed"));
         } finally {
           state.setIsProcessingImage(false);
         }
@@ -182,7 +183,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
           extractedTable: normalizeSizeTableForCategory(prev.category, rawTable),
         }));
       } catch (extractError: unknown) {
-        const message = extractError instanceof Error ? extractError.message : "Size table extraction failed.";
+        const message = extractError instanceof Error ? extractError.message : t("addProduct.sizeTableExtractFailed");
         alert(`${message} (check /api/size-table server logs)`);
       } finally {
         state.setIsAnalyzingTable(false);
@@ -203,7 +204,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
   const handleAutoFillFromUrl = async () => {
     const targetUrl = state.formData.url.trim();
     if (!targetUrl) {
-      state.setAutoFillError("상품 URL을 입력해 주세요.");
+      state.setAutoFillError(t("addProduct.urlRequired"));
       return;
     }
 
@@ -215,7 +216,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
       const extracted = await fetchProductMetadataFromUrl(targetUrl);
       const normalizedExtractedUrl = normalizeComparableProductUrl(extracted.url || targetUrl);
       if (normalizedExtractedUrl && productUrlSet.has(normalizedExtractedUrl)) {
-        state.setAutoFillError(DUPLICATE_PRODUCT_MESSAGE);
+        state.setAutoFillError(t("duplicateProduct.title"));
         state.clearSelectedProductImage();
         state.setFormData((prev) => ({
           ...prev,
@@ -234,17 +235,17 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         state.setProductImageNotice(null);
       } else {
         state.setAutofilledProductImageUrl(null);
-        state.setProductImageNotice("Official product image was not found from the page. Upload the brand image manually.");
+        state.setProductImageNotice(t("addProduct.officialImageNotFound"));
       }
 
       state.setAutofilledProductImageCandidates(candidateUrls);
       state.setFormData((prev) => applyUrlAutofill(prev, extracted, selectedCandidateUrl));
 
       if (!extracted.brand && !extracted.name && !selectedCandidateUrl) {
-        state.setAutoFillError("공식 홈페이지에서 정보를 불러오지 못했습니다. 비어 있는 항목을 직접 입력해 주세요.");
+        state.setAutoFillError(t("addProduct.urlAutofillFailed"));
       }
     } catch {
-      state.setAutoFillError("공식 홈페이지에서 정보를 불러오지 못했습니다. 비어 있는 항목을 직접 입력해 주세요.");
+      state.setAutoFillError(t("addProduct.urlAutofillFailed"));
     } finally {
       state.setIsAutofillingFromUrl(false);
     }
@@ -289,16 +290,16 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         state.setAutofilledProductImageCandidates(candidateUrls);
         state.setProductPhotoFile(null);
         state.setAutofilledProductImageUrl(selectedCandidateUrl || null);
-        state.setProductImageNotice(getCaptureProductImageNotice(selectedCandidateUrl, croppedProductImage));
+        state.setProductImageNotice(getCaptureProductImageNotice(selectedCandidateUrl, croppedProductImage, t));
         state.setFormData((prev) =>
           applyCaptureAutofill(prev, extracted, selectedCandidateUrl, croppedProductImage, normalizedTable, optimizedDataUrl)
         );
 
         if (hasEmptyCaptureAutofillResult(extracted, selectedCandidateUrl, croppedProductImage, normalizedTable)) {
-          state.setAutoFillError("캡처 이미지에서 자동 입력 데이터를 찾지 못했습니다.");
+          state.setAutoFillError(t("addProduct.captureAutofillEmpty"));
         }
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Image analysis failed.";
+        const message = error instanceof Error ? error.message : t("addProduct.imageAnalysisFailed");
         state.setAutoFillError(message);
       } finally {
         state.setIsAnalyzingTable(false);

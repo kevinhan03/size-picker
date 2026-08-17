@@ -34,7 +34,12 @@ function brandAffinity(left: BrandCluster, right: BrandCluster) {
   return (cosine * 0.56 + distributionSimilarity * 0.29 + strongestSharedTag * 0.15) * sampleReliability;
 }
 
-const normalizeBrand = (product: Product) => String(product.brand || "").trim() || "브랜드 미상";
+const normalizeBrand = (product: Product) => {
+  const brand = String(product.brand || "").trim();
+  if (brand) return brand;
+  const isEnglish = typeof document !== "undefined" && document.documentElement.lang === "en";
+  return isEnglish ? "Unknown brand" : "브랜드 미상";
+};
 
 const englishBrandName = (brand: string) => {
   const matches = brand.match(/[A-Za-z0-9][A-Za-z0-9&.'-]*(?:\s+[A-Za-z0-9&.'-]+)*/g);

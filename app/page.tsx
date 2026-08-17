@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { SearchPageClient } from "../src/components/pages/SearchPageClient";
 import { ProductsProvider } from "../src/contexts/ProductsContext";
 import { getCatalogPage } from "../server/services/catalog";
 import type { ProductCardData } from "../src/types";
+import { getLocale, LOCALE_COOKIE_NAME } from "../src/i18n/locale";
+import { translate } from "../src/i18n/messages";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.digbox.co.kr";
 
@@ -31,7 +34,9 @@ export default async function Page() {
     initialProducts = page.products;
     initialNextOffset = page.nextOffset;
   } catch {
-    initialError = "상품 정보를 불러오지 못했습니다.";
+    const cookieStore = await cookies();
+    const locale = getLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+    initialError = translate(locale, "products.loadError");
   }
 
   return (

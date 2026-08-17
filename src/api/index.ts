@@ -17,6 +17,7 @@ import type {
 } from '../types';
 import { normalizeSizeTable } from '../utils/sizeTable';
 import { authenticatedFetch, parseApiJson, postJson } from './shared';
+import { apiMessage } from './apiMessage';
 import type { SerializedTasteGraphState, TasteCollectionSource } from "../utils/tasteGraph";
 
 export type CollectionBootstrapData = {
@@ -46,7 +47,7 @@ export const fetchTasteAnalysis = async (source: TasteCollectionSource): Promise
   const endpoint = `/api/taste-analysis?source=${encodeURIComponent(source)}`;
   const response = await authenticatedFetch(endpoint);
   const payload = await parseApiJson<{ ok?: boolean; data?: { source?: TasteCollectionSource; products?: Product[]; graph?: SerializedTasteGraphState }; error?: string }>(response, endpoint);
-  if (!response.ok || !payload.ok || !payload.data?.graph) throw new Error(payload.error || "취향 분석을 불러오지 못했습니다.");
+  if (!response.ok || !payload.ok || !payload.data?.graph) throw new Error(payload.error || apiMessage('tasteAnalysisLoadFailed'));
   return {
     source: payload.data.source === "closet" ? "closet" : "digbox",
     products: Array.isArray(payload.data.products) ? payload.data.products : [],
@@ -58,7 +59,7 @@ export const fetchAllProducts = async (): Promise<Product[]> => {
   const endpoint = '/api/admin/products';
   const response = await fetch(endpoint, { cache: 'no-store' });
   const payload = await parseApiJson<{ ok?: boolean; data?: { products?: Product[] }; error?: string }>(response, endpoint);
-  if (!response.ok || !payload.ok) throw new Error(payload.error || '상품 목록을 불러오지 못했습니다.');
+  if (!response.ok || !payload.ok) throw new Error(payload.error || apiMessage('loadProducts'));
   return Array.isArray(payload.data?.products) ? payload.data.products : [];
 };
 
@@ -71,7 +72,7 @@ export const fetchCatalogProducts = (offset = 0, limit = 24): Promise<CatalogPag
   const request = (async () => {
   const response = await fetch(endpoint);
   const payload = await parseApiJson<{ ok?: boolean; data?: { products?: ProductCardData[]; nextOffset?: number | null }; error?: string }>(response, endpoint);
-  if (!response.ok || !payload.ok) throw new Error(payload.error || "상품 목록을 불러오지 못했습니다.");
+  if (!response.ok || !payload.ok) throw new Error(payload.error || apiMessage('loadProducts'));
   return {
     products: Array.isArray(payload.data?.products) ? payload.data.products : [],
     nextOffset: typeof payload.data?.nextOffset === "number" ? payload.data.nextOffset : null,
@@ -89,7 +90,7 @@ export const searchCatalogProducts = async (query: string, signal?: AbortSignal,
   const endpoint = `/api/catalog/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}`;
   const response = await fetch(endpoint, { signal });
   const payload = await parseApiJson<{ ok?: boolean; data?: { products?: Product[] }; error?: string }>(response, endpoint);
-  if (!response.ok || !payload.ok) throw new Error(payload.error || '상품 검색에 실패했습니다.');
+  if (!response.ok || !payload.ok) throw new Error(payload.error || apiMessage('searchProducts'));
   return Array.isArray(payload.data?.products) ? payload.data.products : [];
 };
 
@@ -99,7 +100,7 @@ export const fetchCatalogProductsByIds = async (ids: string[], signal?: AbortSig
   const endpoint = `/api/catalog/by-ids?ids=${encodeURIComponent(uniqueIds.join(','))}`;
   const response = await fetch(endpoint, { signal });
   const payload = await parseApiJson<{ ok?: boolean; data?: { products?: Product[] }; error?: string }>(response, endpoint);
-  if (!response.ok || !payload.ok) throw new Error(payload.error || '상품 정보를 불러오지 못했습니다.');
+  if (!response.ok || !payload.ok) throw new Error(payload.error || apiMessage('loadProductInfo'));
   return Array.isArray(payload.data?.products) ? payload.data.products : [];
 };
 
@@ -108,14 +109,14 @@ export const uploadSubmissionImage = async (file: File): Promise<string> => {
   form.set('file', file);
   const response = await authenticatedFetch('/api/uploads/product-image', { method: 'POST', body: form });
   const payload = await parseApiJson<{ ok?: boolean; data?: { path?: string }; error?: string }>(response, '/api/uploads/product-image');
-  if (!response.ok || !payload.ok || !payload.data?.path) throw new Error(payload.error || 'Image upload failed');
+  if (!response.ok || !payload.ok || !payload.data?.path) throw new Error(payload.error || apiMessage('imageUploadFailed'));
   return payload.data.path;
 };
 
 export const submitProduct = async (form: SubmitProductForm, isInstagram = false): Promise<Product> => {
   const category = String(form.category || '').trim();
   if (!category) {
-    throw new Error('카테고리는 필수입니다.');
+    throw new Error(apiMessage('categoryRequired'));
   }
   let imagePath = '';
   if (form.productPhoto) {
@@ -124,7 +125,7 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
     imagePath = String(form.productImageUrl || '').trim();
   }
   if (!imagePath) {
-    throw new Error('상품 사진은 필수입니다.');
+    throw new Error(apiMessage('productPhotoRequired'));
   }
 
   const { response, payload } = await postJson<object, { product?: Product }>(
@@ -143,10 +144,10 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
   );
   if (!response.ok || !payload?.ok) {
     console.error('[submitProduct] insert failed', payload?.error);
-    throw new Error(payload?.error || 'Product submission failed');
+    throw new Error(payload?.error || apiMessage('productSubmitFailed'));
   }
   if (!payload.data?.product) {
-    throw new Error('Product submission returned no product');
+    throw new Error(apiMessage('productSubmitNoProduct'));
   }
   return payload.data.product;
 };
@@ -157,7 +158,7 @@ export const fetchProductMetadataFromUrl = async (url: string): Promise<ProductM
     { url }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
-    throw new Error(payload?.error || 'Failed to extract metadata from URL');
+    throw new Error(payload?.error || apiMessage('metadataFromUrlFailed'));
   }
   return payload.data as ProductMetadataPayload;
 };
@@ -174,7 +175,7 @@ export const fetchProductMetadataFromImage = async (
     { imageBase64: base64Image, mimeType }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
-    throw new Error(payload?.error || 'Failed to extract metadata from image');
+    throw new Error(payload?.error || apiMessage('metadataFromImageFailed'));
   }
   return payload.data as ProductMetadataPayload;
 };
@@ -185,11 +186,11 @@ export const extractSizeTableFromImage = async (base64Image: string, mimeType = 
     { imageBase64: base64Image, mimeType }
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
-    throw new Error(payload?.error ?? 'Failed to extract size table');
+    throw new Error(payload?.error ?? apiMessage('sizeTableExtractFailed'));
   }
   const normalized = normalizeSizeTable(payload.data);
   if (!normalized) {
-    throw new Error('Failed to normalize extracted size table');
+    throw new Error(apiMessage('sizeTableNormalizeFailed'));
   }
   return normalized;
 };
@@ -209,7 +210,7 @@ export const removeBackgroundWithGemini = async (base64Image: string): Promise<s
 export const fetchClosetItems = async (includeAnalysis = false): Promise<Product[]> => {
   const response = await authenticatedFetch(`/api/closet${includeAnalysis ? '?analysis=1' : ''}`);
   const payload = await parseApiJson<{ ok?: boolean; data?: { products?: unknown[] }; error?: string }>(response, '/api/closet');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to load closet');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || apiMessage('closetLoadFailed'));
   const rows = Array.isArray(payload?.data?.products) ? payload.data!.products : [];
   return rows.filter((p): p is Product => p !== null && typeof p === 'object');
 };
@@ -226,7 +227,7 @@ export const addToCloset = async (productId: string, sizeSelection?: ClosetSizeS
     }),
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/closet');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '옷장 추가 실패');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || apiMessage('closetAddFailed'));
 };
 
 export const removeFromCloset = async (productId: string): Promise<void> => {
@@ -234,7 +235,7 @@ export const removeFromCloset = async (productId: string): Promise<void> => {
     method: 'DELETE',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/closet/[productId]');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '옷장 제거 실패');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || apiMessage('closetRemoveFailed'));
 };
 
 export const fetchMySizes = async (): Promise<MySizeProfile[]> => {
@@ -251,7 +252,7 @@ export const createMySize = async (input: MySizeInput): Promise<MySizeProfile> =
     input
   );
   if (!response.ok || !payload?.ok || !payload.data?.profile) {
-    throw new Error(payload?.error || 'Failed to create my size');
+    throw new Error(payload?.error || apiMessage('mySizeCreateFailed'));
   }
   return payload.data.profile;
 };
@@ -264,7 +265,7 @@ export const updateMySize = async (id: string, input: MySizeUpdateInput): Promis
   });
   const payload = await parseApiJson<{ ok?: boolean; data?: { profile?: MySizeProfile }; error?: string }>(response, '/api/my-sizes/[id]');
   if (!response.ok || !payload?.ok || !payload.data?.profile) {
-    throw new Error(payload?.error || 'Failed to update my size');
+    throw new Error(payload?.error || apiMessage('mySizeUpdateFailed'));
   }
   return payload.data.profile;
 };
@@ -274,7 +275,7 @@ export const deleteMySize = async (id: string): Promise<void> => {
     method: 'DELETE',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/my-sizes/[id]');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to delete my size');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || apiMessage('mySizeDeleteFailed'));
 };
 
 export const fetchDigboxItems = async (): Promise<Product[]> => {
@@ -289,7 +290,7 @@ export const fetchDigboxData = async (includeAnalysis = false): Promise<{ produc
     data?: { products?: unknown[]; discoveredDigboxCounts?: Record<string, unknown> };
     error?: string;
   }>(response, '/api/digbox');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to load saved products');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || apiMessage('digboxLoadFailed'));
   const rows = Array.isArray(payload?.data?.products) ? payload.data!.products : [];
   const counts = payload?.data?.discoveredDigboxCounts;
   const discoveredDigboxCounts: Record<string, number> = {};
@@ -312,7 +313,7 @@ export const addToDigbox = async (productId: string): Promise<void> => {
     body: JSON.stringify({ productId }),
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '저장 실패');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || apiMessage('digboxAddFailed'));
 };
 
 export const removeFromDigbox = async (productId: string): Promise<void> => {
@@ -320,7 +321,7 @@ export const removeFromDigbox = async (productId: string): Promise<void> => {
     method: 'DELETE',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox/[productId]');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '저장 해제 실패');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || apiMessage('digboxRemoveFailed'));
 };
 
 export const updateDigboxSizeDecision = async (
@@ -333,7 +334,7 @@ export const updateDigboxSizeDecision = async (
     body: JSON.stringify({ decision }),
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox/[productId]');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '사이즈 기록 저장 실패');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || apiMessage('digboxSizeDecisionSaveFailed'));
 };
 
 export const deleteMyAccount = async (): Promise<void> => {
@@ -345,7 +346,7 @@ export const deleteMyAccount = async (): Promise<void> => {
     '/api/auth/delete-account'
   );
   if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error || 'Failed to delete account');
+    throw new Error(payload?.error || apiMessage('accountDeleteFailed'));
   }
 };
 
@@ -354,7 +355,7 @@ export const cleanupUnregisteredGoogleAccount = async (): Promise<void> => {
     method: 'POST',
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/auth/cleanup-unregistered');
-  if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Failed to clean up incomplete signup');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || apiMessage('cleanupFailed'));
 };
 
 export const completeMyProfile = async (username: string): Promise<string> => {
@@ -363,7 +364,7 @@ export const completeMyProfile = async (username: string): Promise<string> => {
     { username }
   );
   if (!response.ok || !payload?.ok || !payload.data?.username) {
-    throw new Error(payload?.error || 'Failed to complete profile');
+    throw new Error(payload?.error || apiMessage('profileCompleteFailed'));
   }
   return payload.data.username;
 };

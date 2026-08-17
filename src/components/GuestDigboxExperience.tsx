@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useDigboxContext } from "../contexts/DigboxContext";
+import { useLocaleContext } from "../contexts/LocaleContext";
 import { captureEvent } from "../utils/analytics";
 import { buildLoginHref, saveAuthContinuation } from "../utils/authNavigation";
 import { requestGuestDigboxImport } from "../utils/guestDigbox";
@@ -49,6 +50,7 @@ function getTasteShares(products: Product[]) {
 }
 
 export function GuestDigboxExperience() {
+  const { t } = useLocaleContext();
   const router = useRouter();
   const pathname = usePathname();
   const auth = useAuthContext();
@@ -115,8 +117,8 @@ export function GuestDigboxExperience() {
       >
         <Star className="h-4 w-4 fill-current" />
         {digbox.isGuestPromptOpen || digbox.guestCount === digbox.guestLimit
-          ? "첫 취향 분석 보기"
-          : `취향 만들기 ${digbox.guestCount}/${digbox.guestLimit}`}
+          ? t("guestTaste.preview")
+          : t("guestTaste.selectedItems", { count: digbox.guestCount, limit: digbox.guestLimit })}
       </button>
 
       {isPanelOpen && (
@@ -131,38 +133,38 @@ export function GuestDigboxExperience() {
             <button
               type="button"
               onClick={close}
-              aria-label="임시 저장 목록 닫기"
+              aria-label={t("guestTaste.close")}
               className="absolute right-4 top-4 rounded-full p-2 text-gray-500 transition hover:bg-white/10 hover:text-white"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <p className="text-[11px] font-black tracking-[0.12em] text-yellow-400">임시 저장 · {digbox.guestCount}/{digbox.guestLimit}</p>
+            <p className="text-[11px] font-black tracking-[0.12em] text-yellow-400">{t("guestTaste.tempSavedCount", { count: digbox.guestCount, limit: digbox.guestLimit })}</p>
             <h2 id="guest-digbox-title" className="mt-2 pr-10 text-xl font-black">
               {digbox.guestCount === 0
-                ? "마음에 드는 아이템을 3개 골라보세요"
+                ? t("guestTaste.chooseThree")
                 : digbox.guestCount === digbox.guestLimit
-                  ? "당신의 첫 취향 분석"
-                  : "마음에 든 상품을 모으고 있어요"}
+                  ? t("guestTaste.visible")
+                  : t("guestTaste.collecting")}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-gray-400">
               {digbox.guestCount === 0
-                ? "상품 카드의 별을 눌러 관심 있는 아이템을 담아보세요."
+                ? t("guestTaste.chooseThreeHelp")
                 : digbox.guestCount === digbox.guestLimit
-                  ? "고른 상품에서 어떤 스타일을 좋아하는지 살펴봤어요."
-                  : "고른 아이템으로 취향을 만들고 있어요. 3개가 되면 공통 무드를 보여드려요."}
+                  ? t("guestTaste.visibleHelp")
+                  : t("guestTaste.collectingHelp")}
             </p>
 
             {digbox.guestCount === digbox.guestLimit && (
-              <section className="mt-5 rounded-2xl border border-sky-400/20 bg-sky-400/[0.07] p-4" aria-label="내가 고른 스타일">
-                <p className="text-xs font-black text-sky-300">내가 고른 스타일</p>
+              <section className="mt-5 rounded-2xl border border-sky-400/20 bg-sky-400/[0.07] p-4" aria-label={t("guestTaste.myStyleHeading")}>
+                <p className="text-xs font-black text-sky-300">{t("guestTaste.myStyleHeading")}</p>
                 {digbox.guestProducts.length === digbox.guestCount && tasteSignals.length ? (
                   <>
                     <p className="mt-2 text-lg font-black leading-snug text-white">
-                      <span className="text-sky-200">{styleTagLabel(tasteSignals[0].tag)}</span>이 가장 큰 비중을 차지해요.
+                      {t("guestTaste.dominantStyle", { tag: styleTagLabel(tasteSignals[0].tag) })}
                     </p>
                     <p className="mt-2 text-sm leading-relaxed text-sky-100/80">
-                      고른 3개 상품의 스타일을 100% 기준으로 나눠 봤어요.
+                      {t("guestTaste.styleBreakdownHint")}
                     </p>
                     <div className="mt-4 space-y-3">
                       {tasteSignals.map((signal) => (
@@ -175,16 +177,16 @@ export function GuestDigboxExperience() {
                             <div
                               className="h-full rounded-full bg-sky-300 transition-[width] duration-500"
                               style={{ width: `${signal.share}%` }}
-                              aria-label={`${styleTagLabel(signal.tag)} 비중 ${signal.share}%`}
+                              aria-label={t("guestTaste.styleShareAria", { tag: styleTagLabel(signal.tag), share: signal.share })}
                             />
                           </div>
                         </div>
                       ))}
                     </div>
-                    {otherTasteShare > 0 && <p className="mt-3 text-xs font-semibold text-sky-100/60">그 외 스타일 {otherTasteShare}%</p>}
+                    {otherTasteShare > 0 && <p className="mt-3 text-xs font-semibold text-sky-100/60">{t("guestTaste.otherStyleShare", { share: otherTasteShare })}</p>}
                   </>
                 ) : (
-                  <p className="mt-2 text-sm leading-relaxed text-gray-300">{digbox.guestProducts.length < digbox.guestCount ? "스타일 태그를 불러오는 중이에요." : "스타일 태그가 없는 상품이 있어 무드를 정리하지 못했어요."}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-300">{digbox.guestProducts.length < digbox.guestCount ? t("guestTaste.loadingStyleTags") : t("guestTaste.styleTagsUnavailable")}</p>
                 )}
               </section>
             )}
@@ -212,7 +214,7 @@ export function GuestDigboxExperience() {
                   <button
                     type="button"
                     onClick={() => digbox.removeGuestItem(product.id)}
-                    aria-label={`${product.name} 임시 저장 목록에서 삭제`}
+                    aria-label={t("guestTaste.remove", { product: product.name })}
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-600 transition-[background-color,color,transform] hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -222,7 +224,7 @@ export function GuestDigboxExperience() {
             </div>
 
             {digbox.guestCount === digbox.guestLimit && (
-              <p className="mt-5 text-center text-xs font-semibold leading-5 text-gray-400">지금은 첫 분석이에요. 가입하면 이 3개를 보관하고, 더 많은 선택으로 내 취향을 더 정확하게 알아볼 수 있어요.</p>
+              <p className="mt-5 text-center text-xs font-semibold leading-5 text-gray-400">{t("guestTaste.firstAnalysisSummary")}</p>
             )}
 
             <button
@@ -230,7 +232,7 @@ export function GuestDigboxExperience() {
               onClick={digbox.guestCount === digbox.guestLimit ? startSignup : close}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-4 py-3.5 text-sm font-black text-black transition hover:bg-yellow-300"
             >
-              {digbox.guestCount === digbox.guestLimit ? "이 3개 저장하고 내 DIGBOX 시작하기" : "계속 둘러보기"}
+              {digbox.guestCount === digbox.guestLimit ? t("guestTaste.saveThreeWithSignup") : t("guestTaste.continue")}
               <ArrowRight className="h-4 w-4" />
             </button>
           </section>

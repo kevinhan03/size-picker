@@ -13,6 +13,7 @@ import {
   uniqHttpUrls,
 } from '../../utils/product';
 import { normalizeSizeTableForCategory } from '../../utils/sizeTable';
+import type { MessageKey } from '../../i18n/messages';
 
 export const getAutofillCandidateUrls = (extracted: ProductMetadataPayload): string[] =>
   uniqHttpUrls([
@@ -59,13 +60,14 @@ export const applyCaptureAutofill = (
 
 export const getCaptureProductImageNotice = (
   selectedCandidateUrl: string,
-  croppedProductImage: string
+  croppedProductImage: string,
+  t: (key: MessageKey) => string
 ): string | null => {
   if (selectedCandidateUrl) return null;
   if (croppedProductImage) {
-    return 'Only a screenshot crop was found. Upload the brand product image manually before saving.';
+    return t('addProduct.screenshotCropOnly');
   }
-  return 'Official product image was not found from the screenshot. Upload the brand image manually.';
+  return t('addProduct.officialImageNotFoundFromScreenshot');
 };
 
 export const hasEmptyCaptureAutofillResult = (
@@ -89,20 +91,23 @@ interface SubmitValidationInput {
   isSizeTableOptionalCategory: boolean;
 }
 
-export const getSubmitValidationError = ({
-  hasBrand,
-  hasName,
-  hasProductImageCheck,
-  hasCategory,
-  hasValidatedSizeTable,
-  isSizeTableOptionalCategory,
-}: SubmitValidationInput): string | null => {
-  if (!hasBrand) return '브랜드명을 입력해 주세요.';
-  if (!hasName) return '상품명을 입력해 주세요.';
-  if (!hasProductImageCheck) return '상품 사진은 필수입니다.';
-  if (!hasCategory) return '카테고리는 필수입니다.';
+export const getSubmitValidationError = (
+  {
+    hasBrand,
+    hasName,
+    hasProductImageCheck,
+    hasCategory,
+    hasValidatedSizeTable,
+    isSizeTableOptionalCategory,
+  }: SubmitValidationInput,
+  t: (key: MessageKey) => string
+): string | null => {
+  if (!hasBrand) return t('addProduct.brandRequired');
+  if (!hasName) return t('addProduct.nameRequired');
+  if (!hasProductImageCheck) return t('addProduct.photoRequired');
+  if (!hasCategory) return t('addProduct.categoryRequired');
   if (!isSizeTableOptionalCategory && !hasValidatedSizeTable) {
-    return '검증된 사이즈표가 필요합니다. 설명 또는 사이즈표 이미지를 업로드해 주세요.';
+    return t('addProduct.sizeTableRequired');
   }
   return null;
 };
@@ -148,7 +153,7 @@ export const getProductFormFlags = ({
   isProcessingImage,
   isAnalyzingTable,
   isSaving,
-}: FormFlagsInput) => {
+}: FormFlagsInput, t: (key: MessageKey) => string) => {
   const hasSizeData = Boolean(formData.extractedTable);
   const hasProductImage = Boolean(productPhotoFile) || Boolean(autofilledProductImageUrl);
   const isPreviewOnlyProductImage =
@@ -178,7 +183,7 @@ export const getProductFormFlags = ({
     hasCategory: Boolean(formData.category.trim()),
     hasValidatedSizeTable: hasSizeData,
     isSizeTableOptionalCategory,
-  });
+  }, t);
 
   return {
     hasSizeData,

@@ -7,6 +7,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { CATEGORY_OPTIONS } from '../../constants';
+import { useLocaleContext } from '../../contexts/LocaleContext';
 import type { useProductForm } from '../../hooks/useProductForm';
 import { normalizeSizeTableForCategory } from '../../utils/sizeTable';
 import { ProductImageSection } from './ProductImageSection';
@@ -19,14 +20,16 @@ interface AddProductFormFieldsProps {
 }
 
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  const { t } = useLocaleContext();
   return (
     <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-400">
-      {children} <span className={required ? 'text-orange-300' : 'text-gray-600'}>{required ? '필수' : '선택'}</span>
+      {children} <span className={required ? 'text-orange-300' : 'text-gray-600'}>{required ? t("addProduct.required") : t("addProduct.optional")}</span>
     </label>
   );
 }
 
 export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
+  const { t } = useLocaleContext();
   const [manualClosetSize, setManualClosetSize] = useState('');
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const categoryMenuRef = useRef<HTMLDivElement | null>(null);
@@ -42,7 +45,7 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
   return (
     <>
       <section className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-        <FieldLabel>공식 홈페이지 URL</FieldLabel>
+        <FieldLabel>{t("addProduct.websiteUrl")}</FieldLabel>
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <Globe className="absolute left-3 top-3.5 h-4 w-4 text-gray-500" />
@@ -67,7 +70,7 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
             }`}
           >
             {form.isAutofillingFromUrl ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            <span className="hidden sm:inline">{form.isAutofillingFromUrl ? '분석 중' : '자동 입력'}</span>
+            <span className="hidden sm:inline">{form.isAutofillingFromUrl ? t("addProduct.analyzing") : t("addProduct.autofill")}</span>
           </button>
         </div>
         {form.autoFillError ? <p className="text-xs text-red-400">{form.autoFillError}</p> : null}
@@ -75,25 +78,25 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
 
       <section className="space-y-3">
         <div>
-          <FieldLabel required>브랜드명</FieldLabel>
+          <FieldLabel required>{t("addProduct.brand")}</FieldLabel>
           <input
             className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.07] px-4 text-white outline-none transition placeholder:text-gray-500 focus:border-orange-500 focus:bg-white/[0.1]"
-            placeholder="브랜드명"
+            placeholder={t("addProduct.brand")}
             value={form.formData.brand}
             onChange={(e) => form.setFormData({ ...form.formData, brand: e.target.value })}
           />
         </div>
         <div>
-          <FieldLabel required>상품명</FieldLabel>
+          <FieldLabel required>{t("addProduct.name")}</FieldLabel>
           <input
             className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.07] px-4 text-white outline-none transition placeholder:text-gray-500 focus:border-orange-500 focus:bg-white/[0.1]"
-            placeholder="상품명"
+            placeholder={t("addProduct.name")}
             value={form.formData.name}
             onChange={(e) => form.setFormData({ ...form.formData, name: e.target.value })}
           />
         </div>
         <div>
-          <FieldLabel required>카테고리</FieldLabel>
+          <FieldLabel required>{t("addProduct.category")}</FieldLabel>
           <div
             ref={categoryMenuRef}
             className="relative"
@@ -114,7 +117,7 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
                   : 'border-white/10 bg-white/[0.07] hover:border-white/20 hover:bg-white/[0.1]'
               } ${form.formData.category ? 'text-white' : 'text-gray-500'}`}
             >
-              <span>{form.formData.category || '카테고리 선택'}</span>
+              <span>{form.formData.category || t("addProduct.selectCategory")}</span>
               <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isCategoryOpen ? 'rotate-180 text-orange-300' : ''}`} />
             </button>
             {isCategoryOpen ? (
@@ -161,8 +164,8 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
 
       <section className="space-y-1">
         <div className="pb-1">
-          <span className="text-sm font-bold text-gray-100">등록 후 저장</span>
-          <p className="mt-1 text-xs leading-5 text-gray-500">나중에 다시 볼 상품은 저장함에, 이미 가진 옷은 내 옷장에 담으세요.</p>
+          <span className="text-sm font-bold text-gray-100">{t("addProduct.saveAfterRegister")}</span>
+          <p className="mt-1 text-xs leading-5 text-gray-500">{t("addProduct.saveAfterRegisterHelp")}</p>
         </div>
         <div>
           <button
@@ -174,7 +177,7 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
             <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${form.addToDigboxOnSubmit ? 'border-yellow-300 bg-yellow-400 text-black' : 'border-white/25 text-transparent'}`}>
               <Check aria-hidden="true" className={`h-3.5 w-3.5 transition-all duration-150 ${form.addToDigboxOnSubmit ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`} />
             </span>
-            <span className="min-w-0"><span className="block text-sm font-bold">저장함</span><span className="mt-0.5 block text-xs font-medium text-yellow-100/55">나중에 다시 볼 상품</span></span>
+            <span className="min-w-0"><span className="block text-sm font-bold">{t("addProduct.savedLabel")}</span><span className="mt-0.5 block text-xs font-medium text-yellow-100/55">{t("addProduct.savedLabelHelp")}</span></span>
           </button>
 
           <div>
@@ -194,12 +197,12 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
               <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${form.addToClosetOnSubmit ? 'border-orange-400 bg-orange-500 text-black' : 'border-white/25 text-transparent'}`}>
                 <Check aria-hidden="true" className={`h-3.5 w-3.5 transition-all duration-150 ${form.addToClosetOnSubmit ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`} />
               </span>
-              <span className="min-w-0"><span className="block text-sm font-bold">내 옷장에도 추가</span><span className="mt-0.5 block text-xs font-medium text-orange-100/55">보유한 사이즈를 함께 기록</span></span>
+              <span className="min-w-0"><span className="block text-sm font-bold">{t("addProduct.addToClosetLabel")}</span><span className="mt-0.5 block text-xs font-medium text-orange-100/55">{t("addProduct.addToClosetLabelHelp")}</span></span>
             </button>
             {form.addToClosetOnSubmit ? (
               <div className="ml-8 pb-3 pt-2.5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold text-orange-100">보유 사이즈 <span className="font-medium text-orange-100/55">(선택)</span></span>
+                  <span className="text-xs font-bold text-orange-100">{t("addProduct.ownedSize")} <span className="font-medium text-orange-100/55">({t("addProduct.optional")})</span></span>
                 </div>
                 {sizeRows.length ? (
                   <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-5">
@@ -210,7 +213,7 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
                     })}
                   </div>
                 ) : (
-                  <input value={manualClosetSize} onChange={(event) => { const value = event.target.value; setManualClosetSize(value); form.setClosetSizeSelection(value.trim() ? { label: value.trim(), rowIndex: null, snapshot: null } : null); }} placeholder="예: M, 32, 260, Free" className="mt-2 h-10 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-400" />
+                  <input value={manualClosetSize} onChange={(event) => { const value = event.target.value; setManualClosetSize(value); form.setClosetSizeSelection(value.trim() ? { label: value.trim(), rowIndex: null, snapshot: null } : null); }} placeholder={t("addProduct.manualSizePlaceholder")} className="mt-2 h-10 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-400" />
                 )}
               </div>
             ) : null}
