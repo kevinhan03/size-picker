@@ -466,6 +466,23 @@ const TAG_TASTE_COPY: Record<StyleTagName, string> = {
   glam_sexy: "드레스업을 의식한 화려함",
 };
 
+const TAG_TASTE_COPY_EN: Record<StyleTagName, string> = {
+  casual: "Comfortable, everyday ease",
+  minimal: "Clean, orderly form",
+  street: "Urban presence",
+  classic: "Tidy structure",
+  vintage: "Time-worn texture",
+  lovely_romantic: "Soft, delicate detail",
+  sporty: "Active rhythm",
+  workwear_gorpcore: "Utilitarian detail",
+  chic_modern: "Sharp modern edge",
+  glam_sexy: "Dressed-up glamour",
+};
+
+function tagTasteCopy(tag: StyleTagName) {
+  return isEnglishLocale() ? TAG_TASTE_COPY_EN[tag] : TAG_TASTE_COPY[tag];
+}
+
 const TAG_LABELS: Record<StyleTagName, string> = {
   casual: "캐주얼",
   minimal: "미니멀",
@@ -479,8 +496,18 @@ const TAG_LABELS: Record<StyleTagName, string> = {
   glam_sexy: "글램 섹시",
 };
 
+const TAG_LABELS_EN: Record<StyleTagName, string> = {
+  casual: "Casual", minimal: "Minimal", street: "Street", classic: "Classic", vintage: "Vintage",
+  lovely_romantic: "Lovely romantic", sporty: "Sporty", workwear_gorpcore: "Workwear / gorpcore",
+  chic_modern: "Chic modern", glam_sexy: "Glam / sexy",
+};
+
+function isEnglishLocale(): boolean {
+  return typeof document !== "undefined" && document.documentElement.lang === "en";
+}
+
 export function styleTagLabel(tag: StyleTagName) {
-  return TAG_LABELS[tag];
+  return isEnglishLocale() ? TAG_LABELS_EN[tag] : TAG_LABELS[tag];
 }
 
 // 조사(을/를, 이/가) 선택을 위해 영문 라벨의 한글 발음을 기준으로 받침 여부를 판정한다.
@@ -508,36 +535,51 @@ const josa = (reading: string, withBatchim: string, withoutBatchim: string) =>
 
 const COLLECTION_AXES: Array<{
   title: string;
+  titleEn: string;
   positiveLabel: string;
+  positiveLabelEn: string;
   negativeLabel: string;
+  negativeLabelEn: string;
   positiveTags: StyleTagName[];
   negativeTags: StyleTagName[];
 }> = [
   {
     title: "무드의 방향",
+    titleEn: "Mood direction",
     positiveLabel: "정돈된 구조감",
+    positiveLabelEn: "Refined structure",
     negativeLabel: "실용적인 장비감",
+    negativeLabelEn: "Functional gear feel",
     positiveTags: ["classic", "chic_modern"],
     negativeTags: ["casual", "sporty", "workwear_gorpcore"],
   },
   {
     title: "표면의 결",
+    titleEn: "Surface texture",
     positiveLabel: "깨끗하고 매끈한 인상",
+    positiveLabelEn: "Clean, smooth impression",
     negativeLabel: "질감과 사용감이 있는 인상",
+    negativeLabelEn: "Textured, well-worn impression",
     positiveTags: ["minimal", "chic_modern"],
     negativeTags: ["vintage", "workwear_gorpcore"],
   },
   {
     title: "표현의 강도",
+    titleEn: "Expression intensity",
     positiveLabel: "절제된 표현",
+    positiveLabelEn: "Restrained expression",
     negativeLabel: "분명한 존재감",
+    negativeLabelEn: "Bold presence",
     positiveTags: ["minimal", "classic"],
     negativeTags: ["street", "lovely_romantic", "glam_sexy"],
   },
   {
     title: "시간의 결",
+    titleEn: "Sense of time",
     positiveLabel: "시간감 있는 헤리티지",
+    positiveLabelEn: "Time-worn heritage",
     negativeLabel: "동시대적인 선명함",
+    negativeLabelEn: "Contemporary sharpness",
     positiveTags: ["classic", "vintage"],
     negativeTags: ["chic_modern", "street", "sporty"],
   },
@@ -567,6 +609,33 @@ const ATTRIBUTE_LABELS: Record<string, Record<string, string>> = {
     none: "장식보다 형태 중심",
     light: "가벼운 실용 디테일",
     strong: "뚜렷한 실용 디테일",
+  },
+};
+
+const ATTRIBUTE_LABELS_EN: Record<string, Record<string, string>> = {
+  fit: {
+    relaxed: "Relaxed fit",
+    wide: "Wide proportions",
+    slim: "Close-to-body fit",
+    straight: "Straight proportions",
+    tapered: "Tapered fit",
+  },
+  silhouette: {
+    clean: "Clean silhouette",
+    structured: "Structured silhouette",
+    loose: "Loose silhouette",
+    voluminous: "Voluminous silhouette",
+    draped: "Draped silhouette",
+  },
+  formality: {
+    casual: "Everyday formality",
+    "smart-casual": "Smart casual",
+    formal: "Dress-up formality",
+  },
+  utility_level: {
+    none: "Form over decoration",
+    light: "Light utility detail",
+    strong: "Strong utility detail",
   },
 };
 
@@ -974,12 +1043,27 @@ const PRODUCT_STYLE_LABELS: Record<string, Record<string, string>> = {
   wash_texture: { clean: "깔끔한 질감", washed: "워싱 질감", faded: "페이디드 질감", distressed: "디스트레스드 질감", textured: "텍스처가 느껴지는 질감" },
 };
 
+const PRODUCT_STYLE_LABELS_EN: Record<string, Record<string, string>> = {
+  bottom_silhouette: { straight: "Straight silhouette", wide: "Wide silhouette", tapered: "Tapered silhouette", bootcut: "Bootcut silhouette", flare: "Flare silhouette", balloon: "Balloon silhouette" },
+  top_silhouette: { slim: "Slim silhouette", regular: "Regular silhouette", relaxed: "Relaxed silhouette", oversized: "Oversized silhouette", boxy: "Boxy silhouette" },
+  outer_silhouette: { slim: "Slim silhouette", regular: "Regular silhouette", relaxed: "Relaxed silhouette", oversized: "Oversized silhouette", boxy: "Boxy silhouette" },
+  material: { cotton: "Cotton", denim: "Denim", knit: "Knit", wool: "Wool", leather: "Leather", linen: "Linen", synthetic: "Synthetic", mixed: "Blended material" },
+  color: { black: "Black", white: "White", gray: "Gray", blue: "Blue", brown: "Brown", beige: "Beige", green: "Green", red: "Red" },
+  wash_texture: { clean: "Clean finish", washed: "Washed finish", faded: "Faded finish", distressed: "Distressed finish", textured: "Textured finish" },
+};
+
 const PRODUCT_TYPE_LABELS: Record<string, Record<string, string>> = {
   top_type: { sleeveless: "민소매", t_shirt: "티셔츠", shirt: "셔츠", pique: "피케 셔츠", knit: "니트", sweatshirt: "스웨트셔츠", hoodie: "후디" },
   outer_type: { jacket: "재킷", blazer: "블레이저", coat: "코트", padding: "패딩", vest: "베스트", windbreaker: "윈드브레이커" },
 };
 
+const PRODUCT_TYPE_LABELS_EN: Record<string, Record<string, string>> = {
+  top_type: { sleeveless: "Sleeveless", t_shirt: "T-shirt", shirt: "Shirt", pique: "Piqué shirt", knit: "Knit", sweatshirt: "Sweatshirt", hoodie: "Hoodie" },
+  outer_type: { jacket: "Jacket", blazer: "Blazer", coat: "Coat", padding: "Padded jacket", vest: "Vest", windbreaker: "Windbreaker" },
+};
+
 const PRODUCT_CATEGORY_LABELS: Record<string, string> = { top: "상의", bottom: "하의", outer: "아우터", acc: "액세서리" };
+const PRODUCT_CATEGORY_LABELS_EN: Record<string, string> = { top: "Top", bottom: "Bottom", outer: "Outerwear", acc: "Accessory" };
 
 function firstKnownStyleAttribute(attributes: Record<string, unknown>, key: string) {
   const values = Array.isArray(attributes[key]) ? attributes[key] : [attributes[key]];
@@ -990,12 +1074,16 @@ function firstKnownStyleAttribute(attributes: Record<string, unknown>, key: stri
 
 /** Produces a compact, product-only list of confirmed details for a PDP. */
 export function getProductSummaryDetails(product: Product): string[] {
+  const isEnglish = isEnglishLocale();
+  const typeLabels = isEnglish ? PRODUCT_TYPE_LABELS_EN : PRODUCT_TYPE_LABELS;
+  const categoryLabels = isEnglish ? PRODUCT_CATEGORY_LABELS_EN : PRODUCT_CATEGORY_LABELS;
+  const styleLabels = isEnglish ? PRODUCT_STYLE_LABELS_EN : PRODUCT_STYLE_LABELS;
   const attributes = getEffectiveStyleAttributes(product, true);
   const category = String(product.category || "").trim().toLowerCase();
   const typeKey = category === "top" ? "top_type" : category === "outer" ? "outer_type" : null;
   const typeValue = attributes && typeKey ? firstKnownStyleAttribute(attributes, typeKey) : null;
-  const productLabel = (typeKey && typeValue ? PRODUCT_TYPE_LABELS[typeKey]?.[typeValue] : null)
-    || PRODUCT_CATEGORY_LABELS[category]
+  const productLabel = (typeKey && typeValue ? typeLabels[typeKey]?.[typeValue] : null)
+    || categoryLabels[category]
     || null;
   const silhouetteKey = category === "bottom"
     ? "bottom_silhouette"
@@ -1008,7 +1096,7 @@ export function getProductSummaryDetails(product: Product): string[] {
   const details = attributes ? detailKeys
     .map((key) => {
       const value = firstKnownStyleAttribute(attributes, key);
-      return value ? PRODUCT_STYLE_LABELS[key]?.[value] || null : null;
+      return value ? styleLabels[key]?.[value] || null : null;
     })
     .filter((detail): detail is string => Boolean(detail))
     : [];
@@ -1033,22 +1121,30 @@ export function describeTasteCollection(products: Product[], summary = computeTa
   const coreTags = summary.entries.slice(0, 3).map((entry) => entry.tag);
   if (!coreTags.length) return null;
 
+  const isEnglish = isEnglishLocale();
+  const attributeLabels = isEnglish ? ATTRIBUTE_LABELS_EN : ATTRIBUTE_LABELS;
+  const bothMoodsLabel = isEnglish ? "A mix of both moods" : "양쪽 무드가 함께 보임";
+
   const tagScores = averageTagScores(products);
   const axes = COLLECTION_AXES
     .map((axis) => {
       const average = (tags: StyleTagName[]) => tags.reduce((sum, tag) => sum + tagScores[tag], 0) / tags.length;
       const score = average(axis.positiveTags) - average(axis.negativeTags);
       return {
-        title: axis.title,
+        title: isEnglish ? axis.titleEn : axis.title,
         magnitude: Math.abs(score),
-        label: score >= 0.06 ? axis.positiveLabel : score <= -0.06 ? axis.negativeLabel : "양쪽 무드가 함께 보임",
+        label: score >= 0.06
+          ? (isEnglish ? axis.positiveLabelEn : axis.positiveLabel)
+          : score <= -0.06
+            ? (isEnglish ? axis.negativeLabelEn : axis.negativeLabel)
+            : bothMoodsLabel,
       };
     })
     .sort((left, right) => right.magnitude - left.magnitude)
     .slice(0, 2)
     .map(({ title, label }) => ({ title, label }));
 
-  const details = Object.entries(ATTRIBUTE_LABELS).flatMap(([attribute, labels]) => {
+  const details = Object.entries(attributeLabels).flatMap(([attribute, labels]) => {
     const counts = new Map<string, number>();
     for (const product of products) {
       const value = String(getEffectiveStyleAttributes(product)?.[attribute] || "").trim().toLowerCase();
@@ -1059,12 +1155,23 @@ export function describeTasteCollection(products: Product[], summary = computeTa
   }).slice(0, 3);
 
   const [primary, secondary] = coreTags;
-  const title = secondary
-    ? `${TAG_LABELS[primary]}${josa(TAG_LABEL_READINGS[primary], "을", "를")} 중심으로 ${TAG_LABELS[secondary]}${josa(TAG_LABEL_READINGS[secondary], "을", "를")} 더한 취향`
-    : `${TAG_LABELS[primary]}${josa(TAG_LABEL_READINGS[primary], "이", "가")} 두드러지는 취향`;
-  const summaryCopy = secondary
-    ? `${TAG_TASTE_COPY[primary]} 위에 ${TAG_TASTE_COPY[secondary]}${josa(TAG_TASTE_COPY[secondary], "이", "가")} 반복해서 쌓여 있습니다.`
-    : `${TAG_TASTE_COPY[primary]}${josa(TAG_TASTE_COPY[primary], "이", "가")} 이 컬렉션에서 가장 자주 나타납니다.`;
+  let title: string;
+  let summaryCopy: string;
+  if (isEnglish) {
+    title = secondary
+      ? `${TAG_LABELS_EN[primary]}-centered taste with a touch of ${TAG_LABELS_EN[secondary]}`
+      : `A taste where ${TAG_LABELS_EN[primary]} stands out`;
+    summaryCopy = secondary
+      ? `${tagTasteCopy(primary)}, layered repeatedly with ${tagTasteCopy(secondary).toLowerCase()}.`
+      : `${tagTasteCopy(primary)} appears most often in this collection.`;
+  } else {
+    title = secondary
+      ? `${TAG_LABELS[primary]}${josa(TAG_LABEL_READINGS[primary], "을", "를")} 중심으로 ${TAG_LABELS[secondary]}${josa(TAG_LABEL_READINGS[secondary], "을", "를")} 더한 취향`
+      : `${TAG_LABELS[primary]}${josa(TAG_LABEL_READINGS[primary], "이", "가")} 두드러지는 취향`;
+    summaryCopy = secondary
+      ? `${TAG_TASTE_COPY[primary]} 위에 ${TAG_TASTE_COPY[secondary]}${josa(TAG_TASTE_COPY[secondary], "이", "가")} 반복해서 쌓여 있습니다.`
+      : `${TAG_TASTE_COPY[primary]}${josa(TAG_TASTE_COPY[primary], "이", "가")} 이 컬렉션에서 가장 자주 나타납니다.`;
+  }
 
   return { title, summary: summaryCopy, coreTags, details, axes };
 }

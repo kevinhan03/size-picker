@@ -8,17 +8,14 @@ import { PageHeader } from "../PageHeader";
 import { ProgressiveImage } from "../ProgressiveImage";
 import type { Product } from "../../types";
 import { getProductPageUrl, toPublicUrl } from "../../utils/product";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 type BehavioralStatus = "idle" | "loading" | "ready" | "error";
 type RecommendationSection = "similar" | "style" | "behavioral";
 
-const RECOMMENDATION_SECTIONS: Array<{
-  id: RecommendationSection;
-  label: string;
-  title: string;
-}> = [
-  { id: "similar", label: "비슷한", title: "비슷한 상품" },
-  { id: "style", label: "잘 어울리는", title: "함께 잘 어울리는 상품" },
-  { id: "behavioral", label: "함께 담은", title: "함께 담은 상품" },
+const RECOMMENDATION_SECTIONS: Array<{ id: RecommendationSection }> = [
+  { id: "similar" },
+  { id: "style" },
+  { id: "behavioral" },
 ];
 
 function parseNumericId(param: string): string {
@@ -63,17 +60,19 @@ function EmptyRecommendationState({ title, description }: { title: string; descr
 }
 
 function EmptyBehavioralCard({ status }: { status: BehavioralStatus }) {
+  const { t } = useLocaleContext();
   const content = status === "loading"
-    ? { title: "함께 담은 상품을 찾고 있어요.", description: "이 상품을 담은 사람들의 선택을 확인하고 있어요." }
+    ? { title: t("similar.behavioral.loading.title"), description: t("similar.behavioral.loading.description") }
     : status === "error"
-      ? { title: "함께 담은 상품을 불러오지 못했어요.", description: "잠시 후 다시 시도해 주세요." }
-      : { title: "함께 담은 상품을 아직 찾지 못했어요.", description: "더 많은 사람이 함께 담으면 여기에서 발견할 수 있어요." };
+      ? { title: t("similar.behavioral.error.title"), description: t("similar.behavioral.error.description") }
+      : { title: t("similar.behavioral.empty.title"), description: t("similar.behavioral.empty.description") };
   return <EmptyRecommendationState {...content} />;
 }
 
 type InitialRecommendationData = { sourceProduct: Product | null; similarProducts: Product[]; styleProducts: Product[] } | null;
 
 export function SimilarProductsPageClient({ id, initialData = null }: { id: string; initialData?: InitialRecommendationData }) {
+  const { t } = useLocaleContext();
   const [sourceProduct, setSourceProduct] = useState<Product | null>(initialData?.sourceProduct || null);
   const [similarProducts, setSimilarProducts] = useState<Product[]>(initialData?.similarProducts || []);
   const [styleProducts, setStyleProducts] = useState<Product[]>(initialData?.styleProducts || []);
@@ -169,7 +168,7 @@ export function SimilarProductsPageClient({ id, initialData = null }: { id: stri
     return <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--app-main-pt)] text-white" />;
   }
   if (!normalizedSourceProduct) {
-    return <main className="flex min-h-screen items-center justify-center bg-black px-6 text-center text-white"><div><p className="text-base font-bold">상품 정보를 불러오지 못했어요.</p><Link href="/" className="mt-4 inline-flex rounded-xl border border-white/15 px-4 py-2 text-sm font-bold text-gray-200 transition active:scale-[0.98]">상품 둘러보기</Link></div></main>;
+    return <main className="flex min-h-screen items-center justify-center bg-black px-6 text-center text-white"><div><p className="text-base font-bold">{t("similar.loadError")}</p><Link href="/" className="mt-4 inline-flex rounded-xl border border-white/15 px-4 py-2 text-sm font-bold text-gray-200 transition active:scale-[0.98]">{t("similar.browseProducts")}</Link></div></main>;
   }
 
   return (
@@ -177,7 +176,7 @@ export function SimilarProductsPageClient({ id, initialData = null }: { id: stri
       <div className="mx-auto w-full max-w-7xl">
         <PageHeader
           eyebrow="PRODUCT RECOMMENDATIONS"
-          title="추천 상품 둘러보기"
+          title={t("similar.pageTitle")}
           context={
             <Link
               href={`/?product=${encodeURIComponent(normalizedSourceProduct.id)}`}
@@ -187,14 +186,14 @@ export function SimilarProductsPageClient({ id, initialData = null }: { id: stri
               <div className="isolate h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white/[0.06] p-1.5" style={{ position: "relative" }}>
                 <ProgressiveImage src={normalizedSourceProduct.image} thumbnailSrc={normalizedSourceProduct.thumbnailImage} alt={normalizedSourceProduct.name} className="rounded-lg object-contain" loading="eager" onError={handleImageLoadError} />
               </div>
-              <div className="min-w-0"><p className="text-[11px] font-bold tracking-wide text-gray-500">현재 보고 있는 상품</p><p className="mt-1 truncate text-xs font-bold text-orange-300">{normalizedSourceProduct.brand}</p><p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-gray-100 sm:text-base">{normalizedSourceProduct.name}</p></div>
+              <div className="min-w-0"><p className="text-[11px] font-bold tracking-wide text-gray-500">{t("similar.currentProduct")}</p><p className="mt-1 truncate text-xs font-bold text-orange-300">{normalizedSourceProduct.brand}</p><p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-gray-100 sm:text-base">{normalizedSourceProduct.name}</p></div>
               <ChevronRight className="h-4 w-4 shrink-0 text-gray-500 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
             </Link>
           }
         />
 
-        <section className="mt-[var(--page-header-content-gap)] pb-8 sm:pb-10" aria-label="상품 추천">
-          <div role="tablist" aria-label="상품 추천 기준" className="grid grid-cols-3 rounded-2xl border border-white/[0.1] bg-white/[0.045] p-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
+        <section className="mt-[var(--page-header-content-gap)] pb-8 sm:pb-10" aria-label={t("similar.recommendationsAria")}>
+          <div role="tablist" aria-label={t("similar.criteriaAria")} className="grid grid-cols-3 rounded-2xl border border-white/[0.1] bg-white/[0.045] p-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
             {RECOMMENDATION_SECTIONS.map((section, index) => {
               const isActive = activeSection === section.id;
               return (
@@ -210,7 +209,7 @@ export function SimilarProductsPageClient({ id, initialData = null }: { id: stri
                   onKeyDown={(event) => handleTabKeyDown(event, index)}
                   className={`min-h-11 rounded-xl px-2 text-xs font-bold transition-[background-color,color,transform,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 sm:px-4 sm:text-sm ${isActive ? "bg-orange-400 text-black shadow-[0_5px_14px_rgba(249,115,22,0.22)]" : "text-gray-400 hover:bg-white/[0.07] hover:text-white active:scale-[0.98]"}`}
                 >
-                  {section.label}
+                  {section.id === "similar" ? t("similar.tab.similar") : section.id === "style" ? t("similar.tab.style") : t("similar.tab.behavioral")}
                 </button>
               );
             })}
@@ -221,14 +220,14 @@ export function SimilarProductsPageClient({ id, initialData = null }: { id: stri
             const productsForSection = section.id === "similar" ? similarProducts : section.id === "style" ? styleProducts : behavioralProducts;
             const isBehavioral = section.id === "behavioral";
             const hasProducts = productsForSection.length > 0;
-            const emptyTitle = section.id === "similar" ? "비슷한 상품을 아직 찾지 못했어요." : "함께 잘 어울리는 상품을 아직 찾지 못했어요.";
+            const emptyTitle = section.id === "similar" ? t("similar.empty.similar.title") : t("similar.empty.style.title");
             const emptyDescription = section.id === "similar"
-              ? "같은 카테고리의 이미지 임베딩이 준비된 상품이 추가되면 여기에서 보여드릴게요."
-              : "무드와 스타일 속성이 더 잘 맞는 다른 카테고리 상품이 추가되면 여기에서 보여드릴게요.";
+              ? t("similar.empty.similar.description")
+              : t("similar.empty.style.description");
 
             return (
               <div key={section.id} id={`${section.id}-recommendation-panel`} role="tabpanel" aria-labelledby={`${section.id}-recommendation-tab`} tabIndex={0} className="pt-7 sm:pt-8">
-                <div className="mb-5"><h3 className="text-xl font-black tracking-[-0.02em] text-white">{section.title}</h3></div>
+                <div className="mb-5"><h3 className="text-xl font-black tracking-[-0.02em] text-white">{section.id === "similar" ? t("similar.title.similar") : section.id === "style" ? t("similar.title.style") : t("similar.title.behavioral")}</h3></div>
                 {isBehavioral && (!hasProducts || behavioralStatus !== "ready") ? (
                   <EmptyBehavioralCard status={behavioralStatus} />
                 ) : hasProducts ? (

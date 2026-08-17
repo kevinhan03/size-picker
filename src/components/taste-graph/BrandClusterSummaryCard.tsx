@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { Product } from "../../types";
 import { buildBrandClusters } from "../../utils/brandClusters";
 import { styleTagLabel } from "../../utils/tasteGraph";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 
 export function BrandClusterSummaryCard({
   controls,
@@ -18,28 +19,29 @@ export function BrandClusterSummaryCard({
   source: "closet" | "digbox";
   selectedBrand: string | null;
 }) {
+  const { t } = useLocaleContext();
   const { clusters } = buildBrandClusters(products);
   const selected = clusters.find((cluster) => cluster.brand === selectedBrand) || null;
   const headline = selected
-    ? `${selected.displayName}에서 ${selected.topTags.slice(0, 2).map(({ tag }) => styleTagLabel(tag)).join(" · ")} 무드가 보여요`
+    ? t("brandCluster.selectedHeadline", { brand: selected.displayName, tags: selected.topTags.slice(0, 2).map(({ tag }) => styleTagLabel(tag)).join(" · ") })
     : source === "closet"
-      ? "내 옷장을 만든 브랜드의 중심"
-      : "요즘 저장하는 브랜드의 흐름";
+      ? t("brandCluster.closetHeadline")
+      : t("brandCluster.savedHeadline");
   const copy = selected
-    ? `${selected.count}개 상품이 이 클러스터에 모여 있어요. 상품 노드를 눌러 연결된 취향의 결을 살펴보세요.`
+    ? t("brandCluster.selectedCopy", { count: selected.count })
     : source === "closet"
-      ? `보유 상품 ${products.length}개가 ${clusters.length}개 브랜드로 나뉘어 있어요.`
-      : `저장 상품 ${products.length}개를 통해 지금 끌리는 브랜드의 방향을 살펴보세요.`;
+      ? t("brandCluster.closetCopy", { products: products.length, brands: clusters.length })
+      : t("brandCluster.savedCopy", { products: products.length });
 
   return (
     <section className="brand-cluster-summary">
       <div className="brand-summary-controls">{controls}</div>
       {viewControls && <div className="brand-summary-view-controls">{viewControls}</div>}
-      <p className="brand-summary-eyebrow">{source === "closet" ? "보유 브랜드" : "관심 브랜드"} · BRAND CLUSTER</p>
+      <p className="brand-summary-eyebrow">{source === "closet" ? t("brandCluster.closetEyebrow") : t("brandCluster.savedEyebrow")} · BRAND CLUSTER</p>
       <h1>{headline}</h1>
       <p className="brand-summary-copy">{copy}</p>
       <div className="brand-summary-rule" />
-      <p className="brand-summary-section-title">{selected ? "이 브랜드의 상품" : source === "closet" ? "브랜드 보유 현황" : "브랜드 관심 현황"}</p>
+      <p className="brand-summary-section-title">{selected ? t("brandCluster.selectedSection") : source === "closet" ? t("brandCluster.closetSection") : t("brandCluster.savedSection")}</p>
       <ol className="brand-summary-list">
         {(selected ? [selected] : clusters.slice(0, 5)).map((cluster, index) => (
           <li key={cluster.id} className={selected?.id === cluster.id ? "selected" : ""}>
@@ -52,7 +54,7 @@ export function BrandClusterSummaryCard({
       {!selected && clusters.length > 1 && (
         <div className="brand-summary-insight">
           <p>INSIGHT</p>
-          <span>{clusters[0].displayName}이(가) 가장 큰 중심이고, {clusters[1].displayName}이(가) 그 다음 흐름을 만들고 있어요.</span>
+          <span>{t("brandCluster.insight", { first: clusters[0].displayName, second: clusters[1].displayName })}</span>
         </div>
       )}
       <style jsx>{`

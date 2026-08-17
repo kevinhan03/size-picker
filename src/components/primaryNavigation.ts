@@ -1,21 +1,22 @@
 import { Compass, Network, Shirt, Star } from "lucide-react";
 import type { ComponentType } from "react";
 import { ClosetIcon } from "./icons/ClosetIcon";
+import type { MessageKey } from "../i18n/messages";
 
 export type PrimaryNavigationDestination = "digging" | "outfits" | "taste" | "closet" | "digbox";
 
 export type PrimaryNavigationItem = {
   destination: PrimaryNavigationDestination;
-  label: string;
+  labelKey: MessageKey;
   icon: ComponentType<{ className?: string }>;
 };
 
 export const primaryNavigationItems: PrimaryNavigationItem[] = [
-  { destination: "digging", label: "디깅", icon: Compass },
-  { destination: "outfits", label: "코디", icon: Shirt },
-  { destination: "taste", label: "취향", icon: Network },
-  { destination: "digbox", label: "저장", icon: Star },
-  { destination: "closet", label: "옷장", icon: ClosetIcon },
+  { destination: "digging", labelKey: "nav.digging", icon: Compass },
+  { destination: "outfits", labelKey: "nav.outfits", icon: Shirt },
+  { destination: "taste", labelKey: "nav.taste", icon: Network },
+  { destination: "digbox", labelKey: "nav.saved", icon: Star },
+  { destination: "closet", labelKey: "nav.closet", icon: ClosetIcon },
 ];
 
 export function getPrimaryNavigationDestination(pathname: string): PrimaryNavigationDestination | null {

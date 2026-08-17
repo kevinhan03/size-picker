@@ -3,6 +3,7 @@
 import NextImage from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { ExternalLink, Info, X } from "lucide-react";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 import type { Product, StyleTagName } from "../../types";
 import { MOTION_DURATION_MS } from "../../utils/motion";
 import {
@@ -139,6 +140,7 @@ export function TasteGraphCanvas({
   onLoading?: () => void;
   onReady?: () => void;
 }) {
+  const { t } = useLocaleContext();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const graphRef = useRef<ForceGraphInstance>(null);
   const graphStateRef = useRef<TasteGraphState | null>(null);
@@ -1155,12 +1157,12 @@ export function TasteGraphCanvas({
       <div ref={containerRef} className="taste-graph-canvas" style={{ opacity: graphOpacity }} />
 
       <details className="taste-graph-connection-info">
-        <summary><Info className="h-3.5 w-3.5" aria-hidden="true" />취향 그래프 읽는 법</summary>
+        <summary><Info className="h-3.5 w-3.5" aria-hidden="true" />{t("tasteCanvas.guide")}</summary>
         <ul>
-          <li><strong>상품 노드</strong><span>저장한 상품과 옷장에 있는 상품이에요.</span></li>
-          <li><strong>테두리 색</strong><span>상품에서 가장 강하게 나타난 스타일 태그예요.</span></li>
-          <li><strong>스타일 태그</strong><span>여러 상품에 반복해서 나타난 내 취향을 보여줘요.</span></li>
-          <li><strong>상품을 누르면</strong><span>스타일 태그 점수와 비슷한 상품 상위 5개를 볼 수 있어요.</span></li>
+          <li><strong>{t("tasteCanvas.productNode")}</strong><span>{t("tasteCanvas.productNodeHelp")}</span></li>
+          <li><strong>{t("tasteCanvas.borderColor")}</strong><span>{t("tasteCanvas.borderColorHelp")}</span></li>
+          <li><strong>{t("tasteCanvas.styleTag")}</strong><span>{t("tasteCanvas.styleTagHelp")}</span></li>
+          <li><strong>{t("tasteCanvas.selectProduct")}</strong><span>{t("tasteCanvas.selectProductHelp")}</span></li>
         </ul>
       </details>
 
@@ -1174,7 +1176,7 @@ export function TasteGraphCanvas({
             type="button"
             className="product-panel-close"
             onClick={() => handlersRef.current?.showOverview(true)}
-            aria-label="상품 정보 닫기"
+            aria-label={t("tasteCanvas.closeProduct")}
           >
             <X aria-hidden="true" />
           </button>
@@ -1210,10 +1212,10 @@ export function TasteGraphCanvas({
           </div>
 
           {productPanel.tags.length ? (
-            <section className="product-taste-summary" aria-label="상품 스타일 태그">
+            <section className="product-taste-summary" aria-label={t("tasteCanvas.productStyleTags")}>
               <div className="product-taste-heading">
-                <p className="product-taste-label">스타일 태그</p>
-                <span>태깅 점수</span>
+                <p className="product-taste-label">{t("tasteCanvas.styleTag")}</p>
+                <span>{t("tasteCanvas.tagScore")}</span>
               </div>
               <div className="product-tag-list">
                 {productPanel.tags.slice(0, areTagScoresExpanded ? productPanel.tags.length : 2).map((tag) => (
@@ -1236,7 +1238,7 @@ export function TasteGraphCanvas({
                   aria-expanded={areTagScoresExpanded}
                   onClick={() => setAreTagScoresExpanded((expanded) => !expanded)}
                 >
-                  {areTagScoresExpanded ? "태그 접기" : `전체 태그 보기 (${productPanel.tags.length})`}
+                  {areTagScoresExpanded ? t("tasteCanvas.collapseTags") : t("tasteCanvas.expandTags", { count: productPanel.tags.length })}
                 </button>
               ) : null}
             </section>
@@ -1245,14 +1247,14 @@ export function TasteGraphCanvas({
           {productPanel.similar.length ? (
             <div className="product-related">
               <p className="product-nearby">
-                비슷한 상품 상위 {SIMILAR_TOP_K}개
+                {t("tasteCanvas.similarProducts", { count: SIMILAR_TOP_K })}
               </p>
               <div className="product-quick-list">
                 {productPanel.similar.map((entry) => (
                   <button
                     type="button"
                     key={entry.nodeId}
-                    aria-label={`${entry.label} 선택`}
+                    aria-label={t("tasteCanvas.selectEntry", { label: entry.label })}
                     title={entry.label}
                     onClick={() => handlersRef.current?.showProductInsight(entry.nodeId)}
                   >
@@ -1288,7 +1290,7 @@ export function TasteGraphCanvas({
 
           <div className="product-panel-actions">
             <button type="button" onClick={() => onOpenProduct(productPanel.productId)}>
-              상품 상세 보기 <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              {t("tasteCanvas.openProduct")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </div>
         </aside>
@@ -1305,14 +1307,13 @@ export function TasteGraphCanvas({
             type="button"
             className="product-panel-close"
             onClick={() => handlersRef.current?.showOverview(true)}
-            aria-label="스타일 태그 정보 닫기"
+            aria-label={t("tasteCanvas.closeTag")}
           >
             <X aria-hidden="true" />
           </button>
           <p className="tag-panel-label">{tagPanel.tag.replaceAll("_", " ")}</p>
           <h2 className="tag-panel-title">
-            {source === "closet" ? "내 옷장" : "저장한 상품"}에서{" "}
-            {tagPanel.rank === 1 ? "가장 많이" : `${tagPanel.rank}번째로 많이`} 쌓인 취향이에요
+            {t("tasteCanvas.tagSummary", { source: source === "closet" ? t("tasteCanvas.closet") : t("tasteCanvas.saved"), rank: tagPanel.rank === 1 ? t("tasteCanvas.topRank") : t("tasteCanvas.rank", { rank: tagPanel.rank }) })}
           </h2>
           {tagPanel.products.length ? (
             <div className="tag-product-stack" aria-hidden="true">
@@ -1346,7 +1347,7 @@ export function TasteGraphCanvas({
             </div>
           ) : null}
           <p className="tag-panel-count">
-            {tagPanel.count}개 상품 <span aria-hidden="true">·</span> 전체의 {tagPanel.percent}%
+            {t("tasteCanvas.tagCount", { count: tagPanel.count, percent: tagPanel.percent })}
           </p>
         </aside>
       )}
@@ -1761,14 +1762,6 @@ export function TasteGraphCanvas({
           .taste-graph-product-panel { animation: none; }
         }
         .taste-graph-legend{display:none}
-        .taste-graph-connection-info summary{font-size:0}
-        .taste-graph-connection-info summary::after{content:"그래프 읽는 법";font-size:.75rem}
-        .taste-graph-connection-info p{font-size:0;max-width:19rem;padding-bottom:.85rem}
-        .taste-graph-connection-info p::after{content:"색 테두리는 상품의 대표 스타일이에요.\A\A스타일 태그를 누르면 연결된 상품을 볼 수 있어요.\A\A상품을 누르면 비슷한 상품과 태그 점수를 확인할 수 있어요.";display:block;color:#aeb7c4;font-size:.75rem;font-weight:600;line-height:1.5;white-space:pre-line}
-      `}</style>
-      <style jsx>{`
-        .taste-graph-connection-info summary::after{content:"취향 그래프 읽는 법"}
-        .taste-graph-connection-info p::after{content:"이 그래프는 내 컬렉션의 상품과 스타일 태그가 어떻게 연결되는지 보여줘요.\A\A색 테두리는 상품의 대표 스타일이에요.\A\A태그나 상품을 누르면 연결된 상품과 취향 점수를 볼 수 있어요."}
       `}</style>
       <style jsx>{`
         .taste-graph-connection-info ul{display:grid;gap:.55rem;max-width:20rem;margin:0;padding:0 .7rem .85rem;list-style:none}

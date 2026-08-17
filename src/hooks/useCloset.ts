@@ -2,11 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchClosetItems, addToCloset as apiAdd, removeFromCloset as apiRemove } from "../api";
 import type { ClosetSizeSelection, Product } from "../types";
+import { useLocaleContext } from "../contexts/LocaleContext";
 
 export type ClosetToast = { message: string; type: "success" | "info" | "error" } | null;
 
 export function useCloset(isLoggedIn: boolean, initialProducts?: Product[]) {
   const router = useRouter();
+  const { t } = useLocaleContext();
+  const tRef = useRef(t);
+  tRef.current = t;
   const initialItems = initialProducts ?? [];
   const [closetProducts, setClosetProducts] = useState<Product[]>(initialItems);
   const [closetIds, setClosetIds] = useState<Set<string>>(new Set(initialItems.map((product) => product.id)));
@@ -20,10 +24,10 @@ export function useCloset(isLoggedIn: boolean, initialProducts?: Product[]) {
   const analysisRequestedRef = useRef(false);
   const isLoadingRef = useRef(false);
 
-  const showToast = useCallback((t: ClosetToast) => {
+  const showToast = useCallback((nextToast: ClosetToast) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToast(t);
-    if (t) {
+    setToast(nextToast);
+    if (nextToast) {
       toastTimerRef.current = setTimeout(() => setToast(null), 2300);
     }
   }, []);
@@ -62,7 +66,7 @@ export function useCloset(isLoggedIn: boolean, initialProducts?: Product[]) {
         analysisRequestedRef.current = false;
       }
     } catch (loadError: unknown) {
-      setError(loadError instanceof Error ? loadError.message : "옷장을 불러오지 못했습니다.");
+      setError(loadError instanceof Error ? loadError.message : tRef.current("closet.loadError"));
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);

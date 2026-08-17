@@ -2,6 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import { PageHeader } from "../PageHeader";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 import type { Product, StyleTagName } from "../../types";
 import { buildBrandClusters } from "../../utils/brandClusters";
 import {
@@ -14,7 +15,7 @@ import {
 } from "../../utils/tasteGraph";
 
 type MapTarget = { source?: TasteCollectionSource; tag?: StyleTagName };
-const CATEGORY_LABELS: Record<string, string> = { top: "상의", bottom: "하의", outer: "아우터" };
+const CATEGORY_LABELS: Record<string, { ko: string; en: string }> = { top: { ko: "상의", en: "Tops" }, bottom: { ko: "하의", en: "Bottoms" }, outer: { ko: "아우터", en: "Outerwear" } };
 
 type CategoryTaste = {
   category: string;
@@ -33,6 +34,8 @@ export function TasteReport({
   onOpenMap: (target?: MapTarget) => void;
   onOpenBrandMap?: () => void;
 }) {
+  const { locale, t } = useLocaleContext();
+  const isEnglish = locale === "en";
   const comparison = compareTasteCollections(closetProducts, digboxProducts);
   const canCompare = comparison.closet.taggedCount > 0 && comparison.digbox.taggedCount > 0;
   const categoryTastes = getCategoryTastes([...digboxProducts, ...closetProducts]);
@@ -47,44 +50,44 @@ export function TasteReport({
     <main className="taste-report" aria-labelledby="taste-report-title">
       <PageHeader
         eyebrow="MY TASTE"
-        title="나의 취향"
+        title={t("tasteReport.title")}
         titleId="taste-report-title"
-        description={<>저장한 상품과 옷장 {recordCount}개를 바탕으로 정리했어요.</>}
+        description={t("tasteReport.description", { count: recordCount })}
       />
 
       <section className="taste-report-details" aria-labelledby="taste-evidence-title">
         <div className="taste-report-evidence-header">
           <div>
             <p>TASTE CHECK</p>
-            <h2 id="taste-evidence-title">저장한 취향과 옷장 취향</h2>
+            <h2 id="taste-evidence-title">{t("tasteReport.comparison")}</h2>
           </div>
           <button type="button" onClick={() => onOpenMap()}>
-            취향 그래프 보기 <ArrowRight aria-hidden="true" />
+            {t("tasteReport.openGraph")} <ArrowRight aria-hidden="true" />
           </button>
         </div>
         <div className="taste-report-details-content">
           {canCompare && comparison.saturated ? (
             <p className="taste-report-saturated">
-              옷장에 더 많이 있는 취향은 <strong>{styleTagLabel(comparison.saturated.tag)}</strong>이에요. 옷장 {Math.round(comparison.saturated.closetPercent)}% · 저장 {Math.round(comparison.saturated.digboxPercent)}%
+              {isEnglish ? <>The taste that appears more in your Closet is <strong>{styleTagLabel(comparison.saturated.tag)}</strong>. Closet {Math.round(comparison.saturated.closetPercent)}% · Saved {Math.round(comparison.saturated.digboxPercent)}%</> : <>옷장에 더 많이 있는 취향은 <strong>{styleTagLabel(comparison.saturated.tag)}</strong>이에요. 옷장 {Math.round(comparison.saturated.closetPercent)}% · 저장 {Math.round(comparison.saturated.digboxPercent)}%</>}
             </p>
           ) : null}
           <div className="taste-report-sources">
-            <TasteSourceSection source="digbox" title="저장한 상품" products={digboxProducts} />
-            <TasteSourceSection source="closet" title="옷장" products={closetProducts} />
+            <TasteSourceSection source="digbox" title={t("tasteReport.savedProducts")} products={digboxProducts} />
+            <TasteSourceSection source="closet" title={isEnglish ? "Closet" : "옷장"} products={closetProducts} />
           </div>
           {categoryTastes.length > 0 ? (
             <section className="taste-report-categories" aria-labelledby="taste-categories-title">
               <div>
                 <p>CATEGORY TASTE</p>
-                <h2 id="taste-categories-title">카테고리마다 달라지는 취향</h2>
-                <span>전체 취향과 다른 결이 보이는 카테고리만 보여드려요.</span>
+                <h2 id="taste-categories-title">{isEnglish ? "Taste that changes by category" : "카테고리마다 달라지는 취향"}</h2>
+                <span>{isEnglish ? "Only categories with a character distinct from your overall taste are shown." : "전체 취향과 다른 결이 보이는 카테고리만 보여드려요."}</span>
               </div>
               <div className="taste-category-list">
                 {categoryTastes.map((item) => (
                   <article key={item.category}>
-                    <div><h3>{CATEGORY_LABELS[item.category]}</h3><span>{item.productCount}개 상품 기준</span></div>
-                    <p><strong>{styleTagLabel(item.tags[0])}</strong>{item.tags[1] ? <>, {styleTagLabel(item.tags[1])}</> : null}<span> 무드가 두드러져요.</span></p>
-                    <div className="taste-category-tags" aria-label={`${CATEGORY_LABELS[item.category]}의 주요 스타일`}>
+                    <div><h3>{CATEGORY_LABELS[item.category]?.[locale] ?? item.category}</h3><span>{isEnglish ? `Based on ${item.productCount} products` : `${item.productCount}개 상품 기준`}</span></div>
+                    <p><strong>{styleTagLabel(item.tags[0])}</strong>{item.tags[1] ? <>, {styleTagLabel(item.tags[1])}</> : null}<span>{isEnglish ? " moods stand out." : " 무드가 두드러져요."}</span></p>
+                    <div className="taste-category-tags" aria-label={isEnglish ? `Key styles for ${CATEGORY_LABELS[item.category]?.en ?? item.category}` : `${CATEGORY_LABELS[item.category]?.ko ?? item.category}의 주요 스타일`}>
                       {item.tags.map((tag) => <span key={tag}><i style={{ backgroundColor: tagColor(tag).base }} />{styleTagLabel(tag)}</span>)}
                     </div>
                   </article>
@@ -101,11 +104,11 @@ export function TasteReport({
             <p>BRANDS</p>
             <h2 id="taste-brand-title">
               {preferredBrandTags.length
-                ? `${preferredBrandTags.map(styleTagLabel).join(" · ")} 계열 브랜드를 자주 찾고 있어요`
-                : "선호하는 브랜드 결"}
+                ? isEnglish ? `You often explore brands with ${preferredBrandTags.map(styleTagLabel).join(" · ")} moods` : `${preferredBrandTags.map(styleTagLabel).join(" · ")} 계열 브랜드를 자주 찾고 있어요`
+                : isEnglish ? "Your preferred brand direction" : "선호하는 브랜드 결"}
             </h2>
-            <span>저장한 상품과 옷장 {brandProducts.length}개를 함께 분석했어요.</span>
-            <div className="taste-brand-list" aria-label="선호 브랜드">
+            <span>{isEnglish ? `We analyzed ${brandProducts.length} saved and Closet products together.` : `저장한 상품과 옷장 ${brandProducts.length}개를 함께 분석했어요.`}</span>
+            <div className="taste-brand-list" aria-label={isEnglish ? "Preferred brands" : "선호 브랜드"}>
               {preferredBrands.map((brand) => {
                 const digboxCount = brand.products.filter((product) => digboxProductIds.has(product.id)).length;
                 const closetCount = brand.products.filter((product) => closetProductIds.has(product.id)).length;
@@ -115,14 +118,14 @@ export function TasteReport({
                     <div className="taste-brand-list-heading">
                       <strong>{brand.displayName}</strong>
                     </div>
-                    <div className="taste-brand-counts" aria-label={`${brand.displayName} 상품 구성`}>
-                      <span>총 {brand.count}개</span>
+                    <div className="taste-brand-counts" aria-label={t("tasteReport.brandComposition", { brand: brand.displayName })}>
+                      <span>{t("tasteReport.totalCount", { count: brand.count })}</span>
                       <i aria-hidden="true">·</i>
-                      <span>저장 {digboxCount}</span>
+                      <span>{t("tasteReport.savedShort", { count: digboxCount })}</span>
                       <i aria-hidden="true">·</i>
-                      <span>옷장 {closetCount}</span>
+                      <span>{t("tasteReport.closetShort", { count: closetCount })}</span>
                     </div>
-                    <div className="taste-brand-tags" aria-label={`${brand.displayName}의 주요 스타일`}>
+                    <div className="taste-brand-tags" aria-label={t("tasteReport.keyStyles", { brand: brand.displayName })}>
                       {brand.topTags.slice(0, 2).map(({ tag }) => (
                         <span key={tag}>
                           <i style={{ backgroundColor: tagColor(tag).base }} aria-hidden="true" />
@@ -136,7 +139,7 @@ export function TasteReport({
             </div>
           </div>
           <button type="button" onClick={onOpenBrandMap}>
-            브랜드 취향 그래프 보기 <ArrowRight aria-hidden="true" />
+            {isEnglish ? "View brand taste graph" : "브랜드 취향 그래프 보기"} <ArrowRight aria-hidden="true" />
           </button>
         </section>
       ) : null}
@@ -216,6 +219,7 @@ function TasteSourceSection({
   title: string;
   products: Product[];
 }) {
+  const { t } = useLocaleContext();
   const summary = computeTasteSummary(products);
   const interpretation = describeTasteCollection(products, summary);
   const topEntries = summary.entries.slice(0, 4);
@@ -226,7 +230,7 @@ function TasteSourceSection({
         <div>
           <h3 id={`taste-source-${source}`}>{title}</h3>
         </div>
-        {summary.taggedCount > 0 ? <span>{summary.taggedCount}개 상품 기준</span> : null}
+        {summary.taggedCount > 0 ? <span>{t("tasteReport.basedOnCount", { count: summary.taggedCount })}</span> : null}
       </div>
       {interpretation && topEntries.length ? (
         <>
@@ -242,7 +246,7 @@ function TasteSourceSection({
           </div>
         </>
       ) : (
-        <p className="taste-source-empty">스타일 태그가 있는 상품이 쌓이면 이 기록의 취향을 보여드릴게요.</p>
+        <p className="taste-source-empty">{t("tasteReport.emptySource")}</p>
       )}
       <style jsx>{`
         .taste-source { min-width: 0; }

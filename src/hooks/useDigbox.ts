@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchCatalogProductsByIds, fetchDigboxData, addToDigbox as apiAdd, removeFromDigbox as apiRemove } from "../api";
 import type { Product } from "../types";
 import { captureEvent } from "../utils/analytics";
+import { useLocaleContext } from "../contexts/LocaleContext";
 import {
   clearGuestDigboxImportRequest,
   GUEST_DIGBOX_LIMIT,
@@ -14,6 +15,9 @@ export type DigboxToast = { message: string; type: "success" | "info" | "error" 
 export type GuestSyncStatus = "idle" | "syncing" | "success" | "partial";
 
 export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], initialCounts: Record<string, number> = {}) {
+  const { t } = useLocaleContext();
+  const tRef = useRef(t);
+  tRef.current = t;
   const initialItems = initialProducts ?? [];
   const [digboxProducts, setDigboxProducts] = useState<Product[]>(initialItems);
   const [digboxIds, setDigboxIds] = useState<Set<string>>(new Set(initialItems.map((product) => product.id)));
@@ -105,7 +109,7 @@ export function useDigbox(isLoggedIn: boolean, initialProducts?: Product[], init
       }
     } catch (loadError: unknown) {
       // Keep the previous collection when a background refresh fails.
-      setError(loadError instanceof Error ? loadError.message : "저장 목록을 불러오지 못했습니다.");
+      setError(loadError instanceof Error ? loadError.message : tRef.current("saved.loadError"));
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);

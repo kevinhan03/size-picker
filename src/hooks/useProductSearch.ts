@@ -3,11 +3,17 @@ import type { KeyboardEvent } from 'react';
 import { searchCatalogProducts } from '../api';
 import type { Product } from '../types';
 import { generateFallbackResult } from '../utils/product';
+import { useLocaleContext } from '../contexts/LocaleContext';
 
 const getProductSearchText = (product: Product) =>
   `${product.brand} ${product.name}`.toLowerCase();
 
 export function useProductSearch() {
+  const { t } = useLocaleContext();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<Product | null>(null);
@@ -38,7 +44,7 @@ export function useProductSearch() {
         .catch((searchError: unknown) => {
           if (searchError instanceof DOMException && searchError.name === 'AbortError') return;
           setSuggestions([]);
-          setError(searchError instanceof Error ? searchError.message : '상품 검색에 실패했습니다.');
+          setError(searchError instanceof Error ? searchError.message : tRef.current('search.failed'));
         })
         .finally(() => {
           if (!controller.signal.aborted) setIsLoading(false);
@@ -79,7 +85,7 @@ export function useProductSearch() {
       searchItem ||
       suggestions.find((item) => getProductSearchText(item).includes(term.toLowerCase())) ||
       suggestions[0] ||
-      generateFallbackResult(term);
+      generateFallbackResult(term, t);
 
     setResult(found);
     setQuery('');

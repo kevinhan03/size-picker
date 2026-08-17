@@ -2,6 +2,7 @@
 
 import { CATEGORY_OPTIONS } from "../constants";
 import type { TutorialAnchorRect } from "./OnboardingTutorial";
+import { useLocaleContext } from "../contexts/LocaleContext";
 
 interface FilterBarProps {
   categoryValue: string;
@@ -16,7 +17,8 @@ const getAnchorRect = (element: HTMLElement): TutorialAnchorRect => {
 };
 
 export function FilterBar({ categoryValue, onCategoryChange, disabled = false, className = "" }: FilterBarProps) {
-  const categories = [{ label: "전체", value: "" }, ...CATEGORY_OPTIONS.map((category) => ({ label: category, value: category }))];
+  const { t } = useLocaleContext();
+  const categories = [{ label: t("filter.all"), value: "" }, ...CATEGORY_OPTIONS.map((category) => ({ label: category, value: category }))];
 
   return (
     <div className={`dig-filterbar mb-5 w-full ${className}`}>

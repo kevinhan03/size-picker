@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { Product, StyleTagName } from "../../types";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 import {
   compareTasteCollections,
   styleTagLabel,
@@ -25,6 +26,7 @@ export function TasteInsightCard({
   digboxProducts: Product[];
   onExplore: (target: ExploreTarget) => void;
 }) {
+  const { t } = useLocaleContext();
   const comparison = compareTasteCollections(closetProducts, digboxProducts);
   const canCompare = comparison.closet.taggedCount > 0 && comparison.digbox.taggedCount > 0;
 
@@ -33,14 +35,14 @@ export function TasteInsightCard({
       <div className="taste-insight-top">
         <div>
           <p className="taste-insight-eyebrow">STYLE MAP · INSIGHT</p>
-          <h1>원하는 옷과 가진 옷 사이</h1>
+          <h1>{t("tasteInsight.title")}</h1>
         </div>
         {controls ? <div className="taste-insight-controls">{controls}</div> : null}
       </div>
 
       {!canCompare ? (
         <p className="taste-insight-empty">
-          Closet과 저장한 상품이 쌓이면, 두 컬렉션 사이의 취향 차이를 읽어드릴게요.
+          {t("tasteInsight.empty")}
         </p>
       ) : (
         <div className="taste-insight-content">
@@ -51,8 +53,8 @@ export function TasteInsightCard({
               onClick={() => onExplore({ source: "closet", tag: comparison.shared!.tag })}
             >
               <span className="insight-kicker">YOUR CORE</span>
-              <strong>{styleTagLabel(comparison.shared.tag)}은 이미 좋아하고, 실제로 입는 취향이에요.</strong>
-              <span>Closet {Math.round(comparison.shared.closetPercent)}% · 저장 {Math.round(comparison.shared.digboxPercent)}%</span>
+              <strong>{t("tasteInsight.core", { tag: styleTagLabel(comparison.shared.tag) })}</strong>
+              <span>{t("tasteInsight.collectionShare", { closet: Math.round(comparison.shared.closetPercent), saved: Math.round(comparison.shared.digboxPercent) })}</span>
             </button>
           )}
 
@@ -60,7 +62,7 @@ export function TasteInsightCard({
             <section className="insight-section">
               <div className="insight-heading">
                 <p>EXPLORE NEXT</p>
-                <span>관심은 높지만 옷장에는 적은 방향</span>
+                <span>{t("tasteInsight.explore")}</span>
               </div>
               <div className="insight-list">
                 {comparison.aspirations.map((entry) => {
@@ -75,7 +77,7 @@ export function TasteInsightCard({
                       <span className="insight-dot" style={{ background: color }} />
                       <span className="insight-row-copy">
                         <strong>{styleTagLabel(entry.tag)}</strong>
-                        <small>저장이 CLOSET보다 {Math.round(entry.difference)}%p 높음</small>
+                        <small>{t("tasteInsight.savedHigher", { difference: Math.round(entry.difference) })}</small>
                       </span>
                       <span className="insight-row-arrow" aria-hidden="true">↗</span>
                     </button>
@@ -89,7 +91,7 @@ export function TasteInsightCard({
             <section className="insight-section">
               <div className="insight-heading">
                 <p>START HERE</p>
-                <span>부족한 취향 군집에서 저장한 상품</span>
+                <span>{t("tasteInsight.startHere")}</span>
               </div>
               <div className="insight-product-list">
                 {comparison.recommendations.map((entry) => (
@@ -122,8 +124,8 @@ export function TasteInsightCard({
               onClick={() => onExplore({ source: "closet", tag: comparison.saturated!.tag })}
             >
               <span>ALREADY STRONG</span>
-              <strong>{styleTagLabel(comparison.saturated.tag)}은 Closet에 이미 충분히 쌓여 있어요.</strong>
-              <small>비슷한 상품을 더하기 전, 현재 군집을 먼저 확인해 보세요.</small>
+              <strong>{t("tasteInsight.saturated", { tag: styleTagLabel(comparison.saturated.tag) })}</strong>
+              <small>{t("tasteInsight.saturatedHint")}</small>
             </button>
           )}
         </div>

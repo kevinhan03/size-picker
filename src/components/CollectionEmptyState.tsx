@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { PackageOpen, SearchX } from "lucide-react";
+import { useLocaleContext } from "../contexts/LocaleContext";
 
 interface CollectionEmptyStateProps {
   collection: "saved" | "closet";
@@ -20,36 +21,37 @@ export function CollectionEmptyState({
   onClearCategory,
   onClearAll,
 }: CollectionEmptyStateProps) {
+  const { t } = useLocaleContext();
   const normalizedQuery = query.trim();
   const hasQuery = Boolean(normalizedQuery);
   const hasCategory = Boolean(category);
   const hasConstraints = hasQuery || hasCategory;
-  const collectionLabel = collection === "saved" ? "저장 상품" : "옷장 상품";
+  const collectionLabel = collection === "saved" ? t("collection.saved") : t("collection.closet");
 
   const title = hasQuery
-    ? `“${normalizedQuery}”와 일치하는 ${collectionLabel}이 없어요`
+    ? t("collection.noSearch", { query: normalizedQuery, collection: collectionLabel })
     : hasCategory
-      ? `${category}에 해당하는 ${collectionLabel}이 없어요`
+      ? t("collection.noCategory", { category, collection: collectionLabel })
       : collection === "saved"
-        ? "저장한 상품이 없어요"
-        : "옷장에 추가한 상품이 없어요";
+        ? t("collection.emptySaved")
+        : t("collection.emptyCloset");
 
   const description = hasConstraints
     ? hasQuery && hasCategory
-      ? "검색어를 바꾸거나 검색·필터를 초기화해보세요."
+      ? t("collection.adjustFilters")
       : hasQuery
-        ? "다른 검색어로 찾아보세요."
-        : "다른 카테고리의 상품을 둘러보세요."
+        ? t("collection.trySearch")
+        : t("collection.tryCategory")
     : collection === "saved"
-      ? "마음에 드는 상품을 저장해보세요."
-      : "가지고 있는 상품을 옷장에 추가해보세요.";
+      ? t("collection.saveProducts")
+      : t("collection.addCloset");
 
   const action = hasQuery && hasCategory
-    ? { label: "검색·필터 초기화", onClick: onClearAll }
+    ? { label: t("collection.reset"), onClick: onClearAll }
     : hasQuery
-      ? { label: "검색어 지우기", onClick: onClearSearch }
+      ? { label: t("collection.clearSearch"), onClick: onClearSearch }
       : hasCategory
-        ? { label: "전체 카테고리 보기", onClick: onClearCategory }
+        ? { label: t("collection.allCategories"), onClick: onClearCategory }
         : null;
 
   const Icon = hasConstraints ? SearchX : PackageOpen;
@@ -76,7 +78,7 @@ export function CollectionEmptyState({
           href="/"
           className="outfit-pressable outfit-primary-action mt-6 inline-flex rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-black no-underline transition-[background-color,transform] duration-150"
         >
-          상품 둘러보기
+          {t("collection.browse")}
         </Link>
       )}
     </div>

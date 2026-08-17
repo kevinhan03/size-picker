@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import {
   buildProductMetadata,
   fetchProduct,
@@ -10,8 +11,11 @@ import {
 import {
   getDisplaySizeTable,
   normalizeMeasurementValueForDisplay,
+  translateMeasurementLabel,
 } from "../../../server/utils/size-table.js";
 import type { SizeTable } from "../../../src/types";
+import { getLocale, LOCALE_COOKIE_NAME } from "../../../src/i18n/locale";
+import { translate } from "../../../src/i18n/messages";
 
 export const revalidate = 3600;
 
@@ -30,8 +34,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
-  const product = await fetchProduct(id);
+  const [product, cookieStore] = await Promise.all([fetchProduct(id), cookies()]);
   if (!product) notFound();
+
+  const locale = getLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+  const t = (key: Parameters<typeof translate>[1], values?: Record<string, string | number>) =>
+    translate(locale, key, values);
 
   const imageUrl = resolveImageUrl(product.imagePath || product.image || "");
   const displaySizeTable = getDisplaySizeTable(product) as SizeTable | null;
@@ -63,7 +71,7 @@ export default async function ProductPage({ params }: Props) {
             href="/"
             className="mb-8 inline-flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-white"
           >
-            저장한 상품으로 돌아가기
+            {t("product.backToSaved")}
           </Link>
 
           <div className="mb-8 flex flex-col items-start gap-6 sm:flex-row">
@@ -88,17 +96,17 @@ export default async function ProductPage({ params }: Props) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-gray-300 transition hover:text-orange-400"
                 >
-                  공식 홈페이지 바로가기
+                  {t("product.visitOfficialSite")}
                 </a>
               )}
             </div>
           </div>
 
           <section>
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-gray-400">사이즈표</h2>
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-gray-400">{t("sizeTable.title")}</h2>
             {headers.length > 0 ? (
               <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.04]">
-                <div className="px-4 pt-2 text-right text-xs font-semibold text-gray-500">{"단위: cm"}</div>
+                <div className="px-4 pt-2 text-right text-xs font-semibold text-gray-500">{t("product.unit")}</div>
                 <table className="min-w-full text-center text-sm">
                   <thead>
                     <tr>
@@ -108,7 +116,7 @@ export default async function ProductPage({ params }: Props) {
                           className={`whitespace-nowrap bg-white/[0.04] px-4 py-3 text-xs font-bold uppercase ${index === 0 ? "border-r border-white/[0.06]" : ""}`}
                           style={{ color: isPrimaryColumnHeader(header) ? "#E5E7EB" : "#00FF00" }}
                         >
-                          {header}
+                          {translateMeasurementLabel(header, locale === "en")}
                         </th>
                       ))}
                     </tr>
@@ -130,12 +138,12 @@ export default async function ProductPage({ params }: Props) {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-gray-500">사이즈표 데이터가 없습니다.</p>
+              <p className="text-sm text-gray-500">{t("product.noSizeData")}</p>
             )}
             {extraHeaders.length > 0 ? (
               <details className="mt-3 overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
                 <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-widest text-gray-300 transition hover:bg-white/[0.05] hover:text-white">
-                  추가 실측 정보
+                  {t("product.extraMeasurements")}
                 </summary>
                 <div className="overflow-x-auto border-t border-white/[0.06]">
                   <table className="min-w-full text-center text-sm">
@@ -147,7 +155,7 @@ export default async function ProductPage({ params }: Props) {
                             className={`whitespace-nowrap bg-white/[0.04] px-4 py-3 text-xs font-bold uppercase ${index === 0 ? "border-r border-white/[0.06]" : ""}`}
                             style={{ color: isPrimaryColumnHeader(header) ? "#E5E7EB" : "#00FF00" }}
                           >
-                            {header}
+                            {translateMeasurementLabel(header, locale === "en")}
                           </th>
                         ))}
                       </tr>

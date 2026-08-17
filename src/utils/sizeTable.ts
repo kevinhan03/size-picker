@@ -42,6 +42,36 @@ export const inferMeasurementLabelFromAliasKey = (aliasKey: string): string => {
   return '';
 };
 
+const MEASUREMENT_LABEL_EN: Record<string, string> = {
+  [TOTAL_LENGTH_LABEL]: 'Total length',
+  [ITEM_LABEL]: 'Item',
+  [SIZE_COLUMN_LABEL]: 'Size',
+  '어깨': 'Shoulder',
+  '가슴': 'Chest',
+  '소매': 'Sleeve',
+  '허리': 'Waist',
+  '엉덩이': 'Hip',
+  '힙': 'Hip',
+  '허벅지': 'Thigh',
+  '뒷밑위': 'Back rise',
+  '밑위': 'Rise',
+  '밑단': 'Hem',
+  '인심': 'Inseam',
+};
+
+/**
+ * Translates a canonical (Korean) measurement label for display only.
+ * The canonical Korean value from normalizeMeasurementLabel stays the
+ * matching key everywhere else (snapshots, comparisons, recommendations).
+ */
+export const translateMeasurementLabel = (label: string, isEnglish: boolean): string => {
+  if (!isEnglish) return label;
+  return MEASUREMENT_LABEL_EN[label] || label;
+};
+
+export const displayMeasurementLabel = (label: string): string =>
+  translateMeasurementLabel(label, typeof document !== 'undefined' && document.documentElement.lang === 'en');
+
 export const normalizeMeasurementLabel = (value: unknown): string => {
   const raw = normalizeCellText(value);
   if (!raw) return '';

@@ -7,6 +7,7 @@ import { PageState } from "../PageState";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useMySizesContext } from "../../contexts/MySizesContext";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 import { changeMyUsername } from "../../api/username";
 import { captureEvent } from "../../utils/analytics";
 import type { DiscoveryProduct } from "../../types";
@@ -14,6 +15,7 @@ import type { DiscoveryProduct } from "../../types";
 export function MyPageClient({ initialDiscoveries = [], initialDiscoveryTotalSaveCount = 0 }: { initialDiscoveries?: DiscoveryProduct[]; initialDiscoveryTotalSaveCount?: number }) {
   const router = useRouter();
   const auth = useAuthContext();
+  const { t } = useLocaleContext();
   const authUserId = auth.authUser?.id;
   const { closetProducts } = useClosetContext();
   const { mySizes, createMySize, updateMySize, deleteMySize } = useMySizesContext();
@@ -27,7 +29,7 @@ export function MyPageClient({ initialDiscoveries = [], initialDiscoveryTotalSav
   if (auth.isAuthLoading || !auth.authUser) {
     return (
       <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
-        <PageState kind="loading" title="내 페이지를 준비하고 있어요" description="계정 정보를 확인하는 중입니다." />
+        <PageState kind="loading" title={t("mypage.preparing")} description={t("mypage.preparingDescription")} />
       </main>
     );
   }

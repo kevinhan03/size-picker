@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useDigboxContext } from "../contexts/DigboxContext";
+import { useLocaleContext } from "../contexts/LocaleContext";
 import { captureEvent } from "../utils/analytics";
 import { buildLoginHref, saveAuthContinuation } from "../utils/authNavigation";
 import {
@@ -22,6 +23,7 @@ const getCurrentPath = () =>
 const formatTag = (tag: string) => tag.replace(/_/g, " ");
 
 export function GuestDigboxExperience() {
+  const { t } = useLocaleContext();
   const router = useRouter();
   const pathname = usePathname();
   const auth = useAuthContext();
@@ -94,8 +96,8 @@ export function GuestDigboxExperience() {
       >
         <Star className="h-4 w-4 fill-current" />
         {digbox.guestCount === digbox.guestLimit
-          ? "내 취향 미리보기"
-          : `내가 고른 아이템 ${digbox.guestCount}/${digbox.guestLimit}`}
+          ? t("guestTaste.preview")
+          : t("guestTaste.selectedItems", { count: digbox.guestCount, limit: digbox.guestLimit })}
       </button>
 
       {isOpen && (
@@ -110,7 +112,7 @@ export function GuestDigboxExperience() {
             <button
               type="button"
               onClick={close}
-              aria-label="임시 저장 목록 닫기"
+              aria-label={t("guestTaste.close")}
               className="absolute right-4 top-4 rounded-full p-2 text-gray-500 transition hover:bg-white/10 hover:text-white"
             >
               <X className="h-5 w-5" />
@@ -119,17 +121,17 @@ export function GuestDigboxExperience() {
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-yellow-400">Temporary saved items</p>
             <h2 id="guest-digbox-title" className="mt-2 pr-10 text-xl font-black">
               {digbox.guestCount === 0
-                ? "마음에 드는 아이템을 3개 골라보세요"
+                ? t("guestTaste.chooseThree")
                 : digbox.guestCount === digbox.guestLimit
-                  ? "관심 취향이 보이기 시작했습니다"
-                  : "마음에 든 상품을 모으고 있어요"}
+                  ? t("guestTaste.visible")
+                  : t("guestTaste.collecting")}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-gray-400">
               {digbox.guestCount === 0
-                ? "상품 카드의 별을 눌러 관심 있는 아이템을 담아보세요."
+                ? t("guestTaste.chooseThreeHelp")
                 : digbox.guestCount === digbox.guestLimit
-                  ? "선택한 아이템 3개에서 공통된 무드를 찾았습니다. 가입하면 이 취향과 저장한 상품을 보관하고, 더 맞는 아이템을 추천받을 수 있습니다."
-                  : "고른 아이템으로 취향을 만들고 있어요. 3개가 되면 공통 무드를 보여드려요."}
+                  ? t("guestTaste.visibleHelp")
+                  : t("guestTaste.collectingHelp")}
             </p>
 
             <div className="mt-5 space-y-2">
@@ -150,7 +152,7 @@ export function GuestDigboxExperience() {
                   <button
                     type="button"
                     onClick={() => digbox.removeGuestItem(product.id)}
-                    aria-label={`${product.name} 임시 저장 목록에서 삭제`}
+                    aria-label={t("guestTaste.remove", { product: product.name })}
                     className="rounded-xl p-2 text-gray-600 transition hover:bg-red-500/10 hover:text-red-300"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -161,7 +163,7 @@ export function GuestDigboxExperience() {
 
             {digbox.guestCount === digbox.guestLimit && (
               <div className="mt-5 rounded-2xl border border-sky-400/20 bg-sky-400/[0.07] p-4">
-                <p className="text-xs font-black text-sky-300">관심 취향 미리보기</p>
+                <p className="text-xs font-black text-sky-300">{t("guestTaste.preview")}</p>
                 {topTaste.length ? (
                   <div className="mt-3">
                     <p className="text-lg font-black capitalize text-white">{tasteHeadline}</p>
@@ -185,7 +187,7 @@ export function GuestDigboxExperience() {
                     </div>
 
                     <div className="mt-5 border-t border-white/10 pt-4">
-                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-400">아이템별 태그</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-400">{t("guestTaste.itemTags")}</p>
                       <div className="mt-2.5 space-y-2">
                         {productTaste.map(({ product, tags }) => (
                           <div key={product.id} className="rounded-xl bg-black/20 px-3 py-2.5">
@@ -219,7 +221,7 @@ export function GuestDigboxExperience() {
                   </div>
                 ) : (
                   <p className="mt-2 text-sm leading-relaxed text-gray-300">
-                    {fallback.brands.length ? `관심 브랜드 · ${fallback.brands.join(" · ")}` : `담은 상품 ${digbox.guestCount}개`}
+                    {fallback.brands.length ? t("guestTaste.brandsFallback", { brands: fallback.brands.join(" · ") }) : t("guestTaste.countFallback", { count: digbox.guestCount })}
                     {fallback.categories.length ? ` / ${fallback.categories.join(" · ")}` : ""}
                   </p>
                 )}
@@ -231,7 +233,7 @@ export function GuestDigboxExperience() {
               onClick={digbox.guestCount === digbox.guestLimit ? startSignup : close}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-4 py-3.5 text-sm font-black text-black transition hover:bg-yellow-300"
             >
-              {digbox.guestCount === digbox.guestLimit ? "가입하고 내 저장 목록에 보관" : "계속 둘러보기"}
+              {digbox.guestCount === digbox.guestLimit ? t("guestTaste.saveWithSignup") : t("guestTaste.continue")}
               <ArrowRight className="h-4 w-4" />
             </button>
           </section>

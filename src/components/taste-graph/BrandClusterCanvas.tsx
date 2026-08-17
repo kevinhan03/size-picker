@@ -6,6 +6,7 @@ import type { Product } from "../../types";
 import { buildBrandClusters, type BrandCluster, type BrandClusterLink } from "../../utils/brandClusters";
 import { MOTION_DURATION_MS } from "../../utils/motion";
 import { styleTagLabel, tagColor } from "../../utils/tasteGraph";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 
 type ForceGraphInstance = any;
 
@@ -59,6 +60,7 @@ export function BrandClusterCanvas({
   selectedBrand: string | null;
   onSelectBrand: (brand: string | null) => void;
 }) {
+  const { t } = useLocaleContext();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const graphRef = useRef<ForceGraphInstance>(null);
   const nodesRef = useRef<BrandGraphNode[]>([]);
@@ -260,7 +262,7 @@ export function BrandClusterCanvas({
         ctx.fillText(name, x, y - 5 / scale);
         ctx.fillStyle = "rgba(208,213,221,.82)";
         ctx.font = `700 ${Math.max(7, Math.min(10, node.radius / 4.4)) / scale}px Inter, system-ui`;
-        ctx.fillText(`${node.cluster.count}개 상품`, x, y + 12 / scale);
+        ctx.fillText(t("brandGraph.totalProducts", { count: node.cluster.count }), x, y + 12 / scale);
         ctx.restore();
       };
 
@@ -443,7 +445,7 @@ export function BrandClusterCanvas({
       graph?._destructor?.();
       void cleanup.then((dispose) => dispose?.());
     };
-  }, [clusters, links]);
+  }, [clusters, links, t]);
 
   useEffect(() => {
     const selected = clusters.find((cluster) => cluster.brand === selectedBrand);
@@ -468,26 +470,26 @@ export function BrandClusterCanvas({
     <div className="brand-graph-app">
       <div ref={containerRef} className="brand-graph-canvas" />
       <details className="brand-graph-guide">
-        <summary><Info aria-hidden="true" />브랜드 취향 그래프 읽는 법</summary>
+        <summary><Info aria-hidden="true" />{t("brandGraph.guide")}</summary>
         <ul>
-          <li><strong>상품 수</strong><span>저장한 상품과 옷장에 있는 이 브랜드의 상품이 많을수록 원이 커져요.</span></li>
-          <li><strong>대표 스타일</strong><span>테두리 색은 이 브랜드 상품에서 가장 많이 보이는 스타일 태그예요.</span></li>
-          <li><strong>비슷한 브랜드</strong><span>선은 저장·옷장 상품의 스타일 구성이 비슷한 브랜드를 이어요.</span></li>
-          <li><strong>브랜드를 누르면</strong><span>저장·옷장에 있는 상품 수, 상위 스타일 2개, 비슷한 브랜드를 볼 수 있어요.</span></li>
+          <li><strong>{t("brandGraph.productCount")}</strong><span>{t("brandGraph.productCountHelp")}</span></li>
+          <li><strong>{t("brandGraph.representativeStyle")}</strong><span>{t("brandGraph.representativeStyleHelp")}</span></li>
+          <li><strong>{t("brandGraph.similarBrands")}</strong><span>{t("brandGraph.similarBrandsHelp")}</span></li>
+          <li><strong>{t("brandGraph.selectBrand")}</strong><span>{t("brandGraph.selectBrandHelp")}</span></li>
         </ul>
       </details>
       {selectedCluster ? (
-        <aside key={`brand:${selectedCluster.id}`} className="brand-graph-panel" aria-label={`${selectedCluster.displayName} 브랜드 정보`}>
-          <button type="button" className="brand-panel-close" onClick={() => onSelectBrand(null)} aria-label="브랜드 정보 닫기"><X aria-hidden="true" /></button>
+        <aside key={`brand:${selectedCluster.id}`} className="brand-graph-panel" aria-label={t("brandGraph.brandInfo", { brand: selectedCluster.displayName })}>
+          <button type="button" className="brand-panel-close" onClick={() => onSelectBrand(null)} aria-label={t("brandGraph.closeInfo")}><X aria-hidden="true" /></button>
           <p>BRAND</p>
           <h3>{selectedCluster.displayName}</h3>
-          <div className="brand-summary" aria-label="브랜드 요약">
-            <span><small>저장·옷장 상품</small><strong>{selectedCluster.count}개</strong></span>
-            <span><small>비슷한 브랜드</small><strong>{nearbyBrands.length}개</strong></span>
+          <div className="brand-summary" aria-label={t("brandGraph.summary")}>
+            <span><small>{t("brandGraph.savedClosetProducts")}</small><strong>{selectedCluster.count}</strong></span>
+            <span><small>{t("brandGraph.nearbyBrands")}</small><strong>{nearbyBrands.length}</strong></span>
           </div>
-          <span className="brand-panel-count">저장한 상품과 옷장에 {selectedCluster.count}개 상품</span>
-          <section><h4>스타일 태그</h4><div className="brand-panel-tags">{selectedCluster.topTags.slice(0, 2).map(({ tag, score }) => <span key={tag}><i style={{ backgroundColor: tagColor(tag).base }} />{styleTagLabel(tag)} <strong>{Math.round(score * 100)}%</strong></span>)}</div></section>
-          <section><h4>가까운 브랜드</h4>{nearbyBrands.length ? <div className="brand-nearby-list">{nearbyBrands.map(({ cluster }) => <button key={cluster.id} type="button" onClick={() => onSelectBrand(cluster.brand)}>{cluster.displayName}<span aria-hidden="true">→</span></button>)}</div> : <span className="brand-panel-empty">지금은 비슷한 브랜드 연결이 없어요.</span>}</section>
+          <span className="brand-panel-count">{t("brandGraph.totalProducts", { count: selectedCluster.count })}</span>
+          <section><h4>{t("brandGraph.styleTags")}</h4><div className="brand-panel-tags">{selectedCluster.topTags.slice(0, 2).map(({ tag, score }) => <span key={tag}><i style={{ backgroundColor: tagColor(tag).base }} />{styleTagLabel(tag)} <strong>{Math.round(score * 100)}%</strong></span>)}</div></section>
+          <section><h4>{t("brandGraph.nearby")}</h4>{nearbyBrands.length ? <div className="brand-nearby-list">{nearbyBrands.map(({ cluster }) => <button key={cluster.id} type="button" onClick={() => onSelectBrand(cluster.brand)}>{cluster.displayName}<span aria-hidden="true">→</span></button>)}</div> : <span className="brand-panel-empty">{t("brandGraph.noNearby")}</span>}</section>
         </aside>
       ) : null}
       <style jsx>{`

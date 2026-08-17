@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAllProducts, fetchCatalogProducts } from "../api";
+import { useLocaleContext } from "../contexts/LocaleContext";
 import type { Product } from "../types";
 
 const getProductTime = (product: Product) => {
@@ -29,6 +30,9 @@ export function useProducts(
     initialError = null,
   }: { enabled?: boolean; catalog?: boolean; initialNextOffset?: number | null; initialError?: string | null } = {},
 ) {
+  const { t } = useLocaleContext();
+  const tRef = useRef(t);
+  tRef.current = t;
   const initial = splitProducts(initialProducts);
   const [productsError, setProductsError] = useState<string | null>(initialError);
   const [products, setProducts] = useState<Product[]>(initial.normal);
@@ -80,8 +84,7 @@ export function useProducts(
         setProductsError(null);
       } catch (loadError: unknown) {
         if (!isActive) return;
-        const message =
-          loadError instanceof Error ? loadError.message : "상품 정보를 불러오는 중 오류가 발생했습니다.";
+        const message = loadError instanceof Error ? loadError.message : tRef.current("products.loadError");
         setProductsError(message);
       } finally {
         if (isActive) setIsProductsLoading(false);

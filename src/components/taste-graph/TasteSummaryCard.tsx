@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { Product } from "../../types";
 import { computeTasteSummary, describeTasteCollection, tagColor } from "../../utils/tasteGraph";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 
 const TOP_N = 4;
 
@@ -10,9 +11,9 @@ export function TasteSummaryCard({
   controls,
   viewControls,
   products,
-  eyebrow = "나의 취향",
-  sourceLabel = "상품",
-  sourceNoun = "상품",
+  eyebrow,
+  sourceLabel,
+  sourceNoun,
 }: {
   controls?: ReactNode;
   viewControls?: ReactNode;
@@ -21,6 +22,7 @@ export function TasteSummaryCard({
   sourceLabel?: string;
   sourceNoun?: string;
 }) {
+  const { t } = useLocaleContext();
   const summary = computeTasteSummary(products);
   const interpretation = describeTasteCollection(products, summary);
 
@@ -31,7 +33,7 @@ export function TasteSummaryCard({
     <section className="taste-summary-card">
       <div className="taste-summary-top">
         <div className="taste-summary-title">
-          <p className="taste-summary-eyebrow">{eyebrow} · {sourceLabel}</p>
+          <p className="taste-summary-eyebrow">{eyebrow ?? t("tasteSummary.eyebrow")} · {sourceLabel ?? t("tasteSummary.sourceLabel")}</p>
           <h1 className="taste-summary-headline">{interpretation.title}</h1>
         </div>
         {controls ? <div className="taste-summary-controls">{controls}</div> : null}
@@ -39,7 +41,7 @@ export function TasteSummaryCard({
       {viewControls ? <div className="taste-summary-view-controls">{viewControls}</div> : null}
       <div className="taste-summary-meta">
         <p className="taste-summary-note">
-          {sourceNoun} {summary.totalCount}개 중 태그된 {summary.taggedCount}개 기준
+          {t("tasteSummary.basedOn", { source: sourceNoun ?? t("tasteSummary.sourceNoun"), total: summary.totalCount, tagged: summary.taggedCount })}
         </p>
         <p className="taste-summary-read">{interpretation.summary}</p>
       </div>
@@ -63,12 +65,12 @@ export function TasteSummaryCard({
       </div>
 
       <details className="taste-summary-details">
-        <summary>컬렉션 해석 보기</summary>
+        <summary>{t("tasteSummary.details")}</summary>
         <div className="taste-summary-insights">
           <div>
             <p className="taste-summary-insight-label">REPEATED DETAILS</p>
             <p className="taste-summary-insight-copy">
-              {interpretation.details.length ? interpretation.details.join(" · ") : "스타일 태그가 쌓이며 실루엣과 디테일의 반복을 찾고 있어요."}
+              {interpretation.details.length ? interpretation.details.join(" · ") : t("tasteSummary.noDetails")}
             </p>
           </div>
           <div>

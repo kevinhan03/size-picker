@@ -1,10 +1,12 @@
 import { ShieldAlert } from 'lucide-react';
+import { useLocaleContext } from '../../contexts/LocaleContext';
 
 interface DuplicateProductModalProps {
   onClose: () => void;
 }
 
 export function DuplicateProductModal({ onClose }: DuplicateProductModalProps) {
+  const { t } = useLocaleContext();
   return (
     <div className="fixed inset-0 z-[72] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
@@ -12,13 +14,13 @@ export function DuplicateProductModal({ onClose }: DuplicateProductModalProps) {
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/15 text-red-400">
           <ShieldAlert className="h-6 w-6" />
         </div>
-        <h3 className="mt-4 text-lg font-bold text-white">이미 등록된 상품입니다.</h3>
+        <h3 className="mt-4 text-lg font-bold text-white">{t("duplicateProduct.title")}</h3>
         <button
           type="button"
           onClick={onClose}
           className="mt-5 inline-flex items-center justify-center rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-black hover:bg-orange-400 transition"
         >
-          확인
+          {t("common.confirm")}
         </button>
       </div>
     </div>

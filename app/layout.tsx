@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ClientProviders } from "../src/components/ClientProviders";
 import { getInitialAuthState } from "../server/auth/user-session";
+import { getLocale, LOCALE_COOKIE_NAME } from "../src/i18n/locale";
 import "./globals.css";
 
 const siteUrl =
@@ -50,11 +52,12 @@ export default async function RootLayout({
   children: ReactNode;
   modal: ReactNode;
 }>) {
-  const initialAuth = await getInitialAuthState();
+  const [initialAuth, cookieStore] = await Promise.all([getInitialAuthState(), cookies()]);
+  const initialLocale = getLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang={initialLocale} suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <ClientProviders initialAuth={initialAuth}>
+        <ClientProviders initialAuth={initialAuth} initialLocale={initialLocale}>
           {children}
           {modal}
         </ClientProviders>

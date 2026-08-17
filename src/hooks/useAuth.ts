@@ -4,12 +4,14 @@ import { cleanupUnregisteredGoogleAccount, completeMyProfile, deleteMyAccount } 
 import type { AuthInitialState } from "../types";
 import { getAuthErrorMessage } from "../utils/authMessage";
 import { normalizeUsername, validateUsername } from "../utils/username";
+import { useLocaleContext } from "../contexts/LocaleContext";
 
 type AuthUser = { id?: string; email?: string } | null;
 const GOOGLE_SIGNUP_TOAST_KEY = "digbox_google_signup_complete_toast";
 
 export function useAuth(initialState: AuthInitialState) {
   const router = useRouter();
+  const { t } = useLocaleContext();
   const [authUser, setAuthUser] = useState<AuthUser>(initialState.user);
   const [dbUsername, setDbUsername] = useState<string | null>(initialState.username);
   const [needsUsername, setNeedsUsername] = useState(initialState.needsUsername);
@@ -81,7 +83,7 @@ export function useAuth(initialState: AuthInitialState) {
       await signOut("/login");
       return true;
     } catch (error: unknown) {
-      setDeleteAccountError(getAuthErrorMessage(error, "계정을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요."));
+      setDeleteAccountError(getAuthErrorMessage(error, t("mypage.deleteAccountError")));
       return false;
     } finally {
       setIsDeletingAccount(false);

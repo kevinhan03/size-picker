@@ -14,6 +14,7 @@ import { parseApiJson, type ApiEnvelope } from "../../api/shared";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useSearchContext } from "../../contexts/SearchContext";
 import { useGridState } from "../../hooks/useGridState";
@@ -72,6 +73,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
 }
 
 export function SearchPageClient() {
+  const { t } = useLocaleContext();
   const { products, isProductsLoading, productsError, retryProductsLoad, hasMoreProducts, isLoadingMoreProducts, loadMoreProducts } = useProductsContext();
   const { authUser, isAuthLoading } = useAuthContext();
   const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
@@ -371,7 +373,7 @@ export function SearchPageClient() {
           id="main-product-search"
           type="text"
           className="h-14 w-full rounded-2xl border border-white/10 bg-white/[0.06] pl-12 pr-10 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_32px_rgba(0,0,0,0.24)] outline-none transition placeholder:text-gray-600 focus:border-orange-500/60 focus:bg-white/[0.08] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_3px_rgba(249,115,22,0.12)]"
-          placeholder="브랜드명 또는 상품명을 검색해보세요"
+          placeholder={t("search.placeholder")}
           value={query}
           onChange={(e) => {
             handleQueryChange(e.target.value);
@@ -400,7 +402,7 @@ export function SearchPageClient() {
               brandSummaries.length > 0 ? (
                 <div className="p-4">
                   <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
-                    <div className="text-xs font-semibold text-gray-300">최근 등록 브랜드</div>
+                    <div className="text-xs font-semibold text-gray-300">{t("search.recentBrands")}</div>
                     <button
                       type="button"
                       onClick={() => {
@@ -409,7 +411,7 @@ export function SearchPageClient() {
                       }}
                       className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-semibold text-gray-400 transition-[color,background-color,transform] hover:bg-white/[0.06] hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80"
                     >
-                      전체 보기 <ArrowUpRight className="h-3.5 w-3.5" />
+                      {t("search.viewAll")} <ArrowUpRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -421,22 +423,22 @@ export function SearchPageClient() {
                         className="recent-brand-card ui-card flex min-w-0 flex-col items-start rounded-xl px-3 py-3 text-left transition-[background-color,border-color,color,transform] hover:border-orange-400/45 hover:bg-orange-500/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80"
                       >
                         <span className="w-full truncate text-xs font-bold text-gray-200">{brand}</span>
-                        <span className="mt-1 text-[11px] font-medium text-gray-500">등록 상품 {count}개</span>
+                        <span className="mt-1 text-[11px] font-medium text-gray-500">{t("search.registeredProducts", { count })}</span>
                       </button>
                     ))}
                   </div>
                 </div>
               ) : (
                 <div className="p-6 text-center">
-                  <p className="text-sm font-semibold text-gray-300">아직 등록된 브랜드가 없어요.</p>
-                  <p className="mt-1 text-xs text-gray-500">상품을 추가하면 여기에서 브랜드를 바로 찾을 수 있어요.</p>
+                  <p className="text-sm font-semibold text-gray-300">{t("search.noBrands")}</p>
+                  <p className="mt-1 text-xs text-gray-500">{t("search.noBrandsHelp")}</p>
                 </div>
               )
             ) : brandSuggestions.length > 0 || suggestions.length > 0 ? (
               <>
                 {brandSuggestions.length > 0 && (
                   <>
-                    <div className="px-5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">브랜드</div>
+                    <div className="px-5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">{t("search.brands")}</div>
                     <ul>
                       {brandSuggestions.map((brand) => (
                         <li key={brand} className="border-b border-white/10 last:border-0">
@@ -459,7 +461,7 @@ export function SearchPageClient() {
                 {suggestions.length > 0 && (
                   <>
                     {brandSuggestions.length > 0 && <div className="border-t border-white/10" />}
-                    <div className="px-5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">상품</div>
+                    <div className="px-5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">{t("search.productHeading")}</div>
                     <ul>
                       {suggestions.map((item) => (
                         <li key={item.id} className="border-b border-white/10 last:border-0">
@@ -489,7 +491,7 @@ export function SearchPageClient() {
               </>
             ) : (
               <div className="p-4 text-center text-sm text-gray-500">
-                검색어와 일치하는 추천 상품이 없습니다.
+                {t("search.noSuggestions")}
               </div>
             )}
           </div>
@@ -505,20 +507,20 @@ export function SearchPageClient() {
       <div className="w-full max-w-7xl dig-grid">
         {!isAuthLoading && !authUser && showGuestSaveHint && (
           <p className="mb-4 rounded-xl border border-yellow-300/20 bg-yellow-400/[0.07] px-4 py-3 text-center text-sm font-semibold text-yellow-100">
-            마음에 드는 상품을 열어 저장하면 내 취향을 찾아드려요.
+            {t("search.guestSaveHint")}
           </p>
         )}
         {brandFilter && (
           <div className="mb-4 flex items-center justify-between gap-3 px-0.5 text-sm sm:text-base">
             <p className="min-w-0 truncate font-semibold text-white">
-              <span className="text-orange-300">{brandFilter}</span> 상품 {brandFilteredProducts.length}개
+              <span className="text-orange-300">{brandFilter}</span>{t("search.productCountSuffix", { count: brandFilteredProducts.length })}
             </p>
             <button
               type="button"
               onClick={handleClearBrand}
               className="flex h-9 flex-shrink-0 items-center rounded-xl border border-white/[0.12] bg-white/[0.055] px-3 text-xs font-bold text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-[var(--duration-popover)] hover:-translate-y-px hover:border-orange-300/45 hover:bg-orange-500/[0.11] hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#11131a]"
             >
-              선택 해제
+              {t("search.clearSelection")}
             </button>
           </div>
         )}
@@ -546,8 +548,8 @@ export function SearchPageClient() {
         <button
           type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label="맨 위로 이동"
-          title="맨 위로 이동"
+          aria-label={t("search.backToTop")}
+          title={t("search.backToTop")}
           className="fixed bottom-5 right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/[0.1] text-white shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl transition duration-[var(--duration-popover)] hover:-translate-y-0.5 hover:border-orange-300/55 hover:bg-white/[0.16] hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#11131a] md:bottom-7 md:right-7"
         >
           <ArrowUp className="h-5 w-5" strokeWidth={2.25} />

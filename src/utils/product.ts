@@ -2,6 +2,7 @@ import type { Product, ProductRow, SizeTable } from '../types';
 import { STORAGE_BUCKET, CATEGORY_OPTIONS, CATEGORY_OPTION_BY_LOWER } from '../constants';
 import { SUPABASE_URL } from '../constants';
 import { normalizeSizeTable } from './sizeTable';
+import type { MessageKey } from '../i18n/messages';
 
 export const isExternalHttpUrl = (value: string | null | undefined): boolean =>
   /^https?:\/\//i.test(String(value || '').trim());
@@ -129,7 +130,10 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
   };
 };
 
-export const generateFallbackResult = (term: string): Product => ({
+export const generateFallbackResult = (
+  term: string,
+  t: (key: MessageKey) => string
+): Product => ({
   id: Date.now().toString(),
   brand: term.split(' ')[0].toUpperCase() || 'BRAND',
   name: term,
@@ -138,7 +142,7 @@ export const generateFallbackResult = (term: string): Product => ({
   image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80',
   thumbnailImage: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=240&q=60',
   sizeTable: {
-    headers: ['정보 없음'],
-    rows: [['데이터베이스에 없는 상품입니다.']],
+    headers: [t('search.fallbackNoInfo')],
+    rows: [[t('search.fallbackNotInDatabase')]],
   },
 });
