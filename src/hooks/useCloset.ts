@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchClosetItems, addToCloset as apiAdd, removeFromCloset as apiRemove } from "../api";
+import { useCollectionBootstrap } from "../contexts/CollectionBootstrapContext";
 import type { ClosetSizeSelection, Product } from "../types";
 
 export type ClosetToast = { message: string; type: "success" | "info" | "error" } | null;
@@ -11,6 +12,7 @@ export function useCloset(
   options: { initialAnalysisLoaded?: boolean; refreshAnalysisAfterMutation?: boolean } = {}
 ) {
   const router = useRouter();
+  const bootstrap = useCollectionBootstrap();
   const initialItems = initialProducts ?? [];
   const [closetProducts, setClosetProducts] = useState<Product[]>(initialItems);
   const [closetIds, setClosetIds] = useState<Set<string>>(new Set(initialItems.map((product) => product.id)));
@@ -56,7 +58,7 @@ export function useCloset(
     let requestedAnalysis = false;
     try {
       requestedAnalysis = includeAnalysis || hasAnalysisLoadedRef.current;
-      const products = await fetchClosetItems(requestedAnalysis);
+      const products = requestedAnalysis ? await fetchClosetItems(true) : (await bootstrap.ensure()).closet;
       setClosetProducts(products);
       setClosetIds(new Set(products.map((p) => p.id)));
       hasLoadedRef.current = true;
@@ -75,7 +77,7 @@ export function useCloset(
         window.setTimeout(() => void load(true), 0);
       }
     }
-  }, [isLoggedIn]);
+  }, [bootstrap, isLoggedIn]);
 
   useEffect(() => {
     if (!isLoggedIn) void load();
@@ -101,12 +103,14 @@ export function useCloset(
     }
     if (closetIds.has(productId)) return;
     await apiAdd(productId, sizeSelection);
+    bootstrap.invalidate();
     setClosetIds((prev) => new Set([...prev, productId]));
     if (refreshAnalysisAfterMutation) await load(true);
-  }, [closetIds, isLoggedIn, load, refreshAnalysisAfterMutation, router]);
+  }, [bootstrap, closetIds, isLoggedIn, load, refreshAnalysisAfterMutation, router]);
 
   const removeFromCloset = useCallback(async (productId: string) => {
     await apiRemove(productId);
+    bootstrap.invalidate();
     setClosetIds((prev) => {
       const next = new Set(prev);
       next.delete(productId);
@@ -114,7 +118,7 @@ export function useCloset(
     });
     setClosetProducts((prev) => prev.filter((p) => p.id !== productId));
     if (refreshAnalysisAfterMutation) await load(true);
-  }, [load, refreshAnalysisAfterMutation]);
+  }, [bootstrap, load, refreshAnalysisAfterMutation]);
 
   const isInCloset = useCallback((productId: string) => closetIds.has(productId), [closetIds]);
 

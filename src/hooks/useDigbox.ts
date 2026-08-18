@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchCatalogProductsByIds, fetchDigboxData, addToDigbox as apiAdd, removeFromDigbox as apiRemove } from "../api";
+import { useCollectionBootstrap } from "../contexts/CollectionBootstrapContext";
 import type { Product } from "../types";
 import { captureEvent } from "../utils/analytics";
 import {
@@ -19,6 +20,7 @@ export function useDigbox(
   initialCounts: Record<string, number> = {},
   options: { initialAnalysisLoaded?: boolean; refreshAnalysisAfterMutation?: boolean } = {}
 ) {
+  const bootstrap = useCollectionBootstrap();
   const initialItems = initialProducts ?? [];
   const [digboxProducts, setDigboxProducts] = useState<Product[]>(initialItems);
   const [digboxIds, setDigboxIds] = useState<Set<string>>(new Set(initialItems.map((product) => product.id)));
@@ -98,7 +100,9 @@ export function useDigbox(
     let requestedAnalysis = false;
     try {
       requestedAnalysis = includeAnalysis || hasAnalysisLoadedRef.current;
-      const { products: loadedProducts, discoveredDigboxCounts: loadedCounts } = await fetchDigboxData(requestedAnalysis);
+      const { products: loadedProducts, discoveredDigboxCounts: loadedCounts } = requestedAnalysis
+        ? await fetchDigboxData(true)
+        : (await bootstrap.ensure()).digbox;
       setDigboxProducts(loadedProducts);
       setDigboxIds(new Set(loadedProducts.map((product) => product.id)));
       setDiscoveredDigboxCounts(loadedCounts);
@@ -119,7 +123,7 @@ export function useDigbox(
         window.setTimeout(() => void load(true), 0);
       }
     }
-  }, [isLoggedIn]);
+  }, [bootstrap, isLoggedIn]);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -145,8 +149,9 @@ export function useDigbox(
 
   const addServerItem = useCallback(async (productId: string) => {
     await apiAdd(productId);
+    bootstrap.invalidate();
     setDigboxIds((current) => new Set([...current, productId]));
-  }, []);
+  }, [bootstrap]);
 
   const syncGuestItems = useCallback(async () => {
     if (!isLoggedIn || !guestIds.length || syncAttemptedRef.current || !isGuestDigboxImportRequested()) return;
@@ -208,6 +213,7 @@ export function useDigbox(
 
   const removeFromDigbox = useCallback(async (productId: string) => {
     await apiRemove(productId);
+    bootstrap.invalidate();
     setDigboxIds((current) => {
       const next = new Set(current);
       next.delete(productId);
@@ -221,7 +227,7 @@ export function useDigbox(
       return next;
     });
     if (refreshAnalysisAfterMutation) await load(true);
-  }, [load, refreshAnalysisAfterMutation]);
+  }, [bootstrap, load, refreshAnalysisAfterMutation]);
 
   const removeGuestItem = useCallback((productId: string) => {
     setIsGuestPromptOpen(false);

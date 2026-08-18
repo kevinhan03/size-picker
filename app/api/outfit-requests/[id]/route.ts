@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
+import { revalidateOpenOutfits } from "../../../../server/services/outfit-cache";
 import { hydrateRequestDetail } from "../../../../server/utils/outfits.js";
 
 const REQUEST_SELECT = "id,author_id,description,status,accepted_proposal_id,created_at";
@@ -77,6 +78,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       .maybeSingle();
     if (updateError) throw updateError;
     if (!updated) return NextResponse.json({ ok: false, error: "다른 작업으로 이미 완료된 요청입니다." }, { status: 409 });
+    revalidateOpenOutfits();
     const outfitRequest = await hydrateRequestDetail(db, updated);
     return NextResponse.json({ ok: true, data: { request: outfitRequest } });
   } catch (error: unknown) {
@@ -100,6 +102,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       .select("id");
     if (error) throw error;
     if (!data?.length) return notFound();
+    revalidateOpenOutfits();
     return NextResponse.json({ ok: true, data: { deleted: true } });
   } catch (error: unknown) {
     console.error("[outfits] delete failed", error);

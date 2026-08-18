@@ -4,23 +4,30 @@ import { NextRequest, NextResponse } from "next/server";
 // Public pages deliberately do not pass through here so their HTML remains CDN-cacheable.
 // Protected API requests still refresh Supabase's cookie session for existing sign-ins.
 export async function proxy(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers);
+  // Never trust a value supplied by the browser. Only this proxy can attach the
+  // verified subject header consumed by protected route handlers.
+  requestHeaders.delete("x-digbox-verified-user-id");
   const hasAuthCookie = request.cookies.getAll().some(({ name }) => name.startsWith("sb-") && name.includes("auth-token"));
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!hasAuthCookie || !url || !key) return NextResponse.next();
+  if (!hasAuthCookie || !url || !key) return NextResponse.next({ request: { headers: requestHeaders } });
 
-  let response = NextResponse.next({ request });
+  const pendingCookies: Array<{ name: string; value: string; options: Parameters<NextResponse["cookies"]["set"]>[2] }> = [];
   const client = createServerClient(url, key, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (cookiesToSet) => {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+        cookiesToSet.forEach(({ name, value, options }) => pendingCookies.push({ name, value, options }));
       },
     },
   });
-  await client.auth.getClaims();
+  const { data } = await client.auth.getClaims();
+  const subject = typeof data?.claims?.sub === "string" ? data.claims.sub : "";
+  if (subject) requestHeaders.set("x-digbox-verified-user-id", subject);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  pendingCookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
   return response;
 }
 
@@ -29,6 +36,7 @@ export const config = {
     "/api/auth/:path*",
     "/api/closet/:path*",
     "/api/digbox/:path*",
+    "/api/collections/:path*",
     "/api/my-sizes/:path*",
     "/api/my-discoveries",
     "/api/outfit-requests/:path*",

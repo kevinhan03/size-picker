@@ -293,7 +293,7 @@ export function TasteGraphPageClient({
         </button>
         {selectedView === "products" ? renderSourceToggle() : null}
       </header>
-      <div className="taste-canvas-pane">
+      {isMapOpen ? <div className="taste-canvas-pane">
         <div
           className={`taste-product-graph-stack ${selectedView === "products" ? "active" : ""}`}
           aria-hidden={selectedView !== "products"}
@@ -329,7 +329,7 @@ export function TasteGraphPageClient({
         {isMapOpen && selectedView === "brands" ? (
           <BrandClusterCanvas products={brandProducts} selectedBrand={selectedBrand} onSelectBrand={setSelectedBrand} />
         ) : null}
-      </div>
+      </div> : null}
 
       {normalizedProduct && typeof document !== "undefined"
         ? createPortal(

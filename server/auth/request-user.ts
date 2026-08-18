@@ -23,6 +23,18 @@ export async function getRequestAuthUser(request: Request) {
 }
 
 export async function getRegisteredRequestUser(request: Request): Promise<RegisteredRequestUser | null> {
+  const verifiedUserId = String(request.headers.get("x-digbox-verified-user-id") || "").trim();
+  if (verifiedUserId && adminSupabase) {
+    const { data: profile, error: profileError } = await adminSupabase
+      .from("users")
+      .select("id, username")
+      .eq("id", verifiedUserId)
+      .maybeSingle();
+    if (!profileError && profile?.id) {
+      return { id: verifiedUserId, appUsername: String(profile.username || "") };
+    }
+  }
+
   const cookieStore = await cookies();
   const hasAuthCookie = cookieStore.getAll().some(({ name }) => name.startsWith("sb-") && name.includes("auth-token"));
 

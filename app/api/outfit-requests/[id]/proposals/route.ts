@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../../server/lib/supabase.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../../server/auth/request-user";
+import { revalidateOpenOutfits } from "../../../../../server/services/outfit-cache";
 import { hydrateRequestDetail, validateProposalInput } from "../../../../../server/utils/outfits.js";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -62,6 +63,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       await db.from("outfit_proposals").delete().eq("id", proposal.id).eq("author_id", user.id);
       throw itemError;
     }
+    revalidateOpenOutfits();
 
     const hydrated = await hydrateRequestDetail(db, outfitRequest);
     return NextResponse.json({ ok: true, data: { request: hydrated } }, { status: 201 });

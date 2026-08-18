@@ -1,7 +1,9 @@
 import type { OutfitRequestMineStatus, OutfitRequestScope, OutfitRequestSummary, Product } from "../../src/types";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
+import { unstable_cache } from "next/cache";
 import { normalizeProductRow } from "../utils/product.js";
 import { hydrateRequestSummaries } from "../utils/outfits.js";
+import { OUTFIT_OPEN_CACHE_TAG } from "./outfit-cache";
 
 type CursorPayload = { createdAt: string; id: string };
 type SummaryRpcRow = { summary?: Record<string, unknown>; total_count?: number | string; sort_created_at?: string; sort_id?: string };
@@ -38,6 +40,40 @@ function normalizeSummary(value: Record<string, unknown>): OutfitRequestSummary 
   };
 }
 
+async function listPublicOpenOutfitRequests(limit: number, decoded: CursorPayload | null = null) {
+  assertSupabaseConfig();
+  const pageLimit = Math.min(20, Math.max(1, limit));
+  const query = supabase!
+      .from("outfit_requests")
+      .select("id,author_id,description,status,accepted_proposal_id,created_at", { count: "exact" })
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(pageLimit + 1);
+  const pagedQuery = decoded
+    ? query.or(`created_at.lt.${decoded.createdAt},and(created_at.eq.${decoded.createdAt},id.lt.${decoded.id})`)
+    : query;
+  const { data, error, count } = await pagedQuery;
+    if (error) throw error;
+    const rows = (data || []) as Array<Record<string, unknown>>;
+    const hasMore = rows.length > pageLimit;
+    const pageRows = rows.slice(0, pageLimit);
+    const requests = await hydrateRequestSummaries(supabase!, pageRows);
+    const last = pageRows.at(-1);
+  return {
+      requests,
+      total: count ?? pageRows.length,
+      nextCursor: hasMore ? encodeCursor(String(last?.created_at || ""), String(last?.id || "")) : null,
+      currentUserId: null,
+  };
+}
+
+const getCachedPublicOpenOutfitRequests = unstable_cache(
+  () => listPublicOpenOutfitRequests(20),
+  ["outfit-open-v1"],
+  { revalidate: 60, tags: [OUTFIT_OPEN_CACHE_TAG] },
+);
+
 export async function listOutfitRequests(userId: string | null, scope: OutfitRequestScope, cursor: string | null = null, mineStatus: OutfitRequestMineStatus = "all", limit = 20) {
   assertSupabaseConfig();
   const decoded = decodeCursor(cursor);
@@ -45,31 +81,8 @@ export async function listOutfitRequests(userId: string | null, scope: OutfitReq
   const pageLimit = Math.min(20, Math.max(1, limit));
 
   if (!userId) {
-    let query = supabase!
-      .from("outfit_requests")
-      .select("id,author_id,description,status,accepted_proposal_id,created_at", { count: "exact" })
-      .eq("status", "open")
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(pageLimit + 1);
-
-    if (decoded) {
-      query = query.or(`created_at.lt.${decoded.createdAt},and(created_at.eq.${decoded.createdAt},id.lt.${decoded.id})`);
-    }
-
-    const { data, error, count } = await query;
-    if (error) throw error;
-    const rows = (data || []) as Array<Record<string, unknown>>;
-    const hasMore = rows.length > pageLimit;
-    const pageRows = rows.slice(0, pageLimit);
-    const requests = await hydrateRequestSummaries(supabase!, pageRows);
-    const last = pageRows.at(-1);
-    return {
-      requests,
-      total: count ?? pageRows.length,
-      nextCursor: hasMore ? encodeCursor(String(last?.created_at || ""), String(last?.id || "")) : null,
-      currentUserId: null,
-    };
+    if (scope === "open" && !cursor && pageLimit === 20) return getCachedPublicOpenOutfitRequests();
+    return listPublicOpenOutfitRequests(pageLimit, decoded);
   }
 
   const result = await supabase!.rpc("list_outfit_request_summaries", {

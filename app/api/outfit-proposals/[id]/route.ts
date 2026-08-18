@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
+import { revalidateOpenOutfits } from "../../../../server/services/outfit-cache";
 import { hydrateRequestDetail, validateProposalInput } from "../../../../server/utils/outfits.js";
 
 const notFound = () => NextResponse.json({ ok: false, error: "코디 제안을 찾을 수 없습니다." }, { status: 404 });
@@ -100,6 +101,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       throw updateError;
     }
 
+    revalidateOpenOutfits();
     const hydrated = await hydrateRequestDetail(db, outfitRequest);
     return NextResponse.json({ ok: true, data: { request: hydrated } });
   } catch (error: unknown) {
@@ -137,6 +139,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     }
     const { error } = await db.from("outfit_proposals").delete().eq("id", id).eq("author_id", user.id);
     if (error) throw error;
+    revalidateOpenOutfits();
     return NextResponse.json({ ok: true, data: { deleted: true } });
   } catch (error: unknown) {
     console.error("[outfits] proposal delete failed", error);

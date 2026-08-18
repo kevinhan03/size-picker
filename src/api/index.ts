@@ -17,6 +17,29 @@ import type {
 import { normalizeSizeTable } from '../utils/sizeTable';
 import { authenticatedFetch, parseApiJson, postJson } from './shared';
 
+export type CollectionBootstrapData = {
+  closet: Product[];
+  digbox: { products: Product[]; discoveredDigboxCounts: Record<string, number> };
+  profiles: MySizeProfile[];
+};
+
+export const fetchCollectionsBootstrap = async (): Promise<CollectionBootstrapData> => {
+  const endpoint = "/api/collections/bootstrap";
+  const response = await authenticatedFetch(endpoint);
+  const payload = await parseApiJson<{ ok?: boolean; data?: { closet?: { products?: unknown[] }; digbox?: { products?: unknown[]; discoveredDigboxCounts?: Record<string, unknown> }; profiles?: unknown[] }; error?: string }>(response, endpoint);
+  if (!response.ok || !payload.ok) throw new Error(payload.error || "Failed to load collections");
+  const counts: Record<string, number> = {};
+  for (const [id, value] of Object.entries(payload.data?.digbox?.discoveredDigboxCounts || {})) {
+    const count = Number(value) || 0;
+    if (id && count > 0) counts[id] = count;
+  }
+  return {
+    closet: (payload.data?.closet?.products || []).filter((value): value is Product => Boolean(value) && typeof value === "object"),
+    digbox: { products: (payload.data?.digbox?.products || []).filter((value): value is Product => Boolean(value) && typeof value === "object"), discoveredDigboxCounts: counts },
+    profiles: (payload.data?.profiles || []).filter((value): value is MySizeProfile => Boolean(value) && typeof value === "object"),
+  };
+};
+
 export const fetchAllProducts = async (): Promise<Product[]> => {
   const endpoint = '/api/admin/products';
   const response = await fetch(endpoint, { cache: 'no-store' });

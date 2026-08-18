@@ -3,6 +3,7 @@ import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js"
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
 import { listOutfitRequests } from "../../../server/services/outfit-requests";
 import { requestLog } from "../../../server/services/catalog";
+import { revalidateOpenOutfits } from "../../../server/services/outfit-cache";
 import {
   hydrateRequestDetail,
   OUTFIT_PRODUCT_SNAPSHOT_SELECT,
@@ -107,6 +108,7 @@ export async function POST(request: Request) {
     }
 
     const outfitRequest = await hydrateRequestDetail(db, created);
+    revalidateOpenOutfits();
     return NextResponse.json({ ok: true, data: { request: outfitRequest } }, { status: 201 });
   } catch (error: unknown) {
     console.error("[outfits] create failed", error);

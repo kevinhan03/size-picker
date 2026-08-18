@@ -3,6 +3,7 @@
 import { AuthProvider } from "../contexts/AuthContext";
 import { ClosetProvider } from "../contexts/ClosetContext";
 import { DigboxProvider } from "../contexts/DigboxContext";
+import { CollectionBootstrapProvider } from "../contexts/CollectionBootstrapContext";
 import { ProductFormProvider } from "../contexts/ProductFormContext";
 import { SearchProvider } from "../contexts/SearchContext";
 import { AppShell } from "./AppShell";
@@ -13,7 +14,8 @@ export function ClientProviders({ children, initialAuth }: { children: React.Rea
   return (
     <PostHogProvider>
       <AuthProvider initialState={initialAuth}>
-        <ClosetProvider>
+        <CollectionBootstrapProvider>
+          <ClosetProvider>
             <DigboxProvider>
               <SearchProvider>
                 <ProductFormProvider>
@@ -21,7 +23,8 @@ export function ClientProviders({ children, initialAuth }: { children: React.Rea
                 </ProductFormProvider>
               </SearchProvider>
             </DigboxProvider>
-        </ClosetProvider>
+          </ClosetProvider>
+        </CollectionBootstrapProvider>
       </AuthProvider>
     </PostHogProvider>
   );
