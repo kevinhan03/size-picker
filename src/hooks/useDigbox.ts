@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchCatalogProductsByIds, fetchDigboxData, addToDigbox as apiAdd, removeFromDigbox as apiRemove } from "../api";
-import type { Product } from "../types";
+import { fetchCatalogProductsByIds, fetchDigboxData, addToDigbox as apiAdd, removeFromDigbox as apiRemove, updateDigboxSizeDecision as apiUpdateSizeDecision } from "../api";
+import type { DigboxSizeDecisionInput, Product } from "../types";
 import { captureEvent } from "../utils/analytics";
 import {
   clearGuestDigboxImportRequest,
@@ -223,6 +223,13 @@ export function useDigbox(
     if (refreshAnalysisAfterMutation) await load(true);
   }, [load, refreshAnalysisAfterMutation]);
 
+  const updateSizeDecision = useCallback(async (productId: string, decision: DigboxSizeDecisionInput | null) => {
+    await apiUpdateSizeDecision(productId, decision);
+    setDigboxProducts((current) => current.map((product) => (
+      product.id === productId ? { ...product, digboxSizeDecision: decision } : product
+    )));
+  }, []);
+
   const removeGuestItem = useCallback((productId: string) => {
     setIsGuestPromptOpen(false);
     setGuestIds((current) => {
@@ -298,6 +305,7 @@ export function useDigbox(
     clearToast,
     addToDigbox,
     removeFromDigbox,
+    updateSizeDecision,
     isInDigbox,
     toggleDigbox,
     reload: load,

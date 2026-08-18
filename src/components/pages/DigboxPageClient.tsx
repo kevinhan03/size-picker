@@ -93,7 +93,10 @@ function GridCard({
           </div>
         </div>
         <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
-          <div className="mb-1 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+          <div className="mb-1 flex items-center gap-2">
+            <div className="min-w-0 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+            {product.digboxSizeDecision?.label ? <span className="shrink-0 rounded-md border border-orange-300/30 bg-orange-400/[0.12] px-1.5 py-0.5 text-[10px] font-black text-orange-100">구매 {product.digboxSizeDecision.label}</span> : null}
+          </div>
           <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
           <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
         </div>
@@ -892,6 +895,8 @@ export function DigboxPageClient({
           isInCloset={isInCloset(normalizedProduct.id)}
           onToggleDigbox={() => digbox.toggleDigbox(normalizedProduct.id)}
           isInDigbox={digbox.isInDigbox(normalizedProduct.id)}
+          digboxProduct={digbox.digboxProducts.find((product) => product.id === normalizedProduct.id) || null}
+          onUpdateDigboxSizeDecision={(decision) => digbox.updateSizeDecision(normalizedProduct.id, decision)}
           hideDigboxButton={digbox.isInDigbox(normalizedProduct.id)}
           otherDigboxCount={discoveredDigboxCounts[normalizedProduct.id] || 0}
           otherDigboxCountLabel={

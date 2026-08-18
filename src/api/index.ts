@@ -5,6 +5,7 @@ import type {
   BrandRule,
   CatalogPage,
   ClosetSizeSelection,
+  DigboxSizeDecisionInput,
   MySizeInput,
   MySizeProfile,
   MySizeUpdateInput,
@@ -284,6 +285,19 @@ export const removeFromDigbox = async (productId: string): Promise<void> => {
   });
   const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox/[productId]');
   if (!response.ok || !payload?.ok) throw new Error(payload?.error || '저장 해제 실패');
+};
+
+export const updateDigboxSizeDecision = async (
+  productId: string,
+  decision: DigboxSizeDecisionInput | null
+): Promise<void> => {
+  const response = await authenticatedFetch(`/api/digbox/${encodeURIComponent(productId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decision }),
+  });
+  const payload = await parseApiJson<{ ok?: boolean; error?: string }>(response, '/api/digbox/[productId]');
+  if (!response.ok || !payload?.ok) throw new Error(payload?.error || '사이즈 기록 저장 실패');
 };
 
 export const deleteMyAccount = async (): Promise<void> => {

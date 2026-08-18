@@ -7,6 +7,32 @@ import { getDigboxProducts } from "../../../server/services/user-collections";
 const unauthorized = (msg = "authorization token is required") =>
   NextResponse.json({ ok: false, error: msg }, { status: 401 });
 
+function normalizeSizeSnapshot(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const headers = Array.isArray(record.headers) ? record.headers.map((item) => String(item ?? "").trim()) : [];
+  const row = Array.isArray(record.row) ? record.row.map((item) => String(item ?? "").trim()) : [];
+  return headers.length && row.length ? { headers, row } : null;
+}
+
+function normalizeSizeDecision(row: Record<string, unknown>) {
+  const label = String(row.size_decision_label ?? "").trim() || null;
+  if (!label) return null;
+  const sources = Array.isArray(row.size_decision_sources)
+    ? row.size_decision_sources.map((source) => String(source)).filter((source) => ["comparison", "try_on", "worn"].includes(source))
+    : [];
+  const fit = String(row.size_decision_fit ?? "");
+  return {
+    label,
+    rowIndex: Number.isInteger(row.size_decision_row_index) ? Number(row.size_decision_row_index) : null,
+    snapshot: normalizeSizeSnapshot(row.size_decision_snapshot),
+    sources,
+    fit: ["tight", "true_to_size", "roomy"].includes(fit) ? fit : null,
+    note: String(row.size_decision_note ?? "").trim() || null,
+    updatedAt: String(row.size_decision_updated_at ?? "").trim() || null,
+  };
+}
+
 export async function GET(request: Request) {
   const startedAt = Date.now();
   const includeAnalysis = new URL(request.url).searchParams.get("analysis") === "1";
@@ -28,7 +54,7 @@ export async function GET(request: Request) {
 
     const { data: digboxData, error: digboxError } = await db
       .from("user_digbox_items")
-      .select("product_id, added_at")
+      .select("product_id, added_at, size_decision_label, size_decision_row_index, size_decision_snapshot, size_decision_sources, size_decision_fit, size_decision_note, size_decision_updated_at")
       .eq("user_id", user.id)
       .order("added_at", { ascending: false });
 
@@ -78,10 +104,10 @@ export async function GET(request: Request) {
     }
 
     const productMap = new Map(rawProducts.map((p) => [String(p.id), p]));
-    const addedAtByProductId = new Map(
-      (digboxData ?? []).map((row: { product_id: string; added_at?: string | null }) => [
+    const digboxByProductId = new Map(
+      (digboxData ?? []).map((row: Record<string, unknown> & { product_id: string; added_at?: string | null }) => [
         String(row.product_id),
-        row.added_at ? String(row.added_at) : null,
+        row,
       ])
     );
     const products = productIds
@@ -89,8 +115,9 @@ export async function GET(request: Request) {
         const product = includeAnalysis
           ? normalizeAnalysisProduct(productMap.get(id))
           : normalizeProductCard(productMap.get(id));
+        const digboxRow = digboxByProductId.get(String(id));
         return product && includeAnalysis
-          ? { ...product, collectionAddedAt: addedAtByProductId.get(String(id)) || null }
+          ? { ...product, collectionAddedAt: digboxRow?.added_at ? String(digboxRow.added_at) : null, digboxSizeDecision: digboxRow ? normalizeSizeDecision(digboxRow) : null }
           : product;
       })
       .filter(Boolean);
