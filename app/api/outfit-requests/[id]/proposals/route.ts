@@ -2,18 +2,20 @@ import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../../server/lib/supabase.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../../server/auth/request-user";
 import { revalidateOpenOutfits } from "../../../../../server/services/outfit-cache";
-import { hydrateRequestDetail, validateProposalInput } from "../../../../../server/utils/outfits.js";
+import { hydrateRequestDetail, outfitMessage, validateProposalInput } from "../../../../../server/utils/outfits.js";
+import { getRequestLocale } from "../../../../../server/utils/locale";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
 
+  const locale = await getRequestLocale();
   try {
     assertSupabaseConfig();
     const db = supabase!;
     const user = await getRegisteredRequestUser(request);
     if (!user) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
     const { id } = await context.params;
-    const parsed = validateProposalInput(await request.json());
+    const parsed = validateProposalInput(await request.json(), locale);
     if (parsed.error || !parsed.value) {
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
@@ -24,12 +26,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .eq("id", id)
       .maybeSingle();
     if (requestError) throw requestError;
-    if (!outfitRequest) return NextResponse.json({ ok: false, error: "코디 요청을 찾을 수 없습니다." }, { status: 404 });
+    if (!outfitRequest) return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestNotFound") }, { status: 404 });
     if (outfitRequest.status !== "open") {
-      return NextResponse.json({ ok: false, error: "이미 완료된 요청입니다." }, { status: 409 });
+      return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestAlreadyClosed") }, { status: 409 });
     }
     if (String(outfitRequest.author_id) === String(user.id)) {
-      return NextResponse.json({ ok: false, error: "자신의 요청에는 코디를 제안할 수 없습니다." }, { status: 403 });
+      return NextResponse.json({ ok: false, error: outfitMessage(locale, "cannotProposeOwnRequest") }, { status: 403 });
     }
 
     const { data: sharedItems, error: sharedError } = await db
@@ -39,7 +41,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (sharedError) throw sharedError;
     const sharedIds = new Set((sharedItems || []).map((item) => String(item.product_id)));
     if (proposalInput.productIds.some((productId) => !sharedIds.has(productId))) {
-      return NextResponse.json({ ok: false, error: "요청에 공유되지 않은 상품이 포함되어 있습니다." }, { status: 400 });
+      return NextResponse.json({ ok: false, error: outfitMessage(locale, "productsNotSharedWithRequest") }, { status: 400 });
     }
 
     const { data: proposal, error: proposalError } = await db
@@ -48,7 +50,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .select("id")
       .single();
     if (proposalError?.code === "23505") {
-      return NextResponse.json({ ok: false, error: "이 요청에는 이미 코디를 제안했습니다." }, { status: 409 });
+      return NextResponse.json({ ok: false, error: outfitMessage(locale, "proposalAlreadyExists") }, { status: 409 });
     }
     if (proposalError) throw proposalError;
 
@@ -65,10 +67,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
     revalidateOpenOutfits();
 
-    const hydrated = await hydrateRequestDetail(db, outfitRequest);
+    const hydrated = await hydrateRequestDetail(db, outfitRequest, locale);
     return NextResponse.json({ ok: true, data: { request: hydrated } }, { status: 201 });
   } catch (error: unknown) {
     console.error("[outfits] proposal create failed", error);
-    return NextResponse.json({ ok: false, error: "코디 제안을 저장하지 못했습니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: outfitMessage(locale, "proposalSaveFailed") }, { status: 500 });
   }
 }

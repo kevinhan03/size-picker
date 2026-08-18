@@ -2,33 +2,36 @@ import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
 import { revalidateOpenOutfits } from "../../../../server/services/outfit-cache";
-import { hydrateRequestDetail } from "../../../../server/utils/outfits.js";
+import { hydrateRequestDetail, outfitMessage } from "../../../../server/utils/outfits.js";
+import { getRequestLocale } from "../../../../server/utils/locale";
 
 const REQUEST_SELECT = "id,author_id,description,status,accepted_proposal_id,created_at";
-const notFound = () => NextResponse.json({ ok: false, error: "코디 요청을 찾을 수 없습니다." }, { status: 404 });
+const notFound = (locale: string) => NextResponse.json({ ok: false, error: outfitMessage(locale, "requestNotFound") }, { status: 404 });
 
 async function registeredUser(request: Request) {
   return getRegisteredRequestUser(request);
 }
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  const locale = await getRequestLocale();
   try {
     assertSupabaseConfig();
     const user = await registeredUser(request);
     const { id } = await context.params;
     const { data, error } = await supabase!.from("outfit_requests").select(REQUEST_SELECT).eq("id", id).maybeSingle();
     if (error) throw error;
-    if (!data) return notFound();
-    const outfitRequest = await hydrateRequestDetail(supabase!, data);
+    if (!data) return notFound(locale);
+    const outfitRequest = await hydrateRequestDetail(supabase!, data, locale);
     return NextResponse.json({ ok: true, data: { request: outfitRequest, currentUserId: user?.id || null } });
   } catch (error: unknown) {
     console.error("[outfits] detail failed", error);
-    return NextResponse.json({ ok: false, error: "코디 요청을 불러오지 못했습니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestLoadFailed") }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
+  const locale = await getRequestLocale();
   try {
     assertSupabaseConfig();
     const db = supabase!;
@@ -44,9 +47,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       .eq("author_id", user.id)
       .maybeSingle();
     if (existingError) throw existingError;
-    if (!existing) return notFound();
+    if (!existing) return notFound(locale);
     if (existing.status !== "open") {
-      return NextResponse.json({ ok: false, error: "이미 완료된 요청입니다." }, { status: 409 });
+      return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestAlreadyClosed") }, { status: 409 });
     }
 
     let updates: Record<string, unknown>;
@@ -62,10 +65,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         .eq("request_id", id)
         .maybeSingle();
       if (proposalError) throw proposalError;
-      if (!proposal) return notFound();
+      if (!proposal) return notFound(locale);
       updates = { status: "accepted", accepted_proposal_id: proposalId };
     } else {
-      return NextResponse.json({ ok: false, error: "올바른 작업이 아닙니다." }, { status: 400 });
+      return NextResponse.json({ ok: false, error: outfitMessage(locale, "invalidAction") }, { status: 400 });
     }
 
     const { data: updated, error: updateError } = await db
@@ -77,18 +80,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       .select(REQUEST_SELECT)
       .maybeSingle();
     if (updateError) throw updateError;
-    if (!updated) return NextResponse.json({ ok: false, error: "다른 작업으로 이미 완료된 요청입니다." }, { status: 409 });
+    if (!updated) return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestAlreadyClosedByOther") }, { status: 409 });
     revalidateOpenOutfits();
-    const outfitRequest = await hydrateRequestDetail(db, updated);
+    const outfitRequest = await hydrateRequestDetail(db, updated, locale);
     return NextResponse.json({ ok: true, data: { request: outfitRequest } });
   } catch (error: unknown) {
     console.error("[outfits] update failed", error);
-    return NextResponse.json({ ok: false, error: "코디 요청 상태를 변경하지 못했습니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestUpdateFailed") }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
+  const locale = await getRequestLocale();
   try {
     assertSupabaseConfig();
     const user = await registeredUser(request);
@@ -101,11 +105,11 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       .eq("author_id", user.id)
       .select("id");
     if (error) throw error;
-    if (!data?.length) return notFound();
+    if (!data?.length) return notFound(locale);
     revalidateOpenOutfits();
     return NextResponse.json({ ok: true, data: { deleted: true } });
   } catch (error: unknown) {
     console.error("[outfits] delete failed", error);
-    return NextResponse.json({ ok: false, error: "코디 요청을 삭제하지 못했습니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestDeleteFailed") }, { status: 500 });
   }
 }

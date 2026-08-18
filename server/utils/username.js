@@ -4,11 +4,23 @@ export function normalizeUsername(value) {
   return String(value || '').trim();
 }
 
-export function validateUsername(value) {
+const USERNAME_MESSAGES = {
+  ko: {
+    required: '사용자 이름을 입력해 주세요.',
+    invalidFormat: '사용자 이름은 영문, 숫자, 밑줄(_), 마침표(.)만 사용해 3~20자로 입력해 주세요.',
+  },
+  en: {
+    required: 'Please enter a username.',
+    invalidFormat: 'Usernames can only contain letters, numbers, underscores (_), and periods (.), and must be 3-20 characters long.',
+  },
+};
+
+export function validateUsername(value, locale = 'ko') {
+  const m = USERNAME_MESSAGES[locale] || USERNAME_MESSAGES.ko;
   const username = normalizeUsername(value);
-  if (!username) return '사용자 이름을 입력해 주세요.';
+  if (!username) return m.required;
   if (!USERNAME_PATTERN.test(username)) {
-    return '사용자 이름은 영문, 숫자, 밑줄(_), 마침표(.)만 사용해 3~20자로 입력해 주세요.';
+    return m.invalidFormat;
   }
   return null;
 }

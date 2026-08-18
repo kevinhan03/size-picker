@@ -153,7 +153,7 @@ function ListRow({
       {isEditing && (
         <button
           type="button"
-          aria-label={selected ? t("common.deselectProduct") : t("common.selectProduct")}
+          aria-label={selected ? "상품 선택 해제" : "상품 선택"}
           onClick={onSelect}
           style={{
             flexShrink: 0,

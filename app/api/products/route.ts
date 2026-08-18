@@ -17,6 +17,7 @@ import { embedProductImageById } from "../../../server/services/image-embedding.
 import { tagProductStyleById } from "../../../server/services/style-tagging.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../server/services/dig-match-products.js";
 import { invalidatePublicProductCaches } from "../../../server/services/catalog-cache";
+import { getRequestLocale } from "../../../server/utils/locale";
 
 interface RegisteredUser {
   id: string;
@@ -162,7 +163,7 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error: unknown) {
-    const { statusCode, message } = toProductWriteErrorResponse(error, "product insert error");
+    const { statusCode, message } = toProductWriteErrorResponse(error, "product insert error", await getRequestLocale());
     return NextResponse.json(
       {
         ok: false,

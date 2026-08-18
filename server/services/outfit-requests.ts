@@ -40,7 +40,7 @@ function normalizeSummary(value: Record<string, unknown>): OutfitRequestSummary 
   };
 }
 
-async function listPublicOpenOutfitRequests(limit: number, decoded: CursorPayload | null = null) {
+async function listPublicOpenOutfitRequests(limit: number, decoded: CursorPayload | null = null, locale: string = "ko") {
   assertSupabaseConfig();
   const pageLimit = Math.min(20, Math.max(1, limit));
   const query = supabase!
@@ -58,7 +58,7 @@ async function listPublicOpenOutfitRequests(limit: number, decoded: CursorPayloa
     const rows = (data || []) as Array<Record<string, unknown>>;
     const hasMore = rows.length > pageLimit;
     const pageRows = rows.slice(0, pageLimit);
-    const requests = await hydrateRequestSummaries(supabase!, pageRows);
+    const requests = await hydrateRequestSummaries(supabase!, pageRows, locale);
     const last = pageRows.at(-1);
   return {
       requests,
@@ -69,20 +69,20 @@ async function listPublicOpenOutfitRequests(limit: number, decoded: CursorPayloa
 }
 
 const getCachedPublicOpenOutfitRequests = unstable_cache(
-  () => listPublicOpenOutfitRequests(20),
+  (locale: string) => listPublicOpenOutfitRequests(20, null, locale),
   ["outfit-open-v1"],
   { revalidate: 60, tags: [OUTFIT_OPEN_CACHE_TAG] },
 );
 
-export async function listOutfitRequests(userId: string | null, scope: OutfitRequestScope, cursor: string | null = null, mineStatus: OutfitRequestMineStatus = "all", limit = 20) {
+export async function listOutfitRequests(userId: string | null, scope: OutfitRequestScope, cursor: string | null = null, mineStatus: OutfitRequestMineStatus = "all", limit = 20, locale: string = "ko") {
   assertSupabaseConfig();
   const decoded = decodeCursor(cursor);
   if (cursor && !decoded) throw new Error("invalid cursor");
   const pageLimit = Math.min(20, Math.max(1, limit));
 
   if (!userId) {
-    if (scope === "open" && !cursor && pageLimit === 20) return getCachedPublicOpenOutfitRequests();
-    return listPublicOpenOutfitRequests(pageLimit, decoded);
+    if (scope === "open" && !cursor && pageLimit === 20) return getCachedPublicOpenOutfitRequests(locale);
+    return listPublicOpenOutfitRequests(pageLimit, decoded, locale);
   }
 
   const result = await supabase!.rpc("list_outfit_request_summaries", {

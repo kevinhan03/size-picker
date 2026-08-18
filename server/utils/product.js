@@ -12,6 +12,7 @@ import { normalizeBrandName } from "./brand-rules.js";
 import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "./size-table.js";
 
 export const DUPLICATE_PRODUCT_ERROR_MESSAGE = "이미 등록된 상품입니다";
+const DUPLICATE_PRODUCT_ERROR_MESSAGE_EN = "This product has already been added";
 
 const isDuplicateConstraintError = (error) => {
   const code = String(error?.code || "").trim();
@@ -26,11 +27,11 @@ const isDuplicateConstraintError = (error) => {
   );
 };
 
-export const toProductWriteErrorResponse = (error, fallbackMessage) => {
+export const toProductWriteErrorResponse = (error, fallbackMessage, locale = "ko") => {
   if (isDuplicateConstraintError(error)) {
     return {
       statusCode: 409,
-      message: DUPLICATE_PRODUCT_ERROR_MESSAGE,
+      message: locale === "en" ? DUPLICATE_PRODUCT_ERROR_MESSAGE_EN : DUPLICATE_PRODUCT_ERROR_MESSAGE,
     };
   }
 

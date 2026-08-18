@@ -6,9 +6,11 @@ import { requestLog } from "../../../server/services/catalog";
 import { revalidateOpenOutfits } from "../../../server/services/outfit-cache";
 import {
   hydrateRequestDetail,
+  outfitMessage,
   OUTFIT_PRODUCT_SNAPSHOT_SELECT,
   validateRequestInput,
 } from "../../../server/utils/outfits.js";
+import { getRequestLocale } from "../../../server/utils/locale";
 
 const REQUEST_SELECT = "id,author_id,description,status,accepted_proposal_id,created_at";
 
@@ -18,6 +20,7 @@ function unauthorized(message = "registered account required") {
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
+  const locale = await getRequestLocale();
   try {
     const user = await getRegisteredRequestUser(request);
 
@@ -32,7 +35,7 @@ export async function GET(request: Request) {
     const cursor = url.searchParams.get("cursor");
     const limit = Math.min(20, Math.max(1, Number.parseInt(url.searchParams.get("limit") || "20", 10) || 20));
 
-    const data = await listOutfitRequests(user?.id || null, scope as "open" | "completed" | "mine" | "proposed", cursor, status as "all" | "open" | "accepted" | "closed", limit);
+    const data = await listOutfitRequests(user?.id || null, scope as "open" | "completed" | "mine" | "proposed", cursor, status as "all" | "open" | "accepted" | "closed", limit, locale);
     requestLog("/api/outfit-requests", request, startedAt, 200);
     const isPublicOpen = !user && scope === "open" && !cursor && status === "all" && limit === 20;
     return NextResponse.json(
@@ -45,19 +48,20 @@ export async function GET(request: Request) {
   } catch (error: unknown) {
     console.error("[outfits] list failed", error);
     requestLog("/api/outfit-requests", request, startedAt, 500);
-    return NextResponse.json({ ok: false, error: "코디 요청을 불러오지 못했습니다." }, { status: 500, headers: { "Server-Timing": `outfits;dur=${Date.now() - startedAt}` } });
+    return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestLoadFailed") }, { status: 500, headers: { "Server-Timing": `outfits;dur=${Date.now() - startedAt}` } });
   }
 }
 
 export async function POST(request: Request) {
   if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
 
+  const locale = await getRequestLocale();
   try {
     assertSupabaseConfig();
     const db = supabase!;
     const user = await getRegisteredRequestUser(request);
     if (!user) return unauthorized();
-    const parsed = validateRequestInput(await request.json());
+    const parsed = validateRequestInput(await request.json(), locale);
     if (parsed.error || !parsed.value) {
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
@@ -80,14 +84,14 @@ export async function POST(request: Request) {
     const productIds = closetIds.filter((id) => snapshotsById.has(id));
     if (productIds.length < 2) {
       return NextResponse.json(
-        { ok: false, error: "코디 요청에는 Closet 상품이 2개 이상 필요합니다.", code: "CLOSET_TOO_SMALL" },
+        { ok: false, error: outfitMessage(locale, "closetTooSmall"), code: "CLOSET_TOO_SMALL" },
         { status: 409 }
       );
     }
     const closetIdSet = new Set(productIds);
     if (focusProductIds.some((id) => !closetIdSet.has(id))) {
       return NextResponse.json(
-        { ok: false, error: "우선 활용할 상품은 현재 Closet에서만 선택할 수 있습니다." },
+        { ok: false, error: outfitMessage(locale, "focusProductsMustBeInCloset") },
         { status: 400 }
       );
     }
@@ -114,11 +118,11 @@ export async function POST(request: Request) {
       throw itemError;
     }
 
-    const outfitRequest = await hydrateRequestDetail(db, created);
+    const outfitRequest = await hydrateRequestDetail(db, created, locale);
     revalidateOpenOutfits();
     return NextResponse.json({ ok: true, data: { request: outfitRequest } }, { status: 201 });
   } catch (error: unknown) {
     console.error("[outfits] create failed", error);
-    return NextResponse.json({ ok: false, error: "코디 요청을 저장하지 못했습니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestSaveFailed") }, { status: 500 });
   }
 }

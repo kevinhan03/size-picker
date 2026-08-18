@@ -3,6 +3,7 @@ import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { normalizeUsername, validateUsername } from "../../../../server/utils/username.js";
 import { getRequestAuthUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
+import { getRequestLocale } from "../../../../server/utils/locale";
 
 export async function PATCH(request: Request) {
   if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
@@ -14,7 +15,7 @@ export async function PATCH(request: Request) {
   }
 
   const username = normalizeUsername(body.username);
-  const validationError = validateUsername(username);
+  const validationError = validateUsername(username, await getRequestLocale());
   if (validationError) return NextResponse.json({ ok: false, error: validationError }, { status: 400 });
 
   try {

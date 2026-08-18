@@ -54,7 +54,8 @@ export const isDuplicateProductErrorMessage = (message: string): boolean => {
     normalized.includes('products_unique_key') ||
     normalized.includes('duplicate key value') ||
     normalized.includes('unique constraint') ||
-    normalized.includes('이미 등록된 상품')
+    normalized.includes('이미 등록된 상품') ||
+    normalized.includes('already been added')
   );
 };
 
