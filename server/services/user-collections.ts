@@ -1,6 +1,6 @@
 import type { ClosetSizeSnapshot, DiscoveryProduct, MySizeProfile, Product } from "../../src/types";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
-import { normalizeProductCard } from "./catalog";
+import { normalizeClientProduct, normalizeProductCard } from "./catalog";
 
 type CollectionRow = Record<string, unknown>;
 
@@ -18,7 +18,7 @@ export async function getClosetProducts(userId: string): Promise<Product[]> {
   if (error) throw error;
 
   return ((data ?? []) as CollectionRow[]).flatMap((row) => {
-    const product = normalizeProductCard(row);
+    const product = normalizeClientProduct({ ...row, collection_added_at: row.added_at });
     if (!product) return [];
     return [{
       ...product,
@@ -40,7 +40,7 @@ export async function getDigboxProducts(userId: string): Promise<{
   const products: Product[] = [];
   const discoveredDigboxCounts: Record<string, number> = {};
   for (const row of (data ?? []) as CollectionRow[]) {
-    const product = normalizeProductCard(row);
+    const product = normalizeClientProduct({ ...row, collection_added_at: row.added_at });
     if (!product) continue;
     products.push(product);
     const count = Math.max(0, Number(row.discovered_save_count) || 0);

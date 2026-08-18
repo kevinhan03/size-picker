@@ -16,14 +16,13 @@ const GOOGLE_SIGNUP_TOAST_KEY = "digbox_google_signup_complete_toast";
 export function useAuth(initialState: AuthInitialState) {
   const router = useRouter();
   const [cachedInitialState] = useState<AuthInitialState | null>(() => initialState.user ? null : readAuthSnapshot());
-  const resolvedInitialState = initialState.user ? initialState : (cachedInitialState || initialState);
-  const [authUser, setAuthUser] = useState<AuthUser>(resolvedInitialState.user);
-  const authUserRef = useRef<AuthUser>(resolvedInitialState.user);
-  const [dbUsername, setDbUsername] = useState<string | null>(resolvedInitialState.username);
-  const [needsUsername, setNeedsUsername] = useState(resolvedInitialState.needsUsername);
-  // A server-confirmed user can render protected initial data immediately.
-  // The client still refreshes the session in the background below.
-  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(supabase) && !resolvedInitialState.user);
+  // The first client render must match the anonymous static HTML emitted by the
+  // root layout. Apply a browser-only snapshot only after hydration.
+  const [authUser, setAuthUser] = useState<AuthUser>(initialState.user);
+  const authUserRef = useRef<AuthUser>(initialState.user);
+  const [dbUsername, setDbUsername] = useState<string | null>(initialState.username);
+  const [needsUsername, setNeedsUsername] = useState(initialState.needsUsername);
+  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(supabase) && !initialState.user);
   const [pendingUsername, setPendingUsername] = useState("");
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isSubmittingUsername, setIsSubmittingUsername] = useState(false);
@@ -32,11 +31,12 @@ export function useAuth(initialState: AuthInitialState) {
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!initialState.user && cachedInitialState) return;
-    authUserRef.current = initialState.user;
-    setAuthUser(initialState.user);
-    setDbUsername(initialState.username);
-    setNeedsUsername(initialState.needsUsername);
+    const state = initialState.user ? initialState : cachedInitialState || initialState;
+    authUserRef.current = state.user;
+    setAuthUser(state.user);
+    setDbUsername(state.username);
+    setNeedsUsername(state.needsUsername);
+    if (cachedInitialState && !initialState.user) setIsAuthLoading(false);
   }, [cachedInitialState, initialState]);
 
   useEffect(() => {

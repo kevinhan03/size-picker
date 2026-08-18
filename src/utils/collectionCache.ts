@@ -1,7 +1,7 @@
 import type { MySizeProfile, Product } from "../types";
 
 const TTL_MS = 60_000;
-const PREFIX = "digbox:collections:v1:";
+const PREFIX = "digbox:collections:v4:";
 
 export type CollectionSnapshot = {
   expiresAt: number;
