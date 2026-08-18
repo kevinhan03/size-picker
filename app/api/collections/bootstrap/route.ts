@@ -3,6 +3,7 @@ import { getRegisteredRequestUser } from "../../../../server/auth/request-user";
 import { getClosetProducts, getDigboxProducts, getMySizes } from "../../../../server/services/user-collections";
 
 export async function GET(request: Request) {
+  const startedAt = performance.now();
   try {
     const user = await getRegisteredRequestUser(request);
     if (!user) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
@@ -15,10 +16,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       { ok: true, data: { closet: { products: closet }, digbox, profiles } },
-      { headers: { "Cache-Control": "private, no-store" } },
+      { headers: { "Cache-Control": "private, no-store", "Server-Timing": `bootstrap;dur=${Math.round(performance.now() - startedAt)}` } },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "collection bootstrap failed";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: message }, { status: 500, headers: { "Server-Timing": `bootstrap;dur=${Math.round(performance.now() - startedAt)}` } });
   }
 }

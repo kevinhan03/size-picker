@@ -22,6 +22,7 @@ import { CollectionEmptyState } from "../CollectionEmptyState";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
 import { loadProductDetailModal } from "../productDetailModalLoader";
+import { buildLoginHref } from "../../utils/authNavigation";
 
 const ProductDetailModal = dynamic(loadProductDetailModal, { ssr: false });
 const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
@@ -468,7 +469,7 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
 
   useEffect(() => {
     if (!auth.isAuthLoading && !authUserId) {
-      router.replace("/closet");
+      router.replace(buildLoginHref("login", "/closet", "closet"));
     }
   }, [auth.isAuthLoading, authUserId, router]);
 

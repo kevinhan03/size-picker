@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
+import { useNavigationProgress } from "../contexts/NavigationProgressContext";
 import { buildLoginHref } from "../utils/authNavigation";
 import {
   getPrimaryNavigationDestination,
@@ -19,6 +20,7 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
   const router = useRouter();
   const auth = useAuthContext();
   const productForm = useProductFormContext();
+  const { startNavigation } = useNavigationProgress();
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isIconOnlyActions, setIsIconOnlyActions] = useState(false);
   const [hiddenOnCompact, setHiddenOnCompact] = useState(false);
@@ -59,6 +61,8 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
     : "h-16 w-full max-w-[calc(70rem+var(--app-main-px)+var(--app-main-px))] px-[var(--app-main-px)]";
 
   function navigate(destination: PrimaryNavigationDestination) {
+    if (activeDestination === destination) return;
+    startNavigation();
     if (destination === "digging") {
       router.push("/");
       return;
@@ -123,10 +127,11 @@ export function AppHeader({ variant = "full" }: { variant?: "full" | "minimal" }
             role="link"
             tabIndex={0}
             aria-label="DIGBOX 디깅으로 이동"
-            onClick={() => router.push("/")}
+            onClick={() => { if (pathname !== "/") startNavigation(); router.push("/"); }}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
+                if (pathname !== "/") startNavigation();
                 router.push("/");
               }
             }}

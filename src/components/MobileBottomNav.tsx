@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useDigboxContext } from "../contexts/DigboxContext";
+import { useNavigationProgress } from "../contexts/NavigationProgressContext";
 import { captureEvent } from "../utils/analytics";
 import {
   getPrimaryNavigationDestination,
@@ -15,10 +16,13 @@ export function MobileBottomNav() {
   const router = useRouter();
   const auth = useAuthContext();
   const digbox = useDigboxContext();
+  const { startNavigation } = useNavigationProgress();
   const activeDestination = getPrimaryNavigationDestination(pathname);
 
   function navigate(destination: PrimaryNavigationDestination) {
     captureEvent("mobile_nav_clicked", { destination, is_authenticated: Boolean(auth.authUser) });
+    if (activeDestination === destination) return;
+    startNavigation();
     if (destination === "digging") return void router.push("/");
     if (destination === "outfits") return void router.push("/outfits");
     if (destination === "taste") return void router.push("/taste");

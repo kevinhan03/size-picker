@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
 import { ANALYSIS_COLUMNS, PRODUCT_CARD_COLUMNS, normalizeAnalysisProduct, normalizeProductCard, requestLog } from "../../../server/services/catalog";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
@@ -129,6 +130,8 @@ export async function POST(request: Request) {
       }
       throw error;
     }
+
+    revalidateTag("public-digbox", "max");
 
     return NextResponse.json({ ok: true, data: { added: true } }, { status: 201 });
   } catch (error: unknown) {

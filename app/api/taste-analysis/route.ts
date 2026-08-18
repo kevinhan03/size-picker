@@ -11,9 +11,9 @@ export async function GET(request: Request) {
     if (!user) return NextResponse.json({ ok: false, error: "registered account required" }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
     const data = await getTasteAnalysis(user.id, source);
     requestLog("/api/taste-analysis", request, startedAt, 200);
-    return NextResponse.json({ ok: true, data }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ ok: true, data }, { headers: { "Cache-Control": "private, no-store", "Server-Timing": `taste;dur=${Date.now() - startedAt}` } });
   } catch (error) {
     requestLog("/api/taste-analysis", request, startedAt, 500);
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "taste analysis failed" }, { status: 500, headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "taste analysis failed" }, { status: 500, headers: { "Cache-Control": "private, no-store", "Server-Timing": `taste;dur=${Date.now() - startedAt}` } });
   }
 }

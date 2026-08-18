@@ -34,11 +34,18 @@ export async function GET(request: Request) {
 
     const data = await listOutfitRequests(user?.id || null, scope as "open" | "completed" | "mine" | "proposed", cursor, status as "all" | "open" | "accepted" | "closed", limit);
     requestLog("/api/outfit-requests", request, startedAt, 200);
-    return NextResponse.json({ ok: true, data });
+    const isPublicOpen = !user && scope === "open" && !cursor && status === "all" && limit === 20;
+    return NextResponse.json(
+      { ok: true, data },
+      { headers: {
+        "Cache-Control": isPublicOpen ? "public, s-maxage=60, stale-while-revalidate=300" : "private, no-store",
+        "Server-Timing": `outfits;dur=${Date.now() - startedAt}`,
+      } },
+    );
   } catch (error: unknown) {
     console.error("[outfits] list failed", error);
     requestLog("/api/outfit-requests", request, startedAt, 500);
-    return NextResponse.json({ ok: false, error: "코디 요청을 불러오지 못했습니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "코디 요청을 불러오지 못했습니다." }, { status: 500, headers: { "Server-Timing": `outfits;dur=${Date.now() - startedAt}` } });
   }
 }
 

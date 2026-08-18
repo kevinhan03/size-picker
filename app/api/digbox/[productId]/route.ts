@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
 
@@ -30,6 +31,8 @@ export async function DELETE(
       .eq("product_id", pid);
 
     if (error) throw error;
+
+    revalidateTag("public-digbox", "max");
 
     return NextResponse.json({ ok: true, data: { removed: true } });
   } catch (error: unknown) {

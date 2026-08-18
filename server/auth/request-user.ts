@@ -22,6 +22,16 @@ export async function getRequestAuthUser(request: Request) {
   return token ? verifyBearerToken(token) : null;
 }
 
+export async function getRequestAuthUserId(request: Request): Promise<{ id: string; email?: string } | null> {
+  const verifiedUserId = String(request.headers.get("x-digbox-verified-user-id") || "").trim();
+  if (verifiedUserId) {
+    const email = String(request.headers.get("x-digbox-verified-user-email") || "").trim();
+    return { id: verifiedUserId, ...(email ? { email } : {}) };
+  }
+  const user = await getRequestAuthUser(request);
+  return user ? { id: user.id, ...(user.email ? { email: user.email } : {}) } : null;
+}
+
 export async function getRegisteredRequestUser(request: Request): Promise<RegisteredRequestUser | null> {
   const verifiedUserId = String(request.headers.get("x-digbox-verified-user-id") || "").trim();
   if (verifiedUserId && adminSupabase) {

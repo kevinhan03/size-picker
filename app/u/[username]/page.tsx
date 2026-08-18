@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
-import { getInitialAuthState } from "../../../server/auth/user-session";
 import { getDigboxProducts } from "../../../server/services/user-collections";
 import { DigboxPageClient } from "../../../src/components/pages/DigboxPageClient";
 
@@ -31,6 +31,14 @@ async function fetchUserDigbox(username: string) {
   };
 }
 
+function getCachedUserDigbox(username: string) {
+  return unstable_cache(
+    () => fetchUserDigbox(username),
+    ["public-digbox-v1", username.toLowerCase()],
+    { revalidate: 60, tags: ["public-digbox"] },
+  )();
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
   const decodedUsername = decodeURIComponent(username).trim();
@@ -42,20 +50,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PublicDigboxPage({ params }: Props) {
   const { username } = await params;
-  const [digbox, auth] = await Promise.all([
-    fetchUserDigbox(username),
-    getInitialAuthState(),
-  ]);
+  const digbox = await getCachedUserDigbox(username);
   if (!digbox) notFound();
 
-  const isOwner = auth.user?.id === digbox.userId;
   return (
     <DigboxPageClient
       username={digbox.username}
       bio={digbox.bio}
       products={digbox.products}
       discoveredDigboxCounts={digbox.discoveredDigboxCounts}
-      hydrateOwner={isOwner}
+      hydrateOwner
     />
   );
 }

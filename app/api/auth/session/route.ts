@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
-import { getRequestAuthUser } from "../../../../server/auth/request-user";
+import { getRequestAuthUserId } from "../../../../server/auth/request-user";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 
 const noStoreHeaders = (duration: number) => ({
@@ -11,7 +11,7 @@ const noStoreHeaders = (duration: number) => ({
 export async function GET(request: Request) {
   const startedAt = performance.now();
   try {
-    const user = await getRequestAuthUser(request);
+    const user = await getRequestAuthUserId(request);
     if (!user) {
       return NextResponse.json(
         { ok: true, data: { user: null, username: null, needsUsername: false } },

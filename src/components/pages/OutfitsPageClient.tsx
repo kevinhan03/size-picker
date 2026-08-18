@@ -13,6 +13,8 @@ import { PageState } from "../PageState";
 
 type HubScope = Extract<OutfitRequestScope, "open" | "mine" | "proposed">;
 type CachedRequestList = { requests: OutfitRequestSummary[]; total: number; nextCursor: string | null };
+const outfitListCache = new Map<string, CachedRequestList>();
+let outfitCacheOwnerId: string | null | undefined;
 
 function getRequestCacheKey(scope: HubScope, mineStatus: OutfitRequestMineStatus) {
   return `${scope}:${scope === "mine" ? mineStatus : "all"}`;
@@ -65,12 +67,17 @@ function relativeTime(value: string) {
   return `${Math.floor(seconds / 86400)}일 전`;
 }
 
-export function OutfitsPageClient({ initialScope = "open", initialData = null }: { initialScope?: HubScope; initialData?: { requests: OutfitRequestSummary[]; total: number; nextCursor: string | null } | null }) {
+export function OutfitsPageClient({ initialScope, initialData = null }: { initialScope?: HubScope; initialData?: { requests: OutfitRequestSummary[]; total: number; nextCursor: string | null } | null }) {
   const router = useRouter();
   const { authUser, isAuthLoading } = useAuthContext();
   const authUserId = authUser?.id;
   const isGuest = !authUserId;
-  const [scope, setScope] = useState<HubScope>(initialScope);
+  const [scope, setScope] = useState<HubScope>(() => {
+    if (initialScope) return initialScope;
+    if (typeof window === "undefined") return "open";
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    return tab === "mine" || tab === "proposed" ? tab : "open";
+  });
   const [mineStatus, setMineStatus] = useState<OutfitRequestMineStatus>("all");
   const [requests, setRequests] = useState<OutfitRequestSummary[]>(initialData?.requests || []);
   const [total, setTotal] = useState(initialData?.total || 0);
@@ -81,7 +88,7 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
   const [error, setError] = useState("");
   const loadSequenceRef = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
-  const requestCacheRef = useRef(new Map<string, CachedRequestList>());
+  const requestCacheRef = useRef(outfitListCache);
   const usedInitialDataRef = useRef(false);
   const statusFilterRef = useRef<HTMLDivElement>(null);
   const [hasMoreStatusFilters, setHasMoreStatusFilters] = useState(false);
@@ -129,6 +136,11 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
 
   useEffect(() => () => requestControllerRef.current?.abort(), []);
 
+  useEffect(() => {
+    if (outfitCacheOwnerId !== undefined && outfitCacheOwnerId !== (authUserId || null)) outfitListCache.clear();
+    outfitCacheOwnerId = authUserId || null;
+  }, [authUserId]);
+
   function selectScope(nextScope: HubScope) {
     if (nextScope === scope) return;
     if (isGuest && nextScope !== "open") {
@@ -159,9 +171,13 @@ export function OutfitsPageClient({ initialScope = "open", initialData = null }:
 
   useEffect(() => {
     if (isAuthLoading) return;
+    if (!authUserId && scope !== "open") {
+      setScope("open");
+      return;
+    }
     if (!usedInitialDataRef.current && initialData) {
       usedInitialDataRef.current = true;
-      requestCacheRef.current.set(getRequestCacheKey(initialScope, "all"), { requests: initialData.requests, total: initialData.total, nextCursor: initialData.nextCursor });
+      requestCacheRef.current.set(getRequestCacheKey(initialScope || "open", "all"), { requests: initialData.requests, total: initialData.total, nextCursor: initialData.nextCursor });
       setLoading(false);
       setHasCompletedInitialLoad(true);
       return;

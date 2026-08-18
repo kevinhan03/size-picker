@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cleanupUnregisteredGoogleAccount, completeMyProfile, deleteMyAccount } from "../api";
 import { supabase } from "../lib/supabase";
@@ -6,6 +6,8 @@ import { getAuthHeaders } from "../api/shared";
 import type { AuthInitialState } from "../types";
 import { getAuthErrorMessage } from "../utils/authMessage";
 import { normalizeUsername, validateUsername } from "../utils/username";
+import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "../utils/authCache";
+import { clearCollectionSnapshot } from "../utils/collectionCache";
 
 type AuthUser = { id?: string; email?: string } | null;
 type AuthSessionResponse = { ok?: boolean; data?: AuthInitialState };
@@ -13,12 +15,15 @@ const GOOGLE_SIGNUP_TOAST_KEY = "digbox_google_signup_complete_toast";
 
 export function useAuth(initialState: AuthInitialState) {
   const router = useRouter();
-  const [authUser, setAuthUser] = useState<AuthUser>(initialState.user);
-  const [dbUsername, setDbUsername] = useState<string | null>(initialState.username);
-  const [needsUsername, setNeedsUsername] = useState(initialState.needsUsername);
+  const [cachedInitialState] = useState<AuthInitialState | null>(() => initialState.user ? null : readAuthSnapshot());
+  const resolvedInitialState = initialState.user ? initialState : (cachedInitialState || initialState);
+  const [authUser, setAuthUser] = useState<AuthUser>(resolvedInitialState.user);
+  const authUserRef = useRef<AuthUser>(resolvedInitialState.user);
+  const [dbUsername, setDbUsername] = useState<string | null>(resolvedInitialState.username);
+  const [needsUsername, setNeedsUsername] = useState(resolvedInitialState.needsUsername);
   // A server-confirmed user can render protected initial data immediately.
   // The client still refreshes the session in the background below.
-  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(supabase) && !initialState.user);
+  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(supabase) && !resolvedInitialState.user);
   const [pendingUsername, setPendingUsername] = useState("");
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isSubmittingUsername, setIsSubmittingUsername] = useState(false);
@@ -27,10 +32,12 @@ export function useAuth(initialState: AuthInitialState) {
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!initialState.user && cachedInitialState) return;
+    authUserRef.current = initialState.user;
     setAuthUser(initialState.user);
     setDbUsername(initialState.username);
     setNeedsUsername(initialState.needsUsername);
-  }, [initialState]);
+  }, [cachedInitialState, initialState]);
 
   useEffect(() => {
     const authClient = supabase;
@@ -42,6 +49,10 @@ export function useAuth(initialState: AuthInitialState) {
     let cancelled = false;
     const applyAnonymousState = () => {
       if (cancelled) return;
+      const previousUserId = authUserRef.current?.id;
+      if (previousUserId) clearCollectionSnapshot(previousUserId);
+      clearAuthSnapshot();
+      authUserRef.current = null;
       setAuthUser(null);
       setDbUsername(null);
       setNeedsUsername(false);
@@ -64,6 +75,10 @@ export function useAuth(initialState: AuthInitialState) {
           return;
         }
         if (cancelled) return;
+        const previousUserId = authUserRef.current?.id;
+        if (previousUserId && previousUserId !== payload.data.user.id) clearCollectionSnapshot(previousUserId);
+        writeAuthSnapshot(payload.data);
+        authUserRef.current = payload.data.user;
         setAuthUser(payload.data.user);
         setDbUsername(payload.data.username);
         setNeedsUsername(payload.data.needsUsername);
@@ -100,6 +115,8 @@ export function useAuth(initialState: AuthInitialState) {
       const completedUsername = await completeMyProfile(username);
       setNeedsUsername(false);
       setDbUsername(completedUsername);
+      const userId = authUserRef.current?.id;
+      if (userId) writeAuthSnapshot({ user: { id: userId, email: authUserRef.current?.email }, username: completedUsername, needsUsername: false });
       setPendingUsername("");
       sessionStorage.setItem(GOOGLE_SIGNUP_TOAST_KEY, "1");
       router.refresh();
@@ -115,6 +132,9 @@ export function useAuth(initialState: AuthInitialState) {
   const signOut = async (destination = "/") => {
     await fetch("/api/auth/logout", { method: "POST" });
     await supabase?.auth.signOut({ scope: "local" });
+    if (authUserRef.current?.id) clearCollectionSnapshot(authUserRef.current.id);
+    clearAuthSnapshot();
+    authUserRef.current = null;
     setAuthUser(null);
     setDbUsername(null);
     setNeedsUsername(false);

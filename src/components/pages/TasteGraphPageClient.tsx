@@ -12,6 +12,8 @@ import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { useProductDetail } from "../../hooks/useProductDetail";
 import { captureEvent } from "../../utils/analytics";
+import { fetchTasteAnalysis } from "../../api";
+import { buildLoginHref } from "../../utils/authNavigation";
 import { toPublicUrl } from "../../utils/product";
 import type { Product, StyleTagName } from "../../types";
 import { loadProductDetailModal } from "../productDetailModalLoader";
@@ -67,6 +69,9 @@ export function TasteGraphPageClient({
     digbox: false,
     closet: false,
   });
+  const [graphs, setGraphs] = useState<Partial<Record<TasteGraphSource, SerializedTasteGraphState>>>(initialGraphs || {});
+  const [graphLoadError, setGraphLoadError] = useState<string | null>(null);
+  const graphRequestsRef = useRef(new Map<TasteGraphSource, Promise<void>>());
   const [urlFocus, setUrlFocus] = useState<{ source: TasteGraphSource | null; tag?: StyleTagName }>({
     source: initialSource || null,
     tag: initialTag,
@@ -86,6 +91,7 @@ export function TasteGraphPageClient({
     reload: reloadCloset,
     toggleCloset,
     isInCloset,
+    ensureLoaded: ensureClosetLoaded,
   } = useClosetContext();
   const {
     digboxProducts,
@@ -94,11 +100,19 @@ export function TasteGraphPageClient({
     reload: reloadDigbox,
     toggleDigbox,
     isInDigbox,
+    ensureLoaded: ensureDigboxLoaded,
   } = useDigboxContext();
 
   useEffect(() => {
-    if (!auth.isAuthLoading && !authUserId) router.replace("/taste");
-  }, [auth.isAuthLoading, authUserId, router]);
+    if (auth.isAuthLoading || authUserId) return;
+    const query = new URLSearchParams();
+    if (initialView === "brands") query.set("view", "brands");
+    if (initialTag) query.set("tag", initialTag);
+    const returnTo = initialSource
+      ? `/taste/${sourcePath(initialSource)}${query.size ? `?${query.toString()}` : ""}`
+      : "/taste";
+    router.replace(buildLoginHref("login", returnTo, "taste"));
+  }, [auth.isAuthLoading, authUserId, initialSource, initialTag, initialView, router]);
 
   useEffect(() => {
     setSelectedSource(initialSource || null);
@@ -108,15 +122,21 @@ export function TasteGraphPageClient({
     setIsMapOpen(Boolean(initialSource));
   }, [initialSource, initialTag, initialView]);
 
+  useEffect(() => {
+    if (!authUserId) return;
+    ensureClosetLoaded();
+    ensureDigboxLoaded();
+  }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
+
   const source = selectedSource ?? urlFocus.source ?? "digbox";
   const activeProducts = source === "closet" ? closetProducts : digboxProducts;
   const digboxGraphData = useMemo(
-    () => graphMatchesProducts(initialGraphs?.digbox, digboxProducts) ? initialGraphs?.digbox : undefined,
-    [digboxProducts, initialGraphs?.digbox]
+    () => graphMatchesProducts(graphs.digbox, digboxProducts) ? graphs.digbox : undefined,
+    [digboxProducts, graphs.digbox]
   );
   const closetGraphData = useMemo(
-    () => graphMatchesProducts(initialGraphs?.closet, closetProducts) ? initialGraphs?.closet : undefined,
-    [closetProducts, initialGraphs?.closet]
+    () => graphMatchesProducts(graphs.closet, closetProducts) ? graphs.closet : undefined,
+    [closetProducts, graphs.closet]
   );
   const brandProducts = useMemo(
     () => Array.from(new Map([...digboxProducts, ...closetProducts].map((product) => [product.id, product])).values()),
@@ -137,6 +157,20 @@ export function TasteGraphPageClient({
     : source === "digbox"
       ? { title: "아직 저장한 상품이 없어요", description: "마음에 드는 상품을 저장하면 관심 취향을 그려드릴게요." }
       : { title: "아직 취향을 읽을 상품이 없어요", description: "상품을 저장하거나 옷장에 추가하면 스타일 섬이 자라기 시작해요." }, [source]);
+
+  useEffect(() => {
+    if (!isMapOpen || !authUserId || graphs[source] || graphRequestsRef.current.has(source)) return;
+    const request = fetchTasteAnalysis(source)
+      .then(({ graph }) => {
+        setGraphs((current) => ({ ...current, [source]: graph }));
+        setGraphLoadError(null);
+      })
+      .catch((error: unknown) => {
+        setGraphLoadError(error instanceof Error ? error.message : "취향 분석을 불러오지 못했습니다.");
+      })
+      .finally(() => graphRequestsRef.current.delete(source));
+    graphRequestsRef.current.set(source, request);
+  }, [authUserId, graphs, isMapOpen, source]);
 
   useEffect(() => {
     if (isMapOpen && source !== "closet" && digboxProducts.length > 0) {
@@ -269,6 +303,10 @@ export function TasteGraphPageClient({
         />
       </main>
     );
+  }
+
+  if (graphLoadError && isMapOpen) {
+    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="error" title="취향 그래프를 불러오지 못했어요" description={graphLoadError} action={<button type="button" onClick={() => { setGraphLoadError(null); setGraphs((current) => { const next = { ...current }; delete next[source]; return next; }); }} className="ui-button ui-button-primary px-5 py-2.5">다시 시도</button>} /></main>;
   }
 
   if (!isClosetLoaded || !isDigboxLoaded) {

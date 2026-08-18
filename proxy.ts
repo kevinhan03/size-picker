@@ -8,6 +8,7 @@ export async function proxy(request: NextRequest) {
   // Never trust a value supplied by the browser. Only this proxy can attach the
   // verified subject header consumed by protected route handlers.
   requestHeaders.delete("x-digbox-verified-user-id");
+  requestHeaders.delete("x-digbox-verified-user-email");
   const hasAuthCookie = request.cookies.getAll().some(({ name }) => name.startsWith("sb-") && name.includes("auth-token"));
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -25,7 +26,9 @@ export async function proxy(request: NextRequest) {
   });
   const { data } = await client.auth.getClaims();
   const subject = typeof data?.claims?.sub === "string" ? data.claims.sub : "";
+  const email = typeof data?.claims?.email === "string" ? data.claims.email : "";
   if (subject) requestHeaders.set("x-digbox-verified-user-id", subject);
+  if (email) requestHeaders.set("x-digbox-verified-user-email", email);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   pendingCookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
   return response;

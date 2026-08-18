@@ -16,6 +16,7 @@ import type {
 } from '../types';
 import { normalizeSizeTable } from '../utils/sizeTable';
 import { authenticatedFetch, parseApiJson, postJson } from './shared';
+import type { SerializedTasteGraphState, TasteCollectionSource } from "../utils/tasteGraph";
 
 export type CollectionBootstrapData = {
   closet: Product[];
@@ -37,6 +38,18 @@ export const fetchCollectionsBootstrap = async (): Promise<CollectionBootstrapDa
     closet: (payload.data?.closet?.products || []).filter((value): value is Product => Boolean(value) && typeof value === "object"),
     digbox: { products: (payload.data?.digbox?.products || []).filter((value): value is Product => Boolean(value) && typeof value === "object"), discoveredDigboxCounts: counts },
     profiles: (payload.data?.profiles || []).filter((value): value is MySizeProfile => Boolean(value) && typeof value === "object"),
+  };
+};
+
+export const fetchTasteAnalysis = async (source: TasteCollectionSource): Promise<{ source: TasteCollectionSource; products: Product[]; graph: SerializedTasteGraphState }> => {
+  const endpoint = `/api/taste-analysis?source=${encodeURIComponent(source)}`;
+  const response = await authenticatedFetch(endpoint);
+  const payload = await parseApiJson<{ ok?: boolean; data?: { source?: TasteCollectionSource; products?: Product[]; graph?: SerializedTasteGraphState }; error?: string }>(response, endpoint);
+  if (!response.ok || !payload.ok || !payload.data?.graph) throw new Error(payload.error || "취향 분석을 불러오지 못했습니다.");
+  return {
+    source: payload.data.source === "closet" ? "closet" : "digbox",
+    products: Array.isArray(payload.data.products) ? payload.data.products : [],
+    graph: payload.data.graph,
   };
 };
 
