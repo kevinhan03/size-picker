@@ -1,4 +1,4 @@
-import type { ClosetSizeSnapshot, DiscoveryProduct, MySizeProfile, Product } from "../../src/types";
+import type { ClosetSizeSnapshot, DigboxSizeDecision, DiscoveryProduct, MySizeProfile, Product, SizeDecisionFit, SizeDecisionSource } from "../../src/types";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { normalizeClientProduct, normalizeProductCard } from "./catalog";
 
@@ -10,6 +10,24 @@ function normalizeSizeSnapshot(value: unknown): ClosetSizeSnapshot | null {
   const headers = Array.isArray(record.headers) ? record.headers.map((value) => String(value ?? "").trim()) : [];
   const row = Array.isArray(record.row) ? record.row.map((value) => String(value ?? "").trim()) : [];
   return headers.length && row.length ? { headers, row } : null;
+}
+
+function normalizeDigboxSizeDecision(row: CollectionRow): DigboxSizeDecision | null {
+  const label = String(row.size_decision_label ?? "").trim() || null;
+  if (!label) return null;
+  const sources = Array.isArray(row.size_decision_sources)
+    ? row.size_decision_sources.map((source) => String(source)).filter((source): source is SizeDecisionSource => ["comparison", "try_on", "worn"].includes(source))
+    : [];
+  const fit = String(row.size_decision_fit ?? "");
+  return {
+    label,
+    rowIndex: Number.isInteger(row.size_decision_row_index) ? Number(row.size_decision_row_index) : null,
+    snapshot: normalizeSizeSnapshot(row.size_decision_snapshot),
+    sources,
+    fit: ["tight", "true_to_size", "roomy"].includes(fit) ? fit as SizeDecisionFit : null,
+    note: String(row.size_decision_note ?? "").trim() || null,
+    updatedAt: String(row.size_decision_updated_at ?? "").trim() || null,
+  };
 }
 
 export async function getClosetProducts(userId: string): Promise<Product[]> {
@@ -42,7 +60,7 @@ export async function getDigboxProducts(userId: string): Promise<{
   for (const row of (data ?? []) as CollectionRow[]) {
     const product = normalizeClientProduct({ ...row, collection_added_at: row.added_at });
     if (!product) continue;
-    products.push(product);
+    products.push({ ...product, digboxSizeDecision: normalizeDigboxSizeDecision(row) });
     const count = Math.max(0, Number(row.discovered_save_count) || 0);
     if (count > 0) discoveredDigboxCounts[product.id] = count;
   }

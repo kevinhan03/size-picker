@@ -28,6 +28,7 @@ export interface Product {
   closetSelectedSizeLabel?: string | null;
   closetSelectedSizeRowIndex?: number | null;
   closetSelectedSizeSnapshot?: ClosetSizeSnapshot | null;
+  digboxSizeDecision?: DigboxSizeDecision | null;
   styleTags?: StyleTags | null;
   styleAttributes?: StyleAttributes | null;
   styleTagsEvidence?: StyleTagsEvidence | null;
@@ -169,6 +170,21 @@ export interface ClosetSizeSelection {
   rowIndex: number | null;
   snapshot: ClosetSizeSnapshot | null;
 }
+
+export type SizeDecisionSource = "comparison" | "try_on" | "worn";
+export type SizeDecisionFit = "tight" | "true_to_size" | "roomy";
+
+export interface DigboxSizeDecision {
+  label: string | null;
+  rowIndex: number | null;
+  snapshot: ClosetSizeSnapshot | null;
+  sources: SizeDecisionSource[];
+  fit: SizeDecisionFit | null;
+  note: string | null;
+  updatedAt?: string | null;
+}
+
+export type DigboxSizeDecisionInput = Omit<DigboxSizeDecision, "updatedAt">;
 
 export interface ProductRow {
   id: string | number;

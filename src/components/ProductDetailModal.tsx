@@ -3,7 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent, PointerEvent, Ref
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
-import type { ClosetSizeSelection, MySizeProfile, Product } from "../types";
+import type { ClosetSizeSelection, DigboxSizeDecisionInput, MySizeProfile, Product } from "../types";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
 import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
@@ -23,6 +23,7 @@ import { ClosetIcon } from "./icons/ClosetIcon";
 import { ProductSummaryDetailsPanel } from "./taste-graph/ProductTasteDecision";
 import { buildLoginHref } from "../utils/authNavigation";
 import { getProductPageUrl } from "../utils/product";
+import { DigboxSizeDecisionCard } from "./DigboxSizeDecisionCard";
 
 export interface ProductDetailModalProps {
   product: Product;
@@ -38,6 +39,8 @@ export interface ProductDetailModalProps {
   isInCloset?: boolean;
   onToggleDigbox?: () => void;
   isInDigbox?: boolean;
+  digboxProduct?: Product | null;
+  onUpdateDigboxSizeDecision?: (decision: DigboxSizeDecisionInput | null) => Promise<void>;
   onCollectionActionStart?: (anchorRect?: TutorialAnchorRect) => void;
   hideDigboxButton?: boolean;
   hideCollectionActions?: boolean;
@@ -199,6 +202,8 @@ function ProductDetailModalContent({
   isInCloset,
   onToggleDigbox,
   isInDigbox,
+  digboxProduct,
+  onUpdateDigboxSizeDecision,
   onCollectionActionStart,
   hideDigboxButton,
   hideCollectionActions,
@@ -483,7 +488,7 @@ function ProductDetailModalContent({
           trapDialogFocus(event);
           if (event.key === "Escape") closeModal();
         }}
-        className="ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] outline-none md:h-[80.4vh] md:max-h-none md:w-[91%] md:max-w-[58.24rem]"
+        className="ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] outline-none md:h-[88.44vh] md:max-h-none md:max-w-[64.064rem]"
         data-visible={presence.isVisible}
       >
         <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-2 text-white sm:px-6 sm:py-3">
@@ -772,6 +777,15 @@ function ProductDetailModalContent({
               </>
             ) : null}
           </div>
+
+          {isInDigbox && onUpdateDigboxSizeDecision ? (
+            <DigboxSizeDecisionCard
+              product={displayProduct}
+              decision={digboxProduct?.digboxSizeDecision}
+              suggestedRowIndex={activeRowIndex}
+              onSave={onUpdateDigboxSizeDecision}
+            />
+          ) : null}
 
           {displaySizeTable?.extra?.headers?.length ? (
             <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
