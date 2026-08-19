@@ -894,7 +894,7 @@ export function MyPageView({
           </p>
           <label className="mt-5 block text-left">
             <span className="mb-2 block text-xs font-black text-gray-500">
-              {t("mypage.deleteInstruction").replace("삭제", deleteConfirmationWord)}
+              {t("mypage.deleteInstruction")}
             </span>
             <input
               value={deleteConfirmText}
