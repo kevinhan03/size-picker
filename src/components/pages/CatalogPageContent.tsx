@@ -3,6 +3,8 @@ import { getCatalogPage } from "../../../server/services/catalog";
 import type { ProductCardData } from "../../types";
 import { ProductsProvider } from "../../contexts/ProductsContext";
 import { SearchPageClient } from "./SearchPageClient";
+import { getRequestLocale } from "../../../server/utils/locale";
+import { translate } from "../../i18n/messages";
 
 export async function CatalogPageContent() {
   let initialProducts: ProductCardData[] = [];
@@ -14,7 +16,7 @@ export async function CatalogPageContent() {
     initialProducts = page.products;
     initialNextOffset = page.nextOffset;
   } catch {
-    initialError = "상품 정보를 불러오지 못했습니다.";
+    initialError = translate(await getRequestLocale(), "products.loadError");
   }
 
   return (

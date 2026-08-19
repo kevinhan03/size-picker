@@ -2,12 +2,14 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useLocaleContext } from "./LocaleContext";
 
 type NavigationProgressValue = { startNavigation: () => void };
 const NavigationProgressContext = createContext<NavigationProgressValue | null>(null);
 
 export function NavigationProgressProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { t } = useLocaleContext();
   const [visible, setVisible] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -36,7 +38,7 @@ export function NavigationProgressProvider({ children }: { children: React.React
   return (
     <NavigationProgressContext.Provider value={{ startNavigation }}>
       {children}
-      {visible ? <div role="status" aria-label="페이지를 불러오는 중" className="pointer-events-none fixed inset-x-0 top-0 z-[80] h-0.5 overflow-hidden bg-orange-500/20">
+      {visible ? <div role="status" aria-label={t("common.pageLoading")} className="pointer-events-none fixed inset-x-0 top-0 z-[80] h-0.5 overflow-hidden bg-orange-500/20">
         <span className="block h-full w-2/5 animate-[navigation-progress_900ms_ease-in-out_infinite] bg-orange-400 motion-reduce:animate-none" />
       </div> : null}
       <style jsx>{`@keyframes navigation-progress { from { transform: translateX(-110%); } to { transform: translateX(280%); } }`}</style>

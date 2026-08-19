@@ -1,12 +1,15 @@
+import type { Locale } from "../i18n/locale";
+
 type RouteLoadingSkeletonProps = {
   eyebrow: string;
   title: string;
   variant: "outfits" | "taste";
+  locale?: Locale;
 };
 
-export function RouteLoadingSkeleton({ eyebrow, title, variant }: RouteLoadingSkeletonProps) {
+export function RouteLoadingSkeleton({ eyebrow, title, variant, locale = "ko" }: RouteLoadingSkeletonProps) {
   return (
-    <main aria-busy="true" aria-label={`${title} 불러오는 중`} className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
+    <main aria-busy="true" aria-label={locale === "en" ? `Loading ${title}` : `${title} 불러오는 중`} className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto w-full max-w-[70rem] animate-pulse motion-reduce:animate-none">
         <p className="text-xs font-extrabold tracking-[0.14em] text-orange-300">{eyebrow}</p>
         <h1 className="mt-2 text-3xl font-black tracking-[-0.03em]">{title}</h1>

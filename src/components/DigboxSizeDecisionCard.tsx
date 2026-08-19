@@ -2,24 +2,30 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, Pencil, Ruler } from "lucide-react";
 import type { DigboxSizeDecision, DigboxSizeDecisionInput, Product, SizeDecisionFit, SizeDecisionSource } from "../types";
 import { getDisplaySizeTable } from "../utils/sizeTable";
+import { useLocaleContext } from "../contexts/LocaleContext";
+import type { MessageKey } from "../i18n/messages";
 
-const sourceOptions: Array<{ id: SizeDecisionSource; label: string }> = [
-  { id: "comparison", label: "내 옷과 비교" },
-  { id: "try_on", label: "매장 피팅" },
-  { id: "worn", label: "구매·착용" },
-];
+function getSourceOptions(t: (key: MessageKey) => string): Array<{ id: SizeDecisionSource; label: string }> {
+  return [
+    { id: "comparison", label: t("sizeDecision.sourceComparison") },
+    { id: "try_on", label: t("sizeDecision.sourceTryOn") },
+    { id: "worn", label: t("sizeDecision.sourceWorn") },
+  ];
+}
 
-const fitOptions: Array<{ id: SizeDecisionFit; label: string }> = [
-  { id: "tight", label: "타이트" },
-  { id: "true_to_size", label: "딱 맞음" },
-  { id: "roomy", label: "여유 있음" },
-];
+function getFitOptions(t: (key: MessageKey) => string): Array<{ id: SizeDecisionFit; label: string }> {
+  return [
+    { id: "tight", label: t("sizeDecision.fitTight") },
+    { id: "true_to_size", label: t("sizeDecision.fitTrueToSize") },
+    { id: "roomy", label: t("sizeDecision.fitRoomy") },
+  ];
+}
 
-function sourceLabel(sources: SizeDecisionSource[]) {
-  if (sources.includes("worn")) return "구매·착용 완료";
-  if (sources.includes("try_on")) return "매장 피팅 완료";
-  if (sources.includes("comparison")) return "내 옷 비교 완료";
-  return "사이즈 기록됨";
+function sourceLabel(sources: SizeDecisionSource[], t: (key: MessageKey) => string) {
+  if (sources.includes("worn")) return t("sizeDecision.statusWorn");
+  if (sources.includes("try_on")) return t("sizeDecision.statusTryOn");
+  if (sources.includes("comparison")) return t("sizeDecision.statusComparison");
+  return t("sizeDecision.statusDefault");
 }
 
 export function DigboxSizeDecisionCard({
@@ -33,6 +39,9 @@ export function DigboxSizeDecisionCard({
   suggestedRowIndex: number | null;
   onSave: (decision: DigboxSizeDecisionInput | null) => Promise<void>;
 }) {
+  const { t } = useLocaleContext();
+  const sourceOptions = useMemo(() => getSourceOptions(t), [t]);
+  const fitOptions = useMemo(() => getFitOptions(t), [t]);
   const table = useMemo(() => getDisplaySizeTable(product), [product]);
   const rows = table?.rows ?? [];
   const [isExpanded, setIsExpanded] = useState(false);
@@ -83,7 +92,7 @@ export function DigboxSizeDecisionCard({
       setIsEditing(false);
       setIsExpanded(false);
     } catch {
-      setError("저장하지 못했어요. 잠시 후 다시 시도해주세요.");
+      setError(t("sizeDecision.saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -111,14 +120,14 @@ export function DigboxSizeDecisionCard({
             <Ruler className="h-4 w-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <h5 id="purchase-size-title" className="text-sm font-bold text-white">내 구매 사이즈</h5>
+            <h5 id="purchase-size-title" className="text-sm font-bold text-white">{t("sizeDecision.title")}</h5>
             <p className="mt-0.5 text-xs font-semibold leading-5 text-white/55">
-              {decision?.label ? "확인한 사이즈와 근거를 다음 쇼핑에도 기억해요." : "비교나 피팅 후, 살 사이즈를 기록해두세요."}
+              {decision?.label ? t("sizeDecision.descriptionWithDecision") : t("sizeDecision.descriptionEmpty")}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
-          {decision?.label ? <span className="rounded-lg bg-orange-400 px-2 py-1 text-xs font-black text-black">{decision.label}</span> : <span className="text-xs font-bold text-orange-100/70">기록하기</span>}
+          {decision?.label ? <span className="rounded-lg bg-orange-400 px-2 py-1 text-xs font-black text-black">{decision.label}</span> : <span className="text-xs font-bold text-orange-100/70">{t("sizeDecision.recordCta")}</span>}
           <ChevronDown className={`h-4 w-4 text-orange-100/75 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
         </div>
       </button>
@@ -129,12 +138,12 @@ export function DigboxSizeDecisionCard({
         <div className="border-t border-white/[0.08] bg-black/[0.10] px-4 py-3.5 sm:px-5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-lg bg-orange-400 px-2.5 py-1 text-sm font-black text-black">{decision.label}</span>
-            <span className="rounded-lg border border-white/[0.1] bg-white/[0.06] px-2 py-1 text-xs font-bold text-white/80">{sourceLabel(decision.sources)}</span>
+            <span className="rounded-lg border border-white/[0.1] bg-white/[0.06] px-2 py-1 text-xs font-bold text-white/80">{sourceLabel(decision.sources, t)}</span>
             {decision.fit ? <span className="text-xs font-bold text-orange-100/75">{fitOptions.find((option) => option.id === decision.fit)?.label}</span> : null}
           </div>
           {decision.note ? <p className="mt-2 text-sm font-semibold leading-5 text-gray-300">{decision.note}</p> : null}
           <button type="button" onClick={() => setIsEditing(true)} className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl px-2 text-xs font-bold text-orange-100 transition hover:bg-orange-300/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70">
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> 수정
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> {t("common.edit")}
           </button>
         </div>
       ) : (
@@ -148,32 +157,32 @@ export function DigboxSizeDecisionCard({
               })}
             </div>
           ) : (
-            <input value={manualSize} onChange={(event) => { setManualSize(event.target.value); setRowIndex(null); }} placeholder="예: M, 32, 260, Free" className="h-11 w-full rounded-xl border border-white/[0.12] bg-white/[0.06] px-3 text-sm font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-300/70" />
+            <input value={manualSize} onChange={(event) => { setManualSize(event.target.value); setRowIndex(null); }} placeholder={t("addProduct.manualSizePlaceholder")} className="h-11 w-full rounded-xl border border-white/[0.12] bg-white/[0.06] px-3 text-sm font-semibold text-white outline-none placeholder:text-gray-600 focus:border-orange-300/70" />
           )}
 
           <div className="mt-4">
-            <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-500">확인 방법</p>
+            <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-500">{t("sizeDecision.howConfirmed")}</p>
             <div className="flex flex-wrap gap-2">
               {sourceOptions.map((option) => <button key={option.id} type="button" aria-pressed={sources.includes(option.id)} onClick={() => toggleSource(option.id)} className={`rounded-lg border px-2.5 py-2 text-xs font-bold transition ${sources.includes(option.id) ? "border-orange-300/55 bg-orange-400/[0.15] text-orange-100" : "border-white/[0.1] bg-white/[0.04] text-gray-400 hover:text-gray-200"}`}>{option.label}</button>)}
             </div>
           </div>
 
           <div className="mt-4">
-            <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-500">착용감</p>
+            <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-500">{t("sizeDecision.fitLabel")}</p>
             <div className="flex flex-wrap gap-2">
               {fitOptions.map((option) => <button key={option.id} type="button" aria-pressed={fit === option.id} onClick={() => setFit((current) => current === option.id ? null : option.id)} className={`rounded-lg border px-2.5 py-2 text-xs font-bold transition ${fit === option.id ? "border-white/[0.3] bg-white/[0.13] text-white" : "border-white/[0.1] bg-white/[0.04] text-gray-400 hover:text-gray-200"}`}>{option.label}</button>)}
             </div>
           </div>
 
           <label className="mt-4 block">
-            <span className="mb-2 block text-[11px] font-black uppercase tracking-wide text-gray-500">메모 <span className="normal-case font-semibold text-gray-600">선택</span></span>
-            <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={240} rows={2} placeholder="예: 어깨는 딱 맞고, 기장은 조금 길어요." className="w-full resize-none rounded-xl border border-white/[0.1] bg-white/[0.045] px-3 py-2.5 text-sm font-semibold leading-5 text-white outline-none placeholder:text-gray-600 focus:border-orange-300/70" />
+            <span className="mb-2 block text-[11px] font-black uppercase tracking-wide text-gray-500">{t("sizeDecision.noteLabel")} <span className="normal-case font-semibold text-gray-600">{t("addProduct.optional")}</span></span>
+            <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={240} rows={2} placeholder={t("sizeDecision.notePlaceholder")} className="w-full resize-none rounded-xl border border-white/[0.1] bg-white/[0.045] px-3 py-2.5 text-sm font-semibold leading-5 text-white outline-none placeholder:text-gray-600 focus:border-orange-300/70" />
           </label>
           {error ? <p className="mt-2 text-xs font-bold text-red-300">{error}</p> : null}
           <div className="mt-4 flex items-center justify-between gap-3">
-            {decision?.label ? <button type="button" onClick={() => setIsEditing(false)} className="h-11 px-2 text-sm font-bold text-gray-400 transition hover:text-white">취소</button> : <span className="text-xs font-semibold text-gray-500">사이즈를 먼저 선택하세요.</span>}
+            {decision?.label ? <button type="button" onClick={() => setIsEditing(false)} className="h-11 px-2 text-sm font-bold text-gray-400 transition hover:text-white">{t("common.cancel")}</button> : <span className="text-xs font-semibold text-gray-500">{t("sizeDecision.selectSizeFirst")}</span>}
             <button type="button" disabled={!canSave || isSaving} onClick={() => void handleSave()} className="inline-flex h-11 items-center gap-2 rounded-xl bg-orange-400 px-4 text-sm font-black text-black transition hover:bg-orange-300 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500">
-              <Check className="h-4 w-4" aria-hidden="true" />{isSaving ? "저장 중…" : `${selectedLabel || "사이즈"}로 기록`}
+              <Check className="h-4 w-4" aria-hidden="true" />{isSaving ? t("addProduct.saving") : t("sizeDecision.recordWithLabel", { label: selectedLabel || t("mysize.sizeFallback") })}
             </button>
           </div>
         </div>

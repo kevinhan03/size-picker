@@ -1,16 +1,18 @@
 import { PageHeader } from "./PageHeader";
+import type { Locale } from "../i18n/locale";
 
 type CollectionLoadingSkeletonProps = {
   eyebrow: string;
   title: string;
+  locale?: Locale;
 };
 
 /** Keeps collection pages visually stable while client-side auth and data finish loading. */
-export function CollectionLoadingSkeleton({ eyebrow, title }: CollectionLoadingSkeletonProps) {
+export function CollectionLoadingSkeleton({ eyebrow, title, locale = "ko" }: CollectionLoadingSkeletonProps) {
   return (
     <main
       aria-busy="true"
-      aria-label={`${title} 불러오는 중`}
+      aria-label={locale === "en" ? `Loading ${title}` : `${title} 불러오는 중`}
       className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)]"
     >
       <div className="mx-auto w-full max-w-[70rem] animate-pulse motion-reduce:animate-none">
