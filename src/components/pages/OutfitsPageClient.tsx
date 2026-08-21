@@ -205,7 +205,7 @@ export function OutfitsPageClient({ initialScope, initialData = null }: { initia
     };
   }, [scope, updateStatusFilterHint]);
 
-  if (isAuthLoading || (!authUser && !error)) {
+  if (isAuthLoading) {
     return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="코디 요청을 준비하고 있어요" description="요청과 제안 상태를 불러오는 중입니다." /></main>;
   }
 
