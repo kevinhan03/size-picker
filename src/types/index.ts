@@ -12,6 +12,9 @@ export interface Product {
   brand: string;
   name: string;
   category: string;
+  subCategory?: string | null;
+  categoryReviewed?: boolean;
+  categoryAnalysisStatus?: 'pending' | 'completed' | 'failed';
   url: string;
   image: string;
   thumbnailImage?: string;
@@ -56,6 +59,8 @@ export type ProductCardData = Pick<
   | 'brand'
   | 'name'
   | 'category'
+  | 'subCategory'
+  | 'categoryAnalysisStatus'
   | 'url'
   | 'image'
   | 'thumbnailImage'
@@ -191,6 +196,9 @@ export interface ProductRow {
   brand: string;
   name: string;
   category?: string | null;
+  sub_category?: string | null;
+  category_reviewed?: boolean | null;
+  category_analysis_status?: 'pending' | 'completed' | 'failed' | null;
   url?: string | null;
   size_table?: unknown;
   normalized_size_table?: unknown;
@@ -225,7 +233,6 @@ export interface ProductRow {
 export interface SubmitProductForm {
   brand: string;
   name: string;
-  category?: string | null;
   url?: string | null;
   sizeTable?: SizeTable | null;
   normalizedSizeTable?: SizeTable | null;
@@ -237,7 +244,6 @@ export interface SubmitProductForm {
 export interface AddProductFormData {
   brand: string;
   name: string;
-  category: string;
   url: string;
   productImage: string | null;
   sizeChartImage: string | null;
@@ -245,43 +251,38 @@ export interface AddProductFormData {
   rawExtractedTable: SizeTable | null;
 }
 
-export interface ProductMetadataImagePayload {
-  sourceUrl: string;
-  mimeType: string;
-  base64: string;
-}
-
-export interface CaptureBoundingBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 export interface ProductMetadataPayload {
   url: string;
   brand: string;
   name: string;
-  category?: string;
   image_path?: string;
-  product_image_bbox?: CaptureBoundingBox | null;
-  size_chart_bbox?: CaptureBoundingBox | null;
-  productImage: ProductMetadataImagePayload | null;
   productImageCandidates?: string[];
-  taggingTextCandidates?: string[];
+  productMetadata?: ProductTaggingMetadata | null;
   sizeTable?: unknown;
 }
 
 export interface ProductTaggingMetadata {
-  image_candidates?: string[];
-  tagging_text_candidates?: string[];
-  metadata_source?: string;
+  metadata_source: 'product_page';
+  product_summary: string;
+  materials: string[];
+  fit_silhouette: string[];
+  design_details: string[];
+  functional_features: string[];
+  color: string[];
+  pattern_texture: string[];
+  target_gender_evidence: string[];
+  care: string[];
+  category_details: {
+    detail_type: string;
+    attributes: Record<string, string[]>;
+  } | Record<string, never>;
 }
 
 export interface AdminEditForm {
   brand: string;
   name: string;
   category: string;
+  subCategory: string;
   url: string;
 }
 
@@ -318,8 +319,6 @@ export interface SizeRecommendation {
   rowIndex: number;
   score: number;
 }
-
-export type AddProductMode = 'menu' | 'capture' | 'url' | 'manual';
 
 export type OutfitRequestStatus = 'open' | 'accepted' | 'closed';
 export type OutfitRequestScope = 'open' | 'completed' | 'mine' | 'proposed';

@@ -69,7 +69,10 @@ export const normalizeProductRow = (row) => {
     id,
     brand,
     name,
-    category: String(row.category || "User Uploaded"),
+    category: row.category ? String(row.category) : "",
+    subCategory: row.sub_category ? String(row.sub_category) : null,
+    categoryReviewed: Boolean(row.category_reviewed),
+    categoryAnalysisStatus: row.category_analysis_status ? String(row.category_analysis_status) : "completed",
     url: String(row.url || "#"),
     image: toPublicImageUrl(image || imagePath),
     thumbnailImage: toPublicImageUrl(imagePath || image, { width: 320, height: 320, resize: "contain", quality: 65 }),
@@ -209,6 +212,7 @@ export const insertProductRow = async (input) => {
     brand,
     name,
     category,
+    subCategory = null,
     url,
     image,
     imagePath,
@@ -220,6 +224,7 @@ export const insertProductRow = async (input) => {
     instagramOrder = null,
     registeredBy = null,
     productMetadata = null,
+    categoryAnalysisStatus = null,
   } = input || {};
   assertSupabaseConfig();
   const normalizedImagePath = sanitizeDatabaseText(imagePath).trim();
@@ -249,7 +254,9 @@ export const insertProductRow = async (input) => {
     effectiveInstagramOrder = Number.isFinite(lastOrder) ? lastOrder + 1 : 1;
   }
 
-  const sanitizedCategory = sanitizeDatabaseText(category);
+  const sanitizedCategory = sanitizeDatabaseText(category).trim() || null;
+  const sanitizedSubCategory = sanitizeDatabaseText(subCategory).trim() || null;
+  const effectiveCategoryAnalysisStatus = categoryAnalysisStatus || (sanitizedCategory ? "completed" : "pending");
   const effectiveSizeTable = parseSizeTable(sanitizeDatabaseJson(sizeTable));
   const effectiveNormalizedSizeTable = isBottomCategory(sanitizedCategory)
     ? parseSizeTable(sanitizeDatabaseJson(normalizedSizeTable)) || normalizeSizeTableForCategory(sanitizedCategory, effectiveSizeTable)
@@ -262,6 +269,9 @@ export const insertProductRow = async (input) => {
         brand: canonicalBrand,
         name: sanitizeDatabaseText(name),
         category: sanitizedCategory,
+        sub_category: sanitizedSubCategory,
+        category_analysis_status: effectiveCategoryAnalysisStatus,
+        category_reviewed: false,
         url: sanitizeDatabaseText(url),
         image_path: effectiveImagePath,
         size_table: effectiveSizeTable,

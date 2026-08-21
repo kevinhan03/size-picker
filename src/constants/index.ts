@@ -1,4 +1,5 @@
 import type { AddProductFormData } from "../types";
+export { ACCESSORY_CATEGORY_OPTIONS, CATEGORY_LABELS, CATEGORY_OPTIONS, CATEGORY_OPTION_BY_LOWER, getCategoryLabel, getSubcategories, isAccessoryCategory, isProductCategory, isValidSubcategory, PRODUCT_CATEGORIES, suggestProductCategory } from "./productCategories";
 
 export const MAX_PRODUCT_IMAGE_CANDIDATES = 24;
 export const DUPLICATE_PRODUCT_MESSAGE = "이미 등록된 상품입니다.";
@@ -9,14 +10,6 @@ export const STORAGE_BUCKET = "product-assets";
 export const STORAGE_PREFIX = "submissions/";
 export const DEFAULT_PRODUCT_PLACEHOLDER = "/images/default-product.svg";
 
-export const CATEGORY_OPTIONS = ["Outer", "Top", "Bottom", "Shoes", "Acc"] as const;
-export const CATEGORY_OPTION_BY_LOWER: Record<string, (typeof CATEGORY_OPTIONS)[number]> = {
-  outer: "Outer",
-  top: "Top",
-  bottom: "Bottom",
-  shoes: "Shoes",
-  acc: "Acc",
-};
 
 export const TOTAL_LENGTH_LABEL = "총장";
 export const ITEM_LABEL = "항목";
@@ -69,7 +62,6 @@ export const MEASUREMENT_ALIAS_MAP: Record<string, string> = {
 export const EMPTY_FORM_DATA: AddProductFormData = {
   brand: "",
   name: "",
-  category: "",
   url: "",
   productImage: null,
   sizeChartImage: null,

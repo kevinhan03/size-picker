@@ -10,7 +10,7 @@ import {
   normalizeProductRow,
   toProductWriteErrorResponse,
 } from "../../../server/utils/product.js";
-import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../server/utils/size-table.js";
+import { parseSizeTable } from "../../../server/utils/size-table.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
 import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
 import { embedProductImageById } from "../../../server/services/image-embedding.js";
@@ -18,6 +18,7 @@ import { tagProductStyleById } from "../../../server/services/style-tagging.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../server/services/dig-match-products.js";
 import { invalidatePublicProductCaches } from "../../../server/services/catalog-cache";
 import { getRequestLocale } from "../../../server/utils/locale";
+import { analyzeStoredProductCategory } from "../../../server/services/stored-product-category-analysis";
 
 interface RegisteredUser {
   id: string;
@@ -25,9 +26,55 @@ interface RegisteredUser {
   appUsername: string;
 }
 
-const VALID_CATEGORIES = new Set([
-  "Outer", "Top", "Bottom", "Shoes", "Acc", "단종된 상품(빈티지)",
-]);
+const METADATA_LIST_FIELDS = [
+  "materials",
+  "fit_silhouette",
+  "design_details",
+  "functional_features",
+  "color",
+  "pattern_texture",
+  "target_gender_evidence",
+  "care",
+] as const;
+
+const sanitizeCategoryDetails = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const raw = value as Record<string, unknown>;
+  const detailType = sanitizeMetadataText(raw.detail_type, 40);
+  const rawAttributes = raw.attributes;
+  if (!detailType || !rawAttributes || typeof rawAttributes !== "object" || Array.isArray(rawAttributes)) return {};
+  const attributes = Object.fromEntries(
+    Object.entries(rawAttributes as Record<string, unknown>)
+      .map(([key, values]) => [
+        sanitizeMetadataText(key, 60),
+        Array.isArray(values)
+          ? values.map((item) => sanitizeMetadataText(item, 300)).filter(Boolean).slice(0, 8)
+          : [],
+      ])
+      .filter(([key, values]) => key && values.length > 0)
+  );
+  return Object.keys(attributes).length ? { detail_type: detailType, attributes } : {};
+};
+
+const sanitizeMetadataText = (value: unknown, maxLength = 500) => String(value || "").trim().slice(0, maxLength);
+
+const normalizeProductMetadata = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  return {
+    metadata_source: "product_page",
+    product_summary: sanitizeMetadataText(raw.product_summary),
+    category_details: sanitizeCategoryDetails(raw.category_details),
+    ...Object.fromEntries(
+      METADATA_LIST_FIELDS.map((field) => [
+        field,
+        Array.isArray(raw[field])
+          ? raw[field].map((item) => sanitizeMetadataText(item, 300)).filter(Boolean).slice(0, 8)
+          : [],
+      ])
+    ),
+  };
+};
 
 export async function GET() {
   try {
@@ -68,33 +115,11 @@ export async function POST(request: Request) {
     await refreshBrandRulesCache();
     const brand = normalizeBrandName(String(body?.brand || "").trim());
     const name = String(body?.name || "").trim();
-    const category = String(body?.category || "").trim();
-    if (!VALID_CATEGORIES.has(category)) {
-      return NextResponse.json(
-        { ok: false, error: `category must be one of: ${[...VALID_CATEGORIES].join(", ")}` },
-        { status: 400 }
-      );
-    }
     const imagePath = String(body?.image_path ?? body?.imagePath ?? "").trim();
     const image = String(body?.image || "").trim();
     const sizeTable = parseSizeTable(body?.sizeTable ?? null);
-    const submittedNormalizedSizeTable = parseSizeTable(body?.normalizedSizeTable ?? null);
-    const normalizedSizeTable = isBottomCategory(category)
-      ? normalizeSizeTableForCategory(category, submittedNormalizedSizeTable || sizeTable)
-      : null;
-    const rawProductMetadata = body?.productMetadata;
-    const productMetadata =
-      rawProductMetadata && typeof rawProductMetadata === "object" && !Array.isArray(rawProductMetadata)
-        ? {
-            image_candidates: Array.isArray(rawProductMetadata.image_candidates)
-              ? rawProductMetadata.image_candidates.map((value: unknown) => String(value || "").trim()).filter(Boolean).slice(0, 24)
-              : [],
-            tagging_text_candidates: Array.isArray(rawProductMetadata.tagging_text_candidates)
-              ? rawProductMetadata.tagging_text_candidates.map((value: unknown) => String(value || "").trim()).filter(Boolean).slice(0, 40)
-              : [],
-            metadata_source: String(rawProductMetadata.metadata_source || "product_page").trim() || "product_page",
-          }
-        : null;
+    const normalizedSizeTable = null;
+    const productMetadata = normalizeProductMetadata(body?.productMetadata);
     const isInstagram = false;
     const createdAt = new Date().toISOString();
 
@@ -112,7 +137,8 @@ export async function POST(request: Request) {
     const insertedRow = await insertProductRow({
       brand,
       name,
-      category,
+      category: null,
+      subCategory: null,
       url,
       image,
       imagePath,
@@ -149,6 +175,14 @@ export async function POST(request: Request) {
           if (!result.ok && !result.skipped) {
             console.error("[image-embedding] async product embedding did not complete", { productId, result });
           }
+        })(),
+        (async () => {
+          const result = await analyzeStoredProductCategory(productId);
+          if (!result.ok) {
+            console.error("[product-category-analysis] async analysis did not complete", { productId });
+          }
+          revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
+          invalidatePublicProductCaches(productId);
         })(),
       ]);
     });

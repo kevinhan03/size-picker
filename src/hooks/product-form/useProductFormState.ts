@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AddProductFormData, AddProductMode, ClosetSizeSelection, ProductTaggingMetadata } from "../../types";
+import type { AddProductFormData, ClosetSizeSelection, ProductTaggingMetadata } from "../../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER, EMPTY_FORM_DATA } from "../../constants";
 
 export function useProductFormState() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [addProductMode, setAddProductMode] = useState<AddProductMode>("url");
   const [showDuplicateProductModal, setShowDuplicateProductModal] = useState(false);
 
   const [formData, setFormData] = useState<AddProductFormData>(EMPTY_FORM_DATA);
@@ -23,7 +22,6 @@ export function useProductFormState() {
   const [isSaveComplete, setIsSaveComplete] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isAutofillingFromUrl, setIsAutofillingFromUrl] = useState(false);
-  const [isAutofillingFromImage, setIsAutofillingFromImage] = useState(false);
 
   const [autoFillError, setAutoFillError] = useState<string | null>(null);
   const [productImageNotice, setProductImageNotice] = useState<string | null>(null);
@@ -85,12 +83,10 @@ export function useProductFormState() {
     setIsProcessingImage(false);
     setIsAnalyzingTable(false);
     setIsAutofillingFromUrl(false);
-    setIsAutofillingFromImage(false);
     setIsSaving(false);
     setIsSaveComplete(false);
     setSubmitError(null);
     setShowDuplicateProductModal(false);
-    setAddProductMode("url");
     setTableEditingCell(null);
     setIsInstagramMode(false);
   };
@@ -132,8 +128,6 @@ export function useProductFormState() {
     isModalOpen,
     openModal,
     closeModal,
-    addProductMode,
-    setAddProductMode,
     showDuplicateProductModal,
     setShowDuplicateProductModal,
     formData,
@@ -167,8 +161,6 @@ export function useProductFormState() {
     setSubmitError,
     isAutofillingFromUrl,
     setIsAutofillingFromUrl,
-    isAutofillingFromImage,
-    setIsAutofillingFromImage,
     autoFillError,
     setAutoFillError,
     productImageNotice,

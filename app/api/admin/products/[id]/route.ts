@@ -10,6 +10,7 @@ import { persistExternalProductImage, removeStoredProductImage } from "../../../
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../../server/services/dig-match-products.js";
 import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../../../server/utils/size-table.js";
 import { invalidatePublicProductCaches } from "../../../../../server/services/catalog-cache";
+import { isProductCategory, isValidSubcategory } from "@/constants";
 
 export async function PATCH(
   request: Request,
@@ -39,7 +40,13 @@ export async function PATCH(
     if ("name" in body) payload.name = String(body?.name || "").trim();
     if ("category" in body) {
       const category = String(body?.category || "").trim();
-      payload.category = category || null;
+      if (!isProductCategory(category)) return NextResponse.json({ ok: false, error: "invalid category" }, { status: 400 });
+      payload.category = category;
+      payload.category_analysis_status = "completed";
+    }
+    if ("subCategory" in body || "sub_category" in body) payload.sub_category = String(body?.subCategory ?? body?.sub_category ?? "").trim() || null;
+    if ("categoryReviewed" in body || "category_reviewed" in body) {
+      payload.category_reviewed = Boolean(body?.categoryReviewed ?? body?.category_reviewed);
     }
     if ("url" in body) {
       const url = String(body?.url || "").trim();
@@ -87,6 +94,30 @@ export async function PATCH(
     const db = supabase!;
     const hasImagePathInPayload = Object.prototype.hasOwnProperty.call(payload, "image_path");
     let previousImagePath: string | null = null;
+    const requiresExistingProduct = hasImagePathInPayload || Object.prototype.hasOwnProperty.call(payload, "sub_category") || Object.prototype.hasOwnProperty.call(payload, "category");
+    let existingCategory = "";
+    if (requiresExistingProduct) {
+      const { data: existingProduct, error: existingProductError } = await db
+        .from(SUPABASE_PRODUCTS_TABLE)
+        .select("id,image_path,category")
+        .eq("id", productId)
+        .maybeSingle();
+      if (existingProductError) throw existingProductError;
+      if (!existingProduct) {
+        if (uploadedImagePath) await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
+        return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
+      }
+      existingCategory = String(existingProduct.category || "").trim();
+      previousImagePath = String(existingProduct.image_path || "").trim() || null;
+    }
+    const effectiveCategory = String(payload.category || existingCategory).trim();
+    if (Object.prototype.hasOwnProperty.call(payload, "sub_category") && payload.sub_category !== null && !isValidSubcategory(effectiveCategory, payload.sub_category)) {
+      if (uploadedImagePath) await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
+      return NextResponse.json({ ok: false, error: "invalid sub_category for category" }, { status: 400 });
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "category") && !Object.prototype.hasOwnProperty.call(payload, "sub_category")) {
+      payload.sub_category = null;
+    }
 
     if (payload.is_instagram === true && !Object.prototype.hasOwnProperty.call(payload, "instagram_order")) {
       const { data: lastFeaturedProduct } = await db
@@ -101,27 +132,11 @@ export async function PATCH(
       payload.instagram_order = Number.isFinite(lastOrder) ? lastOrder + 1 : 1;
     }
 
-    if (hasImagePathInPayload) {
-      const { data: existingProduct, error: existingProductError } = await db
-        .from(SUPABASE_PRODUCTS_TABLE)
-        .select("id,image_path")
-        .eq("id", productId)
-        .maybeSingle();
-
-        if (existingProductError) throw existingProductError;
-        if (!existingProduct) {
-          if (uploadedImagePath) await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
-          return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
-      }
-
-      previousImagePath = String(existingProduct.image_path || "").trim() || null;
-    }
-
     const { data, error } = await db
       .from(SUPABASE_PRODUCTS_TABLE)
       .update(payload)
       .eq("id", productId)
-      .select("id,brand,name,category,url,size_table,normalized_size_table,created_at,image_path,is_instagram,instagram_order")
+      .select("id,brand,name,category,sub_category,category_reviewed,category_analysis_status,url,size_table,normalized_size_table,created_at,image_path,is_instagram,instagram_order")
       .maybeSingle();
 
     if (error) throw error;

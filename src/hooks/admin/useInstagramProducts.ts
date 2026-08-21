@@ -18,6 +18,7 @@ export function useInstagramProducts({
     brand: "",
     name: "",
     category: CATEGORY_OPTIONS[0] ?? "",
+    subCategory: "",
     url: "",
   });
   const [instagramImagePath, setInstagramImagePath] = useState<string | null>(null);
@@ -105,6 +106,7 @@ export function useInstagramProducts({
           brand: instagramForm.brand.trim(),
           name: instagramForm.name.trim(),
           category: instagramForm.category || null,
+          subCategory: instagramForm.subCategory || null,
           url: instagramForm.url || null,
           imagePath: nextImagePath,
           sizeTable: instagramExtractedTable,
@@ -115,7 +117,7 @@ export function useInstagramProducts({
         throw new Error(payload?.error || "인스타 상품 등록에 실패했습니다.");
       }
 
-      setInstagramForm({ brand: "", name: "", category: CATEGORY_OPTIONS[0] ?? "", url: "" });
+      setInstagramForm({ brand: "", name: "", category: CATEGORY_OPTIONS[0] ?? "", subCategory: "", url: "" });
       setInstagramImagePath(null);
       setInstagramImagePreview("");
       setInstagramProductPhotoFile(null);
@@ -254,7 +256,7 @@ export function useInstagramProducts({
   };
 
   const resetInstagramState = () => {
-    setInstagramForm({ brand: "", name: "", category: CATEGORY_OPTIONS[0] ?? "", url: "" });
+    setInstagramForm({ brand: "", name: "", category: CATEGORY_OPTIONS[0] ?? "", subCategory: "", url: "" });
     setInstagramImagePath(null);
     setInstagramImagePreview("");
     setInstagramProductPhotoFile(null);

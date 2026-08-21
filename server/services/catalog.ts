@@ -5,7 +5,7 @@ import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { normalizeProductRow } from "../utils/product.js";
 
 export const PRODUCT_CARD_COLUMNS = [
-  "id", "brand", "name", "category", "url", "image_path", "slug", "created_at",
+  "id", "brand", "name", "category", "sub_category", "category_analysis_status", "url", "image_path", "slug", "created_at",
   "is_instagram", "instagram_order", "target_gender",
 ].join(",");
 
@@ -30,6 +30,8 @@ const toCard = (product: Product): ProductCardData => ({
   brand: product.brand,
   name: product.name,
   category: product.category,
+  subCategory: product.subCategory,
+  categoryAnalysisStatus: product.categoryAnalysisStatus,
   url: product.url,
   image: product.image,
   thumbnailImage: product.thumbnailImage,

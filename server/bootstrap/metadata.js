@@ -4,13 +4,14 @@ import { createProductMetadataService } from "../services/product-metadata.js";
 import { launchMetadataBrowser } from "../services/product-metadata/browser.js";
 import {
   extractBrandFromDescription,
+  buildStructuredProductMetadata,
   extractHtmlTitle,
   extractJsonObjectsFromApplicationScripts,
   extractMetaContent,
   extractMusinsaPageData,
   extractNextDataPayload,
   extractProductJsonLd,
-  extractTaggingTextCandidatesFromHtml,
+  extractStyleFactTextFromHtml,
 } from "../services/product-metadata/html.js";
 import {
   addImageResolutionVariants,
@@ -33,13 +34,10 @@ import { inferProductCategory, normalizeProductCategory, pickFirstNonEmpty, uniq
 import { extractZaraMetadataFromInditexApi, isKreamProductUrl, isZaraProductUrl } from "../services/product-metadata/stores.js";
 import { alignAndValidateSizeTableByOptionLabels, collectTextBlocksFromJsonData, extractSizeTableFromPage } from "../services/size-table/extraction.js";
 import {
-  normalizeCaptureBoundingBox,
   normalizeProductImageGeminiAssessment,
   PRODUCT_IMAGE_GEMINI_MODEL_CANDIDATES,
   PRODUCT_IMAGE_GEMINI_PROMPT,
   PRODUCT_IMAGE_GEMINI_RESPONSE_SCHEMA,
-  PRODUCT_METADATA_FROM_IMAGE_GEMINI_PROMPT,
-  PRODUCT_METADATA_FROM_IMAGE_GEMINI_RESPONSE_SCHEMA,
   SIZE_TABLE_GEMINI_MODEL_CANDIDATES,
   SIZE_TABLE_GEMINI_PROMPT_CANDIDATES,
   SIZE_TABLE_GEMINI_RESPONSE_SCHEMA,
@@ -48,21 +46,14 @@ import {
 import { normalizeBrandName, refreshBrandRulesCache } from "../utils/brand-rules.js";
 import { normalizeCellText } from "../utils/size-table.js";
 import { assertPublicHttpUrl, fetchWithTimeout, normalizePreferredStoreUrl, normalizeUrlCandidate, toWwwHostUrl } from "../services/product-metadata/url.js";
-import {
-  extractProductMetadataFromImageWithGemini,
-  extractSizeTableFromImageCandidates,
-  extractSizeTableWithGemini,
-} from "./gemini.js";
+import { extractSizeTableFromImageCandidates, extractSizeTableWithGemini } from "./gemini.js";
 
 const geminiService = createGeminiService({
     assertPublicHttpUrl,
     GEMINI_API_BASE: process.env.GEMINI_API_BASE || "https://generativelanguage.googleapis.com/v1beta",
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
-    normalizeCaptureBoundingBox,
     normalizeCellText,
     normalizeProductCategory,
-    PRODUCT_METADATA_FROM_IMAGE_GEMINI_PROMPT,
-    PRODUCT_METADATA_FROM_IMAGE_GEMINI_RESPONSE_SCHEMA,
     PRODUCT_METADATA_ENABLE_GEMINI_IMAGE_RERANK: true,
     PRODUCT_IMAGE_GEMINI_MODEL_CANDIDATES,
     PRODUCT_IMAGE_GEMINI_PROMPT,
@@ -93,6 +84,7 @@ const service = createProductMetadataService({
     collectTextBlocksFromJsonData,
     downloadImageAsBase64Payload: imageDownload.downloadImageAsBase64Payload,
     extractBrandFromDescription,
+    buildStructuredProductMetadata,
     extractHtmlTitle,
     extractImageCandidatesFromHtml,
     extractImageCandidatesFromJsonData,
@@ -102,8 +94,7 @@ const service = createProductMetadataService({
     extractNextDataPayload,
     extractProductImageCandidatesFromHtml,
     extractProductJsonLd,
-    extractTaggingTextCandidatesFromHtml,
-    extractProductMetadataFromImageWithGemini,
+    extractStyleFactTextFromHtml,
     extractProductNameFromTitle,
     extractSearchResultUrls,
     extractSizeChartPageCandidatesFromHtml,
@@ -148,6 +139,7 @@ const service = createProductMetadataService({
 export { normalizeProductCategory, normalizeBrandName, refreshBrandRulesCache };
 export const prioritizeProductImageCandidates = imageRanking.prioritizeProductImageCandidates;
 export const extractProductMetadataFromUrl = service.extractProductMetadataFromUrl;
+export const extractStructuredProductMetadataFromUrl = service.extractStructuredProductMetadataFromUrl;
 export const extractProductMetadataFromUrlWithBrowser = service.extractProductMetadataFromUrlWithBrowser;
 export const fetchLinkedSizeMetadataDeep = service.fetchLinkedSizeMetadataDeep;
 export const resolveProductMetadataFromHints = service.resolveProductMetadataFromHints;

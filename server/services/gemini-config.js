@@ -45,39 +45,6 @@ export const PRODUCT_IMAGE_GEMINI_RESPONSE_SCHEMA = {
     reason: { type: "STRING" },
   },
 };
-export const PRODUCT_METADATA_FROM_IMAGE_GEMINI_PROMPT =
-  "You are a fashion data analyst. Analyze the screenshot and extract product metadata. Return JSON only.";
-export const PRODUCT_METADATA_FROM_IMAGE_GEMINI_RESPONSE_SCHEMA = {
-  type: "OBJECT",
-  required: ["brand", "name", "category", "url", "image_path", "size_table"],
-  properties: {
-    brand: { type: "STRING" },
-    name: { type: "STRING" },
-    category: { type: "STRING" },
-    url: { type: "STRING" },
-    image_path: { type: "STRING" },
-    product_image_bbox: {
-      type: "OBJECT",
-      properties: { x: { type: "NUMBER" }, y: { type: "NUMBER" }, width: { type: "NUMBER" }, height: { type: "NUMBER" } },
-    },
-    size_chart_bbox: {
-      type: "OBJECT",
-      properties: { x: { type: "NUMBER" }, y: { type: "NUMBER" }, width: { type: "NUMBER" }, height: { type: "NUMBER" } },
-    },
-    size_table: SIZE_TABLE_GEMINI_RESPONSE_SCHEMA,
-  },
-};
-
-export const normalizeCaptureBoundingBox = (value) => {
-  if (!value || typeof value !== "object") return null;
-  const x = Math.max(0, Math.min(1000, Math.round(Number(value.x) || 0)));
-  const y = Math.max(0, Math.min(1000, Math.round(Number(value.y) || 0)));
-  const width = Math.max(0, Math.min(1000 - x, Math.round(Number(value.width) || 0)));
-  const height = Math.max(0, Math.min(1000 - y, Math.round(Number(value.height) || 0)));
-  if (width <= 0 || height <= 0) return null;
-  return { x, y, width, height };
-};
-
 const normalizePersonAreaCategory = (value) => {
   const normalized = normalizeCellText(value).toLowerCase();
   if (normalized === "small" || normalized === "medium" || normalized === "large") return normalized;

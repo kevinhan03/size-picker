@@ -51,6 +51,7 @@ interface AdminPageProps {
   onPasswordKeyDown: (key: string) => void;
   onFileUpload: (event: ChangeEvent<HTMLInputElement>, type: "product" | "chart") => void;
   onUpdateProduct: (id: string) => void;
+  onApproveProductCategory: (id: string) => void;
   onDeleteProduct: (id: string) => void;
   onStartEdit: (product: Product) => void;
   onCancelEdit: () => void;
@@ -104,6 +105,7 @@ export const AdminPage = ({
   onPasswordKeyDown,
   onFileUpload,
   onUpdateProduct,
+  onApproveProductCategory,
   onDeleteProduct,
   onStartEdit,
   onCancelEdit,
@@ -265,6 +267,7 @@ export const AdminPage = ({
                   onSaveStyleReview={onSaveStyleReview}
                   onStartEdit={onStartEdit}
                   onUpdateProduct={onUpdateProduct}
+                  onApproveProductCategory={onApproveProductCategory}
                   setTableEditingCell={setTableEditingCell}
                   tableEditingCell={tableEditingCell}
                 />

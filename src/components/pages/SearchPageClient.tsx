@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { ArrowUp, ArrowUpRight, RefreshCw, Search, ShieldAlert, X } from "lucide-react";
 import type { BrandSummary } from "../BrandExplorer";
 import { GridView } from "../GridView";
-import { FilterBar } from "../FilterBar";
+import { DigCategoryFilter } from "../DigCategoryFilter";
 import { LegalFooter } from "../LegalFooter";
 import { ProgressiveImage } from "../ProgressiveImage";
 import type { TutorialAnchorRect, TutorialId } from "../OnboardingTutorial";
@@ -283,6 +283,7 @@ export function SearchPageClient() {
   const handleCategoryFilterChange = (value: string, anchorRect?: TutorialAnchorRect) => {
     showTutorialOnce("filters", anchorRect);
     grid.setGridCategoryFilter(value);
+    grid.setGridSubCategoryFilter("");
   };
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -478,10 +479,11 @@ export function SearchPageClient() {
         )}
       </div>
 
-      <FilterBar
-        categoryValue={grid.gridCategoryFilter}
-        onCategoryChange={handleCategoryFilterChange}
-        className="max-w-3xl"
+      <DigCategoryFilter
+        category={grid.gridCategoryFilter}
+        subCategory={grid.gridSubCategoryFilter}
+        onCategoryChange={(value) => handleCategoryFilterChange(value)}
+        onSubCategoryChange={grid.setGridSubCategoryFilter}
       />
 
       <div className="w-full max-w-7xl dig-grid">

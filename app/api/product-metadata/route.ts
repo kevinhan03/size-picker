@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import {
   extractProductMetadataFromUrl,
-  normalizeProductCategory,
   refreshBrandRulesCache,
 } from "../../../server/bootstrap/metadata.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
@@ -29,15 +28,14 @@ export async function POST(request: Request) {
         url: metadata.url || "",
         brand: metadata.brand || "",
         name: metadata.name || "",
-        category: normalizeProductCategory(metadata.category || ""),
         image_path: metadata.image_path || "",
-        productImage: metadata.productImage || null,
         productImageCandidates: Array.isArray(metadata.productImageCandidates)
           ? metadata.productImageCandidates
           : [],
-        taggingTextCandidates: Array.isArray(metadata.taggingTextCandidates)
-          ? metadata.taggingTextCandidates
-          : [],
+        productMetadata:
+          metadata.productMetadata && typeof metadata.productMetadata === "object" && !Array.isArray(metadata.productMetadata)
+            ? metadata.productMetadata
+            : null,
       },
     });
   } catch (error: unknown) {

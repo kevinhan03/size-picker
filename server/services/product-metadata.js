@@ -10,6 +10,7 @@ export function createProductMetadataService({
   collectTextBlocksFromJsonData,
   downloadImageAsBase64Payload,
   extractBrandFromDescription,
+  buildStructuredProductMetadata,
   extractHtmlTitle,
   extractImageCandidatesFromHtml,
   extractImageCandidatesFromJsonData,
@@ -20,7 +21,7 @@ export function createProductMetadataService({
   extractProductImageCandidatesFromHtml,
   extractProductJsonLd,
   extractProductNameFromTitle,
-  extractTaggingTextCandidatesFromHtml,
+  extractStyleFactTextFromHtml,
   extractSearchResultUrls,
   extractSizeChartPageCandidatesFromHtml,
   extractSizeChartPageCandidatesFromJsonData,
@@ -143,7 +144,7 @@ export function createProductMetadataService({
       ogTitle,
       description
     );
-    const taggingTextCandidates = extractTaggingTextCandidatesFromHtml({
+    const sourceTexts = extractStyleFactTextFromHtml({
       html,
       seedTexts: [
         description,
@@ -153,6 +154,7 @@ export function createProductMetadataService({
         ...jsonTextBlocks,
       ],
     });
+    const productMetadata = buildStructuredProductMetadata({ sourceTexts, category });
 
     const candidateGroups = [
       {
@@ -211,7 +213,7 @@ export function createProductMetadataService({
       name,
       category,
       productImageCandidates,
-      taggingTextCandidates,
+      productMetadata,
     };
   };
 
@@ -292,6 +294,79 @@ export function createProductMetadataService({
         }
       }
     }
+  };
+
+  const extractStructuredProductMetadataFromUrl = async (rawUrl) => {
+    let pageUrl = "";
+    try {
+      pageUrl = assertPublicHttpUrl(rawUrl);
+    } catch (error) {
+      const normalizedError = new Error(error?.message || "invalid url");
+      normalizedError.statusCode = Number(error?.statusCode) || 400;
+      throw normalizedError;
+    }
+
+    const preferredPageUrl = normalizePreferredStoreUrl(pageUrl);
+    const pageUrlCandidates = uniqValues([
+      preferredPageUrl,
+      pageUrl,
+      toWwwHostUrl(preferredPageUrl),
+      toWwwHostUrl(pageUrl),
+    ]);
+    let pageResponse = null;
+    let effectiveRequestedPageUrl = preferredPageUrl || pageUrl;
+    let lastFetchDetail = "";
+
+    for (const candidatePageUrl of pageUrlCandidates) {
+      if (!candidatePageUrl) continue;
+      try {
+        const response = await fetchWithTimeout(candidatePageUrl, {
+          method: "GET",
+          redirect: "follow",
+          headers: {
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+            "cache-control": "no-cache",
+            pragma: "no-cache",
+          },
+        });
+        if (!response.ok) {
+          lastFetchDetail = `${response.status} ${response.statusText}`;
+          continue;
+        }
+        if (!String(response.headers.get("content-type") || "").toLowerCase().includes("text/html")) {
+          lastFetchDetail = "non-html response";
+          continue;
+        }
+        pageResponse = response;
+        effectiveRequestedPageUrl = candidatePageUrl;
+        break;
+      } catch (error) {
+        lastFetchDetail = error?.message || "request failed";
+      }
+    }
+
+    if (!pageResponse) {
+      const fetchError = new Error("failed to fetch product page");
+      fetchError.statusCode = 502;
+      fetchError.detail = lastFetchDetail || "unknown error";
+      throw fetchError;
+    }
+
+    const finalPageUrl = assertPublicHttpUrl(pageResponse.url || effectiveRequestedPageUrl);
+    const extracted = extractProductMetadataFromHtml({ html: await pageResponse.text(), pageUrl: finalPageUrl });
+    const metadata = extracted.productMetadata;
+    const hasFacts =
+      Boolean(metadata?.product_summary) ||
+      Object.values(metadata || {}).some((value) => Array.isArray(value) && value.length > 0) ||
+      Boolean(metadata?.category_details && Object.keys(metadata.category_details).length > 0);
+    if (!hasFacts) {
+      const emptyError = new Error("could not extract structured product metadata from url");
+      emptyError.statusCode = 502;
+      throw emptyError;
+    }
+    return { url: finalPageUrl, productMetadata: metadata };
   };
 
   const extractProductMetadataFromUrl = async (rawUrl) => {
@@ -449,6 +524,7 @@ export function createProductMetadataService({
   };
 
   return {
+    extractStructuredProductMetadataFromUrl,
     extractProductMetadataFromUrl,
     extractProductMetadataFromUrlWithBrowser,
     extractSizeTableFromImageCandidates:

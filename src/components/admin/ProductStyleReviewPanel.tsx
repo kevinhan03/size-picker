@@ -1,5 +1,6 @@
 import { Check, Plus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { isAccessoryCategory } from '../../constants';
 import type { Product, ProductStyleReviewInput, ProductTargetGender, StyleAttributes, StyleTagName, StyleTags, TagReviewStatus } from '../../types';
 
 const STYLE_TAGS: StyleTagName[] = [
@@ -176,7 +177,7 @@ export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAd
   const [openAttributeKey, setOpenAttributeKey] = useState<string | null>(null);
 
   const hasAiTags = Boolean(product.styleTags);
-  const isAccessory = String(product.category || '').trim().toLowerCase() === 'acc';
+  const isAccessory = isAccessoryCategory(product.category);
   const aiAttributes = useMemo(() => editableStyleAttributes(product.styleAttributes), [product.styleAttributes]);
   const topTasteTags = getTopTags(effectiveTags);
   const reviewStatus = product.tagReviewStatus ?? 'none';

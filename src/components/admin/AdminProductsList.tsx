@@ -5,6 +5,7 @@ import { AdminProductEditor } from './AdminProductEditor';
 import { ProductStyleReviewPanel, type StyleAttributeOption } from './ProductStyleReviewPanel';
 import type { AdminEditForm, Product, ProductStyleReviewInput, SizeTable } from '../../types';
 import type { ChangeEvent, SyntheticEvent } from 'react';
+import { CATEGORY_LABELS, CATEGORY_OPTIONS, getCategoryLabel, getSubcategories } from '../../constants';
 
 type TableEditingCell =
   | { kind: 'header'; colIdx: number }
@@ -19,6 +20,11 @@ const isApprovedReview = (product: Product) =>
   product.tagReviewStatus === 'approved' || product.tagReviewStatus === 'edited';
 const isRejectedReview = (product: Product) => product.tagReviewStatus === 'rejected';
 const isUnapprovedReview = (product: Product) => hasAiTags(product) && !isApprovedReview(product) && !isRejectedReview(product);
+const getCategoryAnalysisLabel = (product: Product) => {
+  if (product.categoryAnalysisStatus === 'pending') return '분류 중';
+  if (product.categoryAnalysisStatus === 'failed') return '미분류 — 확인 필요';
+  return product.categoryReviewed ? '분류 확인 완료' : '분류 확인 필요';
+};
 
 interface AdminProductsListProps {
   adminEditForm: AdminEditForm;
@@ -38,6 +44,7 @@ interface AdminProductsListProps {
   onSaveStyleReview: (id: string, review: ProductStyleReviewInput) => void;
   onStartEdit: (product: Product) => void;
   onUpdateProduct: (id: string) => void;
+  onApproveProductCategory: (id: string) => void;
   setTableEditingCell: (cell: TableEditingCell) => void;
   tableEditingCell: TableEditingCell;
 }
@@ -60,12 +67,15 @@ export function AdminProductsList({
   onSaveStyleReview,
   onStartEdit,
   onUpdateProduct,
+  onApproveProductCategory,
   setTableEditingCell,
   tableEditingCell,
 }: AdminProductsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [aiTagFilter, setAiTagFilter] = useState<AiTagFilter>('all');
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [subCategoryFilter, setSubCategoryFilter] = useState('');
   const [customAttributeOptions, setCustomAttributeOptions] = useState<StyleAttributeOption[]>([]);
   const [expandedReviewIds, setExpandedReviewIds] = useState<Set<string>>(() => new Set());
 
@@ -113,6 +123,10 @@ export function AdminProductsList({
   const unapprovedReviewCount = allProducts.filter(isUnapprovedReview).length;
   const approvedReviewCount = allProducts.filter(isApprovedReview).length;
   const rejectedReviewCount = allProducts.filter(isRejectedReview).length;
+  const categoryCounts = new Map<string, number>();
+  for (const product of allProducts) {
+    categoryCounts.set(product.category, (categoryCounts.get(product.category) ?? 0) + 1);
+  }
 
   const filteredProducts = allProducts.filter((p) => {
     const productHasAiTags = hasAiTags(p);
@@ -122,6 +136,9 @@ export function AdminProductsList({
     if (aiTagFilter === 'tagged' && reviewFilter === 'unapproved' && !isUnapprovedReview(p)) return false;
     if (aiTagFilter === 'tagged' && reviewFilter === 'approved' && !isApprovedReview(p)) return false;
     if (aiTagFilter === 'tagged' && reviewFilter === 'rejected' && !isRejectedReview(p)) return false;
+    if (categoryFilter && p.category !== categoryFilter) return false;
+    if (subCategoryFilter === '__unclassified__' && p.subCategory) return false;
+    if (subCategoryFilter && subCategoryFilter !== '__unclassified__' && p.subCategory !== subCategoryFilter) return false;
 
     if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -129,6 +146,7 @@ export function AdminProductsList({
           p.brand.toLowerCase().includes(q) ||
           p.name.toLowerCase().includes(q) ||
           p.category.toLowerCase().includes(q)
+          || String(p.subCategory || '').toLowerCase().includes(q)
         );
     }
     return true;
@@ -174,6 +192,8 @@ export function AdminProductsList({
             onClick={() => {
               setAiTagFilter('all');
               setReviewFilter('all');
+              setCategoryFilter('');
+              setSubCategoryFilter('');
             }}
             className={`shrink-0 text-xs transition ${aiTagFilter === 'all' ? 'text-orange-300' : 'text-gray-500 hover:text-gray-300'}`}
           >
@@ -231,6 +251,29 @@ export function AdminProductsList({
           ))}
         </div>
       ) : null}
+      <section className="rounded-xl border border-gray-800 bg-gray-900/60 p-3">
+        <p className="mb-2 text-xs font-bold text-gray-300">상품 카테고리</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <select
+            value={categoryFilter}
+            onChange={(event) => { setCategoryFilter(event.target.value); setSubCategoryFilter(''); }}
+            className="h-10 rounded-lg border border-gray-700 bg-gray-800 px-3 text-sm text-white outline-none focus:border-orange-500"
+          >
+            <option value="">상위 카테고리 전체</option>
+            {CATEGORY_OPTIONS.map((category) => <option key={category} value={category}>{CATEGORY_LABELS[category]} ({categoryCounts.get(category) ?? 0})</option>)}
+          </select>
+          <select
+            value={subCategoryFilter}
+            disabled={!categoryFilter}
+            onChange={(event) => setSubCategoryFilter(event.target.value)}
+            className="h-10 rounded-lg border border-gray-700 bg-gray-800 px-3 text-sm text-white outline-none focus:border-orange-500 disabled:cursor-not-allowed disabled:text-gray-600"
+          >
+            <option value="">하위 카테고리 전체</option>
+            <option value="__unclassified__">하위 분류 필요</option>
+            {getSubcategories(categoryFilter).map((subcategory) => <option key={subcategory} value={subcategory}>{subcategory}</option>)}
+          </select>
+        </div>
+      </section>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
         <input
@@ -253,11 +296,12 @@ export function AdminProductsList({
         <div className="text-center py-10 text-gray-500 text-sm">검색 결과가 없습니다.</div>
       ) : (
         <div className="text-xs text-gray-500 px-1">
-          {searchQuery || aiTagFilter !== 'all' || reviewFilter !== 'all'
+          {searchQuery || aiTagFilter !== 'all' || reviewFilter !== 'all' || categoryFilter || subCategoryFilter
             ? `${filteredProducts.length} / ${allProducts.length}개`
             : `총 ${allProducts.length}개`}
           {aiTagFilter !== 'all' ? ` · ${aiTagFilter === 'tagged' ? 'AI 태그 있음' : aiTagFilter === 'untagged' ? 'AI 태그 없음' : '태깅 실패'} 필터` : ''}
           {aiTagFilter === 'tagged' && reviewFilter !== 'all' ? ` · ${reviewFilter === 'unapproved' ? '미승인' : reviewFilter === 'approved' ? '승인 완료' : '반려'} 검수 필터` : ''}
+          {categoryFilter ? ` · ${getCategoryLabel(categoryFilter)}${subCategoryFilter === '__unclassified__' ? ' / 하위 분류 필요' : subCategoryFilter ? ` / ${subCategoryFilter}` : ''}` : ''}
         </div>
       )}
       {filteredProducts.map((product) => (
@@ -295,8 +339,19 @@ export function AdminProductsList({
                     <div className="min-[600px]:pr-[19rem]">
                       <p className="text-xs font-bold text-orange-500 uppercase tracking-wide">{product.brand}</p>
                       <p className="text-base font-semibold text-white">{product.name}</p>
-                      <p className="text-sm text-gray-400 mt-1">{product.category}</p>
+                      <p className="text-sm text-gray-400 mt-1">{product.category ? <>{getCategoryLabel(product.category)} · {product.subCategory || <span className="text-amber-300">하위 분류 필요</span>}</> : <span className="text-amber-300">미분류</span>}</p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
+                        <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
+                          product.categoryAnalysisStatus === 'pending'
+                            ? 'border-sky-500/40 bg-sky-500/10 text-sky-200'
+                            : product.categoryAnalysisStatus === 'failed'
+                              ? 'border-red-500/40 bg-red-500/10 text-red-200'
+                            : product.categoryReviewed
+                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                            : 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+                        }`}>
+                          {getCategoryAnalysisLabel(product)}
+                        </span>
                         <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
                           product.taggingStatus === 'failed'
                             ? 'border-red-500/40 bg-red-500/10 text-red-200'
@@ -336,6 +391,20 @@ export function AdminProductsList({
                       >
                         수정
                       </button>
+                      {!product.categoryReviewed && product.categoryAnalysisStatus === 'completed' ? (
+                        <button
+                          type="button"
+                          onClick={() => onApproveProductCategory(product.id)}
+                          disabled={isAdminActionLoading}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                            isAdminActionLoading
+                              ? 'text-gray-500 bg-gray-800 cursor-not-allowed'
+                              : 'text-emerald-200 hover:bg-emerald-500/10'
+                          }`}
+                        >
+                          분류 승인
+                        </button>
+                      ) : null}
                       <button
                         onClick={() => onDeleteProduct(product.id)}
                         disabled={isAdminActionLoading}

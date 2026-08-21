@@ -4,6 +4,7 @@ import type { Product } from '../types';
 
 export function useGridState(allProducts: Product[]) {
   const [gridCategoryFilter, setGridCategoryFilter] = useState<string>('');
+  const [gridSubCategoryFilter, setGridSubCategoryFilter] = useState<string>('');
   const [gridSearchQuery, setGridSearchQuery] = useState('');
 
   const gridCategoryCounts = useMemo(() => {
@@ -28,25 +29,28 @@ export function useGridState(allProducts: Product[]) {
       if (gridCategoryFilter && product.category !== gridCategoryFilter) {
         return false;
       }
+      if (gridSubCategoryFilter && product.subCategory !== gridSubCategoryFilter) return false;
 
       if (!normalizedGridSearchQuery) {
         return true;
       }
 
-      const searchableText = [product.brand, product.name, product.category, product.url]
+      const searchableText = [product.brand, product.name, product.category, product.subCategory, product.url]
         .join(' ')
         .toLowerCase();
 
       return searchableText.includes(normalizedGridSearchQuery);
     });
-  }, [allProducts, gridCategoryFilter, gridSearchQuery]);
+  }, [allProducts, gridCategoryFilter, gridSubCategoryFilter, gridSearchQuery]);
 
   return {
     gridCategoryCounts,
     gridCategoryFilter,
     filteredGridProducts,
     gridSearchQuery,
+    gridSubCategoryFilter,
     setGridCategoryFilter,
+    setGridSubCategoryFilter,
     setGridSearchQuery,
   };
 }

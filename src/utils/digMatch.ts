@@ -1,4 +1,5 @@
 import type { Product, ProductTargetGender, StyleTagName, StyleTags } from "../types";
+import { isAccessoryCategory } from "../constants";
 import { getEffectiveStyleTags, normalizeStyleTags, TAGS } from "./tasteGraph";
 
 export type DigMatchChoice = "left" | "right" | "both" | "neither" | "skip";
@@ -450,7 +451,7 @@ const TAG_INTERPRETATIONS: Record<StyleTagName, string> = {
 };
 
 function effectiveAttributes(product: Product) {
-  if (String(product.category || "").trim().toLowerCase() === "acc") return null;
+  if (isAccessoryCategory(product.category)) return null;
   const hasHumanAttributes = product.humanStyleAttributes && typeof product.humanStyleAttributes === "object" && !Array.isArray(product.humanStyleAttributes);
   return hasHumanAttributes && (product.tagReviewStatus === "approved" || product.tagReviewStatus === "edited")
     ? product.humanStyleAttributes as Record<string, unknown>

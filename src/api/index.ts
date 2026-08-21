@@ -114,10 +114,6 @@ export const uploadSubmissionImage = async (file: File): Promise<string> => {
 };
 
 export const submitProduct = async (form: SubmitProductForm, isInstagram = false): Promise<Product> => {
-  const category = String(form.category || '').trim();
-  if (!category) {
-    throw new Error(apiMessage('categoryRequired'));
-  }
   let imagePath = '';
   if (form.productPhoto) {
     imagePath = await uploadSubmissionImage(form.productPhoto);
@@ -133,7 +129,6 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
     {
       brand: form.brand,
       name: form.name,
-      category,
       url: form.url || null,
       image_path: imagePath,
       sizeTable: form.sizeTable ?? null,
@@ -159,23 +154,6 @@ export const fetchProductMetadataFromUrl = async (url: string): Promise<ProductM
   );
   if (!response.ok || !payload?.ok || !payload?.data) {
     throw new Error(payload?.error || apiMessage('metadataFromUrlFailed'));
-  }
-  return payload.data as ProductMetadataPayload;
-};
-
-export const fetchProductMetadataFromImage = async (
-  base64Image: string,
-  mimeType = 'image/png'
-): Promise<ProductMetadataPayload> => {
-  const { response, payload } = await postJson<
-    { imageBase64: string; mimeType: string },
-    ProductMetadataPayload
-  >(
-    '/api/product-metadata-from-image',
-    { imageBase64: base64Image, mimeType }
-  );
-  if (!response.ok || !payload?.ok || !payload?.data) {
-    throw new Error(payload?.error || apiMessage('metadataFromImageFailed'));
   }
   return payload.data as ProductMetadataPayload;
 };

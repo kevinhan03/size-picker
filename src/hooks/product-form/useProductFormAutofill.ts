@@ -1,9 +1,7 @@
 import type { ChangeEvent } from "react";
-import type { AddProductFormData, ProductMetadataPayload, ProductTaggingMetadata, SizeTable } from "../../types";
+import type { AddProductFormData, ProductMetadataPayload, ProductTaggingMetadata } from "../../types";
 import {
-  cropImageByBoundingBox,
   dataUrlToFile,
-  normalizeCaptureBoundingBox,
   readFileAsDataUrl,
   resizeImage,
 } from "../../utils/image";
@@ -14,19 +12,15 @@ import {
   isOptionalMetadataCategory,
   normalizeComparableProductUrl,
 } from "../../utils/product";
-import { normalizeSizeTable, normalizeSizeTableForCategory } from "../../utils/sizeTable";
+import { normalizeSizeTable } from "../../utils/sizeTable";
 import {
   extractSizeTableFromImage,
-  fetchProductMetadataFromImage,
   fetchProductMetadataFromUrl,
   removeBackgroundWithGemini,
 } from "../../api";
 import {
-  applyCaptureAutofill,
   applyUrlAutofill,
   getAutofillCandidateUrls,
-  getCaptureProductImageNotice,
-  hasEmptyCaptureAutofillResult,
 } from "./helpers";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 
@@ -44,7 +38,6 @@ interface ProductFormAutofillState {
   setIsProcessingImage: (value: boolean) => void;
   setIsAnalyzingTable: (value: boolean) => void;
   setIsAutofillingFromUrl: (value: boolean) => void;
-  setIsAutofillingFromImage: (value: boolean) => void;
   setTableEditingCell: (
     value:
       | { kind: "header"; colIdx: number }
@@ -55,21 +48,29 @@ interface ProductFormAutofillState {
   clearAutoFillFeedback: () => void;
 }
 
-const buildProductTaggingMetadata = (
-  extracted: ProductMetadataPayload,
-  candidateUrls: string[]
-): ProductTaggingMetadata => ({
-  image_candidates: candidateUrls,
-  tagging_text_candidates: Array.isArray(extracted.taggingTextCandidates)
-    ? extracted.taggingTextCandidates
-    : [],
-  metadata_source: "product_page",
-});
-
 interface UseProductFormAutofillOptions {
   state: ProductFormAutofillState;
   productUrlSet: Set<string>;
 }
+
+const buildProductTaggingMetadata = (extracted: ProductMetadataPayload): ProductTaggingMetadata => {
+  const metadata = extracted.productMetadata;
+  return metadata && typeof metadata === "object"
+    ? metadata
+    : {
+        metadata_source: "product_page",
+        product_summary: "",
+        materials: [],
+        fit_silhouette: [],
+        design_details: [],
+        functional_features: [],
+        color: [],
+        pattern_texture: [],
+        target_gender_evidence: [],
+        care: [],
+        category_details: {},
+      };
+};
 
 export function useProductFormAutofill({ state, productUrlSet }: UseProductFormAutofillOptions) {
   const { t } = useLocaleContext();
@@ -120,7 +121,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         state.setFormData((prev) => ({
           ...prev,
           rawExtractedTable: rawTable,
-          extractedTable: normalizeSizeTableForCategory(prev.category, rawTable),
+          extractedTable: rawTable,
         }));
       } catch (extractError: unknown) {
         const message = extractError instanceof Error ? extractError.message : t("addProduct.sizeTableExtractFailed");
@@ -180,7 +181,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         state.setFormData((prev) => ({
           ...prev,
           rawExtractedTable: rawTable,
-          extractedTable: normalizeSizeTableForCategory(prev.category, rawTable),
+          extractedTable: rawTable,
         }));
       } catch (extractError: unknown) {
         const message = extractError instanceof Error ? extractError.message : t("addProduct.sizeTableExtractFailed");
@@ -211,6 +212,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
     state.setIsAutofillingFromUrl(true);
     state.clearAutoFillFeedback();
     state.setAutofilledProductImageCandidates([]);
+    state.setProductTaggingMetadata(null);
 
     try {
       const extracted = await fetchProductMetadataFromUrl(targetUrl);
@@ -227,8 +229,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
 
       const candidateUrls = getAutofillCandidateUrls(extracted);
       const selectedCandidateUrl = candidateUrls[0] || "";
-      state.setProductTaggingMetadata(buildProductTaggingMetadata(extracted, candidateUrls));
-
+      state.setProductTaggingMetadata(buildProductTaggingMetadata(extracted));
       state.setProductPhotoFile(null);
       if (selectedCandidateUrl) {
         state.setAutofilledProductImageUrl(selectedCandidateUrl);
@@ -251,68 +252,10 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
     }
   };
 
-  const handleCaptureUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    void (async () => {
-      const dataUrl = await readFileAsDataUrl(file);
-      const optimizedDataUrl = await resizeImage(dataUrl, 1600);
-      const optimizedBase64 = optimizedDataUrl.split(",")[1] || "";
-      const effectiveMimeType = file.type || "image/png";
-
-      state.setIsAutofillingFromImage(true);
-      state.clearAutoFillFeedback();
-      state.setIsAnalyzingTable(true);
-      state.setFormData((prev) => ({ ...prev, sizeChartImage: optimizedDataUrl }));
-
-      try {
-        const extracted = await fetchProductMetadataFromImage(optimizedBase64, effectiveMimeType);
-        const productImageBox = normalizeCaptureBoundingBox(extracted.product_image_bbox ?? null);
-        const sizeChartBox = normalizeCaptureBoundingBox(extracted.size_chart_bbox ?? null);
-        const candidateUrls = getAutofillCandidateUrls(extracted);
-        const selectedCandidateUrl = candidateUrls[0] || "";
-        state.setProductTaggingMetadata(buildProductTaggingMetadata(extracted, candidateUrls));
-        let normalizedTable: SizeTable | null = normalizeSizeTable(extracted.sizeTable ?? null);
-        const croppedProductImage =
-          !selectedCandidateUrl && productImageBox ? await cropImageByBoundingBox(optimizedDataUrl, productImageBox) : "";
-
-        if (!normalizedTable && sizeChartBox) {
-          const croppedSizeChartImage = await cropImageByBoundingBox(optimizedDataUrl, sizeChartBox);
-          if (croppedSizeChartImage) {
-            const croppedBase64 = croppedSizeChartImage.split(",")[1] || "";
-            if (croppedBase64) {
-              normalizedTable = await extractSizeTableFromImage(croppedBase64, "image/png");
-            }
-          }
-        }
-
-        state.setAutofilledProductImageCandidates(candidateUrls);
-        state.setProductPhotoFile(null);
-        state.setAutofilledProductImageUrl(selectedCandidateUrl || null);
-        state.setProductImageNotice(getCaptureProductImageNotice(selectedCandidateUrl, croppedProductImage, t));
-        state.setFormData((prev) =>
-          applyCaptureAutofill(prev, extracted, selectedCandidateUrl, croppedProductImage, normalizedTable, optimizedDataUrl)
-        );
-
-        if (hasEmptyCaptureAutofillResult(extracted, selectedCandidateUrl, croppedProductImage, normalizedTable)) {
-          state.setAutoFillError(t("addProduct.captureAutofillEmpty"));
-        }
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : t("addProduct.imageAnalysisFailed");
-        state.setAutoFillError(message);
-      } finally {
-        state.setIsAnalyzingTable(false);
-        state.setIsAutofillingFromImage(false);
-      }
-    })();
-  };
-
   return {
     handleFileUpload,
     handleDroppedFile,
     handleSelectAutofilledProductImage,
     handleAutoFillFromUrl,
-    handleCaptureUpload,
   };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Camera, ChevronDown, Expand, Upload, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Expand, Upload, X } from 'lucide-react';
 import { ITEM_LABEL } from '../../constants';
 import { useLocaleContext } from '../../contexts/LocaleContext';
 import type { useProductForm } from '../../hooks/useProductForm';
@@ -37,7 +37,6 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
   const [isExtraOpen, setIsExtraOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
-  const isOptional = form.isSizeTableOptionalCategory;
   const isComparisonMode = Boolean(form.formData.sizeChartImage && form.formData.extractedTable);
 
   useEffect(() => {
@@ -53,17 +52,9 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
     <div className="space-y-2">
       {!isComparisonMode ? <div>
         <label className="text-sm font-semibold text-gray-300">
-          {t("sizeTable.title")} <span className={isOptional ? "text-gray-500" : "text-orange-300"}>{isOptional ? t("addProduct.optional") : t("addProduct.required")}</span>
+          {t("sizeTable.title")} <span className="text-orange-300">{t("addProduct.required")}</span>
         </label>
-        {form.addProductMode !== 'capture' ? (
-          <p className="mt-1 text-xs text-gray-500">
-            {t("sizeTable.uploadHelp")}
-          </p>
-        ) : (
-          <p className="mt-1 text-xs text-gray-500">
-            {t("sizeTable.captureHelp")}
-          </p>
-        )}
+        <p className="mt-1 text-xs text-gray-500">{t("sizeTable.uploadHelp")}</p>
       </div> : null}
       {!isComparisonMode ? <div>
         <label
@@ -275,16 +266,6 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
           ) : null}
         </div>
       ) : null}
-      {form.addProductMode === 'capture' ? (
-        <label className="cursor-pointer w-full h-20 bg-white/[0.06] border border-dashed border-white/15 rounded-xl flex items-center justify-center overflow-hidden hover:border-white/25 hover:bg-white/[0.09] transition backdrop-blur-sm">
-          <div className="flex items-center gap-2 text-gray-400">
-            <Camera className="w-4 h-4" />
-            <span className="text-xs">{t("sizeTable.reuploadCapture")}</span>
-          </div>
-          <input type="file" className="hidden" accept="image/*" onChange={form.handleCaptureUpload} />
-        </label>
-      ) : null}
-      {form.isAutofillingFromImage ? <div className="text-xs text-[#1ED760]">{t("addProduct.analyzingImage")}</div> : null}
     </div>
   );
 }

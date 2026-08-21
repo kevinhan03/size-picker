@@ -74,6 +74,7 @@ export function AdminRoutePageClient() {
       }}
       onFileUpload={admin.handleAdminFileUpload}
       onUpdateProduct={(id) => void admin.handleAdminUpdateProduct(id)}
+      onApproveProductCategory={(id) => void admin.handleApproveProductCategory(id)}
       onDeleteProduct={(id) => void admin.handleAdminDeleteProduct(id)}
       onStartEdit={admin.startProductEdit}
       onCancelEdit={admin.cancelEdit}

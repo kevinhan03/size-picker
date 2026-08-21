@@ -1,16 +1,12 @@
 import { GEMINI_API_BASE, GEMINI_API_KEY } from "../config/env.js";
 import { createGeminiService } from "../services/gemini.js";
 import { createImageDownloadService } from "../services/product-metadata/image-download.js";
-import { normalizeProductCategory } from "../services/product-metadata/shared.js";
 import { alignAndValidateSizeTableByOptionLabels } from "../services/size-table/extraction.js";
 import {
-  normalizeCaptureBoundingBox,
   normalizeProductImageGeminiAssessment,
   PRODUCT_IMAGE_GEMINI_MODEL_CANDIDATES,
   PRODUCT_IMAGE_GEMINI_PROMPT,
   PRODUCT_IMAGE_GEMINI_RESPONSE_SCHEMA,
-  PRODUCT_METADATA_FROM_IMAGE_GEMINI_PROMPT,
-  PRODUCT_METADATA_FROM_IMAGE_GEMINI_RESPONSE_SCHEMA,
   SIZE_TABLE_GEMINI_MODEL_CANDIDATES,
   SIZE_TABLE_GEMINI_PROMPT_CANDIDATES,
   SIZE_TABLE_GEMINI_RESPONSE_SCHEMA,
@@ -23,11 +19,7 @@ const gemini = createGeminiService({
   assertPublicHttpUrl,
   GEMINI_API_BASE,
   GEMINI_API_KEY,
-  normalizeCaptureBoundingBox,
   normalizeCellText,
-  normalizeProductCategory,
-  PRODUCT_METADATA_FROM_IMAGE_GEMINI_PROMPT,
-  PRODUCT_METADATA_FROM_IMAGE_GEMINI_RESPONSE_SCHEMA,
   PRODUCT_METADATA_ENABLE_GEMINI_IMAGE_RERANK: true,
   PRODUCT_IMAGE_GEMINI_MODEL_CANDIDATES,
   PRODUCT_IMAGE_GEMINI_PROMPT,
@@ -83,7 +75,5 @@ export const extractSizeTableFromImageCandidates = async (imageCandidates, { lim
 
 export const assertGeminiKey = gemini.assertGeminiKey;
 export const callGemini = gemini.callGemini;
-export const extractProductMetadataFromImageWithGemini =
-  gemini.extractProductMetadataFromImageWithGemini;
 export const extractSizeTableWithGemini = gemini.extractSizeTableWithGemini;
 export { alignAndValidateSizeTableByOptionLabels };

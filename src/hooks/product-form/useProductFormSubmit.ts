@@ -1,4 +1,4 @@
-import { isDuplicateProductErrorMessage, isOptionalMetadataCategory } from "../../utils/product";
+import { isDuplicateProductErrorMessage } from "../../utils/product";
 import { submitProduct } from "../../api";
 import { buildSubmitProductPayload, getProductFormFlags, getSubmitValidationError } from "./helpers";
 import type { AddProductFormData, ClosetSizeSelection, ProductTaggingMetadata } from "../../types";
@@ -11,7 +11,6 @@ interface ProductFormSubmitState {
   autofilledProductImageUrl: string | null;
   productTaggingMetadata: ProductTaggingMetadata | null;
   isAutofillingFromUrl: boolean;
-  isAutofillingFromImage: boolean;
   isProcessingImage: boolean;
   isAnalyzingTable: boolean;
   isSaving: boolean;
@@ -52,15 +51,11 @@ export function useProductFormSubmit({
   onLoginRequired,
 }: UseProductFormSubmitOptions) {
   const { t } = useLocaleContext();
-  const isSizeTableOptionalCategory = isOptionalMetadataCategory(state.formData.category);
-
   const flags = getProductFormFlags({
     formData: state.formData,
     productPhotoFile: state.productPhotoFile,
     autofilledProductImageUrl: state.autofilledProductImageUrl,
-    isSizeTableOptionalCategory,
     isAutofillingFromUrl: state.isAutofillingFromUrl,
-    isAutofillingFromImage: state.isAutofillingFromImage,
     isProcessingImage: state.isProcessingImage,
     isAnalyzingTable: state.isAnalyzingTable,
     isSaving: state.isSaving,
@@ -76,9 +71,7 @@ export function useProductFormSubmit({
       hasBrand: Boolean(state.formData.brand.trim()),
       hasName: Boolean(state.formData.name.trim()),
       hasProductImageCheck: Boolean(state.productPhotoFile) || Boolean(state.autofilledProductImageUrl),
-      hasCategory: Boolean(state.formData.category.trim()),
       hasValidatedSizeTable: Boolean(state.formData.extractedTable),
-      isSizeTableOptionalCategory,
     }, t);
 
     if (validationError) {
@@ -137,7 +130,6 @@ export function useProductFormSubmit({
 
   return {
     ...flags,
-    isSizeTableOptionalCategory,
     handleSubmitProduct,
   };
 }

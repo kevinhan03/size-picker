@@ -1,4 +1,5 @@
 import type { Product, StyleTagName, StyleTags } from "../types";
+import { isAccessoryCategory } from "../constants";
 
 export const TAGS: StyleTagName[] = [
   "casual",
@@ -1153,7 +1154,7 @@ export function getProductTasteDecision(product: Product, closetProducts: Produc
 }
 
 function getEffectiveStyleAttributes(product: Product, includeAccessories = false): Record<string, unknown> | null {
-  if (!includeAccessories && String(product.category || "").trim().toLowerCase() === "acc") return null;
+  if (!includeAccessories && isAccessoryCategory(product.category)) return null;
   const hasHumanAttributes = product.humanStyleAttributes && typeof product.humanStyleAttributes === "object" && !Array.isArray(product.humanStyleAttributes);
   if (hasHumanAttributes && (product.tagReviewStatus === "approved" || product.tagReviewStatus === "edited")) {
     return product.humanStyleAttributes as Record<string, unknown>;

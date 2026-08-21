@@ -21,6 +21,7 @@ export function useAdminProductEditor({
     brand: "",
     name: "",
     category: "",
+    subCategory: "",
     url: "",
   });
   const [adminImagePath, setAdminImagePath] = useState<string | null>(null);
@@ -37,6 +38,7 @@ export function useAdminProductEditor({
       brand: product.brand,
       name: product.name,
       category: product.category === "Uncategorized" ? "" : product.category,
+      subCategory: product.subCategory || "",
       url: product.url,
     });
     setAdminImagePath(product.imagePath ?? null);
@@ -110,7 +112,7 @@ export function useAdminProductEditor({
         body: JSON.stringify({
           brand: adminEditForm.brand.trim(),
           name: adminEditForm.name.trim(),
-          category: adminEditForm.category || null,
+          ...(adminEditForm.category ? { category: adminEditForm.category, subCategory: adminEditForm.subCategory || null } : {}),
           url: adminEditForm.url || null,
           imagePath: nextImagePath,
           sizeTable: adminExtractedTable,
@@ -129,6 +131,26 @@ export function useAdminProductEditor({
     } catch (updateError: unknown) {
       const message = updateError instanceof Error ? updateError.message : "상품 수정에 실패했습니다.";
       setAdminActionError(message);
+    } finally {
+      setIsAdminActionLoading(false);
+    }
+  };
+
+  const handleApproveProductCategory = async (id: string) => {
+    setIsAdminActionLoading(true);
+    try {
+      const response = await fetch(`/api/admin/products/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ categoryReviewed: true }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || "카테고리 승인에 실패했습니다.");
+      onProductMutated();
+      setAdminActionError(null);
+    } catch (approvalError: unknown) {
+      setAdminActionError(approvalError instanceof Error ? approvalError.message : "카테고리 승인에 실패했습니다.");
     } finally {
       setIsAdminActionLoading(false);
     }
@@ -194,6 +216,7 @@ export function useAdminProductEditor({
     cancelEdit,
     handleAdminFileUpload,
     handleAdminUpdateProduct,
+    handleApproveProductCategory,
     handleAdminDeleteProduct,
     handleSaveProductStyleReview,
     resetEditorState,

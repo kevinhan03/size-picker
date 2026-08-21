@@ -6,6 +6,7 @@ import { parseSizeTable } from "../../../../server/utils/size-table.js";
 import { revalidateTag } from "next/cache";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../server/services/dig-match-products.js";
 import { invalidatePublicProductCaches } from "../../../../server/services/catalog-cache";
+import { isProductCategory, isValidSubcategory } from "@/constants";
 
 export async function POST(request: Request) {
   const adminError = verifyAdminRequest(request);
@@ -15,13 +16,15 @@ export async function POST(request: Request) {
   const brand = String(body?.brand || "").trim();
   const name = String(body?.name || "").trim();
   const category = String(body?.category || "").trim();
+  const subCategory = String(body?.subCategory ?? body?.sub_category ?? "").trim() || null;
   const url = String(body?.url || "").trim() || null;
   const imagePath = String(body?.imagePath || "").trim() || null;
   const sizeTable = parseSizeTable(body?.sizeTable ?? null);
 
   if (!brand) return NextResponse.json({ ok: false, error: "brand is required" }, { status: 400 });
   if (!name) return NextResponse.json({ ok: false, error: "name is required" }, { status: 400 });
-  if (!category) return NextResponse.json({ ok: false, error: "category is required" }, { status: 400 });
+  if (!isProductCategory(category)) return NextResponse.json({ ok: false, error: "invalid category" }, { status: 400 });
+  if (subCategory && !isValidSubcategory(category, subCategory)) return NextResponse.json({ ok: false, error: "invalid sub_category for category" }, { status: 400 });
   if (!imagePath) return NextResponse.json({ ok: false, error: "image is required" }, { status: 400 });
 
   try {
@@ -33,6 +36,7 @@ export async function POST(request: Request) {
       brand: normalizedBrand,
       name,
       category,
+      subCategory,
       url,
       image: "",
       imagePath,

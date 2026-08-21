@@ -46,7 +46,7 @@ export const normalizeCategoryOption = (value: string): (typeof CATEGORY_OPTIONS
 };
 
 export const isOptionalMetadataCategory = (category: string): boolean =>
-  category === 'Shoes' || category === 'Acc' || category === '단종된 상품(빈티지)';
+  category === 'Shoes' || category === 'Bag' || category === 'JewelryWatch' || category === 'FashionAccessory' || category === 'Acc' || category === '단종된 상품(빈티지)';
 
 export const isDuplicateProductErrorMessage = (message: string): boolean => {
   const normalized = String(message || '').toLowerCase();
@@ -86,7 +86,10 @@ export const normalizeProduct = (row: ProductRow): Product | null => {
     id,
     brand,
     name,
-    category: String(row.category ?? 'Uncategorized'),
+    category: row.category ? String(row.category) : '',
+    subCategory: row.sub_category ? String(row.sub_category) : null,
+    categoryReviewed: Boolean(row.category_reviewed),
+    categoryAnalysisStatus: row.category_analysis_status ?? 'completed',
     url: String(row.url ?? ''),
     image: toPublicUrl(imagePath),
     thumbnailImage: toPublicUrl(imagePath, { width: 320, height: 320, resize: 'contain', quality: 65 }),

@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Check, Camera, Loader2, X } from 'lucide-react';
+import { Check, Loader2, X } from 'lucide-react';
 import type { useProductForm } from '../hooks/useProductForm';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { usePresence } from '../hooks/usePresence';
@@ -13,26 +13,6 @@ interface AddProductModalProps {
 }
 
 function ModalBody({ form }: AddProductModalProps) {
-  const { t } = useLocaleContext();
-  if (form.addProductMode === 'capture' && !form.isCaptureReviewReady) {
-    return (
-      <div className="space-y-3">
-        <label className="text-sm text-gray-400">{t("addProduct.captureUpload")}</label>
-        <label className="cursor-pointer flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.06] backdrop-blur-sm px-5 py-8 text-center transition hover:border-[#00FF00]/60 hover:bg-white/[0.09]">
-          <Camera className="h-10 w-10 text-[#00FF00]" />
-          <div>
-            <p className="text-sm font-semibold text-white">{t("addProduct.captureDescription")}</p>
-            <p className="mt-1 text-xs text-gray-400">{t("addProduct.captureHelp")}</p>
-          </div>
-          <input type="file" className="hidden" accept="image/*" onChange={form.handleCaptureUpload} />
-        </label>
-        {form.isAutofillingFromImage ? <div className="text-xs text-[#1ED760]">{t("addProduct.analyzingImage")}</div> : null}
-        {form.isAnalyzingTable ? <div className="text-xs text-orange-400">{t("addProduct.analyzingSizeTable")}</div> : null}
-        {form.autoFillError ? <div className="text-xs text-red-400">{form.autoFillError}</div> : null}
-      </div>
-    );
-  }
-
   return <AddProductFormFields form={form} />;
 }
 

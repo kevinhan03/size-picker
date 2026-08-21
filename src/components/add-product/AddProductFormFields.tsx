@@ -1,15 +1,12 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   Check,
-  ChevronDown,
   Globe,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
-import { CATEGORY_OPTIONS } from '../../constants';
 import { useLocaleContext } from '../../contexts/LocaleContext';
 import type { useProductForm } from '../../hooks/useProductForm';
-import { normalizeSizeTableForCategory } from '../../utils/sizeTable';
 import { ProductImageSection } from './ProductImageSection';
 import { SizeTableSection } from './SizeTableSection';
 
@@ -31,8 +28,6 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
   const { t } = useLocaleContext();
   const [manualClosetSize, setManualClosetSize] = useState('');
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
   const sizeRows = form.formData.extractedTable?.rows || [];
   const sizeHeaders = form.formData.extractedTable?.headers || [];
   const selectClosetSize = (rowIndex: number) => {
@@ -94,68 +89,6 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
             value={form.formData.name}
             onChange={(e) => form.setFormData({ ...form.formData, name: e.target.value })}
           />
-        </div>
-        <div>
-          <FieldLabel required>{t("addProduct.category")}</FieldLabel>
-          <div
-            ref={categoryMenuRef}
-            className="relative"
-            onBlur={(event) => {
-              if (!categoryMenuRef.current?.contains(event.relatedTarget as Node | null)) {
-                setIsCategoryOpen(false);
-              }
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setIsCategoryOpen((value) => !value)}
-              aria-haspopup="listbox"
-              aria-expanded={isCategoryOpen}
-              className={`flex h-11 w-full items-center justify-between rounded-xl border px-4 text-left text-sm font-bold outline-none transition ${
-                isCategoryOpen
-                  ? 'border-orange-500 bg-[#28282f] text-white shadow-[0_0_0_1px_rgba(249,115,22,0.22)]'
-                  : 'border-white/10 bg-white/[0.07] hover:border-white/20 hover:bg-white/[0.1]'
-              } ${form.formData.category ? 'text-white' : 'text-gray-500'}`}
-            >
-              <span>{form.formData.category || t("addProduct.selectCategory")}</span>
-              <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isCategoryOpen ? 'rotate-180 text-orange-300' : ''}`} />
-            </button>
-            {isCategoryOpen ? (
-              <div
-                role="listbox"
-                className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-xl border border-white/12 bg-[#17171a] p-1 shadow-[0_18px_44px_rgba(0,0,0,0.48)]"
-              >
-                {CATEGORY_OPTIONS.map((category) => {
-                  const selected = form.formData.category === category;
-                  return (
-                    <button
-                      key={category}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      onClick={() => {
-                        const sourceTable = form.formData.rawExtractedTable || form.formData.extractedTable;
-                        form.setFormData({
-                          ...form.formData,
-                          category,
-                          extractedTable: normalizeSizeTableForCategory(category, sourceTable),
-                        });
-                        setIsCategoryOpen(false);
-                      }}
-                      className={`flex h-10 w-full items-center justify-between rounded-lg px-3 text-left text-sm font-bold transition ${
-                        selected
-                          ? 'bg-orange-500 text-black'
-                          : 'text-gray-200 hover:bg-white/[0.07] hover:text-orange-300'
-                      }`}
-                    >
-                      <span>{category}</span>
-                      {selected ? <span className="text-[10px] font-black uppercase">Selected</span> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
         </div>
       </section>
 
