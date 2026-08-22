@@ -112,7 +112,8 @@ export function useAdminProductEditor({
         body: JSON.stringify({
           brand: adminEditForm.brand.trim(),
           name: adminEditForm.name.trim(),
-          ...(adminEditForm.category ? { category: adminEditForm.category, subCategory: adminEditForm.subCategory || null } : {}),
+          category: adminEditForm.category || "Uncategorized",
+          subCategory: adminEditForm.category ? (adminEditForm.subCategory || null) : null,
           url: adminEditForm.url || null,
           imagePath: nextImagePath,
           sizeTable: adminExtractedTable,

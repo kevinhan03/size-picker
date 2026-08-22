@@ -494,10 +494,10 @@ export function getDigMatchInterpretation(profile: DigMatchProfile, questions: D
   }).sort((a, b) => Math.abs(b.score) - Math.abs(a.score)).slice(0, 3);
 
   const attributeLabels: Record<string, Record<string, string>> = {
-    fit: { relaxed: "여유 있는 핏", wide: "와이드한 비율", slim: "몸에 가까운 핏", straight: "곧은 비율", tapered: "정리된 테이퍼드 핏" },
-    silhouette: { clean: "깨끗한 실루엣", structured: "구조적인 실루엣", loose: "느슨한 실루엣", voluminous: "볼륨 있는 실루엣", draped: "흐르는 실루엣" },
-    formality: { casual: "일상적인 격식", "smart-casual": "정돈된 캐주얼", formal: "드레스업 가능한 격식" },
-    utility_level: { none: "장식보다 형태 중심", light: "가벼운 실용 디테일", strong: "뚜렷한 실용 디테일" },
+    fit_volume: { slim: "슬림한 핏", regular: "기본 핏", relaxed: "여유 있는 핏", oversized: "오버사이즈", boxy: "박시한 비율" },
+    silhouette: { slim: "슬림한 실루엣", straight: "스트레이트 실루엣", wide: "와이드 실루엣", tapered: "테이퍼드 실루엣", bootcut: "부츠컷 실루엣", flare: "플레어 실루엣", balloon: "벌룬 실루엣", a_line: "A라인", fit_and_flare: "핏앤플레어", slip: "슬립", voluminous: "볼륨감 있는 실루엣" },
+    formality: { casual: "일상적인 격식", smart: "정돈된 캐주얼", formal: "드레스업 가능한 격식" },
+    utility: { none: "장식보다 형태 중심", light: "가벼운 실용 디테일", strong: "뚜렷한 실용 디테일" },
   };
   const details = Object.entries(attributeLabels).flatMap(([key, labels]) => {
     const counts = new Map<string, number>();

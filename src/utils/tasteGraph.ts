@@ -1,5 +1,6 @@
 import type { Product, StyleTagName, StyleTags } from "../types";
 import { isAccessoryCategory } from "../constants";
+import { fieldsForCategory } from "../constants/styleAnalysis.js";
 
 export const TAGS: StyleTagName[] = [
   "casual",
@@ -609,26 +610,16 @@ const COLLECTION_AXES: Array<{
 ];
 
 const ATTRIBUTE_LABELS: Record<string, Record<string, string>> = {
-  fit: {
-    relaxed: "여유 있는 핏",
-    wide: "와이드한 비율",
-    slim: "몸에 가까운 핏",
-    straight: "곧은 비율",
-    tapered: "정리된 테이퍼드 핏",
-  },
+  fit_volume: { slim: "슬림한 핏", regular: "기본 핏", relaxed: "여유 있는 핏", oversized: "오버사이즈", boxy: "박시한 비율" },
   silhouette: {
-    clean: "깨끗한 실루엣",
-    structured: "구조적인 실루엣",
-    loose: "느슨한 실루엣",
-    voluminous: "볼륨 있는 실루엣",
-    draped: "흐르는 실루엣",
+    slim: "슬림한 실루엣", straight: "스트레이트 실루엣", wide: "와이드 실루엣", tapered: "테이퍼드 실루엣", bootcut: "부츠컷 실루엣", flare: "플레어 실루엣", balloon: "벌룬 실루엣", a_line: "A라인 실루엣", fit_and_flare: "핏앤플레어", slip: "슬립 실루엣", voluminous: "볼륨감 있는 실루엣",
   },
   formality: {
     casual: "일상적인 격식",
-    "smart-casual": "정돈된 캐주얼",
+    smart: "정돈된 캐주얼",
     formal: "드레스업 가능한 격식",
   },
-  utility_level: {
+  utility: {
     none: "장식보다 형태 중심",
     light: "가벼운 실용 디테일",
     strong: "뚜렷한 실용 디테일",
@@ -636,26 +627,16 @@ const ATTRIBUTE_LABELS: Record<string, Record<string, string>> = {
 };
 
 const ATTRIBUTE_LABELS_EN: Record<string, Record<string, string>> = {
-  fit: {
-    relaxed: "Relaxed fit",
-    wide: "Wide proportions",
-    slim: "Close-to-body fit",
-    straight: "Straight proportions",
-    tapered: "Tapered fit",
-  },
+  fit_volume: { slim: "Slim fit", regular: "Regular fit", relaxed: "Relaxed fit", oversized: "Oversized", boxy: "Boxy proportions" },
   silhouette: {
-    clean: "Clean silhouette",
-    structured: "Structured silhouette",
-    loose: "Loose silhouette",
-    voluminous: "Voluminous silhouette",
-    draped: "Draped silhouette",
+    slim: "Slim silhouette", straight: "Straight silhouette", wide: "Wide silhouette", tapered: "Tapered silhouette", bootcut: "Bootcut silhouette", flare: "Flare silhouette", balloon: "Balloon silhouette", a_line: "A-line silhouette", fit_and_flare: "Fit and flare", slip: "Slip silhouette", voluminous: "Voluminous silhouette",
   },
   formality: {
     casual: "Everyday formality",
-    "smart-casual": "Smart casual",
+    smart: "Smart casual",
     formal: "Dress-up formality",
   },
-  utility_level: {
+  utility: {
     none: "Form over decoration",
     light: "Light utility detail",
     strong: "Strong utility detail",
@@ -852,16 +833,15 @@ function styleSimilarity(left: Product, right: Product) {
   return leftVector.reduce((sum, value, index) => sum + value * rightVector[index], 0);
 }
 
-const SHAPE_ATTRIBUTE_KEYS = ["bottom_silhouette", "top_type", "top_silhouette", "outer_type", "outer_silhouette", "top_length"];
-const EXPRESSION_ATTRIBUTE_KEYS = ["material", "color", "wash_texture", "details"];
-const COMPATIBILITY_ATTRIBUTE_KEYS = ["formality", "era_signal", "sportiness", "utility_level", "decoration_level"];
+const SHAPE_ATTRIBUTE_KEYS = ["fit_volume", "silhouette", "length", "profile", "height", "sole_heel"];
+const EXPRESSION_ATTRIBUTE_KEYS = ["primary_color", "accent_colors", "primary_material", "surface_texture", "pattern", "details"];
+const COMPATIBILITY_ATTRIBUTE_KEYS = ["formality", "structure", "utility", "decoration"];
 
 const ORDERED_COMPATIBILITY_VALUES: Record<string, Record<string, number>> = {
-  formality: { casual: 0, "smart-casual": 0.5, classic: 0.75, formal: 1 },
-  era_signal: { modern: 0, contemporary: 0.1, "vintage-worn": 0.6, "retro-90s": 0.75, "retro-70s": 0.85, "y2k aesthetic": 0.75 },
-  sportiness: { none: 0, low: 0.25, light: 0.5, strong: 1 },
-  utility_level: { none: 0, light: 0.5, strong: 1, high: 1 },
-  decoration_level: { minimal: 0, low: 0, moderate: 0.5, medium: 0.5, high: 1 },
+  formality: { casual: 0, smart: 0.5, formal: 1 },
+  structure: { soft: 0, balanced: 0.5, structured: 1 },
+  utility: { none: 0, light: 0.5, strong: 1 },
+  decoration: { minimal: 0, moderate: 0.5, statement: 1 },
 };
 
 function comparableAttributeValue(value: unknown): string | null {
@@ -1164,40 +1144,12 @@ function getEffectiveStyleAttributes(product: Product, includeAccessories = fals
     : null;
 }
 
-const PRODUCT_STYLE_LABELS: Record<string, Record<string, string>> = {
-  bottom_silhouette: { straight: "스트레이트 실루엣", wide: "와이드 실루엣", tapered: "테이퍼드 실루엣", bootcut: "부츠컷 실루엣", flare: "플레어 실루엣", balloon: "벌룬 실루엣" },
-  top_silhouette: { slim: "슬림 실루엣", regular: "레귤러 실루엣", relaxed: "릴랙스드 실루엣", oversized: "오버사이즈 실루엣", boxy: "박시 실루엣" },
-  outer_silhouette: { slim: "슬림 실루엣", regular: "레귤러 실루엣", relaxed: "릴랙스드 실루엣", oversized: "오버사이즈 실루엣", boxy: "박시 실루엣" },
-  material: { cotton: "코튼 소재", denim: "데님 소재", knit: "니트 소재", wool: "울 소재", leather: "레더 소재", linen: "린넨 소재", synthetic: "합성 소재", mixed: "혼방 소재" },
-  color: { black: "블랙 컬러", white: "화이트 컬러", gray: "그레이 컬러", blue: "블루 컬러", brown: "브라운 컬러", beige: "베이지 컬러", green: "그린 컬러", red: "레드 컬러" },
-  wash_texture: { clean: "깔끔한 질감", washed: "워싱 질감", faded: "페이디드 질감", distressed: "디스트레스드 질감", textured: "텍스처가 느껴지는 질감" },
-};
-
-const PRODUCT_STYLE_LABELS_EN: Record<string, Record<string, string>> = {
-  bottom_silhouette: { straight: "Straight silhouette", wide: "Wide silhouette", tapered: "Tapered silhouette", bootcut: "Bootcut silhouette", flare: "Flare silhouette", balloon: "Balloon silhouette" },
-  top_silhouette: { slim: "Slim silhouette", regular: "Regular silhouette", relaxed: "Relaxed silhouette", oversized: "Oversized silhouette", boxy: "Boxy silhouette" },
-  outer_silhouette: { slim: "Slim silhouette", regular: "Regular silhouette", relaxed: "Relaxed silhouette", oversized: "Oversized silhouette", boxy: "Boxy silhouette" },
-  material: { cotton: "Cotton", denim: "Denim", knit: "Knit", wool: "Wool", leather: "Leather", linen: "Linen", synthetic: "Synthetic", mixed: "Blended material" },
-  color: { black: "Black", white: "White", gray: "Gray", blue: "Blue", brown: "Brown", beige: "Beige", green: "Green", red: "Red" },
-  wash_texture: { clean: "Clean finish", washed: "Washed finish", faded: "Faded finish", distressed: "Distressed finish", textured: "Textured finish" },
-};
-
-const PRODUCT_TYPE_LABELS: Record<string, Record<string, string>> = {
-  top_type: { sleeveless: "민소매", t_shirt: "티셔츠", shirt: "셔츠", pique: "피케 셔츠", knit: "니트", sweatshirt: "스웨트셔츠", hoodie: "후디" },
-  outer_type: { jacket: "재킷", blazer: "블레이저", coat: "코트", padding: "패딩", vest: "베스트", windbreaker: "윈드브레이커" },
-};
-
-const PRODUCT_TYPE_LABELS_EN: Record<string, Record<string, string>> = {
-  top_type: { sleeveless: "Sleeveless", t_shirt: "T-shirt", shirt: "Shirt", pique: "Piqué shirt", knit: "Knit", sweatshirt: "Sweatshirt", hoodie: "Hoodie" },
-  outer_type: { jacket: "Jacket", blazer: "Blazer", coat: "Coat", padding: "Padded jacket", vest: "Vest", windbreaker: "Windbreaker" },
-};
-
-const PRODUCT_CATEGORY_LABELS: Record<string, string> = { top: "상의", bottom: "하의", outer: "아우터", acc: "액세서리" };
-const PRODUCT_CATEGORY_LABELS_EN: Record<string, string> = { top: "Top", bottom: "Bottom", outer: "Outerwear", acc: "Accessory" };
-
-const PRODUCT_DETAIL_LABELS: Record<string, string> = {
-  pleats: "플리츠 디테일",
-  "cargo-pockets": "카고 포켓",
+const PRODUCT_SUMMARY_ATTRIBUTE_KEYS: Record<string, string[]> = {
+  Top: ["fit_volume", "primary_color", "primary_material", "details"],
+  Bottom: ["silhouette", "primary_color", "primary_material", "details"],
+  Outer: ["fit_volume", "length", "primary_color", "details"],
+  DressSkirt: ["silhouette", "length", "primary_color", "details"],
+  Shoes: ["profile", "sole_heel", "primary_color", "primary_material"],
 };
 
 function firstKnownStyleAttribute(attributes: Record<string, unknown>, key: string) {
@@ -1207,40 +1159,34 @@ function firstKnownStyleAttribute(attributes: Record<string, unknown>, key: stri
     .find((value) => value && value !== "unknown") || null;
 }
 
+function productSummaryLabel(category: string, key: string, value: string) {
+  const fields = fieldsForCategory(category) as Array<{
+    key: string;
+    options: Array<{ value: string; label: string }>;
+  }>;
+  const field = fields.find((entry) => entry.key === key);
+  const label = field?.options.find((entry) => entry.value === value)?.label;
+  if (!label) return null;
+  if (key === "fit_volume") return `${label} 핏`;
+  if (key === "silhouette") return `${label} 실루엣`;
+  if (key === "length") return `${label} 기장`;
+  return label;
+}
+
 /** Produces a compact, product-only list of confirmed details for a PDP. */
 export function getProductSummaryDetails(product: Product): string[] {
-  const isEnglish = isEnglishLocale();
-  const typeLabels = isEnglish ? PRODUCT_TYPE_LABELS_EN : PRODUCT_TYPE_LABELS;
-  const categoryLabels = isEnglish ? PRODUCT_CATEGORY_LABELS_EN : PRODUCT_CATEGORY_LABELS;
-  const styleLabels = isEnglish ? PRODUCT_STYLE_LABELS_EN : PRODUCT_STYLE_LABELS;
   const attributes = getEffectiveStyleAttributes(product, true);
-  const category = String(product.category || "").trim().toLowerCase();
-  const typeKey = category === "top" ? "top_type" : category === "outer" ? "outer_type" : null;
-  const typeValue = attributes && typeKey ? firstKnownStyleAttribute(attributes, typeKey) : null;
-  const productLabel = (typeKey && typeValue ? typeLabels[typeKey]?.[typeValue] : null)
-    || categoryLabels[category]
-    || null;
-  const silhouetteKey = category === "bottom"
-    ? "bottom_silhouette"
-    : category === "top"
-      ? "top_silhouette"
-      : category === "outer"
-        ? "outer_silhouette"
-        : null;
-  const detailKeys = [silhouetteKey, "color", "material"].filter((key): key is string => Boolean(key));
-  const details = attributes ? detailKeys
+  const category = String(product.category || "").trim();
+  const keys = PRODUCT_SUMMARY_ATTRIBUTE_KEYS[category] || [];
+  if (!attributes || !keys.length) return [];
+
+  return [...new Set(keys
     .map((key) => {
       const value = firstKnownStyleAttribute(attributes, key);
-      return value ? styleLabels[key]?.[value] || null : null;
+      return value ? productSummaryLabel(category, key, value) : null;
     })
     .filter((detail): detail is string => Boolean(detail))
-    : [];
-  const detailValue = attributes ? firstKnownStyleAttribute(attributes, "details") : null;
-  const detailLabel = detailValue
-    ? PRODUCT_DETAIL_LABELS[detailValue] || detailValue.replace(/[-_]+/g, " ")
-    : null;
-
-  return [...new Set([productLabel, ...details, detailLabel].filter(Boolean))].slice(0, 5) as string[];
+  )].slice(0, 4);
 }
 
 function averageTagScores(products: Product[]) {

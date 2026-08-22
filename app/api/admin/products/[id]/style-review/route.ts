@@ -6,6 +6,8 @@ import { assertSupabaseConfig, supabase } from "../../../../../../server/lib/sup
 import { verifyAdminRequest } from "../../../../../../server/utils/admin-request.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../../../server/services/dig-match-products.js";
 import { invalidatePublicProductCaches } from "../../../../../../server/services/catalog-cache";
+import { fieldsForCategory, isCoreTasteCategory } from "@/constants/styleAnalysis";
+import { isProductCategory, isValidSubcategory } from "@/constants";
 
 const STYLE_TAGS = [
   "casual",
@@ -23,18 +25,6 @@ const STYLE_TAGS = [
 const STYLE_TAG_SET = new Set<string>(STYLE_TAGS);
 const REVIEW_STATUSES = new Set(["needs_review", "approved", "edited", "rejected"]);
 const TARGET_GENDERS = new Set(["menswear", "womenswear", "unisex", "unknown"]);
-const STYLE_ATTRIBUTE_KEYS = [
-  "bottom_silhouette",
-  "top_type",
-  "top_silhouette",
-  "outer_type",
-  "outer_silhouette",
-  "top_length",
-  "material",
-  "color",
-  "wash_texture",
-  "details",
-] as const;
 const LEGACY_STYLE_TAG_MAP: Record<string, typeof STYLE_TAGS[number]> = {
   "캐주얼": "casual",
   "미니멀": "minimal",
@@ -108,25 +98,31 @@ const normalizeJsonObject = (value: unknown, fieldName: string): Record<string, 
   return value;
 };
 
-const normalizeStyleAttributes = (value: unknown, fieldName: string): Record<string, unknown> | null => {
+const normalizeStyleAttributes = (value: unknown, fieldName: string, category: string): Record<string, unknown> | null => {
   if (value === null || value === undefined) return null;
   if (!isRecord(value)) {
     throw new Error(`${fieldName} must be an object`);
   }
 
+  if (!isCoreTasteCategory(category)) return {};
+  const fields = fieldsForCategory(category);
+  const allowedKeys = new Set(fields.map((field) => field.key));
+  for (const key of Object.keys(value)) if (!allowedKeys.has(key)) throw new Error(`${fieldName}.${key} is not valid for this category`);
   const normalized: Record<string, unknown> = {};
-  for (const attribute of STYLE_ATTRIBUTE_KEYS) {
-    const rawValues = Array.isArray(value[attribute]) ? value[attribute] : [value[attribute]];
-    if (rawValues.length > 12) {
-      throw new Error(`${fieldName}.${attribute} must contain at most 12 values`);
+  for (const field of fields) {
+    const raw = value[field.key];
+    if (field.multiple) {
+      if (raw === null || raw === undefined) { normalized[field.key] = []; continue; }
+      if (!Array.isArray(raw) || raw.length > field.max) throw new Error(`${fieldName}.${field.key} must contain at most ${field.max} values`);
+      const values = [...new Set(raw.map((item) => String(item ?? "").trim().toLowerCase()).filter(Boolean))];
+      if (values.some((item) => !field.options.some((option: { value: string }) => option.value === item))) throw new Error(`${fieldName}.${field.key} contains an invalid value`);
+      normalized[field.key] = values;
+    } else {
+      if (raw === null || raw === undefined || raw === "") { normalized[field.key] = null; continue; }
+      const item = String(raw).trim().toLowerCase();
+      if (!field.options.some((option: { value: string }) => option.value === item)) throw new Error(`${fieldName}.${field.key} contains an invalid value`);
+      normalized[field.key] = item;
     }
-    normalized[attribute] = [...new Set(rawValues
-      .map((item) => String(item ?? "").trim().toLowerCase())
-      .filter(Boolean)
-      .map((item) => {
-        if (item.length > 64) throw new Error(`${fieldName}.${attribute} values must be at most 64 characters`);
-        return item;
-      }))];
   }
 
   return normalized;
@@ -168,7 +164,7 @@ export async function GET(
     const { data, error } = await supabase!
       .from(SUPABASE_PRODUCTS_TABLE)
       .select(
-        "id,brand,name,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
+        "id,brand,name,category,sub_category,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
       )
       .eq("id", productId)
       .maybeSingle();
@@ -205,7 +201,24 @@ export async function PATCH(
     const status = normalizeReviewStatus(body?.tagReviewStatus);
     const targetGender = normalizeTargetGender(body?.targetGender);
     const humanStyleTags = normalizeStyleTags(body?.humanStyleTags);
-    const humanStyleAttributes = normalizeStyleAttributes(body?.humanStyleAttributes, "humanStyleAttributes");
+    const categoryProvided = "category" in body;
+    const category = categoryProvided ? String(body.category || "").trim() : null;
+    if (categoryProvided && category && !isProductCategory(category)) throw new Error("invalid category");
+    let existingCategory = categoryProvided ? (category || "") : "";
+    if (!categoryProvided) {
+      const { data: existingProduct, error: existingProductError } = await supabase!
+        .from(SUPABASE_PRODUCTS_TABLE)
+        .select("category")
+        .eq("id", productId)
+        .maybeSingle();
+      if (existingProductError) throw existingProductError;
+      if (!existingProduct) return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
+      existingCategory = String(existingProduct.category || "").trim();
+    }
+    const subCategoryProvided = "subCategory" in body;
+    const subCategory = subCategoryProvided ? String(body.subCategory || "").trim() : null;
+    if (subCategory && (!existingCategory || !isValidSubcategory(existingCategory, subCategory))) throw new Error("invalid subCategory for category");
+    const humanStyleAttributes = normalizeStyleAttributes(body?.humanStyleAttributes, "humanStyleAttributes", existingCategory);
     const humanStyleTagsEvidence = normalizeJsonObject(body?.humanStyleTagsEvidence, "humanStyleTagsEvidence");
     const note =
       "tagReviewNote" in body
@@ -224,12 +237,21 @@ export async function PATCH(
       payload.target_gender_reviewed_by = "admin";
       payload.target_gender_reviewed_at = new Date().toISOString();
     }
+    if (categoryProvided) {
+      payload.category = category || "Uncategorized";
+      payload.sub_category = subCategory || null;
+      payload.category_analysis_status = "completed";
+      payload.category_reviewed = true;
+    } else if (subCategoryProvided) {
+      payload.sub_category = subCategory || null;
+      payload.category_reviewed = true;
+    }
 
     if (status === "approved" && !humanStyleTags) {
       const { data: existingProduct, error: existingProductError } = await supabase!
         .from(SUPABASE_PRODUCTS_TABLE)
         .select(
-          "style_tags,style_attributes,style_tags_evidence,human_style_tags,human_style_attributes,human_style_tags_evidence"
+          "category,style_tags,style_attributes,style_tags_evidence,human_style_tags,human_style_attributes,human_style_tags_evidence"
         )
         .eq("id", productId)
         .maybeSingle();
@@ -242,8 +264,8 @@ export async function PATCH(
         ? normalizeStyleTags(existingProduct.human_style_tags)
         : normalizeStyleTags(existingProduct.style_tags);
       payload.human_style_attributes = existingProduct.human_style_attributes
-        ? normalizeStyleAttributes(existingProduct.human_style_attributes, "human_style_attributes")
-        : normalizeStyleAttributes(existingProduct.style_attributes, "style_attributes");
+        ? normalizeStyleAttributes(existingProduct.human_style_attributes, "human_style_attributes", String(existingProduct.category || ""))
+        : normalizeStyleAttributes(existingProduct.style_attributes, "style_attributes", String(existingProduct.category || ""));
       payload.human_style_tags_evidence = existingProduct.human_style_tags_evidence
         ? normalizeJsonObject(existingProduct.human_style_tags_evidence, "human_style_tags_evidence")
         : normalizeJsonObject(existingProduct.style_tags_evidence, "style_tags_evidence");
@@ -266,7 +288,7 @@ export async function PATCH(
       .update(payload)
       .eq("id", productId)
       .select(
-        "id,brand,name,style_tags,style_attributes,style_tags_evidence,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
+        "id,brand,name,category,sub_category,category_reviewed,category_analysis_status,style_tags,style_attributes,style_tags_evidence,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
       )
       .maybeSingle();
 

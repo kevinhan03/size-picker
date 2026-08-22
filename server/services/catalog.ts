@@ -12,7 +12,7 @@ export const PRODUCT_CARD_COLUMNS = [
 export const PRODUCT_DETAIL_COLUMNS = [
   PRODUCT_CARD_COLUMNS,
   "size_table", "normalized_size_table", "registered_by",
-  "style_tags", "style_attributes", "human_style_tags", "human_style_attributes", "tag_review_status",
+  "style_tags", "style_attributes", "human_style_tags", "human_style_attributes", "tag_review_status", "tagging_status",
 ].join(",");
 
 export const RECOMMENDATION_COLUMNS = [
@@ -61,6 +61,7 @@ export const normalizeProductDetail = (row: unknown): ProductDetailData | null =
     humanStyleTags: product.humanStyleTags,
     humanStyleAttributes: product.humanStyleAttributes,
     tagReviewStatus: product.tagReviewStatus,
+    taggingStatus: product.taggingStatus,
   };
 };
 
@@ -125,6 +126,8 @@ const queryProductDetail = async (id: string): Promise<ProductDetailData | null>
   if (error) throw error;
   return normalizeProductDetail(data);
 };
+
+export const getProductDetailFresh = (id: string) => queryProductDetail(id);
 
 export const getProductDetail = (id: string) => unstable_cache(
   () => queryProductDetail(id),

@@ -24,6 +24,10 @@
     "classify:target-gender": "node scripts/classify-product-target-gender.mjs",
     "classify:target-gender:vision": "node scripts/classify-product-target-gender.mjs --include-images",
     "analyze:style-reviews": "node scripts/analyze-style-review-feedback.mjs",
+    "backfill:style-analysis": "node --env-file=.env scripts/backfill-style-analysis.mjs",
+    "backfill:style-analysis:dry": "node --env-file=.env scripts/backfill-style-analysis.mjs --dry-run",
+    "backfill:style-attributes": "node --env-file=.env scripts/backfill-style-analysis.mjs --attributes-only",
+    "backfill:style-attributes:dry": "node --env-file=.env scripts/backfill-style-analysis.mjs --attributes-only --dry-run",
     "prepare": "husky"
   },
   "dependencies": {

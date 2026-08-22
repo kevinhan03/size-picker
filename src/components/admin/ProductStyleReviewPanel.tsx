@@ -1,469 +1,51 @@
-import { Check, Plus, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { isAccessoryCategory } from '../../constants';
-import type { Product, ProductStyleReviewInput, ProductTargetGender, StyleAttributes, StyleTagName, StyleTags, TagReviewStatus } from '../../types';
+import { fieldsForCategory, isCoreTasteCategory, STYLE_TAG_NAMES } from '../../constants/styleAnalysis.js';
+import type { Product, ProductStyleReviewInput, ProductTargetGender, StyleTags, TagReviewStatus } from '../../types';
 
-const STYLE_TAGS: StyleTagName[] = [
-  'casual',
-  'minimal',
-  'street',
-  'classic',
-  'vintage',
-  'lovely_romantic',
-  'sporty',
-  'workwear_gorpcore',
-  'chic_modern',
-  'glam_sexy',
-];
-
-const LEGACY_STYLE_TAG_MAP: Record<string, StyleTagName> = {
-  '캐주얼': 'casual',
-  '미니멀': 'minimal',
-  '스트릿': 'street',
-  '클래식': 'classic',
-  '빈티지': 'vintage',
-  '레트로': 'vintage',
-  '로맨틱': 'lovely_romantic',
-  '스포티': 'sporty',
-  '워크웨어': 'workwear_gorpcore',
+const STYLE_TAGS = STYLE_TAG_NAMES as Array<keyof StyleTags>;
+const tagLabels: Record<keyof StyleTags, string> = { casual: '캐주얼', minimal: '미니멀', street: '스트리트', classic: '클래식', vintage: '빈티지', lovely_romantic: '러블리·로맨틱', sporty: '스포티', workwear_gorpcore: '워크웨어·고프코어', chic_modern: '시크·모던', glam_sexy: '글램·섹시' };
+const statusLabels: Record<TagReviewStatus | 'none', string> = { none: '미검수', needs_review: '검수 필요', approved: '승인', edited: '수정됨', rejected: '반려' };
+const targetGenderLabels: Record<ProductTargetGender, string> = { menswear: '남성복', womenswear: '여성복', unisex: '유니섹스', unknown: '판단 보류' };
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+const selectedValues = (value: unknown) => Array.isArray(value) ? value.map(String).filter(Boolean) : value ? [String(value)] : [];
+const normalizeAttributes = (value: unknown) => isRecord(value) ? value : {};
+const normalizeTags = (value: unknown): StyleTags => {
+  const result = Object.fromEntries(STYLE_TAGS.map((tag) => [tag, 0])) as StyleTags;
+  if (!isRecord(value)) return result;
+  STYLE_TAGS.forEach((tag) => { const score = Number(value[tag]); if (Number.isFinite(score)) result[tag] = Math.max(0, Math.min(1, score)); });
+  return result;
 };
 
-const emptyStyleTags = (): StyleTags =>
-  STYLE_TAGS.reduce((acc, tag) => {
-    acc[tag] = 0;
-    return acc;
-  }, {} as StyleTags);
+interface ProductStyleReviewPanelProps { isSaving: boolean; onSave: (productId: string, review: ProductStyleReviewInput) => void; product: Product; }
 
-const ATTRIBUTE_FIELDS = [
-  { key: 'bottom_silhouette', label: '하의 실루엣', group: 'shape', categories: ['Bottom'], options: [['unknown', '판단 보류'], ['straight', '스트레이트'], ['wide', '와이드'], ['tapered', '테이퍼드'], ['bootcut', '부츠컷'], ['flare', '플레어'], ['balloon', '벌룬']] },
-  { key: 'top_type', label: '상의 유형', group: 'shape', categories: ['Top'], options: [['unknown', '판단 보류'], ['sleeveless', '민소매'], ['t_shirt', '티셔츠'], ['shirt', '셔츠'], ['pique', '피케'], ['knit', '니트'], ['sweatshirt', '스웨트셔츠'], ['hoodie', '후디']] },
-  { key: 'top_silhouette', label: '상의 실루엣', group: 'shape', categories: ['Top'], options: [['unknown', '판단 보류'], ['slim', '슬림'], ['regular', '레귤러'], ['relaxed', '릴렉스드'], ['oversized', '오버사이즈'], ['boxy', '박시']] },
-  { key: 'outer_type', label: '아우터 유형', group: 'shape', categories: ['Outer'], options: [['unknown', '판단 보류'], ['jacket', '재킷'], ['blazer', '블레이저'], ['coat', '코트'], ['padding', '패딩'], ['vest', '베스트'], ['windbreaker', '바람막이']] },
-  { key: 'outer_silhouette', label: '아우터 실루엣', group: 'shape', categories: ['Outer'], options: [['unknown', '판단 보류'], ['slim', '슬림'], ['regular', '레귤러'], ['relaxed', '릴렉스드'], ['oversized', '오버사이즈'], ['boxy', '박시']] },
-  { key: 'top_length', label: '상의·아우터 기장', group: 'shape', categories: ['Top', 'Outer'], options: [['unknown', '판단 보류'], ['cropped', '크롭'], ['regular', '레귤러'], ['long', '롱']] },
-  { key: 'material', label: '소재', group: 'expression', options: [['unknown', '판단 보류'], ['cotton', '코튼'], ['denim', '데님'], ['knit', '니트'], ['wool', '울'], ['leather', '레더'], ['linen', '린넨'], ['synthetic', '합성 소재'], ['mixed', '혼방']] },
-  { key: 'color', label: '색상', group: 'expression', options: [['unknown', '판단 보류'], ['black', '블랙'], ['white', '화이트'], ['gray', '그레이'], ['blue', '블루'], ['brown', '브라운'], ['beige', '베이지'], ['green', '그린'], ['red', '레드']] },
-  { key: 'wash_texture', label: '표면 질감', group: 'expression', options: [['unknown', '판단 보류'], ['clean', '클린'], ['washed', '워싱'], ['faded', '페이디드'], ['distressed', '디스트레스드'], ['textured', '텍스처드']] },
-  { key: 'details', label: '디테일', group: 'expression', options: [['unknown', '판단 보류'], ['pleats', '플리츠'], ['cargo-pockets', '카고 포켓']] },
-] as const;
-
-type AttributeField = typeof ATTRIBUTE_FIELDS[number];
-export type StyleAttributeOption = { attributeKey: AttributeField['key']; value: string };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-
-const isFieldApplicable = (field: AttributeField, category: string) =>
-  !('categories' in field) || field.categories.includes(category as never);
-
-const normalizeAttributeValue = (value: unknown) => String(value ?? '').trim().toLowerCase() || 'unknown';
-const attributeValues = (value: unknown) => (Array.isArray(value) ? value : [value]).map(normalizeAttributeValue).filter((value) => value !== 'unknown');
-
-const optionsForAttribute = (
-  field: AttributeField,
-  customOptions: StyleAttributeOption[],
-  persistedValues: string[] = []
-) => {
-  const builtIn = field.options.map(([value, label]) => [value, label] as const);
-  const knownValues = new Set<string>(builtIn.map(([value]) => value));
-  const custom = customOptions
-    .filter((option) => option.attributeKey === field.key && !knownValues.has(option.value))
-    .map((option) => [option.value, option.value] as const);
-  custom.forEach(([value]) => knownValues.add(value));
-  const persisted = persistedValues
-    .filter((value) => value !== 'unknown' && !knownValues.has(value))
-    .map((value) => [value, value] as const);
-  return [...builtIn, ...custom, ...persisted];
-};
-
-const normalizeAttributeForField = (field: AttributeField, value: unknown, customOptions: StyleAttributeOption[]) => {
-  const normalized = normalizeAttributeValue(value);
-  return optionsForAttribute(field, customOptions).some(([option]) => option === normalized) ? normalized : 'unknown';
-};
-
-const attributeLabel = (field: AttributeField, value: unknown, customOptions: StyleAttributeOption[]) =>
-  optionsForAttribute(field, customOptions).find(([option]) => option === normalizeAttributeForField(field, value, customOptions))?.[1] ?? '판단 보류';
-
-const editableStyleAttributes = (value: unknown): StyleAttributes => {
-  const source = isRecord(value) ? value : {};
-  return {
-    ...source,
-    ...Object.fromEntries(ATTRIBUTE_FIELDS.map((field) => [field.key, Array.isArray(source[field.key]) ? source[field.key] : [normalizeAttributeValue(source[field.key])]])),
-  };
-};
-
-const styleTagsToInputValues = (tags: StyleTags): Record<StyleTagName, string> =>
-  STYLE_TAGS.reduce((acc, tag) => {
-    acc[tag] = tags[tag].toFixed(2);
-    return acc;
-  }, {} as Record<StyleTagName, string>);
-
-const normalizeStyleTags = (value: unknown): StyleTags => {
-  const output = emptyStyleTags();
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return output;
-  const record = value as Record<string, unknown>;
-  Object.entries(record).forEach(([key, rawScore]) => {
-    const mappedTag = LEGACY_STYLE_TAG_MAP[key];
-    if (!mappedTag) return;
-    const score = Number(rawScore);
-    if (Number.isFinite(score)) output[mappedTag] = Math.max(output[mappedTag], Math.min(1, Math.max(0, score)));
-  });
-  STYLE_TAGS.forEach((tag) => {
-    const score = Number(record[tag]);
-    if (Number.isFinite(score)) output[tag] = Math.min(1, Math.max(0, score));
-  });
-  return output;
-};
-
-const getTopTags = (tags: StyleTags) =>
-  [...STYLE_TAGS]
-    .map((tag) => ({ tag, score: tags[tag] }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
-
-const getEffectiveStyleTags = (product: Product): unknown => {
-  if (
-    (product.tagReviewStatus === 'approved' || product.tagReviewStatus === 'edited') &&
-    product.humanStyleTags
-  ) {
-    return product.humanStyleTags;
-  }
-  return product.styleTags;
-};
-
-const statusLabels: Record<TagReviewStatus | 'none', string> = {
-  none: '미검수',
-  needs_review: '검수 필요',
-  approved: '승인',
-  edited: '수정됨',
-  rejected: '반려',
-};
-
-const targetGenderLabels: Record<ProductTargetGender, string> = {
-  menswear: '남성복',
-  womenswear: '여성복',
-  unisex: '유니섹스',
-  unknown: '판단 보류',
-};
-
-interface ProductStyleReviewPanelProps {
-  customAttributeOptions: StyleAttributeOption[];
-  isSaving: boolean;
-  onAddAttributeOption: (option: StyleAttributeOption) => Promise<void>;
-  onSave: (productId: string, review: ProductStyleReviewInput) => void;
-  product: Product;
-}
-
-export function ProductStyleReviewPanel({ customAttributeOptions, isSaving, onAddAttributeOption, onSave, product }: ProductStyleReviewPanelProps) {
-  const effectiveTags = useMemo(() => normalizeStyleTags(getEffectiveStyleTags(product)), [product]);
-  const initialHumanTags = useMemo(
-    () => normalizeStyleTags(product.humanStyleTags ?? product.styleTags),
-    [product.humanStyleTags, product.styleTags]
-  );
-  const initialHumanAttributes = useMemo(
-    () => editableStyleAttributes(product.humanStyleAttributes ?? product.styleAttributes),
-    [product.humanStyleAttributes, product.styleAttributes]
-  );
-  const [humanTags, setHumanTags] = useState<StyleTags>(initialHumanTags);
-  const [humanAttributes, setHumanAttributes] = useState<StyleAttributes>(initialHumanAttributes);
-  const [newOptionInputs, setNewOptionInputs] = useState<Record<string, string>>({});
-  const [scoreInputs, setScoreInputs] = useState<Record<StyleTagName, string>>(
-    styleTagsToInputValues(initialHumanTags)
-  );
+export function ProductStyleReviewPanel({ isSaving, onSave, product }: ProductStyleReviewPanelProps) {
+  const initialTags = useMemo(() => normalizeTags(product.humanStyleTags ?? product.styleTags), [product.humanStyleTags, product.styleTags]);
+  const initialAttributes = useMemo(() => normalizeAttributes(product.humanStyleAttributes ?? product.styleAttributes), [product.humanStyleAttributes, product.styleAttributes]);
+  const [humanTags, setHumanTags] = useState(initialTags);
+  const [humanAttributes, setHumanAttributes] = useState(initialAttributes);
+  const [targetGender, setTargetGender] = useState<ProductTargetGender>(product.humanTargetGender ?? product.targetGender ?? 'unknown');
   const [reviewNote, setReviewNote] = useState(product.tagReviewNote ?? '');
-  const [targetGender, setTargetGender] = useState<ProductTargetGender>(
-    product.humanTargetGender ?? product.targetGender ?? 'unknown'
-  );
   const [openAttributeKey, setOpenAttributeKey] = useState<string | null>(null);
-
-  const hasAiTags = Boolean(product.styleTags);
-  const isAccessory = isAccessoryCategory(product.category);
-  const aiAttributes = useMemo(() => editableStyleAttributes(product.styleAttributes), [product.styleAttributes]);
-  const topTasteTags = getTopTags(effectiveTags);
   const reviewStatus = product.tagReviewStatus ?? 'none';
+  const hasAiTags = Boolean(product.styleTags);
+  const category = product.category === 'Uncategorized' ? '' : product.category;
+  const fields = useMemo(() => fieldsForCategory(category), [category]);
+  const hasDetailedFields = isCoreTasteCategory(category);
 
-  useEffect(() => {
-    setHumanTags(initialHumanTags);
-    setScoreInputs(styleTagsToInputValues(initialHumanTags));
-  }, [initialHumanTags]);
+  useEffect(() => { setHumanTags(initialTags); }, [initialTags]);
+  useEffect(() => { setHumanAttributes(initialAttributes); }, [initialAttributes]);
+  useEffect(() => { setTargetGender(product.humanTargetGender ?? product.targetGender ?? 'unknown'); }, [product.humanTargetGender, product.targetGender]);
+  useEffect(() => { setReviewNote(product.tagReviewNote ?? ''); }, [product.tagReviewNote]);
 
-  useEffect(() => {
-    setHumanAttributes(initialHumanAttributes);
-  }, [initialHumanAttributes]);
+  const setAttribute = (key: string, value: string | string[] | null) => setHumanAttributes((previous) => ({ ...previous, [key]: value }));
+  const save = (status: TagReviewStatus) => onSave(product.id, { tagReviewStatus: status, humanStyleTags: humanTags, humanStyleAttributes: hasDetailedFields ? humanAttributes : {}, humanStyleTagsEvidence: product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null, tagReviewNote: reviewNote, targetGender });
 
-  useEffect(() => {
-    setReviewNote(product.tagReviewNote ?? '');
-  }, [product.tagReviewNote]);
-
-  useEffect(() => {
-    setTargetGender(product.humanTargetGender ?? product.targetGender ?? 'unknown');
-  }, [product.humanTargetGender, product.targetGender]);
-
-  useEffect(() => {
-    if (!openAttributeKey) return;
-
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (event.target instanceof Element && !event.target.closest('[data-style-attribute-dropdown]')) {
-        setOpenAttributeKey(null);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenAttributeKey(null);
-    };
-
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [openAttributeKey]);
-
-  const setTagScore = (tag: StyleTagName, score: number) => {
-    setHumanTags((prev) => ({
-      ...prev,
-      [tag]: Math.min(1, Math.max(0, score)),
-    }));
-  };
-
-  const updateScoreFromRange = (tag: StyleTagName, value: string) => {
-    const score = Number(value);
-    if (!Number.isFinite(score)) return;
-    setTagScore(tag, score);
-    setScoreInputs((prev) => ({ ...prev, [tag]: score.toFixed(2) }));
-  };
-
-  const updateScoreInput = (tag: StyleTagName, value: string) => {
-    if (!/^\d*(?:\.\d*)?$/.test(value)) return;
-    setScoreInputs((prev) => ({ ...prev, [tag]: value }));
-    const score = Number(value);
-    if (value.trim() !== '' && Number.isFinite(score)) setTagScore(tag, score);
-  };
-
-  const normalizeScoreInput = (tag: StyleTagName) => {
-    setScoreInputs((prev) => ({
-      ...prev,
-      [tag]: humanTags[tag].toFixed(2),
-    }));
-  };
-
-  const setAttributeValue = (key: string, value: string[]) => {
-    setHumanAttributes((previous) => ({ ...previous, [key]: value }));
-  };
-
-  const addAttributeOption = async (field: AttributeField) => {
-    const value = String(newOptionInputs[field.key] ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
-    if (!value) return;
-    await onAddAttributeOption({ attributeKey: field.key, value });
-    setAttributeValue(field.key, [value]);
-    setNewOptionInputs((previous) => ({ ...previous, [field.key]: '' }));
-  };
-
-  const isPreviouslyApproved = reviewStatus === 'approved' || reviewStatus === 'edited';
-
-  return (
-    <div className="mt-4 rounded-xl border border-gray-800 bg-black/30 p-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Taste Tags</p>
-            <span className="rounded-md border border-gray-700 px-2 py-0.5 text-xs text-gray-300">
-              {statusLabels[reviewStatus]}
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {topTasteTags.map(({ tag, score }) => (
-              <span key={tag} className="rounded-md bg-gray-800 px-2 py-1 text-xs text-gray-200">
-                {tag} {score.toFixed(2)}
-              </span>
-            ))}
-            {!hasAiTags ? <span className="text-xs text-gray-500">AI 태그 없음</span> : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              onSave(product.id, {
-                tagReviewStatus: isPreviouslyApproved ? 'edited' : 'approved',
-                humanStyleTags: humanTags,
-                humanStyleAttributes: isAccessory ? null : humanAttributes,
-                humanStyleTagsEvidence: product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null,
-                tagReviewNote: reviewNote,
-                targetGender,
-              })
-            }
-            disabled={isSaving || !hasAiTags}
-            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-500"
-          >
-            <Check className="h-3.5 w-3.5" />
-            {isPreviouslyApproved ? '저장' : '승인'}
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              onSave(product.id, {
-                tagReviewStatus: 'rejected',
-                tagReviewNote: reviewNote,
-              })
-            }
-            disabled={isSaving}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-red-300 hover:bg-red-900/30 disabled:cursor-not-allowed disabled:text-gray-500"
-          >
-            <X className="h-3.5 w-3.5" />
-            반려
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-col gap-2 border-y border-gray-800 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-gray-300">상품 타깃 성별</p>
-          <p className="mt-1 text-xs text-gray-500">
-            AI 추정: {targetGenderLabels[product.targetGender ?? 'unknown']}
-            {product.humanTargetGender ? ` · 사람 검수: ${targetGenderLabels[product.humanTargetGender]}` : ''}
-            {' · 저장 또는 승인 시 반영'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={targetGender}
-            onChange={(event) => setTargetGender(event.target.value as ProductTargetGender)}
-            className="h-9 min-w-28 rounded-lg border border-gray-700 bg-gray-950 px-2 text-sm text-white focus:border-orange-500 focus:outline-none"
-            aria-label="상품 타깃 성별"
-          >
-            {(Object.keys(targetGenderLabels) as ProductTargetGender[]).map((value) => (
-              <option key={value} value={value}>{targetGenderLabels[value]}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {!isAccessory ? <section className="mt-4 border-y border-gray-800 py-4">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold text-gray-200">형태 · 표현 속성 검수</p>
-            <p className="mt-1 text-xs text-gray-500">승인 또는 저장한 값은 상품 유사도와 취향 판단에서 AI 결과보다 우선합니다.</p>
-          </div>
-          {(reviewStatus === 'approved' || reviewStatus === 'edited') && (
-            <span className="text-xs font-medium text-emerald-300">사람 검수값 사용 중</span>
-          )}
-        </div>
-
-        <div className="mt-3 grid gap-4 lg:grid-cols-2">
-          {(['shape', 'expression'] as const).map((group) => (
-            <div key={group} className="rounded-lg border border-gray-800 bg-black/20 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-orange-300">
-                {group === 'shape' ? '형태 유사도' : '표현 유사도'}
-              </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {ATTRIBUTE_FIELDS.filter((field) => field.group === group && isFieldApplicable(field, product.category)).map((field) => {
-                  // Saved review values must remain visible even while custom options are
-                  // loading or if an older option was later removed from configuration.
-                  const selectedValues = attributeValues(humanAttributes[field.key]);
-                  const availableOptions = optionsForAttribute(field, customAttributeOptions, selectedValues);
-                  const selectedLabels = availableOptions
-                    .filter(([value]) => selectedValues.includes(value))
-                    .map(([, label]) => label);
-                  return (
-                    <div key={field.key} className="block min-w-0 text-xs text-gray-400">
-                      <span className="mb-1 block">{field.label}</span>
-                      <details
-                        className="group relative"
-                        data-style-attribute-dropdown
-                        open={openAttributeKey === field.key}
-                        onToggle={(event) => setOpenAttributeKey(event.currentTarget.open ? field.key : null)}
-                      >
-                        <summary className="flex h-9 cursor-pointer list-none items-center justify-between rounded-md border border-gray-700 bg-gray-950 px-2 text-sm text-white marker:content-none focus:border-orange-500 focus:outline-none">
-                          <span className="truncate">{selectedLabels.join(', ') || '판단 보류'}</span>
-                          <span className="ml-2 text-gray-500 transition group-open:rotate-180">⌄</span>
-                        </summary>
-                        <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-gray-700 bg-gray-950 p-1.5 shadow-xl">
-                          {availableOptions.filter(([value]) => value !== 'unknown').map(([value, optionLabel]) => (
-                            <label key={value} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800">
-                              <input
-                                type="checkbox"
-                                checked={selectedValues.includes(value)}
-                                onChange={(event) => setAttributeValue(
-                                  field.key,
-                                  event.target.checked
-                                    ? [...selectedValues, value]
-                                    : selectedValues.filter((selected) => selected !== value)
-                                )}
-                                className="h-3.5 w-3.5 accent-orange-500"
-                              />
-                              {optionLabel}
-                            </label>
-                          ))}
-                        </div>
-                      </details>
-                      <p className="mt-1 text-[11px] leading-4 text-gray-500">AI 제안: {attributeValues(aiAttributes[field.key]).map((value) => attributeLabel(field, value, customAttributeOptions)).join(', ') || '판단 보류'}</p>
-                      <div className="mt-2 flex gap-1.5">
-                        <input
-                          type="text"
-                          value={newOptionInputs[field.key] ?? ''}
-                          onChange={(event) => setNewOptionInputs((previous) => ({ ...previous, [field.key]: event.target.value }))}
-                          onKeyDown={(event) => {
-                            if (event.key !== 'Enter') return;
-                            event.preventDefault();
-                            void addAttributeOption(field);
-                          }}
-                          placeholder="새 선택지 추가"
-                          className="h-8 min-w-0 flex-1 rounded-md border border-gray-800 bg-gray-950 px-2 text-xs text-white placeholder:text-gray-600 focus:border-orange-500 focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void addAttributeOption(field)}
-                          disabled={isSaving || !String(newOptionInputs[field.key] ?? '').trim()}
-                          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-orange-500/50 px-2 text-xs font-semibold text-orange-200 hover:bg-orange-500/10 disabled:cursor-not-allowed disabled:border-gray-800 disabled:text-gray-600"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          추가
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section> : null}
-
-      {hasAiTags ? (
-        <div className="mt-4 grid gap-2 md:grid-cols-2">
-          {STYLE_TAGS.map((tag) => (
-            <div key={tag} className="grid grid-cols-[64px_1fr_64px] items-center gap-2 text-xs">
-              <span className="font-medium text-gray-300">{tag}</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={humanTags[tag]}
-                onChange={(event) => updateScoreFromRange(tag, event.target.value)}
-                className="h-2 w-full accent-orange-500"
-              />
-              <input
-                type="text"
-                inputMode="decimal"
-                value={scoreInputs[tag]}
-                onChange={(event) => updateScoreInput(tag, event.target.value)}
-                onBlur={() => normalizeScoreInput(tag)}
-                className="h-8 w-16 rounded-md border border-gray-700 bg-gray-950 px-2 text-center text-xs text-white focus:outline-none focus:border-orange-500"
-              />
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      <textarea
-        value={reviewNote}
-        onChange={(event) => setReviewNote(event.target.value)}
-        placeholder="수정 이유"
-        rows={2}
-        className="mt-3 w-full resize-none rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-orange-500"
-      />
-    </div>
-  );
+  return <div className="mt-4 rounded-xl border border-gray-800 bg-black/30 p-3">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-bold tracking-wide text-gray-300">AI 분석 검수</p><span className="rounded-md border border-gray-700 px-2 py-0.5 text-xs text-gray-300">{statusLabels[reviewStatus]}</span></div><p className="mt-1 text-xs text-gray-500">Gemini 초안을 수정한 뒤 승인 또는 저장하세요.</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => save(reviewStatus === 'approved' || reviewStatus === 'edited' ? 'edited' : 'approved')} disabled={isSaving || !hasAiTags} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-500"><Check className="h-3.5 w-3.5" />{reviewStatus === 'approved' || reviewStatus === 'edited' ? '저장' : '승인'}</button><button type="button" onClick={() => onSave(product.id, { tagReviewStatus: 'rejected', tagReviewNote: reviewNote })} disabled={isSaving} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-red-300 hover:bg-red-900/30 disabled:text-gray-500"><X className="h-3.5 w-3.5" />반려</button></div></div>
+    <section className="mt-4 border-y border-gray-800 py-3"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold text-gray-300">상품 타깃 성별</p><p className="mt-1 text-xs text-gray-500">AI 추정: {targetGenderLabels[product.targetGender ?? 'unknown']} · 저장 또는 승인 시 반영</p></div><select value={targetGender} onChange={(event) => setTargetGender(event.target.value as ProductTargetGender)} className="h-9 min-w-28 rounded-lg border border-gray-700 bg-gray-950 px-2 text-sm text-white focus:border-orange-500 focus:outline-none" aria-label="상품 타깃 성별">{(Object.keys(targetGenderLabels) as ProductTargetGender[]).map((value) => <option key={value} value={value}>{targetGenderLabels[value]}</option>)}</select></div></section>
+    {hasDetailedFields ? <section className="mt-4 border-b border-gray-800 pb-4"><p className="text-xs font-semibold text-gray-200">취향 속성 검수</p><p className="mt-1 text-xs text-gray-500">승인 또는 저장한 값은 AI 분석값보다 우선합니다.</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{fields.map((field) => { const values = selectedValues(humanAttributes[field.key]); const aiValues = selectedValues(normalizeAttributes(product.styleAttributes)[field.key]); const fieldId = `${field.key}-${field.categories.join('-')}`; const labelFor = (value: string) => field.options.find((entry: { value: string; label: string }) => entry.value === value)?.label ?? value; return <div key={fieldId} className="min-w-0 text-xs text-gray-400"><span className="mb-1 block">{field.label}</span>{field.multiple ? <details className="relative" open={openAttributeKey === fieldId} onToggle={(event) => setOpenAttributeKey(event.currentTarget.open ? fieldId : null)}><summary className="flex h-9 cursor-pointer list-none items-center justify-between rounded-md border border-gray-700 bg-gray-950 px-2 text-sm text-white"><span className="truncate">{values.map(labelFor).join(', ') || '선택 안 함'}</span><span className="text-gray-500">⌄</span></summary><div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-gray-700 bg-gray-950 p-1.5 shadow-xl">{field.options.map((entry: { value: string; label: string }) => <label key={entry.value} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800"><input type="checkbox" checked={values.includes(entry.value)} disabled={!values.includes(entry.value) && values.length >= field.max} onChange={(event) => setAttribute(field.key, event.target.checked ? [...values, entry.value] : values.filter((value) => value !== entry.value))} className="h-3.5 w-3.5 accent-orange-500" />{entry.label}</label>)}</div></details> : <select value={values[0] ?? ''} onChange={(event) => setAttribute(field.key, event.target.value || null)} className="h-9 w-full rounded-md border border-gray-700 bg-gray-950 px-2 text-sm text-white focus:border-orange-500 focus:outline-none"><option value="">선택 안 함</option>{field.options.map((entry: { value: string; label: string }) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>}<p className="mt-1 text-[11px] leading-4 text-gray-500">AI 제안: {aiValues.map(labelFor).join(', ') || '선택 안 함'}</p></div>; })}</div></section> : <p className="mt-4 rounded-lg border border-gray-800 bg-black/20 px-3 py-2 text-xs text-gray-500">이 카테고리는 현재 스타일 태그와 타깃 성별만 분석합니다.</p>}
+    {hasAiTags ? <div className="mt-4 grid gap-2 md:grid-cols-2">{STYLE_TAGS.map((tag) => <div key={tag} className="grid grid-cols-[112px_1fr_54px] items-center gap-2 text-xs"><span className="font-medium text-gray-300">{tagLabels[tag]}</span><input type="range" min="0" max="1" step="0.05" value={humanTags[tag]} onChange={(event) => setHumanTags((previous) => ({ ...previous, [tag]: Number(event.target.value) }))} className="h-2 w-full accent-orange-500" /><span className="text-right text-gray-400">{humanTags[tag].toFixed(2)}</span></div>)}</div> : <p className="mt-4 text-xs text-gray-500">AI 태그가 없어 승인할 수 없습니다.</p>}
+    <textarea value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="수정 이유" rows={2} className="mt-3 w-full resize-none rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none" />
+  </div>;
 }

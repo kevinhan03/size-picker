@@ -13,6 +13,15 @@ import { CATEGORY_OPTIONS } from "../constants";
 // Initial estimate — virtualizer corrects with actual measurements via measureElement
 const ROW_HEIGHT_ESTIMATE = 360;
 
+const analysisStatus = (product: Product) => {
+  if (product.categoryAnalysisStatus === "pending") return { label: "카테고리 분석 중", className: "border-sky-400/25 bg-sky-400/10 text-sky-200" };
+  if (product.categoryAnalysisStatus === "failed") return { label: "분류 확인 필요", className: "border-amber-400/25 bg-amber-400/10 text-amber-200" };
+  if (product.taggingStatus === "pending" || product.taggingStatus === "tagging") return { label: "취향 분석 중", className: "border-violet-400/25 bg-violet-400/10 text-violet-200" };
+  if (product.taggingStatus === "failed") return { label: "분석 확인 필요", className: "border-red-400/25 bg-red-400/10 text-red-200" };
+  if (product.taggingStatus === "tagged") return { label: "분석 완료", className: "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200" };
+  return null;
+};
+
 interface GridViewProps {
   allProducts: Product[];
   filteredGridProducts: Product[];
@@ -141,6 +150,7 @@ export function GridView({
                 // Only the first visible product can be the LCP candidate. Marking every
                 // desktop card as high priority makes their image requests compete.
                 const isLcpCandidate = vRow.index === 0 && productIndex === 0;
+                const productAnalysisStatus = analysisStatus(product);
 
                 return (
                   <div
@@ -191,6 +201,7 @@ export function GridView({
                       </div>
                       <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
                       <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
+                      {productAnalysisStatus ? <span className={`mx-auto mt-2 inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold ${productAnalysisStatus.className}`}>{productAnalysisStatus.label}</span> : null}
                     </div>
                   </div>
                 );

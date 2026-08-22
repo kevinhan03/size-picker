@@ -18,7 +18,7 @@ export async function analyzeStoredProductCategory(productId: string): Promise<{
   assertSupabaseConfig();
   const { data: product, error } = await supabase!
     .from(SUPABASE_PRODUCTS_TABLE)
-    .select("id,brand,name,image_path,size_table")
+    .select("id,brand,name,image_path,size_table,product_metadata")
     .eq("id", productId)
     .maybeSingle();
   if (error || !product || !isStoredProductImagePath(product.image_path)) {
@@ -39,6 +39,7 @@ export async function analyzeStoredProductCategory(productId: string): Promise<{
       brand: String(product.brand || ""),
       name: String(product.name || ""),
       sizeTable: product.size_table ?? null,
+      productMetadata: product.product_metadata ?? null,
       image: {
         base64: Buffer.from(await image.arrayBuffer()).toString("base64"),
         mimeType: image.type || "image/jpeg",

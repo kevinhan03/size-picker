@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, Search, Sparkles, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, CheckCircle2, Clock3, Search, Sparkles, XCircle } from 'lucide-react';
 import { ProgressiveImage } from '../ProgressiveImage';
 import { AdminProductEditor } from './AdminProductEditor';
-import { ProductStyleReviewPanel, type StyleAttributeOption } from './ProductStyleReviewPanel';
+import { ProductStyleReviewPanel } from './ProductStyleReviewPanel';
 import type { AdminEditForm, Product, ProductStyleReviewInput, SizeTable } from '../../types';
 import type { ChangeEvent, SyntheticEvent } from 'react';
 import { CATEGORY_LABELS, CATEGORY_OPTIONS, getCategoryLabel, getSubcategories } from '../../constants';
@@ -76,46 +76,7 @@ export function AdminProductsList({
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [subCategoryFilter, setSubCategoryFilter] = useState('');
-  const [customAttributeOptions, setCustomAttributeOptions] = useState<StyleAttributeOption[]>([]);
   const [expandedReviewIds, setExpandedReviewIds] = useState<Set<string>>(() => new Set());
-
-  useEffect(() => {
-    let isMounted = true;
-    fetch('/api/admin/style-attribute-options', { credentials: 'include' })
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok || !payload?.ok || !Array.isArray(payload?.data?.options)) return;
-        if (!isMounted) return;
-        setCustomAttributeOptions(payload.data.options.map((option: { attributeKey?: unknown; value?: unknown }) => ({
-          attributeKey: String(option.attributeKey ?? ''),
-          value: String(option.value ?? ''),
-        })).filter((option: StyleAttributeOption) => option.attributeKey && option.value));
-      })
-      .catch(() => undefined);
-    return () => { isMounted = false; };
-  }, []);
-
-  const addAttributeOption = async (option: StyleAttributeOption) => {
-    const response = await fetch('/api/admin/style-attribute-options', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ attributeKey: option.attributeKey, value: option.value }),
-    });
-    const payload = await response.json();
-    if (!response.ok || !payload?.ok || !payload?.data?.option) {
-      throw new Error(payload?.error || '속성 선택지 저장에 실패했습니다.');
-    }
-    const saved = {
-      attributeKey: String(payload.data.option.attributeKey ?? ''),
-      value: String(payload.data.option.value ?? ''),
-    } as StyleAttributeOption;
-    setCustomAttributeOptions((previous) =>
-      previous.some((item) => item.attributeKey === saved.attributeKey && item.value === saved.value)
-        ? previous
-        : [...previous, saved]
-    );
-  };
 
   const aiTaggedCount = allProducts.filter(hasAiTags).length;
   const aiUntaggedCount = allProducts.filter((product) => !hasAiTags(product) && product.taggingStatus !== 'failed').length;
@@ -317,24 +278,7 @@ export function AdminProductsList({
               />
             </div>
             <div className="flex-1 min-w-0">
-              {editingProductId === product.id ? (
-                <AdminProductEditor
-                  adminEditForm={adminEditForm}
-                  adminExtractedTable={adminExtractedTable}
-                  adminImagePreview={adminImagePreview}
-                  adminSizeChartImage={adminSizeChartImage}
-                  isAdminActionLoading={isAdminActionLoading}
-                  isAdminAnalyzingTable={isAdminAnalyzingTable}
-                  onCancelEdit={onCancelEdit}
-                  onEditFormChange={onEditFormChange}
-                  onExtractedTableChange={onExtractedTableChange}
-                  onFileUpload={onFileUpload}
-                  onUpdateProduct={() => onUpdateProduct(product.id)}
-                  setTableEditingCell={setTableEditingCell}
-                  tableEditingCell={tableEditingCell}
-                />
-              ) : (
-                <div>
+              <div>
                   <div className="relative flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-start min-[900px]:justify-between">
                     <div className="min-[600px]:pr-[19rem]">
                       <p className="text-xs font-bold text-orange-500 uppercase tracking-wide">{product.brand}</p>
@@ -371,14 +315,11 @@ export function AdminProductsList({
                         onClick={() => toggleReviewPanel(product.id)}
                         aria-expanded={expandedReviewIds.has(product.id)}
                         aria-controls={`style-review-${product.id}`}
-                        aria-label={expandedReviewIds.has(product.id) ? '검수 접기' : '검수 펼치기'}
-                        title={expandedReviewIds.has(product.id) ? '검수 접기' : '검수 펼치기'}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-orange-200 hover:bg-orange-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                        aria-label={expandedReviewIds.has(product.id) ? 'AI 분석 검수 접기' : 'AI 분석 검수 펼치기'}
+                        title={expandedReviewIds.has(product.id) ? 'AI 분석 검수 접기' : 'AI 분석 검수 펼치기'}
+                        className="inline-flex h-9 items-center rounded-lg px-2.5 text-sm font-medium text-orange-200 hover:bg-orange-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                       >
-                        <ChevronDown
-                          aria-hidden="true"
-                          className={`h-4 w-4 transition-transform ${expandedReviewIds.has(product.id) ? 'rotate-180' : ''}`}
-                        />
+                        AI 분석 검수
                       </button>
                       {isApprovedReview(product) && formatReviewedAt(product.reviewedAt) ? (
                         <span className="text-xs text-gray-500" title={`승인 완료: ${formatReviewedAt(product.reviewedAt)}`}>
@@ -386,25 +327,15 @@ export function AdminProductsList({
                         </span>
                       ) : null}
                       <button
-                        onClick={() => onStartEdit(product)}
+                        type="button"
+                        onClick={() => editingProductId === product.id ? onCancelEdit() : onStartEdit(product)}
+                        aria-expanded={editingProductId === product.id}
+                        aria-controls={`product-editor-${product.id}`}
+                        title={editingProductId === product.id ? '기본 상품 정보 수정 닫기' : '기본 상품 정보 수정 열기'}
                         className="px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-800"
                       >
-                        수정
+                        기본 상품 정보 수정
                       </button>
-                      {!product.categoryReviewed && product.categoryAnalysisStatus === 'completed' ? (
-                        <button
-                          type="button"
-                          onClick={() => onApproveProductCategory(product.id)}
-                          disabled={isAdminActionLoading}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                            isAdminActionLoading
-                              ? 'text-gray-500 bg-gray-800 cursor-not-allowed'
-                              : 'text-emerald-200 hover:bg-emerald-500/10'
-                          }`}
-                        >
-                          분류 승인
-                        </button>
-                      ) : null}
                       <button
                         onClick={() => onDeleteProduct(product.id)}
                         disabled={isAdminActionLoading}
@@ -423,15 +354,49 @@ export function AdminProductsList({
                       {product.url || 'URL 없음'}
                     </p>
                     <ProductStyleReviewPanel
-                      customAttributeOptions={customAttributeOptions}
                       isSaving={isAdminActionLoading}
-                      onAddAttributeOption={addAttributeOption}
                       onSave={onSaveStyleReview}
                       product={product}
                     />
                   </div>
-                </div>
-              )}
+                  {editingProductId === product.id ? (
+                    <section id={`product-editor-${product.id}`} className="mt-4 border-t border-gray-800 pt-4">
+                      <p className="text-xs font-bold tracking-wide text-gray-300">기본 상품 정보 수정</p>
+                      <p className="mt-1 text-xs text-gray-500">브랜드, 상품명, URL, 이미지, 사이즈표를 수정할 수 있습니다.</p>
+                      {!product.categoryReviewed && product.categoryAnalysisStatus === 'completed' ? (
+                        <button
+                          type="button"
+                          onClick={() => onApproveProductCategory(product.id)}
+                          disabled={isAdminActionLoading}
+                          className={`mt-3 px-3 py-2 rounded-lg text-sm font-medium ${
+                            isAdminActionLoading
+                              ? 'text-gray-500 bg-gray-800 cursor-not-allowed'
+                              : 'text-emerald-200 hover:bg-emerald-500/10'
+                          }`}
+                        >
+                          분류 승인
+                        </button>
+                      ) : null}
+                      <div className="mt-3">
+                        <AdminProductEditor
+                          adminEditForm={adminEditForm}
+                          adminExtractedTable={adminExtractedTable}
+                          adminImagePreview={adminImagePreview}
+                          adminSizeChartImage={adminSizeChartImage}
+                          isAdminActionLoading={isAdminActionLoading}
+                          isAdminAnalyzingTable={isAdminAnalyzingTable}
+                          onCancelEdit={onCancelEdit}
+                          onEditFormChange={onEditFormChange}
+                          onExtractedTableChange={onExtractedTableChange}
+                          onFileUpload={onFileUpload}
+                          onUpdateProduct={() => onUpdateProduct(product.id)}
+                          setTableEditingCell={setTableEditingCell}
+                          tableEditingCell={tableEditingCell}
+                        />
+                      </div>
+                    </section>
+                  ) : null}
+              </div>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAllProducts, fetchCatalogProducts } from "../api";
 import { useLocaleContext } from "../contexts/LocaleContext";
 import type { Product } from "../types";
+import { PRODUCT_CREATED_EVENT } from "../utils/productUpdates";
 
 const getProductTime = (product: Product) => {
   const time = product.createdAt ? Date.parse(product.createdAt) : 0;
@@ -20,6 +21,14 @@ const splitProducts = (all: Product[]) => ({
   normal: all,
   featured: sortFeaturedProducts(all.filter((p) => p.isInstagram)),
 });
+
+const ANALYSIS_POLL_INTERVAL_MS = 2500;
+const ANALYSIS_POLL_MAX_ATTEMPTS = 48;
+
+const isAnalysisFinished = (product: Product) =>
+  product.categoryAnalysisStatus === "failed" ||
+  product.taggingStatus === "failed" ||
+  (product.categoryAnalysisStatus === "completed" && product.taggingStatus === "tagged");
 
 export function useProducts(
   initialProducts: Product[] = [],
@@ -49,6 +58,57 @@ export function useProducts(
   const retryProductsLoad = useCallback(() => {
     setRetryTrigger((prev) => prev + 1);
   }, []);
+
+  const upsertProduct = useCallback((product: Product) => {
+    setProducts((current) => [product, ...current.filter((item) => item.id !== product.id)]);
+    setFeaturedProducts((current) => sortFeaturedProducts([
+      ...(product.isInstagram ? [product] : []),
+      ...current.filter((item) => item.id !== product.id),
+    ]));
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const timers = new Set<number>();
+
+    const trackAnalysis = (productId: string) => {
+      let attempts = 0;
+      const check = async () => {
+        if (!active || attempts >= ANALYSIS_POLL_MAX_ATTEMPTS) return;
+        attempts += 1;
+        try {
+          const response = await fetch(`/api/products/${encodeURIComponent(productId)}?fresh=1`, { cache: "no-store" });
+          const payload = await response.json();
+          const product = payload?.ok ? payload?.data?.product as Product | undefined : undefined;
+          if (product) {
+            upsertProduct(product);
+            if (isAnalysisFinished(product)) return;
+          }
+        } catch {
+          // A transient polling failure should not remove the just-added card.
+        }
+        if (active && attempts < ANALYSIS_POLL_MAX_ATTEMPTS) {
+          const timer = window.setTimeout(check, ANALYSIS_POLL_INTERVAL_MS);
+          timers.add(timer);
+        }
+      };
+      void check();
+    };
+
+    const handleProductCreated = (event: Event) => {
+      const product = (event as CustomEvent<Product>).detail;
+      if (!product?.id) return;
+      upsertProduct(product);
+      if (!isAnalysisFinished(product)) trackAnalysis(product.id);
+    };
+
+    window.addEventListener(PRODUCT_CREATED_EVENT, handleProductCreated);
+    return () => {
+      active = false;
+      timers.forEach((timer) => window.clearTimeout(timer));
+      window.removeEventListener(PRODUCT_CREATED_EVENT, handleProductCreated);
+    };
+  }, [upsertProduct]);
 
   useEffect(() => {
     if (!enabled) {

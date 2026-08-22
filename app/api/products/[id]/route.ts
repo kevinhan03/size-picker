@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
-import { getProductDetail, requestLog } from "../../../../server/services/catalog";
+import { getProductDetail, getProductDetailFresh, requestLog } from "../../../../server/services/catalog";
 
 export async function GET(
   request: Request,
@@ -14,7 +14,8 @@ export async function GET(
   }
 
   try {
-    const product = await getProductDetail(productId);
+    const isFreshRequest = new URL(request.url).searchParams.get("fresh") === "1";
+    const product = await (isFreshRequest ? getProductDetailFresh(productId) : getProductDetail(productId));
     if (!product) {
       return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
     }
@@ -22,7 +23,7 @@ export async function GET(
     requestLog("/api/products/[id]", request, startedAt, 200);
     return NextResponse.json(
       { ok: true, data: { product } },
-      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } },
+      { headers: { "Cache-Control": isFreshRequest ? "no-store" : "public, s-maxage=60, stale-while-revalidate=300" } },
     );
   } catch (error: unknown) {
     const status = getErrorStatusCode(error);

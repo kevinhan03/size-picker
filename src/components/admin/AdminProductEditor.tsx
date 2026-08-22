@@ -1,6 +1,7 @@
 import type { ChangeEvent } from 'react';
 import { Upload } from 'lucide-react';
-import { CATEGORY_LABELS, CATEGORY_OPTIONS, getSubcategories, ITEM_LABEL } from '../../constants';
+import { ITEM_LABEL } from '../../constants';
+import { CATEGORY_LABELS, CATEGORY_OPTIONS, getSubcategories } from '../../constants';
 import type { AdminEditForm, SizeTable } from '../../types';
 import { normalizeCellText } from '../../utils/sizeTable';
 
@@ -59,6 +60,27 @@ export function AdminProductEditor({
 
   return (
     <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <select
+          aria-label="상위 카테고리"
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+          value={adminEditForm.category}
+          onChange={(event) => onEditFormChange((prev) => ({ ...prev, category: event.target.value, subCategory: '' }))}
+        >
+          <option value="">상위 카테고리 선택</option>
+          {CATEGORY_OPTIONS.map((category) => <option key={category} value={category}>{CATEGORY_LABELS[category]}</option>)}
+        </select>
+        <select
+          aria-label="하위 카테고리"
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg disabled:cursor-not-allowed disabled:text-gray-600"
+          value={adminEditForm.subCategory}
+          disabled={!adminEditForm.category}
+          onChange={(event) => onEditFormChange((prev) => ({ ...prev, subCategory: event.target.value }))}
+        >
+          <option value="">하위 카테고리 선택</option>
+          {getSubcategories(adminEditForm.category).map((subcategory) => <option key={subcategory} value={subcategory}>{subcategory}</option>)}
+        </select>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <input
           className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg"
@@ -74,27 +96,6 @@ export function AdminProductEditor({
         />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <select
-          className={`w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg ${adminEditForm.category ? 'text-white' : 'text-gray-400'}`}
-          value={adminEditForm.category}
-          onChange={(event) => onEditFormChange((prev) => ({ ...prev, category: event.target.value, subCategory: '' }))}
-        >
-          <option value="">카테고리</option>
-          {CATEGORY_OPTIONS.map((category) => (
-            <option key={category} value={category}>
-              {CATEGORY_LABELS[category]}
-            </option>
-          ))}
-        </select>
-        <select
-          className={`w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg ${adminEditForm.subCategory ? 'text-white' : 'text-gray-400'}`}
-          value={adminEditForm.subCategory}
-          disabled={!adminEditForm.category}
-          onChange={(event) => onEditFormChange((prev) => ({ ...prev, subCategory: event.target.value }))}
-        >
-          <option value="">하위 분류 필요</option>
-          {getSubcategories(adminEditForm.category).map((subcategory) => <option key={subcategory} value={subcategory}>{subcategory}</option>)}
-        </select>
         <input
           className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg"
           value={adminEditForm.url}

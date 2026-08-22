@@ -272,6 +272,7 @@ export const insertProductRow = async (input) => {
         sub_category: sanitizedSubCategory,
         category_analysis_status: effectiveCategoryAnalysisStatus,
         category_reviewed: false,
+        tagging_status: "pending",
         url: sanitizeDatabaseText(url),
         image_path: effectiveImagePath,
         size_table: effectiveSizeTable,

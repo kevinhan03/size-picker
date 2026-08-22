@@ -83,6 +83,7 @@ export type ProductDetailData = Pick<
   | 'humanStyleTags'
   | 'humanStyleAttributes'
   | 'tagReviewStatus'
+  | 'taggingStatus'
 >;
 
 export interface CatalogPage {
@@ -136,6 +137,8 @@ export interface ProductStyleReviewInput {
   humanStyleTagsEvidence?: StyleTagsEvidence | null;
   tagReviewNote?: string | null;
   targetGender?: ProductTargetGender;
+  category?: string | null;
+  subCategory?: string | null;
 }
 
 export interface ClosetSizeSnapshot {

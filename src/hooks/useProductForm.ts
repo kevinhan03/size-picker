@@ -1,11 +1,11 @@
-import type { ClosetSizeSelection } from "../types";
+import type { ClosetSizeSelection, Product } from "../types";
 import { useProductFormAutofill } from "./product-form/useProductFormAutofill";
 import { useProductFormState } from "./product-form/useProductFormState";
 import { useProductFormSubmit } from "./product-form/useProductFormSubmit";
 
 interface UseProductFormOptions {
   productUrlSet: Set<string>;
-  onSubmitSuccess: () => void;
+  onSubmitSuccess: (product: Product) => void;
   onAddToDigbox?: (productId: string) => Promise<void>;
   onAddToCloset?: (productId: string, sizeSelection?: ClosetSizeSelection | null) => Promise<void>;
   isLoggedIn?: boolean;

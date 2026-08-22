@@ -157,11 +157,19 @@ export async function POST(request: Request) {
       if (!productId) return;
       await Promise.all([
         (async () => {
+          const categoryResult = await analyzeStoredProductCategory(productId);
+          if (!categoryResult.ok) {
+            console.error("[product-category-analysis] async analysis did not complete", { productId });
+            revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
+            invalidatePublicProductCaches(productId);
+            return;
+          }
+
           try {
-            const result = await tagProductStyleById(productId);
-            if (result.ok && !result.skipped) revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
-            if (!result.ok) {
-              console.error("[style-tagging] async product tagging did not complete", { productId, result });
+            const styleResult = await tagProductStyleById(productId);
+            if (styleResult.ok && !styleResult.skipped) revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
+            if (!styleResult.ok) {
+              console.error("[style-tagging] async product tagging did not complete", { productId, result: styleResult });
             }
           } catch (error) {
             console.error("[style-tagging] async product tagging failed", {
@@ -169,20 +177,13 @@ export async function POST(request: Request) {
               error: error instanceof Error ? error.message : String(error),
             });
           }
+          invalidatePublicProductCaches(productId);
         })(),
         (async () => {
           const result = await embedProductImageById(productId);
           if (!result.ok && !result.skipped) {
             console.error("[image-embedding] async product embedding did not complete", { productId, result });
           }
-        })(),
-        (async () => {
-          const result = await analyzeStoredProductCategory(productId);
-          if (!result.ok) {
-            console.error("[product-category-analysis] async analysis did not complete", { productId });
-          }
-          revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
-          invalidatePublicProductCaches(productId);
         })(),
       ]);
     });

@@ -40,8 +40,8 @@ export async function PATCH(
     if ("name" in body) payload.name = String(body?.name || "").trim();
     if ("category" in body) {
       const category = String(body?.category || "").trim();
-      if (!isProductCategory(category)) return NextResponse.json({ ok: false, error: "invalid category" }, { status: 400 });
-      payload.category = category;
+      if (category && !isProductCategory(category)) return NextResponse.json({ ok: false, error: "invalid category" }, { status: 400 });
+      payload.category = category || "Uncategorized";
       payload.category_analysis_status = "completed";
     }
     if ("subCategory" in body || "sub_category" in body) payload.sub_category = String(body?.subCategory ?? body?.sub_category ?? "").trim() || null;
@@ -96,10 +96,11 @@ export async function PATCH(
     let previousImagePath: string | null = null;
     const requiresExistingProduct = hasImagePathInPayload || Object.prototype.hasOwnProperty.call(payload, "sub_category") || Object.prototype.hasOwnProperty.call(payload, "category");
     let existingCategory = "";
+    let existingSubCategory: string | null = null;
     if (requiresExistingProduct) {
       const { data: existingProduct, error: existingProductError } = await db
         .from(SUPABASE_PRODUCTS_TABLE)
-        .select("id,image_path,category")
+        .select("id,image_path,category,sub_category")
         .eq("id", productId)
         .maybeSingle();
       if (existingProductError) throw existingProductError;
@@ -108,6 +109,7 @@ export async function PATCH(
         return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
       }
       existingCategory = String(existingProduct.category || "").trim();
+      existingSubCategory = String(existingProduct.sub_category || "").trim() || null;
       previousImagePath = String(existingProduct.image_path || "").trim() || null;
     }
     const effectiveCategory = String(payload.category || existingCategory).trim();
@@ -117,6 +119,13 @@ export async function PATCH(
     }
     if (Object.prototype.hasOwnProperty.call(payload, "category") && !Object.prototype.hasOwnProperty.call(payload, "sub_category")) {
       payload.sub_category = null;
+    }
+    if (
+      requiresExistingProduct &&
+      (Object.prototype.hasOwnProperty.call(payload, "category") || Object.prototype.hasOwnProperty.call(payload, "sub_category")) &&
+      (String(payload.category || existingCategory) !== existingCategory || (payload.sub_category ?? existingSubCategory) !== existingSubCategory)
+    ) {
+      payload.category_reviewed = false;
     }
 
     if (payload.is_instagram === true && !Object.prototype.hasOwnProperty.call(payload, "instagram_order")) {

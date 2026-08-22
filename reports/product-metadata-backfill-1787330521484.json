@@ -1,0 +1,25 @@
+{
+  "startedAt": "2026-08-21T16:42:00.288Z",
+  "dryRun": true,
+  "targetCount": 3,
+  "succeeded": [
+    {
+      "id": 171,
+      "url": "https://www.uniqlo.com/kr/ko/products/E485737-000/00?colorDisplayCode=69&sizeDisplayCode=030"
+    },
+    {
+      "id": 439,
+      "url": "https://www.helinoxwear.com/Product/OXJJM26201BRD"
+    }
+  ],
+  "failed": [
+    {
+      "id": 314,
+      "url": "https://www.adidas.co.kr/y-3-%EC%8A%A4%ED%83%A0-%EC%8A%A4%EB%AF%B8%EC%8A%A4-lo-pro/HP9986.html",
+      "error": "failed to fetch product page"
+    }
+  ],
+  "finishedAt": "2026-08-21T16:42:01.483Z",
+  "successCount": 2,
+  "failureCount": 1
+}

@@ -1,7 +1,7 @@
 import { isDuplicateProductErrorMessage } from "../../utils/product";
 import { submitProduct } from "../../api";
 import { buildSubmitProductPayload, getProductFormFlags, getSubmitValidationError } from "./helpers";
-import type { AddProductFormData, ClosetSizeSelection, ProductTaggingMetadata } from "../../types";
+import type { AddProductFormData, ClosetSizeSelection, Product, ProductTaggingMetadata } from "../../types";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import type { MessageKey } from "../../i18n/messages";
 
@@ -28,7 +28,7 @@ interface ProductFormSubmitState {
 
 interface UseProductFormSubmitOptions {
   state: ProductFormSubmitState;
-  onSubmitSuccess: () => void;
+  onSubmitSuccess: (product: Product) => void;
   onAddToDigbox?: (productId: string) => Promise<void>;
   onAddToCloset?: (productId: string, sizeSelection?: ClosetSizeSelection | null) => Promise<void>;
   isLoggedIn?: boolean;
@@ -114,7 +114,7 @@ export function useProductFormSubmit({
       state.setIsSaveComplete(true);
       await new Promise((resolve) => window.setTimeout(resolve, 500));
       state.closeModal();
-      onSubmitSuccess();
+      onSubmitSuccess(product);
     } catch (submitError: unknown) {
       const message = submitError instanceof Error ? submitError.message : t("addProduct.submitFailedGeneric");
       console.error("[handleSubmitProduct] submit failed", submitError);
