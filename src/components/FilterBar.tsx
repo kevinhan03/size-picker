@@ -1,8 +1,8 @@
 "use client";
 
-import { CATEGORY_OPTIONS } from "../constants";
 import type { TutorialAnchorRect } from "./OnboardingTutorial";
 import { useLocaleContext } from "../contexts/LocaleContext";
+import { CategoryTabs } from "./CategoryTabs";
 
 interface FilterBarProps {
   categoryValue: string;
@@ -13,31 +13,32 @@ interface FilterBarProps {
 
 const getAnchorRect = (element: HTMLElement): TutorialAnchorRect => {
   const rect = element.getBoundingClientRect();
-  return { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left, width: rect.width, height: rect.height };
+  return {
+    top: rect.top,
+    right: rect.right,
+    bottom: rect.bottom,
+    left: rect.left,
+    width: rect.width,
+    height: rect.height,
+  };
 };
 
-export function FilterBar({ categoryValue, onCategoryChange, disabled = false, className = "" }: FilterBarProps) {
+export function FilterBar({
+  categoryValue,
+  onCategoryChange,
+  disabled = false,
+  className = "",
+}: FilterBarProps) {
   const { t } = useLocaleContext();
-  const categories = [{ label: t("filter.all"), value: "" }, ...CATEGORY_OPTIONS.map((category) => ({ label: category, value: category }))];
-
   return (
-    <div className={`dig-filterbar mb-5 w-full ${className}`}>
-      <div className="grid w-full grid-cols-6">
-        {categories.map(({ label, value }) => {
-          const active = categoryValue === value;
-          return (
-            <button
-              key={value || "all"}
-              type="button"
-              disabled={disabled}
-              onClick={(event) => onCategoryChange(value, getAnchorRect(event.currentTarget))}
-              className={`h-11 min-w-0 border-b-2 border-r border-white/[0.12] px-1.5 text-[11px] font-bold transition-[border-color,color,transform] duration-150 active:scale-[0.98] last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:h-9 sm:px-2 sm:text-xs ${active ? "border-b-orange-300 text-orange-300" : "border-b-transparent text-gray-500 hover:text-white"}`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <CategoryTabs
+      category={categoryValue}
+      onCategoryChange={(value, trigger) =>
+        onCategoryChange(value, getAnchorRect(trigger))
+      }
+      allLabel={t("filter.all")}
+      className={`dig-filterbar ${className}`}
+      disabled={disabled}
+    />
   );
 }
