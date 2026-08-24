@@ -1,0 +1,8 @@
+# Local build artifacts and scratch data are not deployment inputs.
+.next
+node_modules
+tmp
+.git
+.vercel
+.env
+.env.local

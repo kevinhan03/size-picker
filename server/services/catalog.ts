@@ -12,11 +12,11 @@ export const PRODUCT_CARD_COLUMNS = [
 export const PRODUCT_DETAIL_COLUMNS = [
   PRODUCT_CARD_COLUMNS,
   "size_table", "normalized_size_table", "registered_by",
-  "style_tags", "style_attributes", "human_style_tags", "human_style_attributes", "tag_review_status", "tagging_status",
+  "style_tags", "style_attributes", "style_axes", "human_style_tags", "human_style_attributes", "human_style_axes", "style_axis_review_required", "tag_review_status", "tagging_status",
 ].join(",");
 
 export const RECOMMENDATION_COLUMNS = [
-  PRODUCT_CARD_COLUMNS, "style_tags", "style_attributes", "human_style_tags", "human_style_attributes",
+  PRODUCT_CARD_COLUMNS, "style_tags", "style_attributes", "style_axes", "human_style_tags", "human_style_attributes", "human_style_axes", "style_axis_review_required",
   "tag_review_status", "human_target_gender",
 ].join(",");
 
@@ -58,8 +58,11 @@ export const normalizeProductDetail = (row: unknown): ProductDetailData | null =
     registeredBy: product.registeredBy,
     styleTags: product.styleTags,
     styleAttributes: product.styleAttributes,
+    styleAxes: product.styleAxes,
     humanStyleTags: product.humanStyleTags,
     humanStyleAttributes: product.humanStyleAttributes,
+    humanStyleAxes: product.humanStyleAxes,
+    styleAxisReviewRequired: product.styleAxisReviewRequired,
     tagReviewStatus: product.tagReviewStatus,
     taggingStatus: product.taggingStatus,
   };

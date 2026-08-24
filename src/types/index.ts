@@ -34,13 +34,19 @@ export interface Product {
   digboxSizeDecision?: DigboxSizeDecision | null;
   styleTags?: StyleTags | null;
   styleAttributes?: StyleAttributes | null;
+  styleAxes?: StyleAxes | null;
   styleTagsEvidence?: StyleTagsEvidence | null;
   styleTagsConfidence?: number | null;
   taggingStatus?: string | null;
+  styleAxisAnalysisStatus?: string | null;
+  styleAxisAnalysisError?: string | null;
+  styleAxisAnalyzedAt?: string | null;
+  styleAxisReviewRequired?: boolean;
   taggingError?: string | null;
   taggedAt?: string | null;
   humanStyleTags?: StyleTags | null;
   humanStyleAttributes?: StyleAttributes | null;
+  humanStyleAxes?: StyleAxes | null;
   humanStyleTagsEvidence?: StyleTagsEvidence | null;
   tagReviewStatus?: TagReviewStatus | null;
   tagReviewNote?: string | null;
@@ -80,8 +86,11 @@ export type ProductDetailData = Pick<
   | 'registeredBy'
   | 'styleTags'
   | 'styleAttributes'
+  | 'styleAxes'
   | 'humanStyleTags'
   | 'humanStyleAttributes'
+  | 'humanStyleAxes'
+  | 'styleAxisReviewRequired'
   | 'tagReviewStatus'
   | 'taggingStatus'
 >;
@@ -124,6 +133,8 @@ export type StyleTagName =
 
 export type StyleTags = Record<StyleTagName, number>;
 export type StyleAttributes = Record<string, unknown>;
+export type StyleAxisName = 'formality' | 'structure' | 'visual_mass' | 'expression_intensity' | 'functional_technicality';
+export type StyleAxes = Record<StyleAxisName, number>;
 export type StyleAttributeEvidence = Partial<Record<string, string[]>>;
 export type StyleTagsEvidence = Partial<Record<StyleTagName, string[]>> & {
   attributes?: StyleAttributeEvidence;
@@ -134,6 +145,7 @@ export interface ProductStyleReviewInput {
   tagReviewStatus?: TagReviewStatus;
   humanStyleTags?: StyleTags | null;
   humanStyleAttributes?: StyleAttributes | null;
+  humanStyleAxes?: StyleAxes | null;
   humanStyleTagsEvidence?: StyleTagsEvidence | null;
   tagReviewNote?: string | null;
   targetGender?: ProductTargetGender;
@@ -214,6 +226,7 @@ export interface ProductRow {
   registered_by?: string | null;
   style_tags?: unknown;
   style_attributes?: unknown;
+  style_axes?: unknown;
   style_tags_evidence?: unknown;
   style_tags_confidence?: number | null;
   tagging_status?: string | null;
@@ -221,6 +234,11 @@ export interface ProductRow {
   tagged_at?: string | null;
   human_style_tags?: unknown;
   human_style_attributes?: unknown;
+  human_style_axes?: unknown;
+  style_axis_analysis_status?: string | null;
+  style_axis_analysis_error?: string | null;
+  style_axis_analyzed_at?: string | null;
+  style_axis_review_required?: boolean;
   human_style_tags_evidence?: unknown;
   tag_review_status?: string | null;
   tag_review_note?: string | null;

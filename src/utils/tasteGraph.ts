@@ -121,10 +121,10 @@ export function normalizeStyleTags(styleTags: unknown): Partial<StyleTags> {
 
 export function getEffectiveStyleTags(product: Product): { tags: unknown; source: "human" | "ai" } {
   const status = String(product.tagReviewStatus || "").trim();
-  const hasReviewedTags =
-    product.humanStyleTags &&
-    typeof product.humanStyleTags === "object" &&
-    !Array.isArray(product.humanStyleTags);
+  // An approved review can legitimately retain an empty human tag object when
+  // only another field was reviewed. Do not let that empty override discard the
+  // product's already-complete AI tags from reports and the taste timeline.
+  const hasReviewedTags = Object.keys(normalizeStyleTags(product.humanStyleTags)).length > 0;
 
   if ((status === "approved" || status === "edited") && hasReviewedTags) {
     return { tags: product.humanStyleTags, source: "human" };

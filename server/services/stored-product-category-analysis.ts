@@ -38,7 +38,6 @@ export async function analyzeStoredProductCategory(productId: string): Promise<{
     const classification = await classifyProductCategory({
       brand: String(product.brand || ""),
       name: String(product.name || ""),
-      sizeTable: product.size_table ?? null,
       productMetadata: product.product_metadata ?? null,
       image: {
         base64: Buffer.from(await image.arrayBuffer()).toString("base64"),

@@ -6,7 +6,7 @@ import { assertSupabaseConfig, supabase } from "../../../../../../server/lib/sup
 import { verifyAdminRequest } from "../../../../../../server/utils/admin-request.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../../../server/services/dig-match-products.js";
 import { invalidatePublicProductCaches } from "../../../../../../server/services/catalog-cache";
-import { fieldsForCategory, isCoreTasteCategory } from "@/constants/styleAnalysis";
+import { fieldsForCategory, isCoreTasteCategory, STYLE_AXIS_FIELDS } from "@/constants/styleAnalysis";
 import { isProductCategory, isValidSubcategory } from "@/constants";
 
 const STYLE_TAGS = [
@@ -25,6 +25,7 @@ const STYLE_TAGS = [
 const STYLE_TAG_SET = new Set<string>(STYLE_TAGS);
 const REVIEW_STATUSES = new Set(["needs_review", "approved", "edited", "rejected"]);
 const TARGET_GENDERS = new Set(["menswear", "womenswear", "unisex", "unknown"]);
+const STYLE_AXIS_KEYS = STYLE_AXIS_FIELDS.map((field) => field.key);
 const LEGACY_STYLE_TAG_MAP: Record<string, typeof STYLE_TAGS[number]> = {
   "캐주얼": "casual",
   "미니멀": "minimal",
@@ -128,6 +129,30 @@ const normalizeStyleAttributes = (value: unknown, fieldName: string, category: s
   return normalized;
 };
 
+const normalizeStyleAxes = (value: unknown, fieldName: string): Record<string, number> | null => {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) throw new Error(`${fieldName} must be an object`);
+  const keys = Object.keys(value);
+  if (keys.some((key) => !STYLE_AXIS_KEYS.includes(key)) || STYLE_AXIS_KEYS.some((key) => !(key in value))) {
+    throw new Error(`${fieldName} must contain exactly the configured style axes`);
+  }
+  return Object.fromEntries(STYLE_AXIS_KEYS.map((key) => {
+    const numeric = Number(value[key]);
+    if (!Number.isInteger(numeric) || numeric < 1 || numeric > 5) throw new Error(`${fieldName}.${key} must be an integer between 1 and 5`);
+    return [key, numeric];
+  }));
+};
+
+const mergeStoredStyleAxes = (human: unknown, ai: unknown): Record<string, number> | null => {
+  const humanRecord = isRecord(human) ? human : {};
+  const aiRecord = isRecord(ai) ? ai : {};
+  if (!Object.keys(humanRecord).length && !Object.keys(aiRecord).length) return null;
+  return Object.fromEntries(STYLE_AXIS_KEYS.map((key) => {
+    const candidate = Number(humanRecord[key] ?? aiRecord[key]);
+    return [key, Number.isInteger(candidate) && candidate >= 1 && candidate <= 5 ? candidate : 3];
+  }));
+};
+
 const normalizeReviewStatus = (value: unknown): string | null => {
   if (value === null || value === undefined) return null;
   const status = String(value || "").trim();
@@ -164,7 +189,7 @@ export async function GET(
     const { data, error } = await supabase!
       .from(SUPABASE_PRODUCTS_TABLE)
       .select(
-        "id,brand,name,category,sub_category,style_tags,style_attributes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
+        "id,brand,name,category,sub_category,style_tags,style_attributes,style_axes,style_tags_evidence,style_tags_confidence,tagging_status,tagging_error,style_axis_analysis_status,style_axis_analysis_error,style_axis_analyzed_at,style_axis_review_required,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_axes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
       )
       .eq("id", productId)
       .maybeSingle();
@@ -219,6 +244,7 @@ export async function PATCH(
     const subCategory = subCategoryProvided ? String(body.subCategory || "").trim() : null;
     if (subCategory && (!existingCategory || !isValidSubcategory(existingCategory, subCategory))) throw new Error("invalid subCategory for category");
     const humanStyleAttributes = normalizeStyleAttributes(body?.humanStyleAttributes, "humanStyleAttributes", existingCategory);
+    const humanStyleAxes = normalizeStyleAxes(body?.humanStyleAxes, "humanStyleAxes");
     const humanStyleTagsEvidence = normalizeJsonObject(body?.humanStyleTagsEvidence, "humanStyleTagsEvidence");
     const note =
       "tagReviewNote" in body
@@ -230,6 +256,10 @@ export async function PATCH(
     if (status) payload.tag_review_status = status;
     if (humanStyleTags) payload.human_style_tags = humanStyleTags;
     if (humanStyleAttributes) payload.human_style_attributes = humanStyleAttributes;
+    if (humanStyleAxes) {
+      payload.human_style_axes = humanStyleAxes;
+      payload.style_axis_review_required = false;
+    }
     if (humanStyleTagsEvidence) payload.human_style_tags_evidence = humanStyleTagsEvidence;
     if (note !== undefined) payload.tag_review_note = note || null;
     if (targetGender !== undefined) {
@@ -251,7 +281,7 @@ export async function PATCH(
       const { data: existingProduct, error: existingProductError } = await supabase!
         .from(SUPABASE_PRODUCTS_TABLE)
         .select(
-          "category,style_tags,style_attributes,style_tags_evidence,human_style_tags,human_style_attributes,human_style_tags_evidence"
+          "category,style_tags,style_attributes,style_axes,style_tags_evidence,human_style_tags,human_style_attributes,human_style_axes,human_style_tags_evidence"
         )
         .eq("id", productId)
         .maybeSingle();
@@ -269,6 +299,8 @@ export async function PATCH(
       payload.human_style_tags_evidence = existingProduct.human_style_tags_evidence
         ? normalizeJsonObject(existingProduct.human_style_tags_evidence, "human_style_tags_evidence")
         : normalizeJsonObject(existingProduct.style_tags_evidence, "style_tags_evidence");
+      payload.human_style_axes = mergeStoredStyleAxes(existingProduct.human_style_axes, existingProduct.style_axes);
+      payload.style_axis_review_required = false;
     }
 
     if (Object.keys(payload).length === 0) {
@@ -288,7 +320,7 @@ export async function PATCH(
       .update(payload)
       .eq("id", productId)
       .select(
-        "id,brand,name,category,sub_category,category_reviewed,category_analysis_status,style_tags,style_attributes,style_tags_evidence,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
+        "id,brand,name,category,sub_category,category_reviewed,category_analysis_status,style_tags,style_attributes,style_axes,style_tags_evidence,style_axis_review_required,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_tags,human_style_attributes,human_style_axes,human_style_tags_evidence,tag_review_status,tag_review_note,reviewed_by,reviewed_at"
       )
       .maybeSingle();
 

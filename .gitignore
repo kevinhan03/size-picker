@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 .next
+.vercel/
 tsconfig.tsbuildinfo
 dist
 dist-ssr

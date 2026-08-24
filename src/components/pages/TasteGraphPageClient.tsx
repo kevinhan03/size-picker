@@ -127,8 +127,11 @@ export function TasteGraphPageClient({
 
   useEffect(() => {
     if (!authUserId) return;
-    ensureClosetLoaded();
-    ensureDigboxLoaded();
+    // The report and its taste-shift timeline require both style tags and the
+    // time each item entered the collection. Do not seed them from the compact
+    // collection bootstrap (which may be a short-lived session snapshot).
+    ensureClosetLoaded(true);
+    ensureDigboxLoaded(true);
   }, [authUserId, ensureClosetLoaded, ensureDigboxLoaded]);
 
   const source = selectedSource ?? urlFocus.source ?? "digbox";

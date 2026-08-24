@@ -1,5 +1,6 @@
 import type { AddProductFormData } from "../types";
 export { ACCESSORY_CATEGORY_OPTIONS, CATEGORY_LABELS, CATEGORY_OPTIONS, CATEGORY_OPTION_BY_LOWER, getCategoryLabel, getSubcategories, isAccessoryCategory, isProductCategory, isValidSubcategory, PRODUCT_CATEGORIES, suggestProductCategory } from "./productCategories";
+export { PRODUCT_CATEGORY_REGISTRY } from "./productCategoryRegistry.js";
 
 export const MAX_PRODUCT_IMAGE_CANDIDATES = 24;
 export const DUPLICATE_PRODUCT_MESSAGE = "이미 등록된 상품입니다.";
