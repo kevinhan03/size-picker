@@ -45,6 +45,7 @@
     "force-graph": "^1.51.4",
     "lucide-react": "^0.564.0",
     "next": "16.2.10",
+    "posthog-js": "^1.418.16",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

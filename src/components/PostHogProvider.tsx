@@ -3,13 +3,26 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useAuthContext } from "../contexts/AuthContext";
-import { captureEvent, identifyAnalyticsUser, initializeAnalytics } from "../utils/analytics";
+import { captureEvent, getAnonymousAnalyticsId, identifyAnalyticsUser, initializeAnalytics } from "../utils/analytics";
+import { startSessionReplay, stopSessionReplay } from "../utils/sessionReplay";
 
 function AnalyticsIdentityBridge() {
   const { authUser, isAuthLoading } = useAuthContext();
+  const pathname = usePathname();
   useEffect(() => {
-    if (!isAuthLoading && authUser) void identifyAnalyticsUser();
-  }, [authUser, isAuthLoading]);
+    if (pathname.startsWith("/admin")) {
+      stopSessionReplay();
+      return;
+    }
+    if (isAuthLoading) return;
+    const syncIdentity = async () => {
+      if (authUser) await identifyAnalyticsUser();
+      const response = await fetch("/api/analytics/identity", { cache: "no-store", credentials: "same-origin" });
+      const payload = await response.json() as { distinctId?: string | null };
+      startSessionReplay(payload.distinctId || getAnonymousAnalyticsId());
+    };
+    void syncIdentity();
+  }, [authUser, isAuthLoading, pathname]);
   return null;
 }
 
