@@ -288,6 +288,7 @@ export function useDigbox(
       const properties = { product_id: productId, guest_count: next.length, source, logged_in: false };
       captureEvent("guest_digbox_saved", properties);
       captureEvent("save_succeeded", properties);
+      showToast({ message: "guest_added", type: "success" });
       if (next.length === GUEST_DIGBOX_LIMIT) {
         setIsGuestPromptOpen(true);
       }

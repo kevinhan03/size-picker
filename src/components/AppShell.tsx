@@ -208,7 +208,8 @@ function DigboxToast() {
   if (!visibleToast) return null;
 
   const isLoginRequired = visibleToast.message === "login_required";
-  const isAdded = visibleToast.message === "added" || visibleToast.message === "guest_synced";
+  const isGuestAdded = visibleToast.message === "guest_added";
+  const isAdded = visibleToast.message === "added" || visibleToast.message === "guest_synced" || isGuestAdded;
   const isGuestSyncPartial = visibleToast.message === "guest_sync_partial";
 
   return (
@@ -230,6 +231,8 @@ function DigboxToast() {
               ? t("toast.guestSyncPartial")
               : visibleToast.message === "guest_synced"
               ? t("toast.guestSyncedFull")
+              : isGuestAdded
+              ? t("toast.guestAdded", { count: guestCount })
               : isLoginRequired
               ? t("toast.loginRequired")
               : isAdded
@@ -241,6 +244,12 @@ function DigboxToast() {
               ? t("toast.guestSyncPartialHint")
               : visibleToast.message === "guest_synced"
               ? t("toast.guestSyncedFullHint")
+              : isGuestAdded
+              ? guestCount === 1
+                ? t("toast.guestOneHint")
+                : guestCount === 2
+                  ? t("toast.guestTwoHint")
+                  : t("toast.guestThreeHint")
               : isLoginRequired
               ? t("toast.saveLoginHint")
               : isAdded
@@ -271,10 +280,10 @@ function DigboxToast() {
         ) : isAdded ? (
           <button
             type="button"
-            onClick={handleViewDigbox}
+            onClick={isGuestAdded ? () => { clearToast(); router.push("/saved"); } : handleViewDigbox}
             className="flex-shrink-0 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-black transition hover:bg-yellow-300"
           >
-            {t("toast.view")}
+            {isGuestAdded ? t("guestTaste.preview") : t("toast.view")}
           </button>
         ) : (
           <button

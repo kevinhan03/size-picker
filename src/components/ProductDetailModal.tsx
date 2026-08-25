@@ -243,8 +243,9 @@ function ProductDetailModalContent({
       source: analyticsSource,
       logged_in: Boolean(authUser),
       already_saved: Boolean(isInDigbox),
+      guest_hint_shown: showGuestDigboxHint,
     });
-  }, [analyticsSource, authUser, hideCollectionActions, hideDigboxButton, isInDigbox, onToggleDigbox, product.id]);
+  }, [analyticsSource, authUser, hideCollectionActions, hideDigboxButton, isInDigbox, onToggleDigbox, product.id, showGuestDigboxHint]);
   const sizeTableSuppressClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerDownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerDownSelectedRowRef = useRef<number | null>(null);
@@ -503,7 +504,7 @@ function ProductDetailModalContent({
             <div className="group relative">
               <button
                 type="button"
-                aria-label={isInDigbox ? t("product.saved") : t("product.save")}
+                aria-label={isInDigbox ? t("product.saved") : !authUser ? t("product.guestSave") : t("product.save")}
                 aria-pressed={isInDigbox}
                 data-active={isInDigbox}
                 onClick={(event) => {
@@ -519,7 +520,7 @@ function ProductDetailModalContent({
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill={isInDigbox ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                 </svg>
-                <span>{isInDigbox ? t("product.saved") : t("product.save")}</span>
+                <span>{isInDigbox ? t("product.saved") : !authUser ? t("product.guestSave") : t("product.save")}</span>
               </button>
               {showGuestDigboxHint && !isInDigbox ? (
                 <div role="status" className="pointer-events-none absolute right-0 top-[calc(100%+0.65rem)] z-20 w-60 rounded-xl border border-yellow-300/30 bg-[#282014] px-3 py-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.34)]">
