@@ -9,6 +9,7 @@ import { normalizeUsername, validateUsername } from "../utils/username";
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "../utils/authCache";
 import { clearCollectionSnapshot } from "../utils/collectionCache";
 import { useLocaleContext } from "../contexts/LocaleContext";
+import { captureEvent, resetAnalyticsIdentity } from "../utils/analytics";
 
 type AuthUser = { id?: string; email?: string } | null;
 type AuthSessionResponse = { ok?: boolean; data?: AuthInitialState };
@@ -132,6 +133,7 @@ export function useAuth(initialState: AuthInitialState) {
   };
 
   const signOut = async (destination = "/") => {
+    captureEvent("auth_logged_out");
     await fetch("/api/auth/logout", { method: "POST" });
     await supabase?.auth.signOut({ scope: "local" });
     if (authUserRef.current?.id) clearCollectionSnapshot(authUserRef.current.id);
@@ -140,6 +142,7 @@ export function useAuth(initialState: AuthInitialState) {
     setAuthUser(null);
     setDbUsername(null);
     setNeedsUsername(false);
+    resetAnalyticsIdentity();
     router.replace(destination);
     router.refresh();
   };

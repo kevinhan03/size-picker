@@ -272,11 +272,13 @@ export function useDigbox(
 
     if (!isLoggedIn) {
       if (guestIds.includes(productId)) {
+        captureEvent("save_blocked", { product_id: productId, ui_surface: source, failure_reason: "already_saved", logged_in: false });
         showToast({ message: "already_added", type: "info" });
         return;
       }
       if (guestIds.length >= GUEST_DIGBOX_LIMIT) {
         captureEvent("guest_digbox_limit_reached", { product_id: productId, guest_count: guestIds.length, source });
+        captureEvent("save_blocked", { product_id: productId, ui_surface: source, failure_reason: "guest_limit", logged_in: false });
         setIsGuestPromptOpen(true);
         return;
       }
@@ -293,6 +295,7 @@ export function useDigbox(
     }
 
     if (digboxIds.has(productId)) {
+      captureEvent("save_blocked", { product_id: productId, ui_surface: source, failure_reason: "already_saved", logged_in: true });
       showToast({ message: "already_added", type: "info" });
       return;
     }
@@ -301,6 +304,7 @@ export function useDigbox(
       showToast({ message: "added", type: "success" });
     } catch (error) {
       console.error("[digbox] add failed", error);
+      captureEvent("save_failed", { product_id: productId, ui_surface: source, failure_reason: "request_failed", logged_in: true });
       showToast({ message: "add_failed", type: "error" });
     }
   }, [addToDigbox, digboxIds, guestIds, isLoggedIn, showToast]);

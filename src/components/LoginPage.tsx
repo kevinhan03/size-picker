@@ -221,7 +221,10 @@ export const LoginPage = ({
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: trimmedEmail, password: trimmedPassword }),
         });
         const payload = await response.json() as { ok?: boolean; error?: string };
-        if (!response.ok || !payload.ok) throw new Error(payload.error || 'Login failed');
+        if (!response.ok || !payload.ok) {
+          captureEvent('auth_failed', { mode: tab, method: 'email', failure_reason: 'credentials_or_request' });
+          throw new Error(payload.error || 'Login failed');
+        }
         onSuccess();
       } else {
         const trimmedUsername = username.trim();
@@ -235,7 +238,10 @@ export const LoginPage = ({
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: trimmedEmail, password: trimmedPassword, username: trimmedUsername }),
         });
         const payload = await response.json() as { ok?: boolean; data?: { requiresVerification?: boolean }; error?: string };
-        if (!response.ok || !payload.ok) throw new Error(payload.error || 'Signup failed');
+        if (!response.ok || !payload.ok) {
+          captureEvent('auth_failed', { mode: tab, method: 'email', failure_reason: 'signup_request' });
+          throw new Error(payload.error || 'Signup failed');
+        }
         if (!payload.data?.requiresVerification) {
           if (readGuestDigbox().length) requestGuestDigboxImport();
           await completeMyProfile(trimmedUsername);

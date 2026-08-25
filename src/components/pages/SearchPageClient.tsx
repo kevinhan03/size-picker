@@ -20,6 +20,7 @@ import { useGridState } from "../../hooks/useGridState";
 import { useProductDetail } from "../../hooks/useProductDetail";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { toPublicUrl } from "../../utils/product";
+import { captureEvent } from "../../utils/analytics";
 import type { Product } from "../../types";
 import { loadProductDetailModal } from "../productDetailModalLoader";
 
@@ -273,17 +274,20 @@ export function SearchPageClient() {
     setShowSuggestions(false);
     setIsBrandExplorerOpen(false);
     clearQuery();
+    captureEvent("catalog_filter_applied", { filter_type: "brand", result_count: products.filter((product) => normalizeBrandKey(product.brand) === normalizeBrandKey(brand)).length });
   };
 
   const handleClearBrand = () => {
     setBrandFilter("");
     setIsBrandExplorerOpen(false);
+    captureEvent("catalog_filter_cleared", { filter_type: "brand" });
   };
 
   const handleCategoryFilterChange = (value: string, anchorRect?: TutorialAnchorRect) => {
     showTutorialOnce("filters", anchorRect);
     grid.setGridCategoryFilter(value);
     grid.setGridSubCategoryFilter("");
+    captureEvent("catalog_filter_applied", { filter_type: "category", filter_value: value || "all" });
   };
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -293,6 +297,7 @@ export function SearchPageClient() {
     const term = query.trim();
     grid.setGridSearchQuery(term);
     setShowSuggestions(false);
+    captureEvent("catalog_search_submitted", { query_length: term.length, result_count: grid.filteredGridProducts.length });
   };
 
   const handleProductClick = (product: Product, anchorRect?: TutorialAnchorRect) => {
@@ -305,6 +310,7 @@ export function SearchPageClient() {
     setIsDetailImageZoomed(false);
     showTutorialOnce("detail", anchorRect);
     productModal.openProduct(product.id);
+    captureEvent("catalog_product_opened", { product_id: product.id, category: product.category, ui_surface: "catalog_grid" });
   };
 
   const handleGridClose = () => {
@@ -321,6 +327,7 @@ export function SearchPageClient() {
     setIsDetailImageZoomed(false);
     showTutorialOnce("detail", anchorRect);
     productModal.openProduct(product.id, true);
+    captureEvent("catalog_product_opened", { product_id: product.id, category: product.category, ui_surface: "catalog_recommendation" });
   };
 
   const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
@@ -515,7 +522,7 @@ export function SearchPageClient() {
           isLoading={isProductsLoading}
           hasMoreProducts={hasMoreProducts}
           isLoadingMoreProducts={isLoadingMoreProducts}
-          onLoadMoreProducts={() => void loadMoreProducts()}
+          onLoadMoreProducts={() => { captureEvent("catalog_load_more_requested", { current_count: products.length }); void loadMoreProducts(); }}
         />
       </div>
 

@@ -16,9 +16,9 @@ import type { Locale } from "../i18n/locale";
 
 export function ClientProviders({ children, initialAuth, initialLocale }: { children: React.ReactNode; initialAuth: AuthInitialState; initialLocale: Locale }) {
   return (
-    <PostHogProvider>
-      <LocaleProvider initialLocale={initialLocale}>
-        <AuthProvider initialState={initialAuth}>
+    <LocaleProvider initialLocale={initialLocale}>
+      <AuthProvider initialState={initialAuth}>
+        <PostHogProvider>
           <CollectionBootstrapProvider>
             <NavigationPrefetcher />
             <ClosetProvider>
@@ -31,8 +31,8 @@ export function ClientProviders({ children, initialAuth, initialLocale }: { chil
               </DigboxProvider>
             </ClosetProvider>
           </CollectionBootstrapProvider>
-        </AuthProvider>
-      </LocaleProvider>
-    </PostHogProvider>
+        </PostHogProvider>
+      </AuthProvider>
+    </LocaleProvider>
   );
 }
