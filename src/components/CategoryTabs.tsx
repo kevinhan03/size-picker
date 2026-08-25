@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { CATEGORY_LABELS, CATEGORY_OPTIONS } from "../constants";
 
 interface CategoryTabsProps {
@@ -8,6 +9,7 @@ interface CategoryTabsProps {
   allLabel?: string;
   ariaLabel?: string;
   className?: string;
+  spacing?: "default" | "tight" | "result";
   disabled?: boolean;
 }
 
@@ -18,25 +20,53 @@ const parentTabClass = (active: boolean) =>
       : "border-b-transparent text-gray-500 hover:text-white"
   }`;
 
+const getScrollBehavior = (): ScrollBehavior =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : "smooth";
+
 export function CategoryTabs({
   category,
   onCategoryChange,
   allLabel = "전체",
   ariaLabel = "상품 카테고리",
   className = "",
+  spacing = "default",
   disabled = false,
 }: CategoryTabsProps) {
+  const tablistRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const activeTab = tablistRef.current?.querySelector<HTMLElement>(
+      "[data-active='true']"
+    );
+    activeTab?.scrollIntoView({
+      behavior: getScrollBehavior(),
+      block: "nearest",
+      inline: "center",
+    });
+  }, [category]);
+
   return (
-    <nav className={`relative mb-5 w-full ${className}`} aria-label={ariaLabel}>
+    <nav
+      className={`relative w-full ${className}`}
+      style={{
+        marginBottom:
+          spacing === "tight" ? "0.5rem" : spacing === "result" ? "1.5rem" : "1.25rem",
+      }}
+      aria-label={ariaLabel}
+    >
       <div
+        ref={tablistRef}
         className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         role="tablist"
         aria-label="상위 카테고리"
       >
-        <div className="flex min-w-max px-3 sm:min-w-full sm:justify-center">
+        <div className="flex w-max min-w-full px-3 sm:justify-center">
           <button
             type="button"
             role="tab"
+            data-active={!category}
             aria-selected={!category}
             disabled={disabled}
             className={parentTabClass(!category)}
@@ -49,6 +79,7 @@ export function CategoryTabs({
               key={item}
               type="button"
               role="tab"
+              data-active={category === item}
               aria-selected={category === item}
               disabled={disabled}
               className={parentTabClass(category === item)}

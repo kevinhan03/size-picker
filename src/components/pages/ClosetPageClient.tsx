@@ -458,6 +458,7 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
   const productModal = useProductModalQuery();
 
   const [catFilter, setCatFilter] = useState("");
+  const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [isEditing, setIsEditing] = useState(false);
@@ -501,11 +502,12 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
     const keyword = searchQuery.trim().toLowerCase();
     return closetItems.filter((p) => {
       if (catFilter && p.category !== catFilter) return false;
+      if (subCategoryFilter && p.subCategory !== subCategoryFilter) return false;
       if (!keyword) return true;
       return `${p.brand} ${p.name}`.toLowerCase().includes(keyword);
     });
-  }, [closetItems, catFilter, searchQuery]);
-  const { visibleCount, sentinelRef } = useProgressiveList(filtered.length, `${catFilter}:${searchQuery}`);
+  }, [closetItems, catFilter, searchQuery, subCategoryFilter]);
+  const { visibleCount, sentinelRef } = useProgressiveList(filtered.length, `${catFilter}:${subCategoryFilter}:${searchQuery}`);
   const visibleProducts = filtered.slice(0, visibleCount);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing derived collection state.
@@ -628,7 +630,16 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
         <div className="mt-[var(--page-header-content-gap)]">
           <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("closet.search")} />
         </div>
-        <FilterBar categoryValue={catFilter} onCategoryChange={(value) => setCatFilter(value)} disabled={isEditing} />
+        <FilterBar
+          categoryValue={catFilter}
+          onCategoryChange={(value) => {
+            setCatFilter(value);
+            setSubCategoryFilter("");
+          }}
+          subCategoryValue={subCategoryFilter}
+          onSubCategoryChange={setSubCategoryFilter}
+          disabled={isEditing}
+        />
         </div>
 
         {/* Toolbar */}
@@ -824,10 +835,14 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
             query={searchQuery}
             category={catFilter}
             onClearSearch={() => setSearchQuery("")}
-            onClearCategory={() => setCatFilter("")}
+            onClearCategory={() => {
+              setCatFilter("");
+              setSubCategoryFilter("");
+            }}
             onClearAll={() => {
               setSearchQuery("");
               setCatFilter("");
+              setSubCategoryFilter("");
             }}
           />
         )}

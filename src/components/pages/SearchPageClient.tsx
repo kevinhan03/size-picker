@@ -346,7 +346,7 @@ export function SearchPageClient() {
       )}
 
       {/* Search bar below navbar */}
-      <div className="relative mb-4 w-full max-w-3xl" ref={searchContainerRef}>
+      <div className="relative mb-5 w-full max-w-3xl" ref={searchContainerRef}>
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
           <Search className={`h-5 w-5 transition-colors ${showSuggestions ? "text-orange-500" : "text-gray-500"}`} />
         </div>

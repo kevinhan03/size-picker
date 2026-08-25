@@ -1,23 +1,47 @@
 import type { AddProductFormData } from "../types";
-export { ACCESSORY_CATEGORY_OPTIONS, CATEGORY_LABELS, CATEGORY_OPTIONS, CATEGORY_OPTION_BY_LOWER, getCategoryLabel, getSubcategories, isAccessoryCategory, isProductCategory, isValidSubcategory, PRODUCT_CATEGORIES, suggestProductCategory } from "./productCategories";
+export {
+  ACCESSORY_CATEGORY_OPTIONS,
+  CATEGORY_LABELS,
+  CATEGORY_OPTIONS,
+  CATEGORY_OPTION_BY_LOWER,
+  getCategoryLabel,
+  getSubcategoryFilterOptions,
+  getSubcategories,
+  isAccessoryCategory,
+  isProductCategory,
+  isValidSubcategory,
+  PRODUCT_CATEGORIES,
+  suggestProductCategory,
+} from "./productCategories";
 export { PRODUCT_CATEGORY_REGISTRY } from "./productCategoryRegistry.js";
 
 export const MAX_PRODUCT_IMAGE_CANDIDATES = 24;
 export const DUPLICATE_PRODUCT_MESSAGE = "이미 등록된 상품입니다.";
 
-export const SUPABASE_URL = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-export const SUPABASE_ANON_KEY = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
+export const SUPABASE_URL = String(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+).trim();
+export const SUPABASE_ANON_KEY = String(
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+).trim();
 export const STORAGE_BUCKET = "product-assets";
 export const STORAGE_PREFIX = "submissions/";
 export const DEFAULT_PRODUCT_PLACEHOLDER = "/images/default-product.svg";
-
 
 export const TOTAL_LENGTH_LABEL = "총장";
 export const ITEM_LABEL = "항목";
 export const SIZE_COLUMN_LABEL = "사이즈";
 export const MEASUREMENT_LABEL_HINT_PATTERN =
   /(?:총장|기장|어깨|가슴|소매|허리|힙|허벅지|밑위|밑단|인심|length|shoulder|chest|sleeve|waist|hip|thigh|rise|hem|inseam|pit|bust|body|width)/i;
-export const TOTAL_LENGTH_ALIAS_KEYS = ["총장", "전체길이", "전체장", "기장", "totallength", "length", "total"] as const;
+export const TOTAL_LENGTH_ALIAS_KEYS = [
+  "총장",
+  "전체길이",
+  "전체장",
+  "기장",
+  "totallength",
+  "length",
+  "total",
+] as const;
 export const MEASUREMENT_ALIAS_MAP: Record<string, string> = {
   총장: TOTAL_LENGTH_LABEL,
   전체길이: TOTAL_LENGTH_LABEL,

@@ -327,6 +327,7 @@ export function DigboxPageClient({
   }, []);
 
   const [catFilter, setCatFilter] = useState("");
+  const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -438,11 +439,12 @@ export function DigboxPageClient({
     const keyword = searchQuery.trim().toLowerCase();
     return products.filter((p) => {
       if (catFilter && p.category !== catFilter) return false;
+      if (subCategoryFilter && p.subCategory !== subCategoryFilter) return false;
       if (!keyword) return true;
       return `${p.brand} ${p.name}`.toLowerCase().includes(keyword);
     });
-  }, [catFilter, products, searchQuery]);
-  const { visibleCount, sentinelRef } = useProgressiveList(filtered.length, `${catFilter}:${searchQuery}`);
+  }, [catFilter, products, searchQuery, subCategoryFilter]);
+  const { visibleCount, sentinelRef } = useProgressiveList(filtered.length, `${catFilter}:${subCategoryFilter}:${searchQuery}`);
   const visibleProducts = filtered.slice(0, visibleCount);
 
   const normalizedProduct = useMemo<Product | null>(() => {
@@ -736,7 +738,16 @@ export function DigboxPageClient({
         )}
 
         {/* Category filter */}
-        <FilterBar categoryValue={catFilter} onCategoryChange={(value) => setCatFilter(value)} disabled={isEditing} />
+        <FilterBar
+          categoryValue={catFilter}
+          onCategoryChange={(value) => {
+            setCatFilter(value);
+            setSubCategoryFilter("");
+          }}
+          subCategoryValue={subCategoryFilter}
+          onSubCategoryChange={setSubCategoryFilter}
+          disabled={isEditing}
+        />
         </div>
 
         {/* Toolbar */}
@@ -817,10 +828,14 @@ export function DigboxPageClient({
             query={searchQuery}
             category={catFilter}
             onClearSearch={() => setSearchQuery("")}
-            onClearCategory={() => setCatFilter("")}
+            onClearCategory={() => {
+              setCatFilter("");
+              setSubCategoryFilter("");
+            }}
             onClearAll={() => {
               setSearchQuery("");
               setCatFilter("");
+              setSubCategoryFilter("");
             }}
           />
         ) : (
