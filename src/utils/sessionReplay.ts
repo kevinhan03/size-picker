@@ -1,13 +1,13 @@
 "use client";
 
-import posthog from "posthog-js";
+import type { PostHog } from "posthog-js";
 
-let initialized = false;
+let client: PostHog | null = null;
+let loading: Promise<PostHog> | null = null;
 
-export function startSessionReplay(distinctId: string) {
-  if (!distinctId || typeof window === "undefined") return;
-  if (!initialized) {
-    initialized = true;
+async function getClient() {
+  if (client) return client;
+  loading ??= import("posthog-js").then(({ default: posthog }) => {
     posthog.init("server-proxy-managed", {
       api_host: "/_dbx",
       asset_host: "https://us-assets.i.posthog.com",
@@ -20,11 +20,19 @@ export function startSessionReplay(distinctId: string) {
         maskTextSelector: "[data-private], .ph-mask",
       },
     });
-  }
+    client = posthog;
+    return posthog;
+  });
+  return loading;
+}
+
+export async function startSessionReplay(distinctId: string) {
+  if (!distinctId || typeof window === "undefined") return;
+  const posthog = await getClient();
   posthog.identify(distinctId);
-  posthog.startSessionRecording({ sampling: true });
+  posthog.startSessionRecording();
 }
 
 export function stopSessionReplay() {
-  if (initialized) posthog.stopSessionRecording();
+  client?.stopSessionRecording();
 }
