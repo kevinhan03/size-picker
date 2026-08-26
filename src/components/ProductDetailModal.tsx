@@ -5,7 +5,7 @@ import { Check, ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react"
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { ClosetSizeSelection, DigboxSizeDecisionInput, MySizeProfile, Product } from "../types";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
-import { DEFAULT_PRODUCT_PLACEHOLDER } from "../constants";
+import { DEFAULT_PRODUCT_PLACEHOLDER, getCategoryLabel } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { MySizesProvider, useMySizesContext } from "../contexts/MySizesContext";
 import { useAuthContext } from "../contexts/AuthContext";
@@ -588,7 +588,9 @@ function ProductDetailModalContent({
             <div className="flex-1">
               <div className="mb-2 flex items-center gap-2 text-sm font-bold text-orange-500">
                 <span className="rounded-md bg-orange-500/10 px-2 py-0.5 uppercase">{product.brand}</span>
-                <span className="text-gray-500">{product.category}</span>
+                <span className="text-gray-500">
+                  {getCategoryLabel(product.category)}{product.subCategory ? ` · ${product.subCategory}` : ""}
+                </span>
               </div>
               <h4 className="mb-2 text-2xl font-bold text-white">{product.name}</h4>
               <ProductSummaryDetailsPanel product={product} />

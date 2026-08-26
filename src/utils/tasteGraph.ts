@@ -1144,19 +1144,23 @@ function getEffectiveStyleAttributes(product: Product, includeAccessories = fals
     : null;
 }
 
-const PRODUCT_SUMMARY_ATTRIBUTE_KEYS: Record<string, string[]> = {
-  Top: ["fit_volume", "primary_color", "primary_material", "details"],
-  Bottom: ["silhouette", "primary_color", "primary_material", "details"],
-  Outer: ["fit_volume", "length", "primary_color", "details"],
-  DressSkirt: ["silhouette", "length", "primary_color", "details"],
-  Shoes: ["profile", "sole_heel", "primary_color", "primary_material"],
+// The category and sub-category already carry an item's broad type (for
+// example, short-sleeve tee), so the modal uses the remaining facts that help
+// decide fit, shape, and construction. Each inner array is one display slot
+// with a fallback when its preferred fact is absent.
+const PRODUCT_SUMMARY_ATTRIBUTE_SLOTS: Record<string, string[][]> = {
+  Top: [["fit_volume"], ["length"], ["neckline", "collar"], ["primary_material"]],
+  Bottom: [["silhouette"], ["length"], ["rise"], ["primary_material"]],
+  Outer: [["fit_volume"], ["length"], ["collar_or_hood"], ["insulation", "primary_material"]],
+  DressSkirt: [["silhouette"], ["length"], ["neckline"], ["sleeve_length"]],
+  Shoes: [["toe_shape"], ["sole_heel"], ["height"], ["primary_material"]],
 };
 
 function firstKnownStyleAttribute(attributes: Record<string, unknown>, key: string) {
   const values = Array.isArray(attributes[key]) ? attributes[key] : [attributes[key]];
   return values
     .map((value) => String(value ?? "").trim().toLowerCase())
-    .find((value) => value && value !== "unknown") || null;
+    .find((value) => value && value !== "unknown" && value !== "none") || null;
 }
 
 function productSummaryLabel(category: string, key: string, value: string) {
@@ -1170,6 +1174,7 @@ function productSummaryLabel(category: string, key: string, value: string) {
   if (key === "fit_volume") return `${label} 핏`;
   if (key === "silhouette") return `${label} 실루엣`;
   if (key === "length") return `${label} 기장`;
+  if (key === "height") return `${label} 높이`;
   return label;
 }
 
@@ -1177,16 +1182,20 @@ function productSummaryLabel(category: string, key: string, value: string) {
 export function getProductSummaryDetails(product: Product): string[] {
   const attributes = getEffectiveStyleAttributes(product, true);
   const category = String(product.category || "").trim();
-  const keys = PRODUCT_SUMMARY_ATTRIBUTE_KEYS[category] || [];
-  if (!attributes || !keys.length) return [];
+  const slots = PRODUCT_SUMMARY_ATTRIBUTE_SLOTS[category] || [];
+  if (!attributes || !slots.length) return [];
 
-  return [...new Set(keys
-    .map((key) => {
-      const value = firstKnownStyleAttribute(attributes, key);
-      return value ? productSummaryLabel(category, key, value) : null;
+  return [...new Set(slots
+    .map((keys) => {
+      for (const key of keys) {
+        const value = firstKnownStyleAttribute(attributes, key);
+        const label = value ? productSummaryLabel(category, key, value) : null;
+        if (label) return label;
+      }
+      return null;
     })
     .filter((detail): detail is string => Boolean(detail))
-  )].slice(0, 4);
+  )];
 }
 
 function averageTagScores(products: Product[]) {
