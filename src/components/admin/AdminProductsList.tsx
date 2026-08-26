@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, Search, Sparkles, XCircle } from 'lucide-react';
 import { ProgressiveImage } from '../ProgressiveImage';
+import { ImageViewerOverlay } from '../ImageViewerOverlay';
 import { AdminProductEditor } from './AdminProductEditor';
 import { ProductStyleReviewPanel } from './ProductStyleReviewPanel';
 import type { AdminEditForm, Product, ProductStyleReviewInput, SizeTable } from '../../types';
@@ -77,6 +78,7 @@ export function AdminProductsList({
   const [categoryFilter, setCategoryFilter] = useState('');
   const [subCategoryFilter, setSubCategoryFilter] = useState('');
   const [expandedReviewIds, setExpandedReviewIds] = useState<Set<string>>(() => new Set());
+  const [imageViewerProduct, setImageViewerProduct] = useState<Product | null>(null);
 
   const aiTaggedCount = allProducts.filter(hasAiTags).length;
   const aiUntaggedCount = allProducts.filter((product) => !hasAiTags(product) && product.taggingStatus !== 'failed').length;
@@ -268,7 +270,12 @@ export function AdminProductsList({
       {filteredProducts.map((product) => (
         <div key={product.id} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl p-4">
           <div className="flex flex-col gap-4 min-[900px]:flex-row min-[900px]:items-start">
-            <div className="relative w-20 h-20 bg-white rounded-xl p-2 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+            <button
+              type="button"
+              onClick={() => setImageViewerProduct(product)}
+              aria-label={`${product.name} 이미지 크게 보기`}
+              className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-700 bg-white p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80"
+            >
               <ProgressiveImage
                 src={product.image}
                 thumbnailSrc={product.thumbnailImage}
@@ -276,7 +283,7 @@ export function AdminProductsList({
                 className="max-w-full max-h-full object-contain"
                 onError={onImageLoadError}
               />
-            </div>
+            </button>
             <div className="flex-1 min-w-0">
               <div>
                   <div className="relative flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-start min-[900px]:justify-between">
@@ -401,6 +408,14 @@ export function AdminProductsList({
           </div>
         </div>
       ))}
+      {imageViewerProduct ? (
+        <ImageViewerOverlay
+          open
+          src={imageViewerProduct.image || imageViewerProduct.thumbnailImage || ''}
+          alt={imageViewerProduct.name}
+          onClose={() => setImageViewerProduct(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -43,6 +43,15 @@ const nextConfig: NextConfig = {
     "/api/**": ["./server/config/brand-rules.csv"],
   },
   images: {
+    // Product cards are at most 300px wide. Limit the generated variants to
+    // the widths that cards actually need, rather than the full Next.js set.
+    deviceSizes: [320, 640],
+    imageSizes: [32, 48, 64, 96, 128, 256],
+    qualities: [75],
+    formats: ["image/webp"],
+    // Product image URLs are immutable once stored. Retain each transformed
+    // variant for 31 days to avoid repeat transformations after cache expiry.
+    minimumCacheTTL: 2_678_400,
     remotePatterns: [
       { protocol: "https", hostname: supabaseHostname },
       { protocol: "https", hostname: "images.unsplash.com" },
