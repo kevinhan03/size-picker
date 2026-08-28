@@ -3,7 +3,8 @@ import type { ComponentType } from "react";
 import { ClosetIcon } from "./icons/ClosetIcon";
 import type { MessageKey } from "../i18n/messages";
 
-export type PrimaryNavigationDestination = "digging" | "outfits" | "taste" | "closet" | "digbox";
+export type PrimaryNavigationDestination =
+  "digging" | "outfits" | "taste" | "closet" | "digbox" | "outfit-explorer";
 
 export type PrimaryNavigationItem = {
   destination: PrimaryNavigationDestination;
@@ -19,11 +20,19 @@ export const primaryNavigationItems: PrimaryNavigationItem[] = [
   { destination: "closet", labelKey: "nav.closet", icon: ClosetIcon },
 ];
 
-export function getPrimaryNavigationDestination(pathname: string): PrimaryNavigationDestination | null {
-  if (pathname === "/" || pathname === "/grid" || pathname.startsWith("/product/")) return "digging";
+export function getPrimaryNavigationDestination(
+  pathname: string
+): PrimaryNavigationDestination | null {
+  if (
+    pathname === "/" ||
+    pathname === "/grid" ||
+    pathname.startsWith("/product/")
+  )
+    return "digging";
   if (pathname.startsWith("/outfits")) return "outfits";
   if (pathname.startsWith("/taste")) return "taste";
   if (pathname.startsWith("/closet")) return "closet";
+  if (pathname.startsWith("/outfit-explorer")) return "outfit-explorer";
   if (pathname === "/saved" || pathname.startsWith("/u/")) return "digbox";
   return null;
 }
