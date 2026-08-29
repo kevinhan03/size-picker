@@ -1,5 +1,9 @@
 import type { ChangeEvent } from "react";
-import type { AddProductFormData, ProductMetadataPayload, ProductTaggingMetadata } from "../../types";
+import type {
+  AddProductFormData,
+  ProductMetadataPayload,
+  ProductTaggingMetadata,
+} from "../../types";
 import {
   dataUrlToFile,
   readFileAsDataUrl,
@@ -18,10 +22,7 @@ import {
   fetchProductMetadataFromUrl,
   removeBackgroundWithGemini,
 } from "../../api";
-import {
-  applyUrlAutofill,
-  getAutofillCandidateUrls,
-} from "./helpers";
+import { applyUrlAutofill, getAutofillCandidateUrls } from "./helpers";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 
 interface ProductFormAutofillState {
@@ -33,6 +34,7 @@ interface ProductFormAutofillState {
   setAutofilledProductImageUrl: (value: string | null) => void;
   setAutofilledProductImageCandidates: (value: string[]) => void;
   setProductTaggingMetadata: (value: ProductTaggingMetadata | null) => void;
+  setInferredProductCategory: (value: string) => void;
   setProductImageNotice: (value: string | null) => void;
   setAutoFillError: (value: string | null) => void;
   setIsProcessingImage: (value: boolean) => void;
@@ -53,7 +55,9 @@ interface UseProductFormAutofillOptions {
   productUrlSet: Set<string>;
 }
 
-const buildProductTaggingMetadata = (extracted: ProductMetadataPayload): ProductTaggingMetadata => {
+const buildProductTaggingMetadata = (
+  extracted: ProductMetadataPayload
+): ProductTaggingMetadata => {
   const metadata = extracted.productMetadata;
   return metadata && typeof metadata === "object"
     ? metadata
@@ -72,9 +76,15 @@ const buildProductTaggingMetadata = (extracted: ProductMetadataPayload): Product
       };
 };
 
-export function useProductFormAutofill({ state, productUrlSet }: UseProductFormAutofillOptions) {
+export function useProductFormAutofill({
+  state,
+  productUrlSet,
+}: UseProductFormAutofillOptions) {
   const { t } = useLocaleContext();
-  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>, type: "product" | "chart") => {
+  const handleFileUpload = (
+    event: ChangeEvent<HTMLInputElement>,
+    type: "product" | "chart"
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -90,10 +100,18 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         try {
           const processedBase64 = await removeBackgroundWithGemini(base64);
           const processedDataUrl = `data:image/png;base64,${processedBase64}`;
-          state.setFormData((prev) => ({ ...prev, productImage: processedDataUrl }));
-          state.setProductPhotoFile(dataUrlToFile(processedDataUrl, `product-${crypto.randomUUID()}`));
+          state.setFormData((prev) => ({
+            ...prev,
+            productImage: processedDataUrl,
+          }));
+          state.setProductPhotoFile(
+            dataUrlToFile(processedDataUrl, `product-${crypto.randomUUID()}`)
+          );
         } catch (bgError) {
-          console.error("[handleFileUpload] remove bg failed, using original image", bgError);
+          console.error(
+            "[handleFileUpload] remove bg failed, using original image",
+            bgError
+          );
           state.setProductPhotoFile(file);
           state.setProductImageNotice(t("addProduct.bgRemoveFailed"));
         } finally {
@@ -116,7 +134,10 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
       state.setTableEditingCell(null);
       state.setIsAnalyzingTable(true);
       try {
-        const tableData = await extractSizeTableFromImage(optimizedBase64, "image/png");
+        const tableData = await extractSizeTableFromImage(
+          optimizedBase64,
+          "image/png"
+        );
         const rawTable = normalizeSizeTable(tableData);
         state.setFormData((prev) => ({
           ...prev,
@@ -124,7 +145,10 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
           extractedTable: rawTable,
         }));
       } catch (extractError: unknown) {
-        const message = extractError instanceof Error ? extractError.message : t("addProduct.sizeTableExtractFailed");
+        const message =
+          extractError instanceof Error
+            ? extractError.message
+            : t("addProduct.sizeTableExtractFailed");
         alert(`${message} (check /api/size-table server logs)`);
       } finally {
         state.setIsAnalyzingTable(false);
@@ -150,10 +174,18 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         try {
           const processedBase64 = await removeBackgroundWithGemini(base64);
           const processedDataUrl = `data:image/png;base64,${processedBase64}`;
-          state.setFormData((prev) => ({ ...prev, productImage: processedDataUrl }));
-          state.setProductPhotoFile(dataUrlToFile(processedDataUrl, `product-${crypto.randomUUID()}`));
+          state.setFormData((prev) => ({
+            ...prev,
+            productImage: processedDataUrl,
+          }));
+          state.setProductPhotoFile(
+            dataUrlToFile(processedDataUrl, `product-${crypto.randomUUID()}`)
+          );
         } catch (bgError) {
-          console.error("[handleDroppedFile] remove bg failed, using original image", bgError);
+          console.error(
+            "[handleDroppedFile] remove bg failed, using original image",
+            bgError
+          );
           state.setProductPhotoFile(file);
           state.setProductImageNotice(t("addProduct.bgRemoveFailed"));
         } finally {
@@ -176,7 +208,10 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
       state.setTableEditingCell(null);
       state.setIsAnalyzingTable(true);
       try {
-        const tableData = await extractSizeTableFromImage(optimizedBase64, "image/png");
+        const tableData = await extractSizeTableFromImage(
+          optimizedBase64,
+          "image/png"
+        );
         const rawTable = normalizeSizeTable(tableData);
         state.setFormData((prev) => ({
           ...prev,
@@ -184,7 +219,10 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
           extractedTable: rawTable,
         }));
       } catch (extractError: unknown) {
-        const message = extractError instanceof Error ? extractError.message : t("addProduct.sizeTableExtractFailed");
+        const message =
+          extractError instanceof Error
+            ? extractError.message
+            : t("addProduct.sizeTableExtractFailed");
         alert(`${message} (check /api/size-table server logs)`);
       } finally {
         state.setIsAnalyzingTable(false);
@@ -213,10 +251,13 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
     state.clearAutoFillFeedback();
     state.setAutofilledProductImageCandidates([]);
     state.setProductTaggingMetadata(null);
+    state.setInferredProductCategory("");
 
     try {
       const extracted = await fetchProductMetadataFromUrl(targetUrl);
-      const normalizedExtractedUrl = normalizeComparableProductUrl(extracted.url || targetUrl);
+      const normalizedExtractedUrl = normalizeComparableProductUrl(
+        extracted.url || targetUrl
+      );
       if (normalizedExtractedUrl && productUrlSet.has(normalizedExtractedUrl)) {
         state.setAutoFillError(t("duplicateProduct.title"));
         state.clearSelectedProductImage();
@@ -230,6 +271,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
       const candidateUrls = getAutofillCandidateUrls(extracted);
       const selectedCandidateUrl = candidateUrls[0] || "";
       state.setProductTaggingMetadata(buildProductTaggingMetadata(extracted));
+      state.setInferredProductCategory(String(extracted.category || "").trim());
       state.setProductPhotoFile(null);
       if (selectedCandidateUrl) {
         state.setAutofilledProductImageUrl(selectedCandidateUrl);
@@ -240,7 +282,9 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
       }
 
       state.setAutofilledProductImageCandidates(candidateUrls);
-      state.setFormData((prev) => applyUrlAutofill(prev, extracted, selectedCandidateUrl));
+      state.setFormData((prev) =>
+        applyUrlAutofill(prev, extracted, selectedCandidateUrl)
+      );
 
       if (!extracted.brand && !extracted.name && !selectedCandidateUrl) {
         state.setAutoFillError(t("addProduct.urlAutofillFailed"));

@@ -21,16 +21,29 @@ describe("product-page tagging text extraction", () => {
       "면 52% 폴리에스터 48% 안감: 폴리에스터 100% 제조자: 주식회사 포스트아카이브 제조국: 대한민국",
     ]);
 
-    expect(buildStructuredProductMetadata({ sourceTexts: candidates, category: "outer" })).toMatchObject({
+    expect(
+      buildStructuredProductMetadata({
+        sourceTexts: candidates,
+        category: "outer",
+      })
+    ).toMatchObject({
       metadata_source: "product_page",
       product_summary: candidates[0],
-      materials: [candidates[1]],
+      materials: ["면 52% 폴리에스터 48% 안감: 폴리에스터 100%"],
       fit_silhouette: expect.arrayContaining(["래글런 소매", "크롭 핏"]),
-      design_details: expect.arrayContaining(["넥 비조", "YKK EXCELLA 프론트 지퍼"]),
+      design_details: expect.arrayContaining([
+        "넥 비조",
+        "밴딩 처리된 허리",
+        "곡선 시접",
+        "YKK EXCELLA® 프론트 지퍼",
+      ]),
       pattern_texture: ["코듀로이"],
       category_details: {
         detail_type: "outer",
-        attributes: expect.objectContaining({ collar: ["넥 비조"], closure: ["단추 여밈"] }),
+        attributes: expect.objectContaining({
+          collar: ["넥 비조"],
+          closure: ["단추 여밈"],
+        }),
       },
     });
   });

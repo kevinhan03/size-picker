@@ -14,7 +14,7 @@ export interface Product {
   category: string;
   subCategory?: string | null;
   categoryReviewed?: boolean;
-  categoryAnalysisStatus?: 'pending' | 'completed' | 'failed';
+  categoryAnalysisStatus?: "pending" | "completed" | "failed";
   url: string;
   image: string;
   thumbnailImage?: string;
@@ -61,38 +61,38 @@ export interface Product {
 
 export type ProductCardData = Pick<
   Product,
-  | 'id'
-  | 'brand'
-  | 'name'
-  | 'category'
-  | 'subCategory'
-  | 'categoryAnalysisStatus'
-  | 'url'
-  | 'image'
-  | 'thumbnailImage'
-  | 'slug'
-  | 'createdAt'
-  | 'isInstagram'
-  | 'instagramOrder'
-  | 'targetGender'
+  | "id"
+  | "brand"
+  | "name"
+  | "category"
+  | "subCategory"
+  | "categoryAnalysisStatus"
+  | "url"
+  | "image"
+  | "thumbnailImage"
+  | "slug"
+  | "createdAt"
+  | "isInstagram"
+  | "instagramOrder"
+  | "targetGender"
 >;
 
 export type ProductDetailData = Pick<
   Product,
   | keyof ProductCardData
-  | 'imagePath'
-  | 'sizeTable'
-  | 'normalizedSizeTable'
-  | 'registeredBy'
-  | 'styleTags'
-  | 'styleAttributes'
-  | 'styleAxes'
-  | 'humanStyleTags'
-  | 'humanStyleAttributes'
-  | 'humanStyleAxes'
-  | 'styleAxisReviewRequired'
-  | 'tagReviewStatus'
-  | 'taggingStatus'
+  | "imagePath"
+  | "sizeTable"
+  | "normalizedSizeTable"
+  | "registeredBy"
+  | "styleTags"
+  | "styleAttributes"
+  | "styleAxes"
+  | "humanStyleTags"
+  | "humanStyleAttributes"
+  | "humanStyleAxes"
+  | "styleAxisReviewRequired"
+  | "tagReviewStatus"
+  | "taggingStatus"
 >;
 
 export interface CatalogPage {
@@ -117,29 +117,36 @@ export interface MyPageInitialData {
   discoveryTotalSaveCount: number;
 }
 
-export type ProductTargetGender = 'menswear' | 'womenswear' | 'unisex' | 'unknown';
+export type ProductTargetGender =
+  "menswear" | "womenswear" | "unisex" | "unknown";
 
 export type StyleTagName =
-  | 'casual'
-  | 'minimal'
-  | 'street'
-  | 'classic'
-  | 'vintage'
-  | 'lovely_romantic'
-  | 'sporty'
-  | 'workwear_gorpcore'
-  | 'chic_modern'
-  | 'glam_sexy';
+  | "casual"
+  | "minimal"
+  | "street"
+  | "classic"
+  | "vintage"
+  | "lovely_romantic"
+  | "sporty"
+  | "workwear_gorpcore"
+  | "chic_modern"
+  | "glam_sexy";
 
 export type StyleTags = Record<StyleTagName, number>;
 export type StyleAttributes = Record<string, unknown>;
-export type StyleAxisName = 'formality' | 'structure' | 'visual_mass' | 'expression_intensity' | 'functional_technicality';
+export type StyleAxisName =
+  | "formality"
+  | "structure"
+  | "visual_mass"
+  | "expression_intensity"
+  | "functional_technicality";
 export type StyleAxes = Record<StyleAxisName, number>;
 export type StyleAttributeEvidence = Partial<Record<string, string[]>>;
 export type StyleTagsEvidence = Partial<Record<StyleTagName, string[]>> & {
   attributes?: StyleAttributeEvidence;
 };
-export type TagReviewStatus = 'needs_review' | 'approved' | 'edited' | 'rejected';
+export type TagReviewStatus =
+  "needs_review" | "approved" | "edited" | "rejected";
 
 export interface ProductStyleReviewInput {
   tagReviewStatus?: TagReviewStatus;
@@ -213,7 +220,7 @@ export interface ProductRow {
   category?: string | null;
   sub_category?: string | null;
   category_reviewed?: boolean | null;
-  category_analysis_status?: 'pending' | 'completed' | 'failed' | null;
+  category_analysis_status?: "pending" | "completed" | "failed" | null;
   url?: string | null;
   size_table?: unknown;
   normalized_size_table?: unknown;
@@ -276,6 +283,7 @@ export interface ProductMetadataPayload {
   url: string;
   brand: string;
   name: string;
+  category?: string;
   image_path?: string;
   productImageCandidates?: string[];
   productMetadata?: ProductTaggingMetadata | null;
@@ -283,7 +291,7 @@ export interface ProductMetadataPayload {
 }
 
 export interface ProductTaggingMetadata {
-  metadata_source: 'product_page';
+  metadata_source: "product_page";
   product_summary: string;
   materials: string[];
   fit_silhouette: string[];
@@ -293,10 +301,12 @@ export interface ProductTaggingMetadata {
   pattern_texture: string[];
   target_gender_evidence: string[];
   care: string[];
-  category_details: {
-    detail_type: string;
-    attributes: Record<string, string[]>;
-  } | Record<string, never>;
+  category_details:
+    | {
+        detail_type: string;
+        attributes: Record<string, string[]>;
+      }
+    | Record<string, never>;
 }
 
 export interface AdminEditForm {
@@ -308,7 +318,7 @@ export interface AdminEditForm {
 }
 
 export interface BrandRule {
-  matchType: 'brand';
+  matchType: "brand";
   matchValue: string;
   canonicalBrand: string;
 }
@@ -341,10 +351,10 @@ export interface SizeRecommendation {
   score: number;
 }
 
-export type OutfitRequestStatus = 'open' | 'accepted' | 'closed';
-export type OutfitRequestScope = 'open' | 'completed' | 'mine' | 'proposed';
-export type OutfitRequestMineStatus = 'all' | OutfitRequestStatus;
-export type OutfitFocusMatch = 'all' | 'partial' | 'none' | 'not_applicable';
+export type OutfitRequestStatus = "open" | "accepted" | "closed";
+export type OutfitRequestScope = "open" | "completed" | "mine" | "proposed";
+export type OutfitRequestMineStatus = "all" | OutfitRequestStatus;
+export type OutfitFocusMatch = "all" | "partial" | "none" | "not_applicable";
 
 export interface OutfitRequestSummary {
   id: string;
