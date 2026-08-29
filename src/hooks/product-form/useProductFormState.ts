@@ -1,20 +1,35 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AddProductFormData, ClosetSizeSelection, ProductTaggingMetadata } from "../../types";
+import type {
+  AddProductFormData,
+  ClosetSizeSelection,
+  ProductTaggingMetadata,
+} from "../../types";
 import { DEFAULT_PRODUCT_PLACEHOLDER, EMPTY_FORM_DATA } from "../../constants";
 
 export function useProductFormState() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showDuplicateProductModal, setShowDuplicateProductModal] = useState(false);
+  const [showDuplicateProductModal, setShowDuplicateProductModal] =
+    useState(false);
 
   const [formData, setFormData] = useState<AddProductFormData>(EMPTY_FORM_DATA);
   const [addToDigboxOnSubmit, setAddToDigboxOnSubmit] = useState(true);
   const [addToClosetOnSubmit, setAddToClosetOnSubmit] = useState(false);
-  const [closetSizeSelection, setClosetSizeSelection] = useState<ClosetSizeSelection | null>(null);
-  const [submitToast, setSubmitToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [closetSizeSelection, setClosetSizeSelection] =
+    useState<ClosetSizeSelection | null>(null);
+  const [submitToast, setSubmitToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
   const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null);
-  const [autofilledProductImageUrl, setAutofilledProductImageUrl] = useState<string | null>(null);
-  const [autofilledProductImageCandidates, setAutofilledProductImageCandidates] = useState<string[]>([]);
-  const [productTaggingMetadata, setProductTaggingMetadata] = useState<ProductTaggingMetadata | null>(null);
+  const [autofilledProductImageUrl, setAutofilledProductImageUrl] = useState<
+    string | null
+  >(null);
+  const [
+    autofilledProductImageCandidates,
+    setAutofilledProductImageCandidates,
+  ] = useState<string[]>([]);
+  const [productTaggingMetadata, setProductTaggingMetadata] =
+    useState<ProductTaggingMetadata | null>(null);
 
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isAnalyzingTable, setIsAnalyzingTable] = useState(false);
@@ -24,10 +39,15 @@ export function useProductFormState() {
   const [isAutofillingFromUrl, setIsAutofillingFromUrl] = useState(false);
 
   const [autoFillError, setAutoFillError] = useState<string | null>(null);
-  const [productImageNotice, setProductImageNotice] = useState<string | null>(null);
-  const [aiPreviewImageSrc, setAiPreviewImageSrc] = useState<string | null>(null);
+  const [productImageNotice, setProductImageNotice] = useState<string | null>(
+    null
+  );
+  const [aiPreviewImageSrc, setAiPreviewImageSrc] = useState<string | null>(
+    null
+  );
   const [isAiPreviewLoading, setIsAiPreviewLoading] = useState(false);
-  const [didFallbackAiPreviewImage, setDidFallbackAiPreviewImage] = useState(false);
+  const [didFallbackAiPreviewImage, setDidFallbackAiPreviewImage] =
+    useState(false);
 
   const [isInstagramMode, setIsInstagramMode] = useState(false);
 
@@ -62,9 +82,12 @@ export function useProductFormState() {
     setProductImageNotice(null);
   };
 
-  const showSubmitToast = useCallback((toast: { message: string; type: "success" | "error" }) => {
-    setSubmitToast(toast);
-  }, []);
+  const showSubmitToast = useCallback(
+    (toast: { message: string; type: "success" | "error" }) => {
+      setSubmitToast(toast);
+    },
+    []
+  );
 
   const clearSubmitToast = useCallback(() => {
     setSubmitToast(null);
@@ -105,7 +128,9 @@ export function useProductFormState() {
     setIsAiPreviewLoading(false);
   };
 
-  const handleAiPreviewError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+  const handleAiPreviewError = (
+    event: React.SyntheticEvent<HTMLImageElement>
+  ) => {
     const image = event.currentTarget;
     const currentSrc = String(image.getAttribute("src") || "").trim();
     if (currentSrc.endsWith(DEFAULT_PRODUCT_PLACEHOLDER)) {
@@ -117,7 +142,9 @@ export function useProductFormState() {
     setAiPreviewImageSrc(DEFAULT_PRODUCT_PLACEHOLDER);
   };
 
-  const handleThumbnailLoadError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+  const handleThumbnailLoadError = (
+    event: React.SyntheticEvent<HTMLImageElement>
+  ) => {
     const image = event.currentTarget;
     const currentSrc = String(image.getAttribute("src") || "").trim();
     if (currentSrc.endsWith(DEFAULT_PRODUCT_PLACEHOLDER)) return;

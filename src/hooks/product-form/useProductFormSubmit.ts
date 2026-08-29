@@ -1,7 +1,16 @@
 import { isDuplicateProductErrorMessage } from "../../utils/product";
 import { submitProduct } from "../../api";
-import { buildSubmitProductPayload, getProductFormFlags, getSubmitValidationError } from "./helpers";
-import type { AddProductFormData, ClosetSizeSelection, Product, ProductTaggingMetadata } from "../../types";
+import {
+  buildSubmitProductPayload,
+  getProductFormFlags,
+  getSubmitValidationError,
+} from "./helpers";
+import type {
+  AddProductFormData,
+  ClosetSizeSelection,
+  Product,
+  ProductTaggingMetadata,
+} from "../../types";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import type { MessageKey } from "../../i18n/messages";
 
@@ -22,7 +31,10 @@ interface ProductFormSubmitState {
   closetSizeSelection: ClosetSizeSelection | null;
   setIsSaving: (value: boolean) => void;
   setShowDuplicateProductModal: (value: boolean) => void;
-  showSubmitToast: (toast: { message: string; type: "success" | "error" }) => void;
+  showSubmitToast: (toast: {
+    message: string;
+    type: "success" | "error";
+  }) => void;
   closeModal: () => void;
 }
 
@@ -30,12 +42,19 @@ interface UseProductFormSubmitOptions {
   state: ProductFormSubmitState;
   onSubmitSuccess: (product: Product) => void;
   onAddToDigbox?: (productId: string) => Promise<void>;
-  onAddToCloset?: (productId: string, sizeSelection?: ClosetSizeSelection | null) => Promise<void>;
+  onAddToCloset?: (
+    productId: string,
+    sizeSelection?: ClosetSizeSelection | null
+  ) => Promise<void>;
   isLoggedIn?: boolean;
   onLoginRequired?: () => void;
 }
 
-function getSuccessMessage(addToDigbox: boolean, addToCloset: boolean, t: (key: MessageKey) => string) {
+function getSuccessMessage(
+  addToDigbox: boolean,
+  addToCloset: boolean,
+  t: (key: MessageKey) => string
+) {
   if (addToDigbox && addToCloset) return t("addProduct.successBoth");
   if (addToDigbox) return t("addProduct.successSavedOnly");
   if (addToCloset) return t("addProduct.successClosetOnly");
@@ -51,15 +70,18 @@ export function useProductFormSubmit({
   onLoginRequired,
 }: UseProductFormSubmitOptions) {
   const { t } = useLocaleContext();
-  const flags = getProductFormFlags({
-    formData: state.formData,
-    productPhotoFile: state.productPhotoFile,
-    autofilledProductImageUrl: state.autofilledProductImageUrl,
-    isAutofillingFromUrl: state.isAutofillingFromUrl,
-    isProcessingImage: state.isProcessingImage,
-    isAnalyzingTable: state.isAnalyzingTable,
-    isSaving: state.isSaving,
-  }, t);
+  const flags = getProductFormFlags(
+    {
+      formData: state.formData,
+      productPhotoFile: state.productPhotoFile,
+      autofilledProductImageUrl: state.autofilledProductImageUrl,
+      isAutofillingFromUrl: state.isAutofillingFromUrl,
+      isProcessingImage: state.isProcessingImage,
+      isAnalyzingTable: state.isAnalyzingTable,
+      isSaving: state.isSaving,
+    },
+    t
+  );
 
   const handleSubmitProduct = async () => {
     if (!isLoggedIn) {
@@ -67,13 +89,19 @@ export function useProductFormSubmit({
       return;
     }
 
-    const validationError = getSubmitValidationError({
-      hasBrand: Boolean(state.formData.brand.trim()),
-      hasName: Boolean(state.formData.name.trim()),
-      hasCategory: Boolean(state.formData.category),
-      hasProductImageCheck: Boolean(state.productPhotoFile) || Boolean(state.autofilledProductImageUrl),
-      hasValidatedSizeTable: Boolean(state.formData.extractedTable),
-    }, t);
+    const validationError = getSubmitValidationError(
+      {
+        hasBrand: Boolean(state.formData.brand.trim()),
+        hasName: Boolean(state.formData.name.trim()),
+        hasCategory: Boolean(state.formData.category),
+        category: state.formData.category,
+        hasProductImageCheck:
+          Boolean(state.productPhotoFile) ||
+          Boolean(state.autofilledProductImageUrl),
+        hasValidatedSizeTable: Boolean(state.formData.extractedTable),
+      },
+      t
+    );
 
     if (validationError) {
       state.setSubmitError(validationError);
@@ -100,16 +128,28 @@ export function useProductFormSubmit({
           collectionAdds.push(onAddToDigbox(product.id));
         }
         if (state.addToClosetOnSubmit && onAddToCloset) {
-          collectionAdds.push(onAddToCloset(product.id, state.closetSizeSelection));
+          collectionAdds.push(
+            onAddToCloset(product.id, state.closetSizeSelection)
+          );
         }
         await Promise.all(collectionAdds);
         state.showSubmitToast({
-          message: getSuccessMessage(state.addToDigboxOnSubmit, state.addToClosetOnSubmit, t),
+          message: getSuccessMessage(
+            state.addToDigboxOnSubmit,
+            state.addToClosetOnSubmit,
+            t
+          ),
           type: "success",
         });
       } catch (collectionError) {
-        console.error("[handleSubmitProduct] collection add failed", collectionError);
-        state.showSubmitToast({ message: t("addProduct.collectionAddFailed"), type: "error" });
+        console.error(
+          "[handleSubmitProduct] collection add failed",
+          collectionError
+        );
+        state.showSubmitToast({
+          message: t("addProduct.collectionAddFailed"),
+          type: "error",
+        });
       }
 
       state.setIsSaveComplete(true);
@@ -117,7 +157,10 @@ export function useProductFormSubmit({
       state.closeModal();
       onSubmitSuccess(product);
     } catch (submitError: unknown) {
-      const message = submitError instanceof Error ? submitError.message : t("addProduct.submitFailedGeneric");
+      const message =
+        submitError instanceof Error
+          ? submitError.message
+          : t("addProduct.submitFailedGeneric");
       console.error("[handleSubmitProduct] submit failed", submitError);
       if (isDuplicateProductErrorMessage(message)) {
         state.setShowDuplicateProductModal(true);

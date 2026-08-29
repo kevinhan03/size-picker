@@ -16,7 +16,6 @@ async function getClient() {
       advanced_disable_feature_flags: true,
       session_recording: {
         maskAllInputs: true,
-        maskAllElementAttributes: true,
         maskTextSelector: "[data-private], .ph-mask",
       },
     });
