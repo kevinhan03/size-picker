@@ -2,6 +2,7 @@ import type { Product } from "../../src/types";
 import { createGraph, type SerializedTasteGraphState, type TasteCollectionSource } from "../../src/utils/tasteGraph";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { normalizeAnalysisProduct } from "./catalog";
+import { applyActiveClusterStyleTags } from "./style-cluster-scoring.js";
 
 export type TasteAnalysisData = { source: TasteCollectionSource; products: Product[]; graph: SerializedTasteGraphState };
 export type TasteSummaryData = { source: TasteCollectionSource; products: Product[] };
@@ -23,14 +24,14 @@ export async function getTasteSummary(userId: string, source: TasteCollectionSou
     error = fallback.error;
   }
   if (error) throw error;
-  const products = ((rows || []) as Array<{ product?: unknown }>)
+  const products = await applyActiveClusterStyleTags(((rows || []) as Array<{ product?: unknown }>)
     .map((row) => normalizeAnalysisProduct(row.product))
     .filter((product): product is Product => Boolean(product))
     .map((product) => {
       const safeProduct = { ...product };
       delete safeProduct.imageEmbedding;
       return safeProduct;
-    });
+    }));
   return { source, products };
 }
 
@@ -41,11 +42,11 @@ export async function getTasteAnalysis(userId: string, source: TasteCollectionSo
     collection_source: source,
   });
   if (error) throw error;
-  const analysisProducts = ((rows || []) as Array<{ product?: unknown }>)
+  const analysisProducts = await applyActiveClusterStyleTags(((rows || []) as Array<{ product?: unknown }>)
     .map((row) => normalizeAnalysisProduct(row.product))
-    .filter((product): product is Product => Boolean(product));
+    .filter((product): product is Product => Boolean(product)));
   const graph = createGraph(analysisProducts);
-  const safeProducts = analysisProducts.map((product) => {
+  const safeProducts = analysisProducts.map((product: Product) => {
     const safeProduct = { ...product };
     delete safeProduct.imageEmbedding;
     return safeProduct;

@@ -15,6 +15,7 @@ import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../serve
 import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
 import { embedProductImageById } from "../../../server/services/image-embedding.js";
 import { tagProductStyleById } from "../../../server/services/style-tagging.js";
+import { scoreProductForActiveStyleClusters } from "../../../server/services/style-cluster-scoring.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../server/services/dig-match-products.js";
 import { invalidatePublicProductCaches } from "../../../server/services/catalog-cache";
 import { getRequestLocale } from "../../../server/utils/locale";
@@ -171,6 +172,7 @@ export async function POST(request: Request) {
             if (!styleResult.ok) {
               console.error("[style-tagging] async product tagging did not complete", { productId, result: styleResult });
             }
+            await scoreProductForActiveStyleClusters(productId);
           } catch (error) {
             console.error("[style-tagging] async product tagging failed", {
               productId,
@@ -184,6 +186,7 @@ export async function POST(request: Request) {
           if (!result.ok && !result.skipped) {
             console.error("[image-embedding] async product embedding did not complete", { productId, result });
           }
+          await scoreProductForActiveStyleClusters(productId);
         })(),
       ]);
     });

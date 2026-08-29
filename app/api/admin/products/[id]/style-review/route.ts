@@ -5,6 +5,7 @@ import { SUPABASE_PRODUCTS_TABLE } from "../../../../../../server/config/env.js"
 import { assertSupabaseConfig, supabase } from "../../../../../../server/lib/supabase.js";
 import { verifyAdminRequest } from "../../../../../../server/utils/admin-request.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../../../server/services/dig-match-products.js";
+import { scoreProductForActiveStyleClusters } from "../../../../../../server/services/style-cluster-scoring.js";
 import { invalidatePublicProductCaches } from "../../../../../../server/services/catalog-cache";
 import { fieldsForCategory, isCoreTasteCategory, STYLE_AXIS_FIELDS } from "@/constants/styleAnalysis";
 import { isProductCategory, isValidSubcategory } from "@/constants";
@@ -138,7 +139,7 @@ const normalizeStyleAxes = (value: unknown, fieldName: string): Record<string, n
   }
   return Object.fromEntries(STYLE_AXIS_KEYS.map((key) => {
     const numeric = Number(value[key]);
-    if (!Number.isInteger(numeric) || numeric < 1 || numeric > 5) throw new Error(`${fieldName}.${key} must be an integer between 1 and 5`);
+    if (!Number.isInteger(numeric) || numeric < 1 || numeric > 7) throw new Error(`${fieldName}.${key} must be an integer between 1 and 7`);
     return [key, numeric];
   }));
 };
@@ -149,7 +150,7 @@ const mergeStoredStyleAxes = (human: unknown, ai: unknown): Record<string, numbe
   if (!Object.keys(humanRecord).length && !Object.keys(aiRecord).length) return null;
   return Object.fromEntries(STYLE_AXIS_KEYS.map((key) => {
     const candidate = Number(humanRecord[key] ?? aiRecord[key]);
-    return [key, Number.isInteger(candidate) && candidate >= 1 && candidate <= 5 ? candidate : 3];
+    return [key, Number.isInteger(candidate) && candidate >= 1 && candidate <= 7 ? candidate : 4];
   }));
 };
 
@@ -299,8 +300,11 @@ export async function PATCH(
       payload.human_style_tags_evidence = existingProduct.human_style_tags_evidence
         ? normalizeJsonObject(existingProduct.human_style_tags_evidence, "human_style_tags_evidence")
         : normalizeJsonObject(existingProduct.style_tags_evidence, "style_tags_evidence");
-      payload.human_style_axes = mergeStoredStyleAxes(existingProduct.human_style_axes, existingProduct.style_axes);
-      payload.style_axis_review_required = false;
+      const mergedStyleAxes = mergeStoredStyleAxes(existingProduct.human_style_axes, existingProduct.style_axes);
+      if (mergedStyleAxes) {
+        payload.human_style_axes = mergedStyleAxes;
+        payload.style_axis_review_required = false;
+      }
     }
 
     if (Object.keys(payload).length === 0) {
@@ -327,6 +331,7 @@ export async function PATCH(
     if (error) throw error;
     if (!data) return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
 
+    await scoreProductForActiveStyleClusters(id);
     revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
     invalidatePublicProductCaches(productId);
     return NextResponse.json({ ok: true, data: { product: data } });

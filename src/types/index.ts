@@ -133,7 +133,7 @@ export type StyleTagName =
 
 export type StyleTags = Record<StyleTagName, number>;
 export type StyleAttributes = Record<string, unknown>;
-export type StyleAxisName = 'formality' | 'structure' | 'visual_mass' | 'expression_intensity' | 'functional_technicality';
+export type StyleAxisName = 'formality' | 'refinement' | 'technicality' | 'historical_orientation' | 'visual_boldness' | 'affective_softness' | 'unconventionality' | 'sensuality';
 export type StyleAxes = Record<StyleAxisName, number>;
 export type StyleAttributeEvidence = Partial<Record<string, string[]>>;
 export type StyleTagsEvidence = Partial<Record<StyleTagName, string[]>> & {
