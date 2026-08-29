@@ -129,6 +129,7 @@ export const submitProduct = async (form: SubmitProductForm, isInstagram = false
     {
       brand: form.brand,
       name: form.name,
+      category: form.category,
       url: form.url || null,
       image_path: imagePath,
       sizeTable: form.sizeTable ?? null,
@@ -156,6 +157,32 @@ export const fetchProductMetadataFromUrl = async (url: string): Promise<ProductM
     throw new Error(payload?.error || apiMessage('metadataFromUrlFailed'));
   }
   return payload.data as ProductMetadataPayload;
+};
+
+export const isProductUrlAlreadyRegistered = async (url: string): Promise<boolean> => {
+  const endpoint = `/api/products?url=${encodeURIComponent(url)}`;
+  const response = await fetch(endpoint, { cache: "no-store" });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { exists?: boolean }; error?: string }>(response, endpoint);
+  if (!response.ok || !payload.ok) throw new Error(payload.error || apiMessage('loadProducts'));
+  return Boolean(payload.data?.exists);
+};
+
+export const analyzeProductCategory = async (input: {
+  brand: string;
+  name: string;
+  productMetadata?: ProductMetadataPayload['productMetadata'] | null;
+  imageBase64?: string;
+  mimeType?: string;
+  imageUrl?: string;
+}): Promise<string> => {
+  const { response, payload } = await postJson<typeof input, { category?: string }>(
+    '/api/product-category',
+    input
+  );
+  if (!response.ok || !payload?.ok || !payload.data?.category) {
+    throw new Error(payload?.error || '카테고리 분석에 실패했습니다.');
+  }
+  return String(payload.data.category);
 };
 
 export const extractSizeTableFromImage = async (base64Image: string, mimeType = 'image/png'): Promise<SizeTable> => {

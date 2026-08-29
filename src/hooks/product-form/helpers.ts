@@ -26,6 +26,7 @@ export const applyUrlAutofill = (
 interface SubmitValidationInput {
   hasBrand: boolean;
   hasName: boolean;
+  hasCategory: boolean;
   hasProductImageCheck: boolean;
   hasValidatedSizeTable: boolean;
 }
@@ -34,6 +35,7 @@ export const getSubmitValidationError = (
   {
     hasBrand,
     hasName,
+    hasCategory,
     hasProductImageCheck,
     hasValidatedSizeTable,
   }: SubmitValidationInput,
@@ -41,6 +43,7 @@ export const getSubmitValidationError = (
 ): string | null => {
   if (!hasBrand) return t('addProduct.brandRequired');
   if (!hasName) return t('addProduct.nameRequired');
+  if (!hasCategory) return t('addProduct.categoryRequired');
   if (!hasProductImageCheck) return t('addProduct.photoRequired');
   if (!hasValidatedSizeTable) {
     return t('addProduct.sizeTableRequired');
@@ -56,6 +59,7 @@ export const buildSubmitProductPayload = (
 ): SubmitProductForm => ({
   brand: formData.brand,
   name: formData.name,
+  category: formData.category,
   url: formData.url || null,
   sizeTable: formData.rawExtractedTable || formData.extractedTable,
   normalizedSizeTable: null,
@@ -90,6 +94,7 @@ export const getProductFormFlags = ({
   const isFormValid =
     Boolean(formData.brand.trim()) &&
     Boolean(formData.name.trim()) &&
+    Boolean(formData.category) &&
     hasProductImage &&
     hasSizeData &&
     !isAutofillingFromUrl &&
@@ -105,6 +110,7 @@ export const getProductFormFlags = ({
   const incompleteMessage = getSubmitValidationError({
     hasBrand: Boolean(formData.brand.trim()),
     hasName: Boolean(formData.name.trim()),
+    hasCategory: Boolean(formData.category),
     hasProductImageCheck: hasProductImage,
     hasValidatedSizeTable: hasSizeData,
   }, t);

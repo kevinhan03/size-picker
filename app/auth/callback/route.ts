@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
 
   const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
   if (exchangeError) {
+    console.error('[auth/callback] session exchange failed', { message: exchangeError.message });
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('error', 'auth_callback_failed');
     return NextResponse.redirect(loginUrl);
@@ -44,12 +45,17 @@ export async function GET(request: NextRequest) {
 
   const userId = exchangeData.user?.id;
   if (!userId) {
+    console.error('[auth/callback] session exchange returned no user');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('error', 'auth_callback_failed');
     return NextResponse.redirect(loginUrl);
   }
 
-  const { data: profile, error: profileError } = await supabase
+  // This check decides whether a Google account is already registered. It is
+  // an internal server-side lookup, so it must not depend on the user's RLS
+  // SELECT policy for the profile table.
+  assertSupabaseConfig();
+  const { data: profile, error: profileError } = await adminSupabase!
     .from('users')
     .select('username')
     .eq('id', userId)
@@ -62,6 +68,7 @@ export async function GET(request: NextRequest) {
   };
 
   if (profileError) {
+    console.error('[auth/callback] profile lookup failed', { userId, message: profileError.message });
     await supabase.auth.signOut({ scope: 'local' });
     return redirect('/login?error=auth_callback_failed');
   }

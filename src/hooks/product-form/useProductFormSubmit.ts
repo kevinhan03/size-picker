@@ -70,6 +70,7 @@ export function useProductFormSubmit({
     const validationError = getSubmitValidationError({
       hasBrand: Boolean(state.formData.brand.trim()),
       hasName: Boolean(state.formData.name.trim()),
+      hasCategory: Boolean(state.formData.category),
       hasProductImageCheck: Boolean(state.productPhotoFile) || Boolean(state.autofilledProductImageUrl),
       hasValidatedSizeTable: Boolean(state.formData.extractedTable),
     }, t);

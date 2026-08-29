@@ -87,6 +87,7 @@ export const MEASUREMENT_ALIAS_MAP: Record<string, string> = {
 export const EMPTY_FORM_DATA: AddProductFormData = {
   brand: "",
   name: "",
+  category: "",
   url: "",
   productImage: null,
   sizeChartImage: null,

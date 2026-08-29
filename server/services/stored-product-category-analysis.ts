@@ -7,7 +7,7 @@ import { normalizeSizeTableForCategory, parseSizeTable } from "../utils/size-tab
 const markFailed = async (productId: string) => {
   const { error } = await supabase!
     .from(SUPABASE_PRODUCTS_TABLE)
-    .update({ category: null, sub_category: null, category_analysis_status: "failed" })
+    .update({ sub_category: null, category_analysis_status: "failed" })
     .eq("id", productId)
     .eq("category_analysis_status", "pending")
     .eq("category_reviewed", false);
@@ -18,7 +18,7 @@ export async function analyzeStoredProductCategory(productId: string): Promise<{
   assertSupabaseConfig();
   const { data: product, error } = await supabase!
     .from(SUPABASE_PRODUCTS_TABLE)
-    .select("id,brand,name,image_path,size_table,product_metadata")
+    .select("id,brand,name,category,image_path,size_table,product_metadata")
     .eq("id", productId)
     .maybeSingle();
   if (error || !product || !isStoredProductImagePath(product.image_path)) {
@@ -52,10 +52,11 @@ export async function analyzeStoredProductCategory(productId: string): Promise<{
     const { error: updateError } = await supabase!
       .from(SUPABASE_PRODUCTS_TABLE)
       .update({
-        category: classification.category,
-        sub_category: classification.subCategory,
-        normalized_size_table: classification.category === "Bottom"
-          ? normalizeSizeTableForCategory(classification.category, parseSizeTable(product.size_table))
+        // The user confirms the parent category before registration. Keep that
+        // decision intact and only accept a matching AI subcategory afterward.
+        sub_category: classification.category === product.category ? classification.subCategory : null,
+        normalized_size_table: product.category === "Bottom"
+          ? normalizeSizeTableForCategory(product.category, parseSizeTable(product.size_table))
           : null,
         category_analysis_status: "completed",
       })

@@ -254,6 +254,7 @@ export interface ProductRow {
 export interface SubmitProductForm {
   brand: string;
   name: string;
+  category: string;
   url?: string | null;
   sizeTable?: SizeTable | null;
   normalizedSizeTable?: SizeTable | null;
@@ -265,6 +266,7 @@ export interface SubmitProductForm {
 export interface AddProductFormData {
   brand: string;
   name: string;
+  category: string;
   url: string;
   productImage: string | null;
   sizeChartImage: string | null;

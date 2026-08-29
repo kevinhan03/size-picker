@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { useRef, type ChangeEvent } from "react";
 import type { AddProductFormData, ProductMetadataPayload, ProductTaggingMetadata } from "../../types";
 import {
   dataUrlToFile,
@@ -15,7 +15,9 @@ import {
 import { normalizeSizeTable } from "../../utils/sizeTable";
 import {
   extractSizeTableFromImage,
+  analyzeProductCategory,
   fetchProductMetadataFromUrl,
+  isProductUrlAlreadyRegistered,
   removeBackgroundWithGemini,
 } from "../../api";
 import {
@@ -33,6 +35,7 @@ interface ProductFormAutofillState {
   setAutofilledProductImageUrl: (value: string | null) => void;
   setAutofilledProductImageCandidates: (value: string[]) => void;
   setProductTaggingMetadata: (value: ProductTaggingMetadata | null) => void;
+  productTaggingMetadata: ProductTaggingMetadata | null;
   setProductImageNotice: (value: string | null) => void;
   setAutoFillError: (value: string | null) => void;
   setIsProcessingImage: (value: boolean) => void;
@@ -72,8 +75,27 @@ const buildProductTaggingMetadata = (extracted: ProductMetadataPayload): Product
       };
 };
 
+const applyCategoryRecommendation = async (
+  state: ProductFormAutofillState,
+  input: Parameters<typeof analyzeProductCategory>[0],
+  isCurrent: () => boolean,
+) => {
+  try {
+    const category = await analyzeProductCategory(input);
+    if (!isCurrent()) return;
+    state.setFormData((prev) => !isCurrent() || prev.category ? prev : { ...prev, category });
+  } catch (error) {
+    console.warn("[product-category] pre-submit analysis failed", error);
+  }
+};
+
 export function useProductFormAutofill({ state, productUrlSet }: UseProductFormAutofillOptions) {
   const { t } = useLocaleContext();
+  const categoryRecommendationIdRef = useRef(0);
+  const recommendCategory = (input: Parameters<typeof analyzeProductCategory>[0]) => {
+    const requestId = ++categoryRecommendationIdRef.current;
+    void applyCategoryRecommendation(state, input, () => categoryRecommendationIdRef.current === requestId);
+  };
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>, type: "product" | "chart") => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -92,10 +114,22 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
           const processedDataUrl = `data:image/png;base64,${processedBase64}`;
           state.setFormData((prev) => ({ ...prev, productImage: processedDataUrl }));
           state.setProductPhotoFile(dataUrlToFile(processedDataUrl, `product-${crypto.randomUUID()}`));
+          recommendCategory({
+            brand: state.formData.brand,
+            name: state.formData.name,
+            imageBase64: processedBase64,
+            mimeType: "image/png",
+          });
         } catch (bgError) {
           console.error("[handleFileUpload] remove bg failed, using original image", bgError);
           state.setProductPhotoFile(file);
           state.setProductImageNotice(t("addProduct.bgRemoveFailed"));
+          recommendCategory({
+            brand: state.formData.brand,
+            name: state.formData.name,
+            imageBase64: base64,
+            mimeType: file.type || "image/png",
+          });
         } finally {
           state.setIsProcessingImage(false);
         }
@@ -152,10 +186,22 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
           const processedDataUrl = `data:image/png;base64,${processedBase64}`;
           state.setFormData((prev) => ({ ...prev, productImage: processedDataUrl }));
           state.setProductPhotoFile(dataUrlToFile(processedDataUrl, `product-${crypto.randomUUID()}`));
+          recommendCategory({
+            brand: state.formData.brand,
+            name: state.formData.name,
+            imageBase64: processedBase64,
+            mimeType: "image/png",
+          });
         } catch (bgError) {
           console.error("[handleDroppedFile] remove bg failed, using original image", bgError);
           state.setProductPhotoFile(file);
           state.setProductImageNotice(t("addProduct.bgRemoveFailed"));
+          recommendCategory({
+            brand: state.formData.brand,
+            name: state.formData.name,
+            imageBase64: base64,
+            mimeType: file.type || "image/png",
+          });
         } finally {
           state.setIsProcessingImage(false);
         }
@@ -200,6 +246,12 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
     state.setProductPhotoFile(null);
     state.setFormData((prev) => ({ ...prev, productImage: nextUrl }));
     state.setAutoFillError(null);
+    recommendCategory({
+      brand: state.formData.brand,
+      name: state.formData.name,
+      productMetadata: state.productTaggingMetadata,
+      imageUrl: nextUrl,
+    });
   };
 
   const handleAutoFillFromUrl = async () => {
@@ -215,9 +267,16 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
     state.setProductTaggingMetadata(null);
 
     try {
+      if (await isProductUrlAlreadyRegistered(targetUrl)) {
+        state.setAutoFillError(t("duplicateProduct.title"));
+        return;
+      }
       const extracted = await fetchProductMetadataFromUrl(targetUrl);
       const normalizedExtractedUrl = normalizeComparableProductUrl(extracted.url || targetUrl);
-      if (normalizedExtractedUrl && productUrlSet.has(normalizedExtractedUrl)) {
+      if (
+        (normalizedExtractedUrl && productUrlSet.has(normalizedExtractedUrl)) ||
+        await isProductUrlAlreadyRegistered(extracted.url || targetUrl)
+      ) {
         state.setAutoFillError(t("duplicateProduct.title"));
         state.clearSelectedProductImage();
         state.setFormData((prev) => ({
@@ -241,6 +300,14 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
 
       state.setAutofilledProductImageCandidates(candidateUrls);
       state.setFormData((prev) => applyUrlAutofill(prev, extracted, selectedCandidateUrl));
+      if (selectedCandidateUrl) {
+        recommendCategory({
+          brand: extracted.brand || state.formData.brand,
+          name: extracted.name || state.formData.name,
+          productMetadata: extracted.productMetadata,
+          imageUrl: selectedCandidateUrl,
+        });
+      }
 
       if (!extracted.brand && !extracted.name && !selectedCandidateUrl) {
         state.setAutoFillError(t("addProduct.urlAutofillFailed"));

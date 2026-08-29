@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Check,
+  ChevronDown,
   Globe,
   Loader2,
   RefreshCw,
@@ -9,6 +10,7 @@ import { useLocaleContext } from '../../contexts/LocaleContext';
 import type { useProductForm } from '../../hooks/useProductForm';
 import { ProductImageSection } from './ProductImageSection';
 import { SizeTableSection } from './SizeTableSection';
+import { CATEGORY_LABELS, CATEGORY_OPTIONS } from '../../constants';
 
 type ProductForm = ReturnType<typeof useProductForm>;
 
@@ -28,6 +30,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
   const { t } = useLocaleContext();
   const [manualClosetSize, setManualClosetSize] = useState('');
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
   const sizeRows = form.formData.extractedTable?.rows || [];
   const sizeHeaders = form.formData.extractedTable?.headers || [];
   const selectClosetSize = (rowIndex: number) => {
@@ -89,6 +92,27 @@ export function AddProductFormFields({ form }: AddProductFormFieldsProps) {
             value={form.formData.name}
             onChange={(e) => form.setFormData({ ...form.formData, name: e.target.value })}
           />
+        </div>
+        <div>
+          <FieldLabel required>{t("addProduct.category")}</FieldLabel>
+          <button
+            type="button"
+            aria-expanded={isCategoryPickerOpen}
+            aria-controls="product-category-options"
+            onClick={() => setIsCategoryPickerOpen((open) => !open)}
+            className="flex h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.07] px-4 text-left text-sm font-bold text-white transition hover:border-orange-300/50 focus:border-orange-500 focus:outline-none"
+          >
+            <span>{form.formData.category ? CATEGORY_LABELS[form.formData.category as keyof typeof CATEGORY_LABELS] : t("addProduct.selectCategory")}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isCategoryPickerOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {isCategoryPickerOpen ? (
+            <div id="product-category-options" role="group" aria-label={t("addProduct.category")} className="mt-2 grid grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] sm:grid-cols-4">
+              {CATEGORY_OPTIONS.map((category) => {
+                const selected = form.formData.category === category;
+                return <button key={category} type="button" aria-pressed={selected} onClick={() => { form.setFormData({ ...form.formData, category }); setIsCategoryPickerOpen(false); }} className={`min-h-11 border-b border-r border-white/10 px-3 text-sm font-bold transition last:border-b-0 sm:[&:nth-child(4n)]:border-r-0 ${selected ? 'bg-orange-500 text-black' : 'text-gray-300 hover:bg-white/[0.08] hover:text-orange-100'}`}>{CATEGORY_LABELS[category]}</button>;
+              })}
+            </div>
+          ) : null}
         </div>
       </section>
 

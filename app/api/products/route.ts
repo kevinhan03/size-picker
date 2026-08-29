@@ -12,13 +12,14 @@ import {
 } from "../../../server/utils/product.js";
 import { parseSizeTable } from "../../../server/utils/size-table.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../server/auth/request-user";
-import { assertSupabaseConfig } from "../../../server/lib/supabase.js";
+import { assertSupabaseConfig, supabase } from "../../../server/lib/supabase.js";
 import { embedProductImageById } from "../../../server/services/image-embedding.js";
 import { tagProductStyleById } from "../../../server/services/style-tagging.js";
 import { scoreProductForActiveStyleClusters } from "../../../server/services/style-cluster-scoring.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../server/services/dig-match-products.js";
 import { invalidatePublicProductCaches } from "../../../server/services/catalog-cache";
 import { getRequestLocale } from "../../../server/utils/locale";
+import { isProductCategory } from "@/constants";
 import { analyzeStoredProductCategory } from "../../../server/services/stored-product-category-analysis";
 
 interface RegisteredUser {
@@ -77,9 +78,20 @@ const normalizeProductMetadata = (value: unknown) => {
   };
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await refreshBrandRulesCache();
+    const requestedUrl = String(new URL(request.url).searchParams.get("url") || "").trim();
+    if (requestedUrl && requestedUrl !== "#") {
+      assertSupabaseConfig();
+      const { data, error } = await supabase!
+        .from("products")
+        .select("id")
+        .eq("url", requestedUrl)
+        .limit(1);
+      if (error) throw error;
+      return NextResponse.json({ ok: true, data: { exists: Boolean(data?.length) } });
+    }
     const rows = await fetchProductsRows();
     const products = rows
       .map((row: unknown) => normalizeProductRow(row))
@@ -116,6 +128,7 @@ export async function POST(request: Request) {
     await refreshBrandRulesCache();
     const brand = normalizeBrandName(String(body?.brand || "").trim());
     const name = String(body?.name || "").trim();
+    const category = String(body?.category || "").trim();
     const imagePath = String(body?.image_path ?? body?.imagePath ?? "").trim();
     const image = String(body?.image || "").trim();
     const sizeTable = parseSizeTable(body?.sizeTable ?? null);
@@ -124,21 +137,33 @@ export async function POST(request: Request) {
     const isInstagram = false;
     const createdAt = new Date().toISOString();
 
-    if (!brand || !name) {
+    if (!brand || !name || !isProductCategory(category)) {
       return NextResponse.json(
         {
           ok: false,
-          error: "brand and name are required",
+          error: "brand, name, and category are required",
         },
         { status: 400 }
       );
+    }
+
+    if (url && url !== "#") {
+      const { data: existingProduct, error: duplicateCheckError } = await supabase!
+        .from("products")
+        .select("id")
+        .eq("url", url)
+        .limit(1);
+      if (duplicateCheckError) throw duplicateCheckError;
+      if (existingProduct?.length) {
+        return NextResponse.json({ ok: false, error: "이미 등록된 상품입니다" }, { status: 409 });
+      }
     }
 
     const slug = await generateProductSlug(brand, name);
     const insertedRow = await insertProductRow({
       brand,
       name,
-      category: null,
+      category,
       subCategory: null,
       url,
       image,
@@ -150,6 +175,7 @@ export async function POST(request: Request) {
       slug,
       registeredBy,
       productMetadata,
+      categoryAnalysisStatus: "pending",
     });
     const product = normalizeProductRow(insertedRow);
 
@@ -160,12 +186,11 @@ export async function POST(request: Request) {
         (async () => {
           const categoryResult = await analyzeStoredProductCategory(productId);
           if (!categoryResult.ok) {
-            console.error("[product-category-analysis] async analysis did not complete", { productId });
+            console.error("[product-category-analysis] async subcategory analysis did not complete", { productId });
             revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
             invalidatePublicProductCaches(productId);
             return;
           }
-
           try {
             const styleResult = await tagProductStyleById(productId);
             if (styleResult.ok && !styleResult.skipped) revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
