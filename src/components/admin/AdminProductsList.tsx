@@ -1,30 +1,63 @@
-import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock3, Search, Sparkles, XCircle } from 'lucide-react';
-import { ProgressiveImage } from '../ProgressiveImage';
-import { ImageViewerOverlay } from '../ImageViewerOverlay';
-import { AdminProductEditor } from './AdminProductEditor';
-import { ProductStyleReviewPanel } from './ProductStyleReviewPanel';
-import type { AdminEditForm, Product, ProductStyleReviewInput, SizeTable } from '../../types';
-import type { ChangeEvent, SyntheticEvent } from 'react';
-import { CATEGORY_LABELS, CATEGORY_OPTIONS, getCategoryLabel, getSubcategories } from '../../constants';
+import { useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  Search,
+  Sparkles,
+  XCircle,
+} from "lucide-react";
+import { ProgressiveImage } from "../ProgressiveImage";
+import { ImageViewerOverlay } from "../ImageViewerOverlay";
+import { AdminProductEditor } from "./AdminProductEditor";
+import { ProductStyleReviewPanel } from "./ProductStyleReviewPanel";
+import type {
+  AdminEditForm,
+  Product,
+  ProductStyleReviewInput,
+  SizeTable,
+} from "../../types";
+import type { ChangeEvent, SyntheticEvent } from "react";
+import {
+  CATEGORY_LABELS,
+  CATEGORY_OPTIONS,
+  getCategoryLabel,
+  getSubcategories,
+} from "../../constants";
 
 type TableEditingCell =
-  | { kind: 'header'; colIdx: number }
-  | { kind: 'row'; rowIdx: number; colIdx: number }
+  | { kind: "header"; colIdx: number }
+  | { kind: "row"; rowIdx: number; colIdx: number }
   | null;
 
-type AiTagFilter = 'all' | 'tagged' | 'untagged' | 'failed';
-type ReviewFilter = 'all' | 'unapproved' | 'approved' | 'rejected';
+type AiTagFilter = "all" | "tagged" | "untagged" | "failed";
+type ReviewFilter =
+  | "all"
+  | "unapproved"
+  | "tag_approved"
+  | "axis_pending"
+  | "fully_reviewed"
+  | "rejected";
 
-const hasAiTags = (product: Product) => Boolean(product.styleTags && typeof product.styleTags === 'object');
+const hasAiTags = (product: Product) =>
+  Boolean(product.styleTags && typeof product.styleTags === "object");
 const isApprovedReview = (product: Product) =>
-  product.tagReviewStatus === 'approved' || product.tagReviewStatus === 'edited';
-const isRejectedReview = (product: Product) => product.tagReviewStatus === 'rejected';
-const isUnapprovedReview = (product: Product) => hasAiTags(product) && !isApprovedReview(product) && !isRejectedReview(product);
+  product.tagReviewStatus === "approved" ||
+  product.tagReviewStatus === "edited";
+const isRejectedReview = (product: Product) =>
+  product.tagReviewStatus === "rejected";
+const isUnapprovedReview = (product: Product) =>
+  hasAiTags(product) &&
+  !isApprovedReview(product) &&
+  !isRejectedReview(product);
+const isAxisReviewPending = (product: Product) =>
+  isApprovedReview(product) && Boolean(product.styleAxisReviewRequired);
+const isFullyReviewed = (product: Product) =>
+  isApprovedReview(product) && !product.styleAxisReviewRequired;
 const getCategoryAnalysisLabel = (product: Product) => {
-  if (product.categoryAnalysisStatus === 'pending') return '분류 중';
-  if (product.categoryAnalysisStatus === 'failed') return '미분류 — 확인 필요';
-  return product.categoryReviewed ? '분류 확인 완료' : '분류 확인 필요';
+  if (product.categoryAnalysisStatus === "pending") return "분류 중";
+  if (product.categoryAnalysisStatus === "failed") return "미분류 — 확인 필요";
+  return product.categoryReviewed ? "분류 확인 완료" : "분류 확인 필요";
 };
 
 interface AdminProductsListProps {
@@ -40,7 +73,10 @@ interface AdminProductsListProps {
   onDeleteProduct: (id: string) => void;
   onEditFormChange: (updater: (prev: AdminEditForm) => AdminEditForm) => void;
   onExtractedTableChange: (table: SizeTable) => void;
-  onFileUpload: (event: ChangeEvent<HTMLInputElement>, type: 'product' | 'chart') => void;
+  onFileUpload: (
+    event: ChangeEvent<HTMLInputElement>,
+    type: "product" | "chart"
+  ) => void;
   onImageLoadError: (event: SyntheticEvent<HTMLImageElement>) => void;
   onSaveStyleReview: (id: string, review: ProductStyleReviewInput) => void;
   onStartEdit: (product: Product) => void;
@@ -72,60 +108,123 @@ export function AdminProductsList({
   setTableEditingCell,
   tableEditingCell,
 }: AdminProductsListProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [aiTagFilter, setAiTagFilter] = useState<AiTagFilter>('all');
-  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [subCategoryFilter, setSubCategoryFilter] = useState('');
-  const [expandedReviewIds, setExpandedReviewIds] = useState<Set<string>>(() => new Set());
-  const [imageViewerProduct, setImageViewerProduct] = useState<Product | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [aiTagFilter, setAiTagFilter] = useState<AiTagFilter>("all");
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [subCategoryFilter, setSubCategoryFilter] = useState("");
+  const [expandedReviewIds, setExpandedReviewIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [imageViewerProduct, setImageViewerProduct] = useState<Product | null>(
+    null
+  );
 
   const aiTaggedCount = allProducts.filter(hasAiTags).length;
-  const aiUntaggedCount = allProducts.filter((product) => !hasAiTags(product) && product.taggingStatus !== 'failed').length;
-  const failedTaggingCount = allProducts.filter((product) => product.taggingStatus === 'failed').length;
+  const aiUntaggedCount = allProducts.filter(
+    (product) => !hasAiTags(product) && product.taggingStatus !== "failed"
+  ).length;
+  const failedTaggingCount = allProducts.filter(
+    (product) => product.taggingStatus === "failed"
+  ).length;
   const unapprovedReviewCount = allProducts.filter(isUnapprovedReview).length;
   const approvedReviewCount = allProducts.filter(isApprovedReview).length;
+  const axisReviewPendingCount = allProducts.filter(isAxisReviewPending).length;
+  const fullyReviewedCount = allProducts.filter(isFullyReviewed).length;
   const rejectedReviewCount = allProducts.filter(isRejectedReview).length;
   const categoryCounts = new Map<string, number>();
   for (const product of allProducts) {
-    categoryCounts.set(product.category, (categoryCounts.get(product.category) ?? 0) + 1);
+    categoryCounts.set(
+      product.category,
+      (categoryCounts.get(product.category) ?? 0) + 1
+    );
   }
 
-  const filteredProducts = allProducts.filter((p) => {
-    const productHasAiTags = hasAiTags(p);
-    if (aiTagFilter === 'tagged' && !productHasAiTags) return false;
-    if (aiTagFilter === 'untagged' && (productHasAiTags || p.taggingStatus === 'failed')) return false;
-    if (aiTagFilter === 'failed' && p.taggingStatus !== 'failed') return false;
-    if (aiTagFilter === 'tagged' && reviewFilter === 'unapproved' && !isUnapprovedReview(p)) return false;
-    if (aiTagFilter === 'tagged' && reviewFilter === 'approved' && !isApprovedReview(p)) return false;
-    if (aiTagFilter === 'tagged' && reviewFilter === 'rejected' && !isRejectedReview(p)) return false;
-    if (categoryFilter && p.category !== categoryFilter) return false;
-    if (subCategoryFilter === '__unclassified__' && p.subCategory) return false;
-    if (subCategoryFilter && subCategoryFilter !== '__unclassified__' && p.subCategory !== subCategoryFilter) return false;
+  const filteredProducts = allProducts
+    .filter((p) => {
+      const productHasAiTags = hasAiTags(p);
+      if (aiTagFilter === "tagged" && !productHasAiTags) return false;
+      if (
+        aiTagFilter === "untagged" &&
+        (productHasAiTags || p.taggingStatus === "failed")
+      )
+        return false;
+      if (aiTagFilter === "failed" && p.taggingStatus !== "failed")
+        return false;
+      if (
+        aiTagFilter === "tagged" &&
+        reviewFilter === "unapproved" &&
+        !isUnapprovedReview(p)
+      )
+        return false;
+      if (
+        aiTagFilter === "tagged" &&
+        reviewFilter === "tag_approved" &&
+        !isApprovedReview(p)
+      )
+        return false;
+      if (
+        aiTagFilter === "tagged" &&
+        reviewFilter === "axis_pending" &&
+        !isAxisReviewPending(p)
+      )
+        return false;
+      if (
+        aiTagFilter === "tagged" &&
+        reviewFilter === "fully_reviewed" &&
+        !isFullyReviewed(p)
+      )
+        return false;
+      if (
+        aiTagFilter === "tagged" &&
+        reviewFilter === "rejected" &&
+        !isRejectedReview(p)
+      )
+        return false;
+      if (categoryFilter && p.category !== categoryFilter) return false;
+      if (subCategoryFilter === "__unclassified__" && p.subCategory)
+        return false;
+      if (
+        subCategoryFilter &&
+        subCategoryFilter !== "__unclassified__" &&
+        p.subCategory !== subCategoryFilter
+      )
+        return false;
 
-    if (searchQuery.trim()) {
+      if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return (
           p.brand.toLowerCase().includes(q) ||
           p.name.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q)
-          || String(p.subCategory || '').toLowerCase().includes(q)
+          p.category.toLowerCase().includes(q) ||
+          String(p.subCategory || "")
+            .toLowerCase()
+            .includes(q)
         );
-    }
-    return true;
-  }).sort((left, right) => {
-    // The approved-review view is an operational queue: show the most recently
-    // approved or edited product first, independently of original registration date.
-    if (reviewFilter !== 'approved') return 0;
-    return new Date(right.reviewedAt ?? 0).getTime() - new Date(left.reviewedAt ?? 0).getTime();
-  });
+      }
+      return true;
+    })
+    .sort((left, right) => {
+      // The approved-review view is an operational queue: show the most recently
+      // approved or edited product first, independently of original registration date.
+      if (reviewFilter !== "tag_approved" && reviewFilter !== "fully_reviewed")
+        return 0;
+      return (
+        new Date(right.reviewedAt ?? 0).getTime() -
+        new Date(left.reviewedAt ?? 0).getTime()
+      );
+    });
 
   const formatReviewedAt = (reviewedAt: string | null | undefined) => {
     if (!reviewedAt) return null;
     const date = new Date(reviewedAt);
     if (Number.isNaN(date.getTime())) return null;
-    return new Intl.DateTimeFormat('ko-KR', {
-      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    return new Intl.DateTimeFormat("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     }).format(date);
   };
 
@@ -139,7 +238,11 @@ export function AdminProductsList({
   };
 
   if (allProducts.length === 0) {
-    return <div className="text-center py-16 text-gray-500">등록된 상품이 없습니다.</div>;
+    return (
+      <div className="text-center py-16 text-gray-500">
+        등록된 상품이 없습니다.
+      </div>
+    );
   }
 
   return (
@@ -147,69 +250,138 @@ export function AdminProductsList({
       <section className="border-b border-gray-800 pb-4">
         <div className="mb-2 flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-orange-300">Tagging Operations</p>
-            <p className="mt-1 text-sm text-gray-500">태깅 상태와 사람 검수 진행 상황을 관리합니다.</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-orange-300">
+              Tagging Operations
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
+              태깅 상태와 사람 검수 진행 상황을 관리합니다.
+            </p>
           </div>
           <button
             type="button"
             onClick={() => {
-              setAiTagFilter('all');
-              setReviewFilter('all');
-              setCategoryFilter('');
-              setSubCategoryFilter('');
+              setAiTagFilter("all");
+              setReviewFilter("all");
+              setCategoryFilter("");
+              setSubCategoryFilter("");
             }}
-            className={`shrink-0 text-xs transition ${aiTagFilter === 'all' ? 'text-orange-300' : 'text-gray-500 hover:text-gray-300'}`}
+            className={`shrink-0 text-xs transition ${aiTagFilter === "all" ? "text-orange-300" : "text-gray-500 hover:text-gray-300"}`}
           >
             전체 보기 {allProducts.length}개
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-4">
-          {([
-            ['tagged', 'AI 태그 있음', aiTaggedCount, Sparkles, 'text-orange-300'],
-            ['untagged', 'AI 태그 없음', aiUntaggedCount, Clock3, 'text-gray-300'],
-            ['tagged', '검수 대기', unapprovedReviewCount, Clock3, 'text-amber-300', 'unapproved'],
-            ['failed', '태깅 실패', failedTaggingCount, AlertTriangle, 'text-red-300'],
-          ] as const).map(([scope, label, count, Icon, color, nextReviewFilter]) => {
-            const isActive = aiTagFilter === scope && (nextReviewFilter ? reviewFilter === nextReviewFilter : scope !== 'tagged' || reviewFilter === 'all');
+        <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-5">
+          {(
+            [
+              [
+                "tagged",
+                "AI 태그 있음",
+                aiTaggedCount,
+                Sparkles,
+                "text-orange-300",
+              ],
+              [
+                "untagged",
+                "AI 태그 없음",
+                aiUntaggedCount,
+                Clock3,
+                "text-gray-300",
+              ],
+              [
+                "tagged",
+                "축 검수 대기",
+                axisReviewPendingCount,
+                Clock3,
+                "text-amber-300",
+                "axis_pending",
+              ],
+              [
+                "tagged",
+                "최종 검수 완료",
+                fullyReviewedCount,
+                CheckCircle2,
+                "text-emerald-300",
+                "fully_reviewed",
+              ],
+              [
+                "failed",
+                "태깅 실패",
+                failedTaggingCount,
+                AlertTriangle,
+                "text-red-300",
+              ],
+            ] as const
+          ).map(([scope, label, count, Icon, color, nextReviewFilter]) => {
+            const isActive =
+              aiTagFilter === scope &&
+              (nextReviewFilter
+                ? reviewFilter === nextReviewFilter
+                : scope !== "tagged" || reviewFilter === "all");
             return (
               <button
                 key={label}
                 type="button"
                 onClick={() => {
                   setAiTagFilter(scope);
-                  setReviewFilter(nextReviewFilter || 'all');
+                  setReviewFilter(nextReviewFilter || "all");
                 }}
                 className={`min-w-0 rounded-lg border px-3 py-2.5 text-left transition ${
-                  isActive ? 'border-orange-500 bg-orange-500/15' : 'border-gray-800 bg-gray-900/70 hover:border-gray-700'
+                  isActive
+                    ? "border-orange-500 bg-orange-500/15"
+                    : "border-gray-800 bg-gray-900/70 hover:border-gray-700"
                 }`}
               >
-                <span className={`flex items-center gap-1.5 text-xs font-semibold ${color}`}><Icon className="h-3.5 w-3.5" />{label}</span>
-                <span className="mt-1 block text-lg font-bold text-white">{count}</span>
+                <span
+                  className={`flex items-center gap-1.5 text-xs font-semibold ${color}`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </span>
+                <span className="mt-1 block text-lg font-bold text-white">
+                  {count}
+                </span>
               </button>
             );
           })}
         </div>
       </section>
 
-      {aiTagFilter === 'tagged' ? (
+      {aiTagFilter === "tagged" ? (
         <div className="flex flex-wrap gap-2 border-b border-gray-800 pb-3">
-          {([
-            ['all', `전체 ${aiTaggedCount}`, Sparkles],
-            ['unapproved', `미승인 ${unapprovedReviewCount}`, Clock3],
-            ['approved', `승인 완료 ${approvedReviewCount}`, CheckCircle2],
-            ['rejected', `반려 ${rejectedReviewCount}`, XCircle],
-          ] as const).map(([value, label, Icon]) => (
+          {(
+            [
+              ["all", `전체 ${aiTaggedCount}`, Sparkles],
+              ["unapproved", `미승인 ${unapprovedReviewCount}`, Clock3],
+              [
+                "tag_approved",
+                `태그 승인 ${approvedReviewCount}`,
+                CheckCircle2,
+              ],
+              [
+                "axis_pending",
+                `축 검수 대기 ${axisReviewPendingCount}`,
+                Clock3,
+              ],
+              [
+                "fully_reviewed",
+                `최종 완료 ${fullyReviewedCount}`,
+                CheckCircle2,
+              ],
+              ["rejected", `반려 ${rejectedReviewCount}`, XCircle],
+            ] as const
+          ).map(([value, label, Icon]) => (
             <button
               key={value}
               type="button"
               onClick={() => setReviewFilter(value)}
               className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition ${
                 reviewFilter === value
-                  ? 'border-orange-500 bg-orange-500/15 text-orange-200'
-                  : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-200'
+                  ? "border-orange-500 bg-orange-500/15 text-orange-200"
+                  : "border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-200"
               }`}
             >
-              <Icon className="h-3.5 w-3.5" />{label}
+              <Icon className="h-3.5 w-3.5" />
+              {label}
             </button>
           ))}
         </div>
@@ -219,11 +391,19 @@ export function AdminProductsList({
         <div className="grid gap-2 sm:grid-cols-2">
           <select
             value={categoryFilter}
-            onChange={(event) => { setCategoryFilter(event.target.value); setSubCategoryFilter(''); }}
+            onChange={(event) => {
+              setCategoryFilter(event.target.value);
+              setSubCategoryFilter("");
+            }}
             className="h-10 rounded-lg border border-gray-700 bg-gray-800 px-3 text-sm text-white outline-none focus:border-orange-500"
           >
             <option value="">상위 카테고리 전체</option>
-            {CATEGORY_OPTIONS.map((category) => <option key={category} value={category}>{CATEGORY_LABELS[category]} ({categoryCounts.get(category) ?? 0})</option>)}
+            {CATEGORY_OPTIONS.map((category) => (
+              <option key={category} value={category}>
+                {CATEGORY_LABELS[category]} ({categoryCounts.get(category) ?? 0}
+                )
+              </option>
+            ))}
           </select>
           <select
             value={subCategoryFilter}
@@ -233,7 +413,11 @@ export function AdminProductsList({
           >
             <option value="">하위 카테고리 전체</option>
             <option value="__unclassified__">하위 분류 필요</option>
-            {getSubcategories(categoryFilter).map((subcategory) => <option key={subcategory} value={subcategory}>{subcategory}</option>)}
+            {getSubcategories(categoryFilter).map((subcategory) => (
+              <option key={subcategory} value={subcategory}>
+                {subcategory}
+              </option>
+            ))}
           </select>
         </div>
       </section>
@@ -248,7 +432,7 @@ export function AdminProductsList({
         />
         {searchQuery && (
           <button
-            onClick={() => setSearchQuery('')}
+            onClick={() => setSearchQuery("")}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
           >
             ✕
@@ -256,19 +440,34 @@ export function AdminProductsList({
         )}
       </div>
       {filteredProducts.length === 0 ? (
-        <div className="text-center py-10 text-gray-500 text-sm">검색 결과가 없습니다.</div>
+        <div className="text-center py-10 text-gray-500 text-sm">
+          검색 결과가 없습니다.
+        </div>
       ) : (
         <div className="text-xs text-gray-500 px-1">
-          {searchQuery || aiTagFilter !== 'all' || reviewFilter !== 'all' || categoryFilter || subCategoryFilter
+          {searchQuery ||
+          aiTagFilter !== "all" ||
+          reviewFilter !== "all" ||
+          categoryFilter ||
+          subCategoryFilter
             ? `${filteredProducts.length} / ${allProducts.length}개`
             : `총 ${allProducts.length}개`}
-          {aiTagFilter !== 'all' ? ` · ${aiTagFilter === 'tagged' ? 'AI 태그 있음' : aiTagFilter === 'untagged' ? 'AI 태그 없음' : '태깅 실패'} 필터` : ''}
-          {aiTagFilter === 'tagged' && reviewFilter !== 'all' ? ` · ${reviewFilter === 'unapproved' ? '미승인' : reviewFilter === 'approved' ? '승인 완료' : '반려'} 검수 필터` : ''}
-          {categoryFilter ? ` · ${getCategoryLabel(categoryFilter)}${subCategoryFilter === '__unclassified__' ? ' / 하위 분류 필요' : subCategoryFilter ? ` / ${subCategoryFilter}` : ''}` : ''}
+          {aiTagFilter !== "all"
+            ? ` · ${aiTagFilter === "tagged" ? "AI 태그 있음" : aiTagFilter === "untagged" ? "AI 태그 없음" : "태깅 실패"} 필터`
+            : ""}
+          {aiTagFilter === "tagged" && reviewFilter !== "all"
+            ? ` · ${reviewFilter === "unapproved" ? "미승인" : reviewFilter === "tag_approved" ? "태그 승인" : reviewFilter === "axis_pending" ? "축 검수 대기" : reviewFilter === "fully_reviewed" ? "최종 완료" : "반려"} 검수 필터`
+            : ""}
+          {categoryFilter
+            ? ` · ${getCategoryLabel(categoryFilter)}${subCategoryFilter === "__unclassified__" ? " / 하위 분류 필요" : subCategoryFilter ? ` / ${subCategoryFilter}` : ""}`
+            : ""}
         </div>
       )}
       {filteredProducts.map((product) => (
-        <div key={product.id} className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl p-4">
+        <div
+          key={product.id}
+          className="ui-product-card bg-gray-900 border border-gray-800 rounded-2xl p-4"
+        >
           <div className="flex flex-col gap-4 min-[900px]:flex-row min-[900px]:items-start">
             <button
               type="button"
@@ -286,123 +485,203 @@ export function AdminProductsList({
             </button>
             <div className="flex-1 min-w-0">
               <div>
-                  <div className="relative flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-start min-[900px]:justify-between">
-                    <div className="min-[600px]:pr-[19rem]">
-                      <p className="text-xs font-bold text-orange-500 uppercase tracking-wide">{product.brand}</p>
-                      <p className="text-base font-semibold text-white">{product.name}</p>
-                      <p className="text-sm text-gray-400 mt-1">{product.category ? <>{getCategoryLabel(product.category)} · {product.subCategory || <span className="text-amber-300">하위 분류 필요</span>}</> : <span className="text-amber-300">미분류</span>}</p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
-                          product.categoryAnalysisStatus === 'pending'
-                            ? 'border-sky-500/40 bg-sky-500/10 text-sky-200'
-                            : product.categoryAnalysisStatus === 'failed'
-                              ? 'border-red-500/40 bg-red-500/10 text-red-200'
-                            : product.categoryReviewed
-                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-                            : 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-                        }`}>
-                          {getCategoryAnalysisLabel(product)}
-                        </span>
-                        <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
-                          product.taggingStatus === 'failed'
-                            ? 'border-red-500/40 bg-red-500/10 text-red-200'
-                            : hasAiTags(product)
-                              ? 'border-orange-500/30 bg-orange-500/10 text-orange-200'
-                              : 'border-gray-700 bg-gray-800 text-gray-400'
-                        }`}>
-                          {product.taggingStatus === 'failed' ? '태깅 실패' : hasAiTags(product) ? 'AI 태그 있음' : 'AI 태그 없음'}
-                        </span>
-                        {hasAiTags(product) ? <span className="rounded-md border border-gray-700 bg-gray-800 px-2 py-0.5 text-xs text-gray-300">{isApprovedReview(product) ? '승인 완료' : isRejectedReview(product) ? '반려' : '미승인'}</span> : null}
-                      </div>
-                      {product.taggingStatus === 'failed' && product.taggingError ? <p className="mt-2 flex items-start gap-1.5 rounded-md border border-red-500/20 bg-red-500/[0.06] px-2.5 py-2 text-xs leading-5 text-red-200"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{product.taggingError}</p> : null}
-                    </div>
-                    <div className="flex items-center gap-2 min-[600px]:absolute min-[600px]:right-0 min-[600px]:top-0">
-                      <button
-                        type="button"
-                        onClick={() => toggleReviewPanel(product.id)}
-                        aria-expanded={expandedReviewIds.has(product.id)}
-                        aria-controls={`style-review-${product.id}`}
-                        aria-label={expandedReviewIds.has(product.id) ? 'AI 분석 검수 접기' : 'AI 분석 검수 펼치기'}
-                        title={expandedReviewIds.has(product.id) ? 'AI 분석 검수 접기' : 'AI 분석 검수 펼치기'}
-                        className="inline-flex h-9 items-center rounded-lg px-2.5 text-sm font-medium text-orange-200 hover:bg-orange-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                      >
-                        AI 분석 검수
-                      </button>
-                      {isApprovedReview(product) && formatReviewedAt(product.reviewedAt) ? (
-                        <span className="text-xs text-gray-500" title={`승인 완료: ${formatReviewedAt(product.reviewedAt)}`}>
-                          승인 {formatReviewedAt(product.reviewedAt)}
-                        </span>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => editingProductId === product.id ? onCancelEdit() : onStartEdit(product)}
-                        aria-expanded={editingProductId === product.id}
-                        aria-controls={`product-editor-${product.id}`}
-                        title={editingProductId === product.id ? '기본 상품 정보 수정 닫기' : '기본 상품 정보 수정 열기'}
-                        className="px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-800"
-                      >
-                        기본 상품 정보 수정
-                      </button>
-                      <button
-                        onClick={() => onDeleteProduct(product.id)}
-                        disabled={isAdminActionLoading}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                          isAdminActionLoading
-                            ? 'text-gray-500 bg-gray-800 cursor-not-allowed'
-                            : 'text-red-300 hover:bg-red-900/30'
+                <div className="relative flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-start min-[900px]:justify-between">
+                  <div className="min-[600px]:pr-[19rem]">
+                    <p className="text-xs font-bold text-orange-500 uppercase tracking-wide">
+                      {product.brand}
+                    </p>
+                    <p className="text-base font-semibold text-white">
+                      {product.name}
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      {product.category ? (
+                        <>
+                          {getCategoryLabel(product.category)} ·{" "}
+                          {product.subCategory || (
+                            <span className="text-amber-300">
+                              하위 분류 필요
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-amber-300">미분류</span>
+                      )}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span
+                        className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
+                          product.categoryAnalysisStatus === "pending"
+                            ? "border-sky-500/40 bg-sky-500/10 text-sky-200"
+                            : product.categoryAnalysisStatus === "failed"
+                              ? "border-red-500/40 bg-red-500/10 text-red-200"
+                              : product.categoryReviewed
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                                : "border-amber-500/40 bg-amber-500/10 text-amber-200"
                         }`}
                       >
-                        삭제
-                      </button>
-                    </div>
-                  </div>
-                  <div id={`style-review-${product.id}`} hidden={!expandedReviewIds.has(product.id)}>
-                    <p className="mt-4 break-all text-sm text-gray-500">
-                      {product.url || 'URL 없음'}
-                    </p>
-                    <ProductStyleReviewPanel
-                      isSaving={isAdminActionLoading}
-                      onSave={onSaveStyleReview}
-                      product={product}
-                    />
-                  </div>
-                  {editingProductId === product.id ? (
-                    <section id={`product-editor-${product.id}`} className="mt-4 border-t border-gray-800 pt-4">
-                      <p className="text-xs font-bold tracking-wide text-gray-300">기본 상품 정보 수정</p>
-                      <p className="mt-1 text-xs text-gray-500">브랜드, 상품명, URL, 이미지, 사이즈표를 수정할 수 있습니다.</p>
-                      {!product.categoryReviewed && product.categoryAnalysisStatus === 'completed' ? (
-                        <button
-                          type="button"
-                          onClick={() => onApproveProductCategory(product.id)}
-                          disabled={isAdminActionLoading}
-                          className={`mt-3 px-3 py-2 rounded-lg text-sm font-medium ${
-                            isAdminActionLoading
-                              ? 'text-gray-500 bg-gray-800 cursor-not-allowed'
-                              : 'text-emerald-200 hover:bg-emerald-500/10'
-                          }`}
-                        >
-                          분류 승인
-                        </button>
+                        {getCategoryAnalysisLabel(product)}
+                      </span>
+                      <span
+                        className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
+                          product.taggingStatus === "failed"
+                            ? "border-red-500/40 bg-red-500/10 text-red-200"
+                            : hasAiTags(product)
+                              ? "border-orange-500/30 bg-orange-500/10 text-orange-200"
+                              : "border-gray-700 bg-gray-800 text-gray-400"
+                        }`}
+                      >
+                        {product.taggingStatus === "failed"
+                          ? "태깅 실패"
+                          : hasAiTags(product)
+                            ? "AI 태그 있음"
+                            : "AI 태그 없음"}
+                      </span>
+                      {hasAiTags(product) ? (
+                        <span className="rounded-md border border-gray-700 bg-gray-800 px-2 py-0.5 text-xs text-gray-300">
+                          {isApprovedReview(product)
+                            ? "태그 승인"
+                            : isRejectedReview(product)
+                              ? "반려"
+                              : "미승인"}
+                        </span>
                       ) : null}
-                      <div className="mt-3">
-                        <AdminProductEditor
-                          adminEditForm={adminEditForm}
-                          adminExtractedTable={adminExtractedTable}
-                          adminImagePreview={adminImagePreview}
-                          adminSizeChartImage={adminSizeChartImage}
-                          isAdminActionLoading={isAdminActionLoading}
-                          isAdminAnalyzingTable={isAdminAnalyzingTable}
-                          onCancelEdit={onCancelEdit}
-                          onEditFormChange={onEditFormChange}
-                          onExtractedTableChange={onExtractedTableChange}
-                          onFileUpload={onFileUpload}
-                          onUpdateProduct={() => onUpdateProduct(product.id)}
-                          setTableEditingCell={setTableEditingCell}
-                          tableEditingCell={tableEditingCell}
-                        />
-                      </div>
-                    </section>
-                  ) : null}
+                      {isApprovedReview(product) ? (
+                        <span
+                          className={`rounded-md border px-2 py-0.5 text-xs font-medium ${isAxisReviewPending(product) ? "border-amber-500/40 bg-amber-500/10 text-amber-200" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"}`}
+                        >
+                          {isAxisReviewPending(product)
+                            ? "축 검수 대기"
+                            : "최종 검수 완료"}
+                        </span>
+                      ) : null}
+                    </div>
+                    {product.taggingStatus === "failed" &&
+                    product.taggingError ? (
+                      <p className="mt-2 flex items-start gap-1.5 rounded-md border border-red-500/20 bg-red-500/[0.06] px-2.5 py-2 text-xs leading-5 text-red-200">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        {product.taggingError}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2 min-[600px]:absolute min-[600px]:right-0 min-[600px]:top-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleReviewPanel(product.id)}
+                      aria-expanded={expandedReviewIds.has(product.id)}
+                      aria-controls={`style-review-${product.id}`}
+                      aria-label={
+                        expandedReviewIds.has(product.id)
+                          ? "AI 분석 검수 접기"
+                          : "AI 분석 검수 펼치기"
+                      }
+                      title={
+                        expandedReviewIds.has(product.id)
+                          ? "AI 분석 검수 접기"
+                          : "AI 분석 검수 펼치기"
+                      }
+                      className="inline-flex h-9 items-center rounded-lg px-2.5 text-sm font-medium text-orange-200 hover:bg-orange-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    >
+                      AI 분석 검수
+                    </button>
+                    {isApprovedReview(product) &&
+                    formatReviewedAt(product.reviewedAt) ? (
+                      <span
+                        className="text-xs text-gray-500"
+                        title={`승인 완료: ${formatReviewedAt(product.reviewedAt)}`}
+                      >
+                        태그 승인 {formatReviewedAt(product.reviewedAt)}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        editingProductId === product.id
+                          ? onCancelEdit()
+                          : onStartEdit(product)
+                      }
+                      aria-expanded={editingProductId === product.id}
+                      aria-controls={`product-editor-${product.id}`}
+                      title={
+                        editingProductId === product.id
+                          ? "기본 상품 정보 수정 닫기"
+                          : "기본 상품 정보 수정 열기"
+                      }
+                      className="px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-800"
+                    >
+                      기본 상품 정보 수정
+                    </button>
+                    <button
+                      onClick={() => onDeleteProduct(product.id)}
+                      disabled={isAdminActionLoading}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                        isAdminActionLoading
+                          ? "text-gray-500 bg-gray-800 cursor-not-allowed"
+                          : "text-red-300 hover:bg-red-900/30"
+                      }`}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id={`style-review-${product.id}`}
+                  hidden={!expandedReviewIds.has(product.id)}
+                >
+                  <p className="mt-4 break-all text-sm text-gray-500">
+                    {product.url || "URL 없음"}
+                  </p>
+                  <ProductStyleReviewPanel
+                    isSaving={isAdminActionLoading}
+                    onSave={onSaveStyleReview}
+                    product={product}
+                  />
+                </div>
+                {editingProductId === product.id ? (
+                  <section
+                    id={`product-editor-${product.id}`}
+                    className="mt-4 border-t border-gray-800 pt-4"
+                  >
+                    <p className="text-xs font-bold tracking-wide text-gray-300">
+                      기본 상품 정보 수정
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      브랜드, 상품명, URL, 이미지, 사이즈표를 수정할 수
+                      있습니다.
+                    </p>
+                    {!product.categoryReviewed &&
+                    product.categoryAnalysisStatus === "completed" ? (
+                      <button
+                        type="button"
+                        onClick={() => onApproveProductCategory(product.id)}
+                        disabled={isAdminActionLoading}
+                        className={`mt-3 px-3 py-2 rounded-lg text-sm font-medium ${
+                          isAdminActionLoading
+                            ? "text-gray-500 bg-gray-800 cursor-not-allowed"
+                            : "text-emerald-200 hover:bg-emerald-500/10"
+                        }`}
+                      >
+                        분류 승인
+                      </button>
+                    ) : null}
+                    <div className="mt-3">
+                      <AdminProductEditor
+                        adminEditForm={adminEditForm}
+                        adminExtractedTable={adminExtractedTable}
+                        adminImagePreview={adminImagePreview}
+                        adminSizeChartImage={adminSizeChartImage}
+                        isAdminActionLoading={isAdminActionLoading}
+                        isAdminAnalyzingTable={isAdminAnalyzingTable}
+                        onCancelEdit={onCancelEdit}
+                        onEditFormChange={onEditFormChange}
+                        onExtractedTableChange={onExtractedTableChange}
+                        onFileUpload={onFileUpload}
+                        onUpdateProduct={() => onUpdateProduct(product.id)}
+                        setTableEditingCell={setTableEditingCell}
+                        tableEditingCell={tableEditingCell}
+                      />
+                    </div>
+                  </section>
+                ) : null}
               </div>
             </div>
           </div>
@@ -411,7 +690,9 @@ export function AdminProductsList({
       {imageViewerProduct ? (
         <ImageViewerOverlay
           open
-          src={imageViewerProduct.image || imageViewerProduct.thumbnailImage || ''}
+          src={
+            imageViewerProduct.image || imageViewerProduct.thumbnailImage || ""
+          }
           alt={imageViewerProduct.name}
           onClose={() => setImageViewerProduct(null)}
         />
