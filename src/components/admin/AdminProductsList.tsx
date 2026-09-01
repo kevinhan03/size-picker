@@ -32,28 +32,25 @@ type TableEditingCell =
 
 type AiTagFilter = "all" | "tagged" | "untagged" | "failed";
 type ReviewFilter =
-  | "all"
-  | "unapproved"
-  | "tag_approved"
-  | "axis_pending"
-  | "fully_reviewed"
-  | "rejected";
+  "all" | "facts_pending" | "axis_pending" | "fully_reviewed" | "rejected";
 
 const hasAiTags = (product: Product) =>
   Boolean(product.styleTags && typeof product.styleTags === "object");
-const isApprovedReview = (product: Product) =>
-  product.tagReviewStatus === "approved" ||
-  product.tagReviewStatus === "edited";
 const isRejectedReview = (product: Product) =>
   product.tagReviewStatus === "rejected";
-const isUnapprovedReview = (product: Product) =>
-  hasAiTags(product) &&
-  !isApprovedReview(product) &&
-  !isRejectedReview(product);
+const isFactsReviewed = (product: Product) => Boolean(product.factsReviewedAt);
+const isStyleAxesReviewed = (product: Product) =>
+  Boolean(product.styleAxesReviewedAt);
+const isFactsReviewPending = (product: Product) =>
+  hasAiTags(product) && !isFactsReviewed(product) && !isRejectedReview(product);
 const isAxisReviewPending = (product: Product) =>
-  isApprovedReview(product) && Boolean(product.styleAxisReviewRequired);
+  hasAiTags(product) &&
+  !isStyleAxesReviewed(product) &&
+  !isRejectedReview(product);
 const isFullyReviewed = (product: Product) =>
-  isApprovedReview(product) && !product.styleAxisReviewRequired;
+  hasAiTags(product) &&
+  isFactsReviewed(product) &&
+  isStyleAxesReviewed(product);
 const getCategoryAnalysisLabel = (product: Product) => {
   if (product.categoryAnalysisStatus === "pending") return "분류 중";
   if (product.categoryAnalysisStatus === "failed") return "미분류 — 확인 필요";
@@ -127,8 +124,8 @@ export function AdminProductsList({
   const failedTaggingCount = allProducts.filter(
     (product) => product.taggingStatus === "failed"
   ).length;
-  const unapprovedReviewCount = allProducts.filter(isUnapprovedReview).length;
-  const approvedReviewCount = allProducts.filter(isApprovedReview).length;
+  const factsReviewPendingCount =
+    allProducts.filter(isFactsReviewPending).length;
   const axisReviewPendingCount = allProducts.filter(isAxisReviewPending).length;
   const fullyReviewedCount = allProducts.filter(isFullyReviewed).length;
   const rejectedReviewCount = allProducts.filter(isRejectedReview).length;
@@ -153,14 +150,8 @@ export function AdminProductsList({
         return false;
       if (
         aiTagFilter === "tagged" &&
-        reviewFilter === "unapproved" &&
-        !isUnapprovedReview(p)
-      )
-        return false;
-      if (
-        aiTagFilter === "tagged" &&
-        reviewFilter === "tag_approved" &&
-        !isApprovedReview(p)
+        reviewFilter === "facts_pending" &&
+        !isFactsReviewPending(p)
       )
         return false;
       if (
@@ -205,13 +196,12 @@ export function AdminProductsList({
       return true;
     })
     .sort((left, right) => {
-      // The approved-review view is an operational queue: show the most recently
-      // approved or edited product first, independently of original registration date.
-      if (reviewFilter !== "tag_approved" && reviewFilter !== "fully_reviewed")
-        return 0;
+      // The final-review view is an operational queue: show the most recently
+      // axis-approved product first, independently of original registration date.
+      if (reviewFilter !== "fully_reviewed") return 0;
       return (
-        new Date(right.reviewedAt ?? 0).getTime() -
-        new Date(left.reviewedAt ?? 0).getTime()
+        new Date(right.styleAxesReviewedAt ?? 0).getTime() -
+        new Date(left.styleAxesReviewedAt ?? 0).getTime()
       );
     });
 
@@ -270,7 +260,7 @@ export function AdminProductsList({
             전체 보기 {allProducts.length}개
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 min-[1100px]:grid-cols-6">
           {(
             [
               [
@@ -289,7 +279,15 @@ export function AdminProductsList({
               ],
               [
                 "tagged",
-                "축 검수 대기",
+                "사실값 검수 대기",
+                factsReviewPendingCount,
+                Clock3,
+                "text-amber-300",
+                "facts_pending",
+              ],
+              [
+                "tagged",
+                "스타일 축 검수 대기",
                 axisReviewPendingCount,
                 Clock3,
                 "text-amber-300",
@@ -351,15 +349,14 @@ export function AdminProductsList({
           {(
             [
               ["all", `전체 ${aiTaggedCount}`, Sparkles],
-              ["unapproved", `미승인 ${unapprovedReviewCount}`, Clock3],
               [
-                "tag_approved",
-                `태그 승인 ${approvedReviewCount}`,
-                CheckCircle2,
+                "facts_pending",
+                `사실값 검수 대기 ${factsReviewPendingCount}`,
+                Clock3,
               ],
               [
                 "axis_pending",
-                `축 검수 대기 ${axisReviewPendingCount}`,
+                `스타일 축 검수 대기 ${axisReviewPendingCount}`,
                 Clock3,
               ],
               [
@@ -456,7 +453,7 @@ export function AdminProductsList({
             ? ` · ${aiTagFilter === "tagged" ? "AI 태그 있음" : aiTagFilter === "untagged" ? "AI 태그 없음" : "태깅 실패"} 필터`
             : ""}
           {aiTagFilter === "tagged" && reviewFilter !== "all"
-            ? ` · ${reviewFilter === "unapproved" ? "미승인" : reviewFilter === "tag_approved" ? "태그 승인" : reviewFilter === "axis_pending" ? "축 검수 대기" : reviewFilter === "fully_reviewed" ? "최종 완료" : "반려"} 검수 필터`
+            ? ` · ${reviewFilter === "facts_pending" ? "사실값 검수 대기" : reviewFilter === "axis_pending" ? "스타일 축 검수 대기" : reviewFilter === "fully_reviewed" ? "최종 완료" : "반려"} 검수 필터`
             : ""}
           {categoryFilter
             ? ` · ${getCategoryLabel(categoryFilter)}${subCategoryFilter === "__unclassified__" ? " / 하위 분류 필요" : subCategoryFilter ? ` / ${subCategoryFilter}` : ""}`
@@ -537,21 +534,16 @@ export function AdminProductsList({
                             : "AI 태그 없음"}
                       </span>
                       {hasAiTags(product) ? (
-                        <span className="rounded-md border border-gray-700 bg-gray-800 px-2 py-0.5 text-xs text-gray-300">
-                          {isApprovedReview(product)
-                            ? "태그 승인"
+                        <span
+                          className={`rounded-md border px-2 py-0.5 text-xs font-medium ${isFullyReviewed(product) ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : "border-amber-500/40 bg-amber-500/10 text-amber-200"}`}
+                        >
+                          {isFullyReviewed(product)
+                            ? "최종 검수 완료"
                             : isRejectedReview(product)
                               ? "반려"
-                              : "미승인"}
-                        </span>
-                      ) : null}
-                      {isApprovedReview(product) ? (
-                        <span
-                          className={`rounded-md border px-2 py-0.5 text-xs font-medium ${isAxisReviewPending(product) ? "border-amber-500/40 bg-amber-500/10 text-amber-200" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"}`}
-                        >
-                          {isAxisReviewPending(product)
-                            ? "축 검수 대기"
-                            : "최종 검수 완료"}
+                              : !isFactsReviewed(product)
+                                ? "사실값 검수 대기"
+                                : "스타일 축 검수 대기"}
                         </span>
                       ) : null}
                     </div>
@@ -583,13 +575,14 @@ export function AdminProductsList({
                     >
                       AI 분석 검수
                     </button>
-                    {isApprovedReview(product) &&
-                    formatReviewedAt(product.reviewedAt) ? (
+                    {isFullyReviewed(product) &&
+                    formatReviewedAt(product.styleAxesReviewedAt) ? (
                       <span
                         className="text-xs text-gray-500"
-                        title={`승인 완료: ${formatReviewedAt(product.reviewedAt)}`}
+                        title={`최종 검수 완료: ${formatReviewedAt(product.styleAxesReviewedAt)}`}
                       >
-                        태그 승인 {formatReviewedAt(product.reviewedAt)}
+                        최종 완료{" "}
+                        {formatReviewedAt(product.styleAxesReviewedAt)}
                       </span>
                     ) : null}
                     <button

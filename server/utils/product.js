@@ -7,12 +7,20 @@ import {
   SUPABASE_STORAGE_BUCKET,
 } from "../config/env.js";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
-import { persistExternalProductImage, removeStoredProductImage } from "../services/product-image-storage.js";
+import {
+  persistExternalProductImage,
+  removeStoredProductImage,
+} from "../services/product-image-storage.js";
 import { normalizeBrandName } from "./brand-rules.js";
-import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "./size-table.js";
+import {
+  isSizeTableNormalizationCategory,
+  normalizeSizeTableForCategory,
+  parseSizeTable,
+} from "./size-table.js";
 
 export const DUPLICATE_PRODUCT_ERROR_MESSAGE = "이미 등록된 상품입니다";
-const DUPLICATE_PRODUCT_ERROR_MESSAGE_EN = "This product has already been added";
+const DUPLICATE_PRODUCT_ERROR_MESSAGE_EN =
+  "This product has already been added";
 
 const isDuplicateConstraintError = (error) => {
   const code = String(error?.code || "").trim();
@@ -27,11 +35,18 @@ const isDuplicateConstraintError = (error) => {
   );
 };
 
-export const toProductWriteErrorResponse = (error, fallbackMessage, locale = "ko") => {
+export const toProductWriteErrorResponse = (
+  error,
+  fallbackMessage,
+  locale = "ko"
+) => {
   if (isDuplicateConstraintError(error)) {
     return {
       statusCode: 409,
-      message: locale === "en" ? DUPLICATE_PRODUCT_ERROR_MESSAGE_EN : DUPLICATE_PRODUCT_ERROR_MESSAGE,
+      message:
+        locale === "en"
+          ? DUPLICATE_PRODUCT_ERROR_MESSAGE_EN
+          : DUPLICATE_PRODUCT_ERROR_MESSAGE,
     };
   }
 
@@ -46,7 +61,8 @@ const toPublicImageUrl = (value, transform = null) => {
   if (!normalized) return "";
   if (/^https?:\/\//i.test(normalized)) return normalized;
   if (!SUPABASE_URL || !SUPABASE_STORAGE_BUCKET) return normalized;
-  if (!transform) return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/${normalized}`;
+  if (!transform)
+    return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/${normalized}`;
   const params = new URLSearchParams();
   if (transform.width) params.set("width", String(transform.width));
   if (transform.height) params.set("height", String(transform.height));
@@ -72,10 +88,17 @@ export const normalizeProductRow = (row) => {
     category: row.category ? String(row.category) : "",
     subCategory: row.sub_category ? String(row.sub_category) : null,
     categoryReviewed: Boolean(row.category_reviewed),
-    categoryAnalysisStatus: row.category_analysis_status ? String(row.category_analysis_status) : "completed",
+    categoryAnalysisStatus: row.category_analysis_status
+      ? String(row.category_analysis_status)
+      : "completed",
     url: String(row.url || "#"),
     image: toPublicImageUrl(image || imagePath),
-    thumbnailImage: toPublicImageUrl(imagePath || image, { width: 320, height: 320, resize: "contain", quality: 65 }),
+    thumbnailImage: toPublicImageUrl(imagePath || image, {
+      width: 320,
+      height: 320,
+      resize: "contain",
+      quality: 65,
+    }),
     imagePath: imagePath || null,
     slug: String(row.slug || "").trim() || null,
     sizeTable: parseSizeTable(row.size_table ?? row.sizeTable),
@@ -84,40 +107,68 @@ export const normalizeProductRow = (row) => {
       if (!raw) return null;
       try {
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-        if (!parsed || !Array.isArray(parsed.headers) || !Array.isArray(parsed.rows)) return null;
+        if (
+          !parsed ||
+          !Array.isArray(parsed.headers) ||
+          !Array.isArray(parsed.rows)
+        )
+          return null;
         return parsed;
-      } catch { return null; }
+      } catch {
+        return null;
+      }
     })(),
     createdAt: row.created_at || row.createdAt || null,
     collectionAddedAt: row.collection_added_at || row.collectionAddedAt || null,
     registeredBy: row.registered_by ? String(row.registered_by) : null,
     isInstagram: Boolean(row.is_instagram),
-    instagramOrder: typeof row.instagram_order === "number" ? row.instagram_order : null,
+    instagramOrder:
+      typeof row.instagram_order === "number" ? row.instagram_order : null,
     styleTags: row.style_tags ?? null,
     styleAttributes: row.style_attributes ?? null,
     styleAxes: row.style_axes ?? null,
     styleTagsEvidence: row.style_tags_evidence ?? null,
     styleTagsConfidence:
-      typeof row.style_tags_confidence === "number" ? row.style_tags_confidence : null,
+      typeof row.style_tags_confidence === "number"
+        ? row.style_tags_confidence
+        : null,
     taggingStatus: row.tagging_status ? String(row.tagging_status) : null,
-    styleAxisAnalysisStatus: row.style_axis_analysis_status ? String(row.style_axis_analysis_status) : null,
-    styleAxisAnalysisError: row.style_axis_analysis_error ? String(row.style_axis_analysis_error) : null,
+    styleAxisAnalysisStatus: row.style_axis_analysis_status
+      ? String(row.style_axis_analysis_status)
+      : null,
+    styleAxisAnalysisError: row.style_axis_analysis_error
+      ? String(row.style_axis_analysis_error)
+      : null,
     styleAxisAnalyzedAt: row.style_axis_analyzed_at || null,
     styleAxisReviewRequired: Boolean(row.style_axis_review_required),
+    factsReviewedAt: row.facts_reviewed_at || null,
+    factsReviewedBy: row.facts_reviewed_by
+      ? String(row.facts_reviewed_by)
+      : null,
+    styleAxesReviewedAt: row.style_axes_reviewed_at || null,
+    styleAxesReviewedBy: row.style_axes_reviewed_by
+      ? String(row.style_axes_reviewed_by)
+      : null,
     taggingError: row.tagging_error ? String(row.tagging_error) : null,
     taggedAt: row.tagged_at || null,
     humanStyleTags: row.human_style_tags ?? null,
     humanStyleAttributes: row.human_style_attributes ?? null,
     humanStyleAxes: row.human_style_axes ?? null,
     humanStyleTagsEvidence: row.human_style_tags_evidence ?? null,
-    tagReviewStatus: row.tag_review_status ? String(row.tag_review_status) : null,
+    tagReviewStatus: row.tag_review_status
+      ? String(row.tag_review_status)
+      : null,
     tagReviewNote: row.tag_review_note ? String(row.tag_review_note) : null,
     reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
     reviewedAt: row.reviewed_at || null,
     imageEmbedding: row.image_embedding ?? null,
     targetGender: row.target_gender ? String(row.target_gender) : null,
-    humanTargetGender: row.human_target_gender ? String(row.human_target_gender) : null,
-    targetGenderReviewedBy: row.target_gender_reviewed_by ? String(row.target_gender_reviewed_by) : null,
+    humanTargetGender: row.human_target_gender
+      ? String(row.human_target_gender)
+      : null,
+    targetGenderReviewedBy: row.target_gender_reviewed_by
+      ? String(row.target_gender_reviewed_by)
+      : null,
     targetGenderReviewedAt: row.target_gender_reviewed_at || null,
   };
 };
@@ -171,7 +222,10 @@ const sanitizeDatabaseJson = (value) => {
   if (Array.isArray(value)) return value.map(sanitizeDatabaseJson);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(
-    Object.entries(value).map(([key, nestedValue]) => [sanitizeDatabaseText(key), sanitizeDatabaseJson(nestedValue)])
+    Object.entries(value).map(([key, nestedValue]) => [
+      sanitizeDatabaseText(key),
+      sanitizeDatabaseJson(nestedValue),
+    ])
   );
 };
 
@@ -182,7 +236,10 @@ const isSubmissionStoragePath = (path) =>
   !path.startsWith("http://") &&
   !path.startsWith("https://");
 
-export const removeOldProductImageIfUnused = async ({ oldPath, updatedProductId }) => {
+export const removeOldProductImageIfUnused = async ({
+  oldPath,
+  updatedProductId,
+}) => {
   const normalizedOldPath = normalizeStoragePath(oldPath);
   if (!normalizedOldPath || !isSubmissionStoragePath(normalizedOldPath)) return;
 
@@ -223,7 +280,6 @@ export const insertProductRow = async (input) => {
     image,
     imagePath,
     sizeTable = null,
-    normalizedSizeTable = null,
     createdAt,
     slug,
     isInstagram = false,
@@ -241,11 +297,15 @@ export const insertProductRow = async (input) => {
   const effectiveImage = normalizedImage || normalizedImagePath || "";
   const normalizedSlug = sanitizeDatabaseText(slug).trim() || null;
   const effectiveProductMetadata =
-    productMetadata && typeof productMetadata === "object" && !Array.isArray(productMetadata)
+    productMetadata &&
+    typeof productMetadata === "object" &&
+    !Array.isArray(productMetadata)
       ? sanitizeDatabaseJson(productMetadata)
       : null;
   let effectiveInstagramOrder =
-    typeof instagramOrder === "number" && Number.isFinite(instagramOrder) ? instagramOrder : null;
+    typeof instagramOrder === "number" && Number.isFinite(instagramOrder)
+      ? instagramOrder
+      : null;
 
   if (isInstagram && effectiveInstagramOrder === null) {
     const { data: lastFeaturedProduct } = await supabase
@@ -262,10 +322,13 @@ export const insertProductRow = async (input) => {
 
   const sanitizedCategory = sanitizeDatabaseText(category).trim() || null;
   const sanitizedSubCategory = sanitizeDatabaseText(subCategory).trim() || null;
-  const effectiveCategoryAnalysisStatus = categoryAnalysisStatus || (sanitizedCategory ? "completed" : "pending");
+  const effectiveCategoryAnalysisStatus =
+    categoryAnalysisStatus || (sanitizedCategory ? "completed" : "pending");
   const effectiveSizeTable = parseSizeTable(sanitizeDatabaseJson(sizeTable));
-  const effectiveNormalizedSizeTable = isBottomCategory(sanitizedCategory)
-    ? parseSizeTable(sanitizeDatabaseJson(normalizedSizeTable)) || normalizeSizeTableForCategory(sanitizedCategory, effectiveSizeTable)
+  const effectiveNormalizedSizeTable = isSizeTableNormalizationCategory(
+    sanitizedCategory
+  )
+    ? normalizeSizeTableForCategory(sanitizedCategory, effectiveSizeTable)
     : null;
   const canonicalBrand = normalizeBrandName(sanitizeDatabaseText(brand));
   try {
@@ -319,7 +382,12 @@ export const backfillProductBrands = async () => {
     const url = String(product?.url || "").trim();
     const canonicalBrand = normalizeBrandName(currentBrand);
 
-    if (!id || !currentBrand || !canonicalBrand || canonicalBrand === currentBrand) {
+    if (
+      !id ||
+      !currentBrand ||
+      !canonicalBrand ||
+      canonicalBrand === currentBrand
+    ) {
       skippedCount += 1;
       continue;
     }
@@ -364,14 +432,20 @@ export const backfillProductBrands = async () => {
 };
 
 const slugifyText = (text) =>
-  text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
 
 const extractEnglishBrand = (brand) => {
   const parenMatch = brand.match(/\(([a-zA-Z0-9][a-zA-Z0-9\s&'./+-]*)\)/);
   if (parenMatch) return parenMatch[1].trim();
   const pipeMatch = brand.match(/^([^|]+)\|/);
   if (pipeMatch) return pipeMatch[1].trim();
-  const prefixMatch = brand.match(/^([A-Za-z0-9][A-Za-z0-9\s&'.+-]+?)\s+[가-힣]/);
+  const prefixMatch = brand.match(
+    /^([A-Za-z0-9][A-Za-z0-9\s&'.+-]+?)\s+[가-힣]/
+  );
   if (prefixMatch) return prefixMatch[1].trim();
   return brand;
 };
@@ -382,17 +456,38 @@ const translateKoreanProductName = async (name) => {
   if (!hasKorean(name) || !GEMINI_API_KEY) return name;
 
   try {
-    const response = await fetch(`${GEMINI_API_BASE}/models/gemini-2.5-flash:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: `Translate this Korean fashion product name to English. Return ONLY the English translation.\n"${name}"` }] }],
-        generationConfig: { maxOutputTokens: 100, temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
-      }),
-    });
+    const response = await fetch(
+      `${GEMINI_API_BASE}/models/gemini-2.5-flash:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Translate this Korean fashion product name to English. Return ONLY the English translation.\n"${name}"`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            maxOutputTokens: 100,
+            temperature: 0,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        }),
+      }
+    );
     if (!response.ok) return name;
     const json = await response.json();
-    return String(json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim() || name;
+    return (
+      String(json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim() ||
+      name
+    );
   } catch {
     return name;
   }
@@ -402,6 +497,10 @@ export const generateProductSlug = async (brand, name) => {
   const brandSlug = slugifyText(extractEnglishBrand(brand));
   const translatedName = await translateKoreanProductName(name);
   const nameSlug = slugifyText(translatedName);
-  const combined = [brandSlug, nameSlug].filter(Boolean).join("-").replace(/-{2,}/g, "-").slice(0, 80);
+  const combined = [brandSlug, nameSlug]
+    .filter(Boolean)
+    .join("-")
+    .replace(/-{2,}/g, "-")
+    .slice(0, 80);
   return combined || slugifyText(`${brand} ${name}`);
 };

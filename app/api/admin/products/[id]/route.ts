@@ -3,12 +3,28 @@ import { revalidateTag } from "next/cache";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { verifyAdminRequest } from "../../../../../server/utils/admin-request.js";
 import { SUPABASE_PRODUCTS_TABLE } from "../../../../../server/config/env.js";
-import { assertSupabaseConfig, supabase } from "../../../../../server/lib/supabase.js";
-import { normalizeBrandName, refreshBrandRulesCache } from "../../../../../server/utils/brand-rules.js";
-import { removeOldProductImageIfUnused, toProductWriteErrorResponse } from "../../../../../server/utils/product.js";
-import { persistExternalProductImage, removeStoredProductImage } from "../../../../../server/services/product-image-storage.js";
+import {
+  assertSupabaseConfig,
+  supabase,
+} from "../../../../../server/lib/supabase.js";
+import {
+  normalizeBrandName,
+  refreshBrandRulesCache,
+} from "../../../../../server/utils/brand-rules.js";
+import {
+  removeOldProductImageIfUnused,
+  toProductWriteErrorResponse,
+} from "../../../../../server/utils/product.js";
+import {
+  persistExternalProductImage,
+  removeStoredProductImage,
+} from "../../../../../server/services/product-image-storage.js";
 import { DIG_MATCH_PRODUCTS_CACHE_TAG } from "../../../../../server/services/dig-match-products.js";
-import { isBottomCategory, normalizeSizeTableForCategory, parseSizeTable } from "../../../../../server/utils/size-table.js";
+import {
+  isSizeTableNormalizationCategory,
+  normalizeSizeTableForCategory,
+  parseSizeTable,
+} from "../../../../../server/utils/size-table.js";
 import { invalidatePublicProductCaches } from "../../../../../server/services/catalog-cache";
 import { isProductCategory, isValidSubcategory } from "@/constants";
 
@@ -40,13 +56,21 @@ export async function PATCH(
     if ("name" in body) payload.name = String(body?.name || "").trim();
     if ("category" in body) {
       const category = String(body?.category || "").trim();
-      if (category && !isProductCategory(category)) return NextResponse.json({ ok: false, error: "invalid category" }, { status: 400 });
+      if (category && !isProductCategory(category))
+        return NextResponse.json(
+          { ok: false, error: "invalid category" },
+          { status: 400 }
+        );
       payload.category = category || "Uncategorized";
       payload.category_analysis_status = "completed";
     }
-    if ("subCategory" in body || "sub_category" in body) payload.sub_category = String(body?.subCategory ?? body?.sub_category ?? "").trim() || null;
+    if ("subCategory" in body || "sub_category" in body)
+      payload.sub_category =
+        String(body?.subCategory ?? body?.sub_category ?? "").trim() || null;
     if ("categoryReviewed" in body || "category_reviewed" in body) {
-      payload.category_reviewed = Boolean(body?.categoryReviewed ?? body?.category_reviewed);
+      payload.category_reviewed = Boolean(
+        body?.categoryReviewed ?? body?.category_reviewed
+      );
     }
     if ("url" in body) {
       const url = String(body?.url || "").trim();
@@ -54,16 +78,23 @@ export async function PATCH(
     }
     if ("imagePath" in body) {
       const imagePath = String(body?.imagePath || "").trim();
-      const storedImagePath = imagePath ? await persistExternalProductImage(imagePath) : null;
-      if (storedImagePath && storedImagePath !== imagePath) uploadedImagePath = storedImagePath;
+      const storedImagePath = imagePath
+        ? await persistExternalProductImage(imagePath)
+        : null;
+      if (storedImagePath && storedImagePath !== imagePath)
+        uploadedImagePath = storedImagePath;
       payload.image_path = storedImagePath;
     }
-    const nextCategory = "category" in body ? String(body?.category || "").trim() : "";
+    const nextCategory =
+      "category" in body ? String(body?.category || "").trim() : "";
     if ("sizeTable" in body) {
       const sizeTable = parseSizeTable(body?.sizeTable ?? null);
       payload.size_table = sizeTable;
-      const categoryForNormalization = nextCategory || String(body?.currentCategory || "").trim();
-      payload.normalized_size_table = isBottomCategory(categoryForNormalization)
+      const categoryForNormalization =
+        nextCategory || String(body?.currentCategory || "").trim();
+      payload.normalized_size_table = isSizeTableNormalizationCategory(
+        categoryForNormalization
+      )
         ? normalizeSizeTableForCategory(categoryForNormalization, sizeTable)
         : null;
     }
@@ -84,17 +115,29 @@ export async function PATCH(
       );
     }
     if ("brand" in payload && !payload.brand) {
-      return NextResponse.json({ ok: false, error: "brand cannot be empty" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "brand cannot be empty" },
+        { status: 400 }
+      );
     }
     if ("name" in payload && !payload.name) {
-      return NextResponse.json({ ok: false, error: "name cannot be empty" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "name cannot be empty" },
+        { status: 400 }
+      );
     }
 
     assertSupabaseConfig();
     const db = supabase!;
-    const hasImagePathInPayload = Object.prototype.hasOwnProperty.call(payload, "image_path");
+    const hasImagePathInPayload = Object.prototype.hasOwnProperty.call(
+      payload,
+      "image_path"
+    );
     let previousImagePath: string | null = null;
-    const requiresExistingProduct = hasImagePathInPayload || Object.prototype.hasOwnProperty.call(payload, "sub_category") || Object.prototype.hasOwnProperty.call(payload, "category");
+    const requiresExistingProduct =
+      hasImagePathInPayload ||
+      Object.prototype.hasOwnProperty.call(payload, "sub_category") ||
+      Object.prototype.hasOwnProperty.call(payload, "category");
     let existingCategory = "";
     let existingSubCategory: string | null = null;
     if (requiresExistingProduct) {
@@ -105,30 +148,58 @@ export async function PATCH(
         .maybeSingle();
       if (existingProductError) throw existingProductError;
       if (!existingProduct) {
-        if (uploadedImagePath) await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
-        return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
+        if (uploadedImagePath)
+          await removeStoredProductImage(uploadedImagePath).catch(
+            () => undefined
+          );
+        return NextResponse.json(
+          { ok: false, error: "product not found" },
+          { status: 404 }
+        );
       }
       existingCategory = String(existingProduct.category || "").trim();
-      existingSubCategory = String(existingProduct.sub_category || "").trim() || null;
-      previousImagePath = String(existingProduct.image_path || "").trim() || null;
+      existingSubCategory =
+        String(existingProduct.sub_category || "").trim() || null;
+      previousImagePath =
+        String(existingProduct.image_path || "").trim() || null;
     }
-    const effectiveCategory = String(payload.category || existingCategory).trim();
-    if (Object.prototype.hasOwnProperty.call(payload, "sub_category") && payload.sub_category !== null && !isValidSubcategory(effectiveCategory, payload.sub_category)) {
-      if (uploadedImagePath) await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
-      return NextResponse.json({ ok: false, error: "invalid sub_category for category" }, { status: 400 });
+    const effectiveCategory = String(
+      payload.category || existingCategory
+    ).trim();
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "sub_category") &&
+      payload.sub_category !== null &&
+      !isValidSubcategory(effectiveCategory, payload.sub_category)
+    ) {
+      if (uploadedImagePath)
+        await removeStoredProductImage(uploadedImagePath).catch(
+          () => undefined
+        );
+      return NextResponse.json(
+        { ok: false, error: "invalid sub_category for category" },
+        { status: 400 }
+      );
     }
-    if (Object.prototype.hasOwnProperty.call(payload, "category") && !Object.prototype.hasOwnProperty.call(payload, "sub_category")) {
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "category") &&
+      !Object.prototype.hasOwnProperty.call(payload, "sub_category")
+    ) {
       payload.sub_category = null;
     }
     if (
       requiresExistingProduct &&
-      (Object.prototype.hasOwnProperty.call(payload, "category") || Object.prototype.hasOwnProperty.call(payload, "sub_category")) &&
-      (String(payload.category || existingCategory) !== existingCategory || (payload.sub_category ?? existingSubCategory) !== existingSubCategory)
+      (Object.prototype.hasOwnProperty.call(payload, "category") ||
+        Object.prototype.hasOwnProperty.call(payload, "sub_category")) &&
+      (String(payload.category || existingCategory) !== existingCategory ||
+        (payload.sub_category ?? existingSubCategory) !== existingSubCategory)
     ) {
       payload.category_reviewed = false;
     }
 
-    if (payload.is_instagram === true && !Object.prototype.hasOwnProperty.call(payload, "instagram_order")) {
+    if (
+      payload.is_instagram === true &&
+      !Object.prototype.hasOwnProperty.call(payload, "instagram_order")
+    ) {
       const { data: lastFeaturedProduct } = await db
         .from(SUPABASE_PRODUCTS_TABLE)
         .select("instagram_order")
@@ -145,18 +216,30 @@ export async function PATCH(
       .from(SUPABASE_PRODUCTS_TABLE)
       .update(payload)
       .eq("id", productId)
-      .select("id,brand,name,category,sub_category,category_reviewed,category_analysis_status,url,size_table,normalized_size_table,created_at,image_path,is_instagram,instagram_order")
+      .select(
+        "id,brand,name,category,sub_category,category_reviewed,category_analysis_status,url,size_table,normalized_size_table,created_at,image_path,is_instagram,instagram_order"
+      )
       .maybeSingle();
 
     if (error) throw error;
     if (!data) {
-      if (uploadedImagePath) await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
-      return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
+      if (uploadedImagePath)
+        await removeStoredProductImage(uploadedImagePath).catch(
+          () => undefined
+        );
+      return NextResponse.json(
+        { ok: false, error: "product not found" },
+        { status: 404 }
+      );
     }
     didUpdateProduct = true;
 
     const currentImagePath = String(data.image_path || "").trim() || null;
-    if (hasImagePathInPayload && previousImagePath && previousImagePath !== currentImagePath) {
+    if (
+      hasImagePathInPayload &&
+      previousImagePath &&
+      previousImagePath !== currentImagePath
+    ) {
       await removeOldProductImageIfUnused({
         oldPath: previousImagePath,
         updatedProductId: String(data.id || productId),
@@ -173,8 +256,14 @@ export async function PATCH(
     if (uploadedImagePath && !didUpdateProduct) {
       await removeStoredProductImage(uploadedImagePath).catch(() => undefined);
     }
-    const { statusCode, message } = toProductWriteErrorResponse(error, "product update error");
-    return NextResponse.json({ ok: false, error: message }, { status: statusCode });
+    const { statusCode, message } = toProductWriteErrorResponse(
+      error,
+      "product update error"
+    );
+    return NextResponse.json(
+      { ok: false, error: message },
+      { status: statusCode }
+    );
   }
 }
 
@@ -205,7 +294,10 @@ export async function DELETE(
 
     if (error) throw error;
     if (!Array.isArray(data) || data.length === 0) {
-      return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
+      return NextResponse.json(
+        { ok: false, error: "product not found" },
+        { status: 404 }
+      );
     }
 
     const deletedProduct = data[0];

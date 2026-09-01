@@ -17,7 +17,7 @@ import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useSearchContext } from "../../contexts/SearchContext";
 import { useGridState } from "../../hooks/useGridState";
-import { useProductDetail } from "../../hooks/useProductDetail";
+import { prefetchProductDetail, useProductDetail } from "../../hooks/useProductDetail";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { toPublicUrl } from "../../utils/product";
 import { captureEvent } from "../../utils/analytics";
@@ -518,6 +518,7 @@ export function SearchPageClient() {
           setGridSearchQuery={grid.setGridSearchQuery}
           isInteractionDisabled={showSuggestions}
           onProductClick={handleProductClick}
+          onProductPrefetch={(product) => prefetchProductDetail(product.id)}
           onImageError={handleImageLoadError}
           isLoading={isProductsLoading}
           hasMoreProducts={hasMoreProducts}

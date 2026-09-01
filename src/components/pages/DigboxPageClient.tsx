@@ -10,7 +10,7 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
-import { useProductDetail } from "../../hooks/useProductDetail";
+import { prefetchProductDetail, useProductDetail } from "../../hooks/useProductDetail";
 import { useProgressiveList } from "../../hooks/useProgressiveList";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { FilterBar } from "../FilterBar";
@@ -43,12 +43,14 @@ function GridCard({
   isEditing,
   onSelect,
   onOpen,
+  onPrefetch,
 }: {
   product: Product;
   selected: boolean;
   isEditing: boolean;
   onSelect: () => void;
   onOpen: () => void;
+  onPrefetch: () => void;
 }) {
   const { t } = useLocaleContext();
   const [imgOk, setImgOk] = useState(true);
@@ -66,9 +68,9 @@ function GridCard({
     >
       <Link
         href={`?product=${encodeURIComponent(product.id)}`}
-        onMouseEnter={() => { void loadProductDetailModal(); }}
-        onFocus={() => { void loadProductDetailModal(); }}
-        onTouchStart={() => { void loadProductDetailModal(); }}
+        onMouseEnter={() => { void loadProductDetailModal(); onPrefetch(); }}
+        onFocus={() => { void loadProductDetailModal(); onPrefetch(); }}
+        onTouchStart={() => { void loadProductDetailModal(); onPrefetch(); }}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();
@@ -866,6 +868,7 @@ export function DigboxPageClient({
                 isEditing={isEditing}
                 onSelect={() => toggleSelect(p.id)}
                 onOpen={() => handleProductOpen(p)}
+                onPrefetch={() => prefetchProductDetail(p.id)}
               />
             ))}
           </div>

@@ -11,7 +11,7 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
-import { useProductDetail } from "../../hooks/useProductDetail";
+import { prefetchProductDetail, useProductDetail } from "../../hooks/useProductDetail";
 import { useProgressiveList } from "../../hooks/useProgressiveList";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { FilterBar } from "../FilterBar";
@@ -52,6 +52,7 @@ function GridCard({
   onSelect,
   onDelete,
   onOpen,
+  onPrefetch,
   href,
 }: {
   product: Product;
@@ -60,6 +61,7 @@ function GridCard({
   onSelect: () => void;
   onDelete: () => void;
   onOpen: () => void;
+  onPrefetch: () => void;
   href: string;
 }) {
   const { t } = useLocaleContext();
@@ -75,9 +77,9 @@ function GridCard({
     >
       <Link
         href={href}
-        onMouseEnter={() => { void loadProductDetailModal(); }}
-        onFocus={() => { void loadProductDetailModal(); }}
-        onTouchStart={() => { void loadProductDetailModal(); }}
+        onMouseEnter={() => { void loadProductDetailModal(); onPrefetch(); }}
+        onFocus={() => { void loadProductDetailModal(); onPrefetch(); }}
+        onTouchStart={() => { void loadProductDetailModal(); onPrefetch(); }}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();
@@ -153,6 +155,7 @@ function ListRow({
   onSelect,
   onDelete,
   onOpen,
+  onPrefetch,
   href,
 }: {
   product: Product;
@@ -161,6 +164,7 @@ function ListRow({
   onSelect: () => void;
   onDelete: () => void;
   onOpen: () => void;
+  onPrefetch: () => void;
   href: string;
 }) {
   const { t } = useLocaleContext();
@@ -171,6 +175,8 @@ function ListRow({
   return (
     <div
       onMouseEnter={() => setHover(true)}
+      onFocus={() => onPrefetch()}
+      onTouchStart={() => onPrefetch()}
       onMouseLeave={() => setHover(false)}
       style={{
         ...cardStyle,
@@ -220,6 +226,7 @@ function ListRow({
       {/* Thumb */}
       <Link
         href={href}
+        onMouseEnter={() => onPrefetch()}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();
@@ -251,6 +258,7 @@ function ListRow({
       {/* Info */}
       <Link
         href={href}
+        onMouseEnter={() => onPrefetch()}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();
@@ -871,6 +879,7 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
                 onSelect={() => toggleSelect(p.id)}
                 onDelete={() => setConfirmDeleteId(p.id)}
                 onOpen={() => handleProductOpen(p)}
+                onPrefetch={() => prefetchProductDetail(p.id)}
                 href={getClosetProductPageUrl(p)}
               />
             ))}
@@ -889,6 +898,7 @@ export function ClosetPageClient({ initialProducts }: { initialProducts?: Produc
                 onSelect={() => toggleSelect(p.id)}
                 onDelete={() => setConfirmDeleteId(p.id)}
                 onOpen={() => handleProductOpen(p)}
+                onPrefetch={() => prefetchProductDetail(p.id)}
                 href={getClosetProductPageUrl(p)}
               />
             ))}

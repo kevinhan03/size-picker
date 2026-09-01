@@ -31,6 +31,7 @@ interface GridViewProps {
   gridSearchQuery: string;
   setGridSearchQuery: (value: string) => void;
   onProductClick: (product: Product, anchorRect?: TutorialAnchorRect) => void;
+  onProductPrefetch?: (product: Product) => void;
   onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
   isInteractionDisabled?: boolean;
   isLoading?: boolean;
@@ -53,6 +54,7 @@ export function GridView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing component contract.
   setGridSearchQuery,
   onProductClick,
+  onProductPrefetch,
   onImageError,
   isInteractionDisabled = false,
   isLoading = false,
@@ -159,9 +161,9 @@ export function GridView({
                       if (isInteractionDisabled) return;
                       onProductClick(product, getAnchorRect(event.currentTarget));
                     }}
-                    onPointerEnter={() => { void loadProductDetailModal(); }}
-                    onPointerDown={() => { void loadProductDetailModal(); }}
-                    onFocus={() => { void loadProductDetailModal(); }}
+                    onPointerEnter={() => { void loadProductDetailModal(); onProductPrefetch?.(product); }}
+                    onPointerDown={() => { void loadProductDetailModal(); onProductPrefetch?.(product); }}
+                    onFocus={() => { void loadProductDetailModal(); onProductPrefetch?.(product); }}
                     onKeyDown={(event) => {
                       if (isInteractionDisabled) return;
                       if (event.key !== "Enter" && event.key !== " ") return;

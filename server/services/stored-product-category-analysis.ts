@@ -1,8 +1,11 @@
-import { PRODUCT_METADATA_MAX_IMAGE_BYTES, SUPABASE_PRODUCTS_TABLE, SUPABASE_STORAGE_BUCKET } from "../config/env.js";
+import {
+  PRODUCT_METADATA_MAX_IMAGE_BYTES,
+  SUPABASE_PRODUCTS_TABLE,
+  SUPABASE_STORAGE_BUCKET,
+} from "../config/env.js";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { isStoredProductImagePath } from "./product-image-storage.js";
 import { classifyProductCategory } from "./product-category-classification";
-import { normalizeSizeTableForCategory, parseSizeTable } from "../utils/size-table.js";
 
 const markFailed = async (productId: string) => {
   const { error } = await supabase!
@@ -11,14 +14,20 @@ const markFailed = async (productId: string) => {
     .eq("id", productId)
     .eq("category_analysis_status", "pending")
     .eq("category_reviewed", false);
-  if (error) console.error("[product-category-analysis] failed to mark product", { productId, error: error.message });
+  if (error)
+    console.error("[product-category-analysis] failed to mark product", {
+      productId,
+      error: error.message,
+    });
 };
 
-export async function analyzeStoredProductCategory(productId: string): Promise<{ ok: boolean }> {
+export async function analyzeStoredProductCategory(
+  productId: string
+): Promise<{ ok: boolean }> {
   assertSupabaseConfig();
   const { data: product, error } = await supabase!
     .from(SUPABASE_PRODUCTS_TABLE)
-    .select("id,brand,name,category,image_path,size_table,product_metadata")
+    .select("id,brand,name,category,image_path,product_metadata")
     .eq("id", productId)
     .maybeSingle();
   if (error || !product || !isStoredProductImagePath(product.image_path)) {
@@ -30,7 +39,12 @@ export async function analyzeStoredProductCategory(productId: string): Promise<{
     const { data: image, error: downloadError } = await supabase!.storage
       .from(SUPABASE_STORAGE_BUCKET)
       .download(product.image_path);
-    if (downloadError || !image || image.size <= 0 || image.size > PRODUCT_METADATA_MAX_IMAGE_BYTES) {
+    if (
+      downloadError ||
+      !image ||
+      image.size <= 0 ||
+      image.size > PRODUCT_METADATA_MAX_IMAGE_BYTES
+    ) {
       await markFailed(productId);
       return { ok: false };
     }
@@ -54,10 +68,10 @@ export async function analyzeStoredProductCategory(productId: string): Promise<{
       .update({
         // The user confirms the parent category before registration. Keep that
         // decision intact and only accept a matching AI subcategory afterward.
-        sub_category: classification.category === product.category ? classification.subCategory : null,
-        normalized_size_table: product.category === "Bottom"
-          ? normalizeSizeTableForCategory(product.category, parseSizeTable(product.size_table))
-          : null,
+        sub_category:
+          classification.category === product.category
+            ? classification.subCategory
+            : null,
         category_analysis_status: "completed",
       })
       .eq("id", productId)
@@ -66,7 +80,10 @@ export async function analyzeStoredProductCategory(productId: string): Promise<{
     if (updateError) throw updateError;
     return { ok: true };
   } catch (error) {
-    console.error("[product-category-analysis] failed", { productId, error: error instanceof Error ? error.message : String(error) });
+    console.error("[product-category-analysis] failed", {
+      productId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     await markFailed(productId);
     return { ok: false };
   }

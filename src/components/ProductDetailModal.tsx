@@ -1,9 +1,27 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent, PointerEvent, RefObject, SyntheticEvent, TouchEvent } from "react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent,
+  PointerEvent,
+  RefObject,
+  SyntheticEvent,
+  TouchEvent,
+} from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, ExternalLink, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  X,
+} from "lucide-react";
 import { ProgressiveImage } from "./ProgressiveImage";
-import type { ClosetSizeSelection, DigboxSizeDecisionInput, MySizeProfile, Product } from "../types";
+import type {
+  ClosetSizeSelection,
+  DigboxSizeDecisionInput,
+  MySizeProfile,
+  Product,
+} from "../types";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
 import { DEFAULT_PRODUCT_PLACEHOLDER, getCategoryLabel } from "../constants";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
@@ -12,7 +30,11 @@ import { useAuthContext } from "../contexts/AuthContext";
 import { useLocaleContext } from "../contexts/LocaleContext";
 import { SizeSelectionSheet } from "./SizeSelectionSheet";
 import { usePresence } from "../hooks/usePresence";
-import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "./OnboardingTutorial";
+import {
+  OnboardingTutorial,
+  type TutorialAnchorRect,
+  type TutorialId,
+} from "./OnboardingTutorial";
 import {
   compareMeasurementSnapshots,
   displayMeasurementLabel,
@@ -24,6 +46,7 @@ import { captureEvent } from "../utils/analytics";
 import { ClosetIcon } from "./icons/ClosetIcon";
 import { ProductSummaryDetailsPanel } from "./taste-graph/ProductTasteDecision";
 import { buildLoginHref } from "../utils/authNavigation";
+import { isNonApparelSizeCategory, isShoeCategory } from "../utils/shoeSize";
 import { getProductPageUrl } from "../utils/product";
 import { DigboxSizeDecisionCard } from "./DigboxSizeDecisionCard";
 
@@ -42,7 +65,9 @@ export interface ProductDetailModalProps {
   onToggleDigbox?: () => void;
   isInDigbox?: boolean;
   digboxProduct?: Product | null;
-  onUpdateDigboxSizeDecision?: (decision: DigboxSizeDecisionInput | null) => Promise<void>;
+  onUpdateDigboxSizeDecision?: (
+    decision: DigboxSizeDecisionInput | null
+  ) => Promise<void>;
   onCollectionActionStart?: (anchorRect?: TutorialAnchorRect) => void;
   hideDigboxButton?: boolean;
   hideCollectionActions?: boolean;
@@ -66,11 +91,21 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>) {
   const first = focusable[0];
   const last = focusable[focusable.length - 1];
   const activeElement = document.activeElement;
-  const focusIsInsideDialog = activeElement instanceof Node && event.currentTarget.contains(activeElement);
-  if (event.shiftKey && (!focusIsInsideDialog || activeElement === event.currentTarget || activeElement === first)) {
+  const focusIsInsideDialog =
+    activeElement instanceof Node &&
+    event.currentTarget.contains(activeElement);
+  if (
+    event.shiftKey &&
+    (!focusIsInsideDialog ||
+      activeElement === event.currentTarget ||
+      activeElement === first)
+  ) {
     event.preventDefault();
     last.focus();
-  } else if (!event.shiftKey && (!focusIsInsideDialog || activeElement === last)) {
+  } else if (
+    !event.shiftKey &&
+    (!focusIsInsideDialog || activeElement === last)
+  ) {
     event.preventDefault();
     first.focus();
   }
@@ -81,7 +116,9 @@ function getClosetSizeLabel(product?: Product | null): string {
 }
 
 function getClosetSizeRowIndex(product?: Product | null): number | null {
-  return Number.isInteger(product?.closetSelectedSizeRowIndex) ? product!.closetSelectedSizeRowIndex! : null;
+  return Number.isInteger(product?.closetSelectedSizeRowIndex)
+    ? product!.closetSelectedSizeRowIndex!
+    : null;
 }
 
 function SavedSizeSummary({ product }: { product?: Product | null }) {
@@ -91,7 +128,9 @@ function SavedSizeSummary({ product }: { product?: Product | null }) {
 
   return (
     <p className="flex items-baseline gap-2 text-sm">
-      <span className="text-xs font-semibold text-gray-500">{t("comparison.ownedSize")}</span>
+      <span className="text-xs font-semibold text-gray-500">
+        {t("comparison.ownedSize")}
+      </span>
       <span className="font-bold text-gray-100">{label}</span>
     </p>
   );
@@ -129,8 +168,15 @@ function MySizePickerOverlay({
   if (!presence.isMounted) return null;
 
   return (
-    <div className="fixed inset-0 z-[75] flex items-center justify-center p-4" role="presentation">
-      <div className="ui-layer-scrim absolute inset-0 bg-black/72" data-visible={presence.isVisible} onClick={onClose} />
+    <div
+      className="fixed inset-0 z-[75] flex items-center justify-center p-4"
+      role="presentation"
+    >
+      <div
+        className="ui-layer-scrim absolute inset-0 bg-black/72"
+        data-visible={presence.isVisible}
+        onClick={onClose}
+      />
       <section
         aria-label={t("comparison.changeReference")}
         aria-modal="true"
@@ -140,10 +186,19 @@ function MySizePickerOverlay({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-base font-bold text-white">{t("comparison.changeReference")}</p>
-            <p className="mt-1 text-xs font-semibold text-gray-500">{t("comparison.changeReferenceDescription")}</p>
+            <p className="text-base font-bold text-white">
+              {t("comparison.changeReference")}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-gray-500">
+              {t("comparison.changeReferenceDescription")}
+            </p>
           </div>
-          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-[background-color,color] hover:bg-white/[0.07] hover:text-white" aria-label={t("comparison.closeChangeReference")}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-[background-color,color] hover:bg-white/[0.07] hover:text-white"
+            aria-label={t("comparison.closeChangeReference")}
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -154,36 +209,62 @@ function MySizePickerOverlay({
           className="mt-5 h-11 w-full rounded-xl border border-white/[0.1] bg-black/25 px-3 text-sm font-semibold text-white outline-none transition-[border-color,background-color] placeholder:text-gray-600 focus:border-orange-400/70 focus:bg-black/35"
         />
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-          {profiles.length > 0 && <p className="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-500">{t("comparison.myItems")}</p>}
+          {profiles.length > 0 && (
+            <p className="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-500">
+              {t("comparison.myItems")}
+            </p>
+          )}
           <div className="grid gap-1">
-          {profiles.length > 0 && profiles.map((profile) => {
-            const sizeLabel = String(profile.sizeLabel || profile.measurementSnapshot.row?.[0] || "").trim();
-            const brand = String(profile.brand || t("comparison.unregisteredBrand")).trim();
-            const isSelected = profile.id === selectedId;
-            return (
-              <button
-                key={profile.id}
-                type="button"
-                onClick={() => onSelect(profile.id)}
-                aria-current={isSelected ? "true" : undefined}
-                className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-[background-color,border-color,color,transform] active:scale-[0.99] ${
-                  isSelected
-                    ? "border-white/[0.12] bg-white/[0.06]"
-                    : "border-transparent bg-transparent hover:border-white/[0.1] hover:bg-white/[0.045]"
-                }`}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-[10px] font-black uppercase tracking-wide text-gray-500">{brand}</p>
-                  <p className="truncate text-sm font-bold text-white">{profile.title || t("comparison.savedProduct")}</p>
-                  <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">{profile.fitNote || t("comparison.noFitNote")}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {sizeLabel ? <span className="rounded-md bg-white/[0.08] px-2 py-1 text-[11px] font-bold text-gray-300">{sizeLabel}</span> : null}
-                  {isSelected ? <Check className="h-4 w-4 text-orange-300" aria-label={t("comparison.currentReference")} /> : null}
-                </div>
-              </button>
-            );
-          })}
+            {profiles.length > 0 &&
+              profiles.map((profile) => {
+                const sizeLabel = String(
+                  profile.sizeLabel ||
+                    profile.measurementSnapshot.row?.[0] ||
+                    ""
+                ).trim();
+                const brand = String(
+                  profile.brand || t("comparison.unregisteredBrand")
+                ).trim();
+                const isSelected = profile.id === selectedId;
+                return (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    onClick={() => onSelect(profile.id)}
+                    aria-current={isSelected ? "true" : undefined}
+                    className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-[background-color,border-color,color,transform] active:scale-[0.99] ${
+                      isSelected
+                        ? "border-white/[0.12] bg-white/[0.06]"
+                        : "border-transparent bg-transparent hover:border-white/[0.1] hover:bg-white/[0.045]"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[10px] font-black uppercase tracking-wide text-gray-500">
+                        {brand}
+                      </p>
+                      <p className="truncate text-sm font-bold text-white">
+                        {profile.title || t("comparison.savedProduct")}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">
+                        {profile.fitNote || t("comparison.noFitNote")}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {sizeLabel ? (
+                        <span className="rounded-md bg-white/[0.08] px-2 py-1 text-[11px] font-bold text-gray-300">
+                          {sizeLabel}
+                        </span>
+                      ) : null}
+                      {isSelected ? (
+                        <Check
+                          className="h-4 w-4 text-orange-300"
+                          aria-label={t("comparison.currentReference")}
+                        />
+                      ) : null}
+                    </div>
+                  </button>
+                );
+              })}
           </div>
         </div>
       </section>
@@ -230,7 +311,10 @@ function ProductDetailModalContent({
   const sizeTableIsScrolling = useRef(false);
 
   useEffect(() => {
-    captureEvent("product_opened", { product_id: product.id, source: analyticsSource });
+    captureEvent("product_opened", {
+      product_id: product.id,
+      source: analyticsSource,
+    });
   }, [analyticsSource, product.id]);
 
   useEffect(() => {
@@ -245,22 +329,45 @@ function ProductDetailModalContent({
       already_saved: Boolean(isInDigbox),
       guest_hint_shown: showGuestDigboxHint,
     });
-  }, [analyticsSource, authUser, hideCollectionActions, hideDigboxButton, isInDigbox, onToggleDigbox, product.id, showGuestDigboxHint]);
-  const sizeTableSuppressClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pointerDownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  }, [
+    analyticsSource,
+    authUser,
+    hideCollectionActions,
+    hideDigboxButton,
+    isInDigbox,
+    onToggleDigbox,
+    product.id,
+    showGuestDigboxHint,
+  ]);
+  const sizeTableSuppressClickTimer = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const pointerDownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const pointerDownSelectedRowRef = useRef<number | null>(null);
   const [isSizeSheetOpen, setIsSizeSheetOpen] = useState(false);
-  const [pressedSizeRowIndex, setPressedSizeRowIndex] = useState<number | null>(null);
+  const [pressedSizeRowIndex, setPressedSizeRowIndex] = useState<number | null>(
+    null
+  );
   const [isExtraMeasurementsOpen, setIsExtraMeasurementsOpen] = useState(false);
   const [isMySizePickerOpen, setIsMySizePickerOpen] = useState(false);
   const mySizeChangeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [mySizeSearchQuery, setMySizeSearchQuery] = useState("");
-  const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
+  const [activeTutorial, setActiveTutorial] = useState<{
+    id: TutorialId;
+    anchorRect?: TutorialAnchorRect;
+  } | null>(null);
   const { mySizes, ensureLoaded: ensureMySizesLoaded } = useMySizesContext();
   const [selectedMySizeId, setSelectedMySizeId] = useState<string>("");
   const savedClosetProduct = closetProduct || null;
   const savedSizeRowIndex = getClosetSizeRowIndex(savedClosetProduct);
-  const displaySizeTable = useMemo(() => getDisplaySizeTable(product), [product]);
+  const isShoe = isShoeCategory(product.category);
+  const isNonApparelSize = isNonApparelSizeCategory(product.category);
+  const displaySizeTable = useMemo(
+    () => getDisplaySizeTable(product),
+    [product]
+  );
   const displayProduct = useMemo(
     () => ({ ...product, sizeTable: displaySizeTable }),
     [displaySizeTable, product]
@@ -272,8 +379,10 @@ function ProductDetailModalContent({
 
   useEffect(() => {
     return () => {
-      if (sizeTableSuppressClickTimer.current) clearTimeout(sizeTableSuppressClickTimer.current);
-      if (pointerDownTimerRef.current) clearTimeout(pointerDownTimerRef.current);
+      if (sizeTableSuppressClickTimer.current)
+        clearTimeout(sizeTableSuppressClickTimer.current);
+      if (pointerDownTimerRef.current)
+        clearTimeout(pointerDownTimerRef.current);
     };
   }, []);
 
@@ -281,37 +390,54 @@ function ProductDetailModalContent({
     () => mySizes.filter((profile) => profile.category === product.category),
     [mySizes, product.category]
   );
-  const mySizeSelectionCategory = String(product.category || "").trim().toLowerCase();
-  const mySizeSelectionStorageKey = authUser?.id && mySizeSelectionCategory
-    ? `sizepicker:last-my-size:${authUser.id}:${mySizeSelectionCategory}`
-    : null;
+  const mySizeSelectionCategory = String(product.category || "")
+    .trim()
+    .toLowerCase();
+  const mySizeSelectionStorageKey =
+    authUser?.id && mySizeSelectionCategory
+      ? `sizepicker:last-my-size:${authUser.id}:${mySizeSelectionCategory}`
+      : null;
   const selectedMySize = useMemo(() => {
     if (!categoryMySizes.length) return null;
-    return categoryMySizes.find((profile) => profile.id === selectedMySizeId) || categoryMySizes[0];
+    return (
+      categoryMySizes.find((profile) => profile.id === selectedMySizeId) ||
+      categoryMySizes[0]
+    );
   }, [categoryMySizes, selectedMySizeId]);
   const filteredMySizes = useMemo(() => {
     const query = mySizeSearchQuery.trim().toLowerCase();
     if (!query) return categoryMySizes;
     return categoryMySizes.filter((profile) =>
-      `${profile.brand || ""} ${profile.title} ${profile.sizeLabel || ""} ${profile.fitNote || ""}`.toLowerCase().includes(query)
+      `${profile.brand || ""} ${profile.title} ${profile.sizeLabel || ""} ${profile.fitNote || ""}`
+        .toLowerCase()
+        .includes(query)
     );
   }, [categoryMySizes, mySizeSearchQuery]);
   const activeProductSnapshot = useMemo(() => {
-    if (activeRowIndex === null || !displaySizeTable?.rows?.[activeRowIndex]) return null;
+    if (activeRowIndex === null || !displaySizeTable?.rows?.[activeRowIndex])
+      return null;
     return {
       headers: displaySizeTable.headers,
       row: displaySizeTable.rows[activeRowIndex],
     };
   }, [activeRowIndex, displaySizeTable]);
   const mySizeComparisons = useMemo(
-    () => compareMeasurementSnapshots(activeProductSnapshot, selectedMySize?.measurementSnapshot),
+    () =>
+      compareMeasurementSnapshots(
+        activeProductSnapshot,
+        selectedMySize?.measurementSnapshot
+      ),
     [activeProductSnapshot, selectedMySize]
   );
-  const isSelectedMySizeSourceProduct = selectedMySize?.sourceProductId === product.id;
+  const isSelectedMySizeSourceProduct =
+    selectedMySize?.sourceProductId === product.id;
   const activeSizeLabel = String(activeProductSnapshot?.row?.[0] ?? "").trim();
 
   useEffect(() => {
-    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     requestAnimationFrame(() => dialogRef.current?.focus());
     return () => restoreFocusRef.current?.focus();
   }, []);
@@ -329,21 +455,33 @@ function ProductDetailModalContent({
   }, [product.id]);
 
   useEffect(() => {
-    const storedProfileId = mySizeSelectionStorageKey ? window.localStorage.getItem(mySizeSelectionStorageKey) : null;
-    const storedProfileStillExists = storedProfileId && categoryMySizes.some((profile) => profile.id === storedProfileId);
-    setSelectedMySizeId(storedProfileStillExists ? storedProfileId : categoryMySizes[0]?.id || "");
+    const storedProfileId = mySizeSelectionStorageKey
+      ? window.localStorage.getItem(mySizeSelectionStorageKey)
+      : null;
+    const storedProfileStillExists =
+      storedProfileId &&
+      categoryMySizes.some((profile) => profile.id === storedProfileId);
+    setSelectedMySizeId(
+      storedProfileStillExists ? storedProfileId : categoryMySizes[0]?.id || ""
+    );
     setIsMySizePickerOpen(false);
     setMySizeSearchQuery("");
   }, [categoryMySizes, mySizeSelectionStorageKey]);
 
-  const showTutorialOnce = (tutorialId: TutorialId, anchorRect?: TutorialAnchorRect) => {
+  const showTutorialOnce = (
+    tutorialId: TutorialId,
+    anchorRect?: TutorialAnchorRect
+  ) => {
     const storageKey = `sizepicker:tutorial:v2:${tutorialId}`;
     if (window.localStorage.getItem(storageKey)) return;
     window.localStorage.setItem(storageKey, "true");
     setActiveTutorial({ id: tutorialId, anchorRect });
   };
 
-  const handleRowClick = (rowIndex: number, anchorRect?: TutorialAnchorRect) => {
+  const handleRowClick = (
+    rowIndex: number,
+    anchorRect?: TutorialAnchorRect
+  ) => {
     onRowClick(rowIndex);
     showTutorialOnce("sizeRecommendations", anchorRect);
   };
@@ -395,7 +533,10 @@ function ProductDetailModalContent({
     }
   };
 
-  const handleSizeTableRowPointerDown = (event: PointerEvent<HTMLTableRowElement>, rowIndex: number) => {
+  const handleSizeTableRowPointerDown = (
+    event: PointerEvent<HTMLTableRowElement>,
+    rowIndex: number
+  ) => {
     setPressedSizeRowIndex(rowIndex);
     if (event.pointerType !== "touch") return;
     if (pointerDownTimerRef.current) clearTimeout(pointerDownTimerRef.current);
@@ -411,7 +552,10 @@ function ProductDetailModalContent({
     }, 100);
   };
 
-  const handleSizeTableRowClick = (event: MouseEvent<HTMLTableRowElement>, rowIndex: number) => {
+  const handleSizeTableRowClick = (
+    event: MouseEvent<HTMLTableRowElement>,
+    rowIndex: number
+  ) => {
     setPressedSizeRowIndex(null);
     if (pointerDownTimerRef.current) {
       clearTimeout(pointerDownTimerRef.current);
@@ -432,13 +576,18 @@ function ProductDetailModalContent({
     handleRowClick(rowIndex, getAnchorRect(event));
   };
 
-  const handleSizeTableRowKeyDown = (event: ReactKeyboardEvent<HTMLTableRowElement>, rowIndex: number) => {
+  const handleSizeTableRowKeyDown = (
+    event: ReactKeyboardEvent<HTMLTableRowElement>,
+    rowIndex: number
+  ) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     handleRowClick(rowIndex, getAnchorRect(event));
   };
 
-  const getAnchorRect = (event: { currentTarget: HTMLElement }): TutorialAnchorRect => {
+  const getAnchorRect = (event: {
+    currentTarget: HTMLElement;
+  }): TutorialAnchorRect => {
     const rect = event.currentTarget.getBoundingClientRect();
     return {
       top: rect.top,
@@ -454,6 +603,10 @@ function ProductDetailModalContent({
     if (!onToggleCloset) return;
     onCollectionActionStart?.(getAnchorRect(event));
     if (isInCloset) {
+      onToggleCloset(null);
+      return;
+    }
+    if (isNonApparelSize && !isShoe) {
       onToggleCloset(null);
       return;
     }
@@ -482,407 +635,597 @@ function ProductDetailModalContent({
 
   return (
     <>
-    <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
-      <div className="ui-layer-scrim absolute inset-0 bg-black/70 backdrop-blur-sm" data-visible={presence.isVisible} onClick={closeModal} />
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="product-detail-modal-title"
-        tabIndex={-1}
-        onKeyDown={(event) => {
-          trapDialogFocus(event);
-          if (event.key === "Escape") closeModal();
-        }}
-        className="ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] outline-none md:h-[88.44vh] md:max-h-none md:max-w-[64.064rem]"
-        data-visible={presence.isVisible}
-      >
-        <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-2 text-white sm:px-6 sm:py-3">
-          <h3 id="product-detail-modal-title" className="shrink-0 text-base font-bold text-white sm:text-xl">{t("product.detail")}</h3>
-          <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
-            {!hideCollectionActions && !hideDigboxButton && (
-            <div className="group relative">
-              <button
-                type="button"
-                aria-label={isInDigbox ? t("product.saved") : !authUser ? t("product.guestSave") : t("product.save")}
-                aria-pressed={isInDigbox}
-                data-active={isInDigbox}
-                onClick={(event) => {
-                  onCollectionActionStart?.(getAnchorRect(event));
-                  onToggleDigbox?.();
-                }}
-                className={`ui-detail-toolbar-button ui-detail-toolbar-button--digbox inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
-                  isInDigbox
-                    ? "border-yellow-300/45 bg-yellow-400/[0.11] text-yellow-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                    : "border-white/[0.12] bg-white/[0.045] text-gray-300"
-                }`}
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill={isInDigbox ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-                <span>{isInDigbox ? t("product.saved") : !authUser ? t("product.guestSave") : t("product.save")}</span>
-              </button>
-              {showGuestDigboxHint && !isInDigbox ? (
-                <div role="status" className="pointer-events-none absolute right-0 top-[calc(100%+0.65rem)] z-20 w-60 rounded-xl border border-yellow-300/30 bg-[#282014] px-3 py-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.34)]">
-                  <span className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-yellow-300/30 bg-[#282014]" aria-hidden="true" />
-                  <p className="relative text-xs font-black text-yellow-200">{t("product.guestHintTitle")}</p>
-                  <p className="relative mt-1 text-[11px] font-semibold leading-4 text-gray-300">{t("product.guestHintBody")}</p>
-                </div>
-              ) : null}
-            </div>
-            )}
-            {canUseCloset && !hideCollectionActions && !(hideDigboxButton && isInCloset) && (
-            <div className="group relative">
-              <button
-                type="button"
-                aria-label={isInCloset ? t("product.inCloset") : t("product.closet")}
-                aria-pressed={isInCloset}
-                data-active={isInCloset}
-                onClick={handleClosetClick}
-                className={`ui-detail-toolbar-button ui-detail-toolbar-button--closet inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
-                  isInCloset
-                    ? "border-orange-300/50 bg-orange-500/[0.14] text-orange-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                    : "border-white/[0.12] bg-white/[0.045] text-gray-300"
-                }`}
-              >
-                <ClosetIcon className="h-4 w-4" />
-                <span>{isInCloset ? t("product.inCloset") : t("product.closet")}</span>
-              </button>
-            </div>
-            )}
-            <button
-              type="button"
-              aria-label={t("product.close")}
-              onClick={closeModal}
-              className="ui-detail-toolbar-button ui-detail-toolbar-button--close inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.045] text-gray-300 transition-[background-color,border-color,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
+      <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
         <div
-          ref={modalRef}
-          className="flex-1 overflow-y-auto overscroll-contain"
+          className="ui-layer-scrim absolute inset-0 bg-black/70 backdrop-blur-sm"
+          data-visible={presence.isVisible}
+          onClick={closeModal}
+        />
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="product-detail-modal-title"
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            trapDialogFocus(event);
+            if (event.key === "Escape") closeModal();
+          }}
+          className="ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] outline-none md:h-[88.44vh] md:max-h-none md:max-w-[64.064rem]"
+          data-visible={presence.isVisible}
         >
-        <div className="relative z-[1] p-6 md:p-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center">
-            <button
-              type="button"
-              onClick={onZoomImage}
-              className="relative isolate h-[15.5rem] w-full max-w-[22rem] self-center cursor-zoom-in overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:h-[19rem] md:w-[19rem] md:max-w-none"
+          <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-2 text-white sm:px-6 sm:py-3">
+            <h3
+              id="product-detail-modal-title"
+              className="shrink-0 text-base font-bold text-white sm:text-xl"
             >
-              <div className="pointer-events-none absolute inset-[-10%] rounded-[32px] bg-[radial-gradient(circle,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_36%,rgba(255,255,255,0.02)_52%,transparent_74%)] opacity-80 blur-xl" />
-              <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015)_40%,transparent_100%)]" />
-              <div className="absolute inset-2 z-[1]">
-                <ProgressiveImage
-                  src={product.image}
-                  thumbnailSrc={product.thumbnailImage}
-                  alt={product.name}
-                  className="object-contain"
-                  loading="eager"
-                  onError={onImageError}
-                />
-              </div>
-            </button>
-            <div className="flex-1">
-              <div className="mb-2 flex items-center gap-2 text-sm font-bold text-orange-500">
-                <span className="rounded-md bg-orange-500/10 px-2 py-0.5 uppercase">{product.brand}</span>
-                <span className="text-gray-500">
-                  {getCategoryLabel(product.category)}{product.subCategory ? ` · ${product.subCategory}` : ""}
-                </span>
-              </div>
-              <h4 className="mb-2 text-2xl font-bold text-white">{product.name}</h4>
-              <ProductSummaryDetailsPanel product={product} />
-              <div className="mt-3 space-y-2">
-                {savedClosetProduct ? <SavedSizeSummary product={savedClosetProduct} /> : null}
-                {product.url ? (
-                  <a
-                    href={product.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-sm text-gray-400 transition-colors hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
+              {t("product.detail")}
+            </h3>
+            <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
+              {!hideCollectionActions && !hideDigboxButton && (
+                <div className="group relative">
+                  <button
+                    type="button"
+                    aria-label={
+                      isInDigbox
+                        ? t("product.saved")
+                        : !authUser
+                          ? t("product.guestSave")
+                          : t("product.save")
+                    }
+                    aria-pressed={isInDigbox}
+                    data-active={isInDigbox}
+                    onClick={(event) => {
+                      onCollectionActionStart?.(getAnchorRect(event));
+                      onToggleDigbox?.();
+                    }}
+                    className={`ui-detail-toolbar-button ui-detail-toolbar-button--digbox inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
+                      isInDigbox
+                        ? "border-yellow-300/45 bg-yellow-400/[0.11] text-yellow-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                        : "border-white/[0.12] bg-white/[0.045] text-gray-300"
+                    }`}
                   >
-                    {t("product.official")} <ExternalLink className="ml-1 h-3 w-3" />
-                  </a>
-                ) : (
-                  <span className="text-sm text-gray-600">{t("product.noUrl")}</span>
-                )}
-              </div>
-              {(product.registeredBy || otherDigboxCount > 0) && (
-                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-gray-500">
-                  {product.registeredBy && <span>{t("product.discoveredBy")} <span className="text-gray-200">{product.registeredBy}</span></span>}
-                  {otherDigboxCount > 0 && <span>{otherDigboxCountLabel || t("digbox.discoveredByOther", { count: otherDigboxCount })}</span>}
+                    <svg
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill={isInDigbox ? "currentColor" : "none"}
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                    <span>
+                      {isInDigbox
+                        ? t("product.saved")
+                        : !authUser
+                          ? t("product.guestSave")
+                          : t("product.save")}
+                    </span>
+                  </button>
+                  {showGuestDigboxHint && !isInDigbox ? (
+                    <div
+                      role="status"
+                      className="pointer-events-none absolute right-0 top-[calc(100%+0.65rem)] z-20 w-60 rounded-xl border border-yellow-300/30 bg-[#282014] px-3 py-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.34)]"
+                    >
+                      <span
+                        className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-yellow-300/30 bg-[#282014]"
+                        aria-hidden="true"
+                      />
+                      <p className="relative text-xs font-black text-yellow-200">
+                        {t("product.guestHintTitle")}
+                      </p>
+                      <p className="relative mt-1 text-[11px] font-semibold leading-4 text-gray-300">
+                        {t("product.guestHintBody")}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               )}
-            </div>
-          </div>
-          <section className="mt-8 border-t border-white/[0.08] pt-6" aria-labelledby="size-selection-title">
-            <div className="mb-3 flex items-end justify-between gap-4">
-              <div>
-                <h5 id="size-selection-title" className="text-sm font-bold text-white">{t("product.sizeSelection")}</h5>
-                <p className="mt-1 text-xs font-semibold text-gray-500">{t("product.sizeHint")}</p>
-              </div>
-              {displaySizeTable?.headers?.length ? (
-                <span className="shrink-0 text-[11px] font-semibold text-gray-500">{t("product.unit")}</span>
-              ) : null}
-            </div>
-          <div
-            className="relative touch-manipulation overflow-x-auto overscroll-x-contain rounded-[22px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] [scrollbar-width:none] max-[360px]:after:pointer-events-none max-[360px]:after:absolute max-[360px]:after:inset-y-0 max-[360px]:after:right-0 max-[360px]:after:z-[2] max-[360px]:after:w-6 max-[360px]:after:bg-gradient-to-l max-[360px]:after:from-[#1c1c1f] max-[360px]:after:to-transparent max-[360px]:after:content-[''] [&::-webkit-scrollbar]:hidden"
-            onTouchStart={handleSizeTableTouchStart}
-            onTouchMove={handleSizeTableTouchMove}
-            onTouchEnd={handleSizeTableTouchEnd}
-            onTouchCancel={handleSizeTableTouchEnd}
-          >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018)_55%,transparent)]" />
-            {displaySizeTable?.headers?.length ? (
-              <table className="relative z-[1] min-w-full w-max text-center text-[11px] sm:text-sm">
-                <thead className="text-[11px] sm:text-sm">
-                  <tr>
-                    {displaySizeTable.headers.map((header, index) => (
-                      <th
-                        key={index}
-                        className={`whitespace-nowrap bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018))] px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 sm:text-sm ${index === 0 ? "border-r border-white/[0.04]" : ""}`}
-                        style={{ color: isPrimaryColumnHeader(header) ? "#E5E7EB" : "#9CA3AF" }}
-                      >
-                        {displayMeasurementLabel(String(header))}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {displaySizeTable.rows.map((row, rowIndex) => {
-                    const isActiveRow = activeRowIndex === rowIndex;
-                    const isSavedRow = savedSizeRowIndex === rowIndex;
-                    const isPressedRow = pressedSizeRowIndex === rowIndex;
-                    return (
-                      <tr
-                        key={rowIndex}
-                        onPointerDown={(event) => handleSizeTableRowPointerDown(event, rowIndex)}
-                        onPointerUp={() => setPressedSizeRowIndex(null)}
-                        onPointerCancel={() => setPressedSizeRowIndex(null)}
-                        onPointerLeave={() => setPressedSizeRowIndex(null)}
-                        onClick={(event) => handleSizeTableRowClick(event, rowIndex)}
-                        onKeyDown={(event) => handleSizeTableRowKeyDown(event, rowIndex)}
-                        tabIndex={0}
-                        aria-selected={isActiveRow}
-                        aria-label={`${String(row[0] ?? t("mysize.sizeFallback"))}${isSavedRow ? ` ${t("comparison.ownedSize")}` : ""} ${isActiveRow ? t("mysize.selected") : t("addProduct.select")}`}
-                        className="group cursor-pointer outline-none focus-visible:[&>td]:bg-white/[0.075] focus-visible:[&>td:first-child]:rounded-l-lg focus-visible:[&>td:last-child]:rounded-r-lg"
-                      >
-                        {row.map((cell, cellIndex) => {
-                          return (
-                            <td
-                              key={cellIndex}
-                          className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-[background-color,color,opacity] duration-150 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""} ${cellIndex === 0 && isSavedRow ? "border-l-2 border-l-orange-300/75 pl-1.5 sm:pl-3.5" : ""} ${
-                            isActiveRow
-                                  ? "bg-orange-500/[0.13] text-orange-50 first:rounded-l-lg last:rounded-r-lg"
-                                  : isPressedRow
-                                  ? "bg-white/[0.065] text-gray-100 first:rounded-l-lg last:rounded-r-lg"
-                                  : isSavedRow
-                                  ? "bg-white/[0.045] text-gray-200 first:rounded-l-lg last:rounded-r-lg"
-                                  : "bg-transparent text-gray-300 group-hover:bg-white/[0.065] group-hover:text-white group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg"
-                              }`}
-                            >
-                              <span className="inline-flex items-center gap-1.5">
-                                {displayTableCell(cell)}
-                              </span>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : (
-              <div className="px-6 py-8 text-center text-gray-300">{t("product.noSizeData")}</div>
-            )}
-          </div>
-          </section>
-
-          <div className="mt-4" aria-live="polite" aria-atomic="true">
-            {activeRowIndex === null ? null : categoryMySizes.length === 0 ? (
-              <div className="ui-size-comparison-result flex min-h-12 items-center justify-between gap-3 border-t border-white/[0.08] pt-4">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-orange-100">{t("product.compareSizePrompt", { size: activeSizeLabel || t("size.choose") })}</p>
-                  <p className="mt-0.5 text-xs font-semibold text-orange-100/55">{t("product.noMySizeHint")}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleMissingMySizeAction}
-                  className="ui-size-comparison-action min-h-11 shrink-0 rounded-lg border border-orange-300/45 bg-orange-400/[0.13] px-3 py-1.5 text-xs font-bold text-orange-100 transition-[background-color,border-color,color,transform] duration-150 hover:border-orange-200/70 hover:bg-orange-400/[0.22] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
-                >
-                  {!authUser ? t("product.loginAndAdd") : t("product.addMySize")}
-                </button>
-              </div>
-            ) : selectedMySize ? (
-              <>
-                <div className="min-h-11 w-full min-w-0 border-t border-white/[0.08] pt-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-bold text-gray-500">{t("comparison.referenceLabel")}</p>
-                      <button
-                        ref={mySizeChangeButtonRef}
-                        type="button"
-                        onClick={(event) => {
-                          showTutorialOnce("mySizeCompare", getAnchorRect(event));
-                          setIsMySizePickerOpen(true);
-                        }}
-                        aria-expanded={isMySizePickerOpen}
-                        aria-label={t("comparison.selectReferenceAria", { brand: selectedMySize.brand || t("comparison.unregisteredBrand"), title: selectedMySize.title })}
-                        className="inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-lg px-2 text-xs font-semibold text-gray-400 transition-[background-color,color,transform] hover:bg-white/[0.06] hover:text-gray-100 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
-                      >
-                        {t("comparison.selectReference")} <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
-                    </div>
-                    <p className="mt-0.5 min-w-0 break-words text-xs font-semibold leading-4 text-gray-400">{selectedMySize.brand || t("comparison.unregisteredBrand")}</p>
-                    <p className="mt-0.5 min-w-0 break-words text-sm font-bold leading-5 text-white">{selectedMySize.title || t("comparison.savedProduct")}</p>
-                  </div>
-                </div>
-
-                {isSelectedMySizeSourceProduct ? (
-                  <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-200">
-                    {t("product.sameProduct")}
-                  </div>
-                ) : mySizeComparisons.length > 0 ? (
-                  <div className="mt-3 touch-manipulation overflow-x-auto overscroll-x-contain rounded-xl border border-white/[0.06] bg-black/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <table className="min-w-[420px] table-fixed text-left text-xs sm:min-w-full sm:text-sm">
-                      <colgroup>
-                        <col style={{ width: "96px" }} />
-                        <col style={{ width: "88px" }} />
-                        <col style={{ width: "80px" }} />
-                        <col style={{ width: "72px" }} />
-                      </colgroup>
-                      <thead className="text-[11px] uppercase tracking-wide text-gray-500">
-                        <tr>
-                          <th className="whitespace-nowrap px-3 py-2 font-black">{t("product.item")}</th>
-                          <th className="whitespace-nowrap px-3 py-2 font-black">{t("product.mySize")}</th>
-                          <th className="whitespace-nowrap px-3 py-2 font-black">{t("product.currentProduct")}</th>
-                          <th className="whitespace-nowrap px-3 py-2 font-black">{t("product.difference")}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {mySizeComparisons.map((item) => (
-                          <tr key={item.label} className="border-t border-white/[0.06]">
-                            <td className="whitespace-nowrap px-3 py-2 font-bold text-gray-200">{locale === "en" ? displayMeasurementLabel(item.label) : item.displayLabel}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.referenceValue.toFixed(1).replace(/\.0$/, "")}</td>
-                            <td className="whitespace-nowrap px-3 py-2 text-gray-300">{item.productValue.toFixed(1).replace(/\.0$/, "")}</td>
-                            <td className={`px-3 py-2 font-black ${item.diff === 0 ? "text-gray-400" : item.diff > 0 ? "text-orange-300" : "text-sky-300"}`}>
-                              {item.diff > 0 ? "+" : ""}{item.diff.toFixed(1).replace(/\.0$/, "")}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-sm font-semibold text-gray-500">
-                    {t("product.noComparableMeasurements")}
+              {canUseCloset &&
+                !hideCollectionActions &&
+                !(hideDigboxButton && isInCloset) && (
+                  <div className="group relative">
+                    <button
+                      type="button"
+                      aria-label={
+                        isInCloset ? t("product.inCloset") : t("product.closet")
+                      }
+                      aria-pressed={isInCloset}
+                      data-active={isInCloset}
+                      onClick={handleClosetClick}
+                      className={`ui-detail-toolbar-button ui-detail-toolbar-button--closet inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45 ${
+                        isInCloset
+                          ? "border-orange-300/50 bg-orange-500/[0.14] text-orange-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                          : "border-white/[0.12] bg-white/[0.045] text-gray-300"
+                      }`}
+                    >
+                      <ClosetIcon className="h-4 w-4" />
+                      <span>
+                        {isInCloset
+                          ? t("product.inCloset")
+                          : t("product.closet")}
+                      </span>
+                    </button>
                   </div>
                 )}
-              </>
-            ) : null}
-          </div>
-
-          {isInDigbox && onUpdateDigboxSizeDecision ? (
-            <DigboxSizeDecisionCard
-              product={displayProduct}
-              decision={digboxProduct?.digboxSizeDecision}
-              suggestedRowIndex={activeRowIndex}
-              onSave={onUpdateDigboxSizeDecision}
-            />
-          ) : null}
-
-          {displaySizeTable?.extra?.headers?.length ? (
-            <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
               <button
                 type="button"
-                onClick={() => setIsExtraMeasurementsOpen((value) => !value)}
-                className="flex min-h-11 w-full items-center justify-between px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/[0.05] hover:text-white"
+                aria-label={t("product.close")}
+                onClick={closeModal}
+                className="ui-detail-toolbar-button ui-detail-toolbar-button--close inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.045] text-gray-300 transition-[background-color,border-color,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
               >
-                <span>{t("product.extraMeasurements")}</span>
-                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isExtraMeasurementsOpen ? "rotate-180" : ""}`} />
+                <X className="h-4 w-4" />
               </button>
-              {isExtraMeasurementsOpen ? (
-                <div className="overflow-x-auto border-t border-white/[0.06]">
-                  <table className="min-w-full w-max text-center text-[11px] sm:text-sm">
-                    <thead>
-                      <tr>
-                        {displaySizeTable.extra.headers.map((header, index) => (
-                          <th
-                            key={index}
-                            className={`whitespace-nowrap bg-white/[0.04] px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 ${index === 0 ? "border-r border-white/[0.04]" : ""}`}
-                            style={{ color: isPrimaryColumnHeader(header) ? "#E5E7EB" : "#9CA3AF" }}
-                          >
-                            {displayMeasurementLabel(String(header))}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displaySizeTable.extra.rows.map((row, rowIndex) => (
-                        <tr key={rowIndex} className="border-t border-white/[0.04]">
-                          {row.map((cell, cellIndex) => (
-                            <td
-                              key={cellIndex}
-                              className={`whitespace-nowrap px-2 py-2.5 text-[11px] text-gray-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""}`}
-                            >
-                              {displayTableCell(cell)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
             </div>
-          ) : null}
+          </div>
 
-          <button
-            type="button"
-            onClick={handleSimilarProductsClick}
-            className="group mt-5 flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl border border-white/[0.16] bg-white/[0.08] px-4 py-2.5 text-left shadow-[0_8px_20px_rgba(0,0,0,0.2)] transition-[background-color,border-color,box-shadow,transform] duration-150 hover:border-white/[0.28] hover:bg-white/[0.13] hover:shadow-[0_10px_24px_rgba(0,0,0,0.28)] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+          <div
+            ref={modalRef}
+            className="flex-1 overflow-y-auto overscroll-contain"
           >
-            <span className="min-w-0 truncate text-sm font-bold text-white">{t("product.browseRecommendations")}</span>
-            <ChevronRight className="h-5 w-5 shrink-0 text-gray-300 transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-white" aria-hidden="true" />
-          </button>
-        </div>
+            <div className="relative z-[1] p-6 md:p-8">
+              <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                <button
+                  type="button"
+                  onClick={onZoomImage}
+                  className="relative isolate h-[15.5rem] w-full max-w-[22rem] self-center cursor-zoom-in overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:h-[19rem] md:w-[19rem] md:max-w-none"
+                >
+                  <div className="pointer-events-none absolute inset-[-10%] rounded-[32px] bg-[radial-gradient(circle,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_36%,rgba(255,255,255,0.02)_52%,transparent_74%)] opacity-80 blur-xl" />
+                  <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015)_40%,transparent_100%)]" />
+                  <div className="absolute inset-2 z-[1]">
+                    <ProgressiveImage
+                      src={product.image}
+                      thumbnailSrc={product.thumbnailImage}
+                      alt={product.name}
+                      className="object-contain"
+                      loading="eager"
+                      onError={onImageError}
+                    />
+                  </div>
+                </button>
+                <div className="flex-1">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-bold text-orange-500">
+                    <span className="rounded-md bg-orange-500/10 px-2 py-0.5 uppercase">
+                      {product.brand}
+                    </span>
+                    <span className="text-gray-500">
+                      {getCategoryLabel(product.category)}
+                      {product.subCategory ? ` · ${product.subCategory}` : ""}
+                    </span>
+                  </div>
+                  <h4 className="mb-2 text-2xl font-bold text-white">
+                    {product.name}
+                  </h4>
+                  <ProductSummaryDetailsPanel product={product} />
+                  <div className="mt-3 space-y-2">
+                    {savedClosetProduct ? (
+                      <SavedSizeSummary product={savedClosetProduct} />
+                    ) : null}
+                    {product.url ? (
+                      <a
+                        href={product.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm text-gray-400 transition-colors hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
+                      >
+                        {t("product.official")}{" "}
+                        <ExternalLink className="ml-1 h-3 w-3" />
+                      </a>
+                    ) : (
+                      <span className="text-sm text-gray-600">
+                        {t("product.noUrl")}
+                      </span>
+                    )}
+                  </div>
+                  {(product.registeredBy || otherDigboxCount > 0) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-gray-500">
+                      {product.registeredBy && (
+                        <span>
+                          {t("product.discoveredBy")}{" "}
+                          <span className="text-gray-200">
+                            {product.registeredBy}
+                          </span>
+                        </span>
+                      )}
+                      {otherDigboxCount > 0 && (
+                        <span>
+                          {otherDigboxCountLabel ||
+                            t("digbox.discoveredByOther", {
+                              count: otherDigboxCount,
+                            })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {!isNonApparelSize ? (
+                <>
+                  <section
+                    className="mt-8 border-t border-white/[0.08] pt-6"
+                    aria-labelledby="size-selection-title"
+                  >
+                    <div className="mb-3 flex items-end justify-between gap-4">
+                      <div>
+                        <h5
+                          id="size-selection-title"
+                          className="text-sm font-bold text-white"
+                        >
+                          {t("product.sizeSelection")}
+                        </h5>
+                        <p className="mt-1 text-xs font-semibold text-gray-500">
+                          {t("product.sizeHint")}
+                        </p>
+                      </div>
+                      {displaySizeTable?.headers?.length ? (
+                        <span className="shrink-0 text-[11px] font-semibold text-gray-500">
+                          {t("product.unit")}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div
+                      className="relative touch-manipulation overflow-x-auto overscroll-x-contain rounded-[22px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0.022)_28%,rgba(255,255,255,0.018)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] [scrollbar-width:none] max-[360px]:after:pointer-events-none max-[360px]:after:absolute max-[360px]:after:inset-y-0 max-[360px]:after:right-0 max-[360px]:after:z-[2] max-[360px]:after:w-6 max-[360px]:after:bg-gradient-to-l max-[360px]:after:from-[#1c1c1f] max-[360px]:after:to-transparent max-[360px]:after:content-[''] [&::-webkit-scrollbar]:hidden"
+                      onTouchStart={handleSizeTableTouchStart}
+                      onTouchMove={handleSizeTableTouchMove}
+                      onTouchEnd={handleSizeTableTouchEnd}
+                      onTouchCancel={handleSizeTableTouchEnd}
+                    >
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018)_55%,transparent)]" />
+                      {displaySizeTable?.headers?.length ? (
+                        <table className="relative z-[1] min-w-full w-max text-center text-[11px] sm:text-sm">
+                          <thead className="text-[11px] sm:text-sm">
+                            <tr>
+                              {displaySizeTable.headers.map((header, index) => (
+                                <th
+                                  key={index}
+                                  className={`whitespace-nowrap bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018))] px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 sm:text-sm ${index === 0 ? "border-r border-white/[0.04]" : ""}`}
+                                  style={{
+                                    color: isPrimaryColumnHeader(header)
+                                      ? "#E5E7EB"
+                                      : "#9CA3AF",
+                                  }}
+                                >
+                                  {displayMeasurementLabel(String(header))}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displaySizeTable.rows.map((row, rowIndex) => {
+                              const isActiveRow = activeRowIndex === rowIndex;
+                              const isSavedRow = savedSizeRowIndex === rowIndex;
+                              const isPressedRow =
+                                pressedSizeRowIndex === rowIndex;
+                              return (
+                                <tr
+                                  key={rowIndex}
+                                  onPointerDown={(event) =>
+                                    handleSizeTableRowPointerDown(
+                                      event,
+                                      rowIndex
+                                    )
+                                  }
+                                  onPointerUp={() =>
+                                    setPressedSizeRowIndex(null)
+                                  }
+                                  onPointerCancel={() =>
+                                    setPressedSizeRowIndex(null)
+                                  }
+                                  onPointerLeave={() =>
+                                    setPressedSizeRowIndex(null)
+                                  }
+                                  onClick={(event) =>
+                                    handleSizeTableRowClick(event, rowIndex)
+                                  }
+                                  onKeyDown={(event) =>
+                                    handleSizeTableRowKeyDown(event, rowIndex)
+                                  }
+                                  tabIndex={0}
+                                  aria-selected={isActiveRow}
+                                  aria-label={`${String(row[0] ?? t("mysize.sizeFallback"))}${isSavedRow ? ` ${t("comparison.ownedSize")}` : ""} ${isActiveRow ? t("mysize.selected") : t("addProduct.select")}`}
+                                  className="group cursor-pointer outline-none focus-visible:[&>td]:bg-white/[0.075] focus-visible:[&>td:first-child]:rounded-l-lg focus-visible:[&>td:last-child]:rounded-r-lg"
+                                >
+                                  {row.map((cell, cellIndex) => {
+                                    return (
+                                      <td
+                                        key={cellIndex}
+                                        className={`whitespace-nowrap px-2 py-2.5 text-[11px] font-medium transition-[background-color,color,opacity] duration-150 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""} ${cellIndex === 0 && isSavedRow ? "border-l-2 border-l-orange-300/75 pl-1.5 sm:pl-3.5" : ""} ${
+                                          isActiveRow
+                                            ? "bg-orange-500/[0.13] text-orange-50 first:rounded-l-lg last:rounded-r-lg"
+                                            : isPressedRow
+                                              ? "bg-white/[0.065] text-gray-100 first:rounded-l-lg last:rounded-r-lg"
+                                              : isSavedRow
+                                                ? "bg-white/[0.045] text-gray-200 first:rounded-l-lg last:rounded-r-lg"
+                                                : "bg-transparent text-gray-300 group-hover:bg-white/[0.065] group-hover:text-white group-hover:first:rounded-l-lg group-hover:last:rounded-r-lg"
+                                        }`}
+                                      >
+                                        <span className="inline-flex items-center gap-1.5">
+                                          {displayTableCell(cell)}
+                                        </span>
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div className="px-6 py-8 text-center text-gray-300">
+                          {t("product.noSizeData")}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <div className="mt-4" aria-live="polite" aria-atomic="true">
+                    {activeRowIndex === null ? null : categoryMySizes.length ===
+                      0 ? (
+                      <div className="ui-size-comparison-result flex min-h-12 items-center justify-between gap-3 border-t border-white/[0.08] pt-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-orange-100">
+                            {t("product.compareSizePrompt", {
+                              size: activeSizeLabel || t("size.choose"),
+                            })}
+                          </p>
+                          <p className="mt-0.5 text-xs font-semibold text-orange-100/55">
+                            {t("product.noMySizeHint")}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleMissingMySizeAction}
+                          className="ui-size-comparison-action min-h-11 shrink-0 rounded-lg border border-orange-300/45 bg-orange-400/[0.13] px-3 py-1.5 text-xs font-bold text-orange-100 transition-[background-color,border-color,color,transform] duration-150 hover:border-orange-200/70 hover:bg-orange-400/[0.22] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
+                        >
+                          {!authUser
+                            ? t("product.loginAndAdd")
+                            : t("product.addMySize")}
+                        </button>
+                      </div>
+                    ) : selectedMySize ? (
+                      <>
+                        <div className="min-h-11 w-full min-w-0 border-t border-white/[0.08] pt-4">
+                          <div className="min-w-0">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-bold text-gray-500">
+                                {t("comparison.referenceLabel")}
+                              </p>
+                              <button
+                                ref={mySizeChangeButtonRef}
+                                type="button"
+                                onClick={(event) => {
+                                  showTutorialOnce(
+                                    "mySizeCompare",
+                                    getAnchorRect(event)
+                                  );
+                                  setIsMySizePickerOpen(true);
+                                }}
+                                aria-expanded={isMySizePickerOpen}
+                                aria-label={t(
+                                  "comparison.selectReferenceAria",
+                                  {
+                                    brand:
+                                      selectedMySize.brand ||
+                                      t("comparison.unregisteredBrand"),
+                                    title: selectedMySize.title,
+                                  }
+                                )}
+                                className="inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-lg px-2 text-xs font-semibold text-gray-400 transition-[background-color,color,transform] hover:bg-white/[0.06] hover:text-gray-100 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1c1c1f]"
+                              >
+                                {t("comparison.selectReference")}{" "}
+                                <ChevronRight
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            </div>
+                            <p className="mt-0.5 min-w-0 break-words text-xs font-semibold leading-4 text-gray-400">
+                              {selectedMySize.brand ||
+                                t("comparison.unregisteredBrand")}
+                            </p>
+                            <p className="mt-0.5 min-w-0 break-words text-sm font-bold leading-5 text-white">
+                              {selectedMySize.title ||
+                                t("comparison.savedProduct")}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isSelectedMySizeSourceProduct ? (
+                          <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-200">
+                            {t("product.sameProduct")}
+                          </div>
+                        ) : mySizeComparisons.length > 0 ? (
+                          <div className="mt-3 touch-manipulation overflow-x-auto overscroll-x-contain rounded-xl border border-white/[0.06] bg-black/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            <table className="min-w-[420px] table-fixed text-left text-xs sm:min-w-full sm:text-sm">
+                              <colgroup>
+                                <col style={{ width: "96px" }} />
+                                <col style={{ width: "88px" }} />
+                                <col style={{ width: "80px" }} />
+                                <col style={{ width: "72px" }} />
+                              </colgroup>
+                              <thead className="text-[11px] uppercase tracking-wide text-gray-500">
+                                <tr>
+                                  <th className="whitespace-nowrap px-3 py-2 font-black">
+                                    {t("product.item")}
+                                  </th>
+                                  <th className="whitespace-nowrap px-3 py-2 font-black">
+                                    {t("product.mySize")}
+                                  </th>
+                                  <th className="whitespace-nowrap px-3 py-2 font-black">
+                                    {t("product.currentProduct")}
+                                  </th>
+                                  <th className="whitespace-nowrap px-3 py-2 font-black">
+                                    {t("product.difference")}
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {mySizeComparisons.map((item) => (
+                                  <tr
+                                    key={item.label}
+                                    className="border-t border-white/[0.06]"
+                                  >
+                                    <td className="whitespace-nowrap px-3 py-2 font-bold text-gray-200">
+                                      {locale === "en"
+                                        ? displayMeasurementLabel(item.label)
+                                        : item.displayLabel}
+                                    </td>
+                                    <td className="whitespace-nowrap px-3 py-2 text-gray-300">
+                                      {item.referenceValue
+                                        .toFixed(1)
+                                        .replace(/\.0$/, "")}
+                                    </td>
+                                    <td className="whitespace-nowrap px-3 py-2 text-gray-300">
+                                      {item.productValue
+                                        .toFixed(1)
+                                        .replace(/\.0$/, "")}
+                                    </td>
+                                    <td
+                                      className={`px-3 py-2 font-black ${item.diff === 0 ? "text-gray-400" : item.diff > 0 ? "text-orange-300" : "text-sky-300"}`}
+                                    >
+                                      {item.diff > 0 ? "+" : ""}
+                                      {item.diff.toFixed(1).replace(/\.0$/, "")}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-sm font-semibold text-gray-500">
+                            {t("product.noComparableMeasurements")}
+                          </div>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+
+                  {isInDigbox && onUpdateDigboxSizeDecision ? (
+                    <DigboxSizeDecisionCard
+                      product={displayProduct}
+                      decision={digboxProduct?.digboxSizeDecision}
+                      suggestedRowIndex={activeRowIndex}
+                      onSave={onUpdateDigboxSizeDecision}
+                    />
+                  ) : null}
+
+                  {displaySizeTable?.extra?.headers?.length ? (
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setIsExtraMeasurementsOpen((value) => !value)
+                        }
+                        className="flex min-h-11 w-full items-center justify-between px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/[0.05] hover:text-white"
+                      >
+                        <span>{t("product.extraMeasurements")}</span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-gray-400 transition-transform ${isExtraMeasurementsOpen ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                      {isExtraMeasurementsOpen ? (
+                        <div className="overflow-x-auto border-t border-white/[0.06]">
+                          <table className="min-w-full w-max text-center text-[11px] sm:text-sm">
+                            <thead>
+                              <tr>
+                                {displaySizeTable.extra.headers.map(
+                                  (header, index) => (
+                                    <th
+                                      key={index}
+                                      className={`whitespace-nowrap bg-white/[0.04] px-2 py-2.5 text-xs font-bold uppercase sm:px-4 sm:py-3 ${index === 0 ? "border-r border-white/[0.04]" : ""}`}
+                                      style={{
+                                        color: isPrimaryColumnHeader(header)
+                                          ? "#E5E7EB"
+                                          : "#9CA3AF",
+                                      }}
+                                    >
+                                      {displayMeasurementLabel(String(header))}
+                                    </th>
+                                  )
+                                )}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {displaySizeTable.extra.rows.map(
+                                (row, rowIndex) => (
+                                  <tr
+                                    key={rowIndex}
+                                    className="border-t border-white/[0.04]"
+                                  >
+                                    {row.map((cell, cellIndex) => (
+                                      <td
+                                        key={cellIndex}
+                                        className={`whitespace-nowrap px-2 py-2.5 text-[11px] text-gray-200 sm:px-4 sm:py-3 sm:text-sm ${cellIndex === 0 ? "border-r border-white/[0.04] text-xs font-bold sm:text-sm" : ""}`}
+                                      >
+                                        {displayTableCell(cell)}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                )
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={handleSimilarProductsClick}
+                className="group mt-5 flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl border border-white/[0.16] bg-white/[0.08] px-4 py-2.5 text-left shadow-[0_8px_20px_rgba(0,0,0,0.2)] transition-[background-color,border-color,box-shadow,transform] duration-150 hover:border-white/[0.28] hover:bg-white/[0.13] hover:shadow-[0_10px_24px_rgba(0,0,0,0.28)] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+              >
+                <span className="min-w-0 truncate text-sm font-bold text-white">
+                  {t("product.browseRecommendations")}
+                </span>
+                <ChevronRight
+                  className="h-5 w-5 shrink-0 text-gray-300 transition-[color,transform] duration-150 group-hover:translate-x-0.5 group-hover:text-white"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-    {isSizeSheetOpen && (
-      <SizeSelectionSheet
-        product={displayProduct}
-        initialRowIndex={activeRowIndex}
-        onClose={() => setIsSizeSheetOpen(false)}
-        onConfirm={handleConfirmClosetSize}
+      {isSizeSheetOpen && (
+        <SizeSelectionSheet
+          product={displayProduct}
+          initialRowIndex={activeRowIndex}
+          onClose={() => setIsSizeSheetOpen(false)}
+          onConfirm={handleConfirmClosetSize}
+        />
+      )}
+      <MySizePickerOverlay
+        open={isMySizePickerOpen}
+        profiles={filteredMySizes}
+        selectedId={selectedMySizeId}
+        query={mySizeSearchQuery}
+        onQueryChange={setMySizeSearchQuery}
+        onSelect={(profileId) => {
+          if (mySizeSelectionStorageKey)
+            window.localStorage.setItem(mySizeSelectionStorageKey, profileId);
+          setSelectedMySizeId(profileId);
+          closeMySizePicker();
+        }}
+        onClose={closeMySizePicker}
       />
-    )}
-    <MySizePickerOverlay
-      open={isMySizePickerOpen}
-      profiles={filteredMySizes}
-      selectedId={selectedMySizeId}
-      query={mySizeSearchQuery}
-      onQueryChange={setMySizeSearchQuery}
-      onSelect={(profileId) => {
-        if (mySizeSelectionStorageKey) window.localStorage.setItem(mySizeSelectionStorageKey, profileId);
-        setSelectedMySizeId(profileId);
-        closeMySizePicker();
-      }}
-      onClose={closeMySizePicker}
-    />
-    {activeTutorial && (
-      <OnboardingTutorial
-        tutorialId={activeTutorial.id}
-        anchorRect={activeTutorial.anchorRect}
-        onClose={() => setActiveTutorial(null)}
-      />
-    )}
+      {activeTutorial && (
+        <OnboardingTutorial
+          tutorialId={activeTutorial.id}
+          anchorRect={activeTutorial.anchorRect}
+          onClose={() => setActiveTutorial(null)}
+        />
+      )}
     </>
   );
 }
 
 export function ProductDetailModal(props: ProductDetailModalProps) {
-  return <MySizesProvider><ProductDetailModalContent {...props} /></MySizesProvider>;
+  return (
+    <MySizesProvider>
+      <ProductDetailModalContent {...props} />
+    </MySizesProvider>
+  );
 }

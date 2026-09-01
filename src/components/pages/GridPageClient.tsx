@@ -8,7 +8,7 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useGridState } from "../../hooks/useGridState";
-import { useProductDetail } from "../../hooks/useProductDetail";
+import { prefetchProductDetail, useProductDetail } from "../../hooks/useProductDetail";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
@@ -93,6 +93,7 @@ export function GridPageClient() {
         gridSearchQuery={grid.gridSearchQuery}
         setGridSearchQuery={grid.setGridSearchQuery}
         onProductClick={handleProductClick}
+        onProductPrefetch={(product) => prefetchProductDetail(product.id)}
         onImageError={handleImageLoadError}
         isLoading={isProductsLoading}
       />
