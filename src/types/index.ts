@@ -32,12 +32,8 @@ export interface Product {
   closetSelectedSizeRowIndex?: number | null;
   closetSelectedSizeSnapshot?: ClosetSizeSnapshot | null;
   digboxSizeDecision?: DigboxSizeDecision | null;
-  styleTags?: StyleTags | null;
   styleAttributes?: StyleAttributes | null;
   styleAxes?: StyleAxes | null;
-  styleTagsEvidence?: StyleTagsEvidence | null;
-  styleTagsConfidence?: number | null;
-  taggingStatus?: string | null;
   styleAxisAnalysisStatus?: string | null;
   styleAxisAnalysisError?: string | null;
   styleAxisAnalyzedAt?: string | null;
@@ -46,16 +42,8 @@ export interface Product {
   factsReviewedBy?: string | null;
   styleAxesReviewedAt?: string | null;
   styleAxesReviewedBy?: string | null;
-  taggingError?: string | null;
-  taggedAt?: string | null;
-  humanStyleTags?: StyleTags | null;
   humanStyleAttributes?: StyleAttributes | null;
   humanStyleAxes?: StyleAxes | null;
-  humanStyleTagsEvidence?: StyleTagsEvidence | null;
-  tagReviewStatus?: TagReviewStatus | null;
-  tagReviewNote?: string | null;
-  reviewedBy?: string | null;
-  reviewedAt?: string | null;
   imageEmbedding?: string | number[] | null;
   targetGender?: ProductTargetGender | null;
   humanTargetGender?: ProductTargetGender | null;
@@ -88,17 +76,16 @@ export type ProductDetailData = Pick<
   | "sizeTable"
   | "normalizedSizeTable"
   | "registeredBy"
-  | "styleTags"
   | "styleAttributes"
   | "styleAxes"
-  | "humanStyleTags"
   | "humanStyleAttributes"
   | "humanStyleAxes"
   | "styleAxisReviewRequired"
+  | "styleAxisAnalysisStatus"
+  | "styleAxisAnalysisError"
+  | "styleAxisAnalyzedAt"
   | "factsReviewedAt"
   | "styleAxesReviewedAt"
-  | "tagReviewStatus"
-  | "taggingStatus"
 >;
 
 export interface CatalogPage {
@@ -126,19 +113,21 @@ export interface MyPageInitialData {
 export type ProductTargetGender =
   "menswear" | "womenswear" | "unisex" | "unknown";
 
-export type StyleTagName =
-  | "casual"
+export type StyleProfileKey =
   | "minimal"
   | "street"
   | "classic"
   | "vintage"
-  | "lovely_romantic"
+  | "lovely"
   | "sporty"
-  | "workwear_gorpcore"
+  | "workwear"
+  | "gorpcore"
   | "chic_modern"
   | "glam_sexy";
 
-export type StyleTags = Record<StyleTagName, number>;
+export type StyleProfile = Record<StyleProfileKey, number>;
+export type StyleTagName = StyleProfileKey;
+export type StyleTags = StyleProfile;
 export type StyleAttributes = Record<string, unknown>;
 export type StyleAxisName =
   | "formality"
@@ -150,22 +139,11 @@ export type StyleAxisName =
   | "unconventionality"
   | "sensuality";
 export type StyleAxes = Record<StyleAxisName, number>;
-export type StyleAttributeEvidence = Partial<Record<string, string[]>>;
-export type StyleTagsEvidence = Partial<Record<StyleTagName, string[]>> & {
-  attributes?: StyleAttributeEvidence;
-};
-export type TagReviewStatus =
-  "needs_review" | "approved" | "edited" | "rejected";
-
 export interface ProductStyleReviewInput {
-  tagReviewStatus?: TagReviewStatus;
-  humanStyleTags?: StyleTags | null;
   humanStyleAttributes?: StyleAttributes | null;
   humanStyleAxes?: StyleAxes | null;
   approveFacts?: boolean;
   approveStyleAxes?: boolean;
-  humanStyleTagsEvidence?: StyleTagsEvidence | null;
-  tagReviewNote?: string | null;
   targetGender?: ProductTargetGender;
   category?: string | null;
   subCategory?: string | null;
@@ -242,15 +220,8 @@ export interface ProductRow {
   is_instagram?: boolean | null;
   instagram_order?: number | null;
   registered_by?: string | null;
-  style_tags?: unknown;
   style_attributes?: unknown;
   style_axes?: unknown;
-  style_tags_evidence?: unknown;
-  style_tags_confidence?: number | null;
-  tagging_status?: string | null;
-  tagging_error?: string | null;
-  tagged_at?: string | null;
-  human_style_tags?: unknown;
   human_style_attributes?: unknown;
   human_style_axes?: unknown;
   style_axis_analysis_status?: string | null;
@@ -261,11 +232,6 @@ export interface ProductRow {
   facts_reviewed_by?: string | null;
   style_axes_reviewed_at?: string | null;
   style_axes_reviewed_by?: string | null;
-  human_style_tags_evidence?: unknown;
-  tag_review_status?: string | null;
-  tag_review_note?: string | null;
-  reviewed_by?: string | null;
-  reviewed_at?: string | null;
   image_embedding?: unknown;
   target_gender?: string | null;
   human_target_gender?: string | null;

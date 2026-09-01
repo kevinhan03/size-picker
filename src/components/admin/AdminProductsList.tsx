@@ -5,7 +5,6 @@ import {
   Clock3,
   Search,
   Sparkles,
-  XCircle,
 } from "lucide-react";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { ImageViewerOverlay } from "../ImageViewerOverlay";
@@ -31,24 +30,20 @@ type TableEditingCell =
   | null;
 
 type AiTagFilter = "all" | "tagged" | "untagged" | "failed";
-type ReviewFilter =
-  "all" | "facts_pending" | "axis_pending" | "fully_reviewed" | "rejected";
+type ReviewFilter = "all" | "facts_pending" | "axis_pending" | "fully_reviewed";
 
-const hasAiTags = (product: Product) =>
-  Boolean(product.styleTags && typeof product.styleTags === "object");
-const isRejectedReview = (product: Product) =>
-  product.tagReviewStatus === "rejected";
+const hasAiStyleAxes = (product: Product) =>
+  Boolean(product.styleAxes && typeof product.styleAxes === "object");
 const isFactsReviewed = (product: Product) => Boolean(product.factsReviewedAt);
 const isStyleAxesReviewed = (product: Product) =>
   Boolean(product.styleAxesReviewedAt);
 const isFactsReviewPending = (product: Product) =>
-  hasAiTags(product) && !isFactsReviewed(product) && !isRejectedReview(product);
+  hasAiStyleAxes(product) && !isFactsReviewed(product);
 const isAxisReviewPending = (product: Product) =>
-  hasAiTags(product) &&
-  !isStyleAxesReviewed(product) &&
-  !isRejectedReview(product);
+  hasAiStyleAxes(product) &&
+  !isStyleAxesReviewed(product);
 const isFullyReviewed = (product: Product) =>
-  hasAiTags(product) &&
+  hasAiStyleAxes(product) &&
   isFactsReviewed(product) &&
   isStyleAxesReviewed(product);
 const getCategoryAnalysisLabel = (product: Product) => {
@@ -117,18 +112,17 @@ export function AdminProductsList({
     null
   );
 
-  const aiTaggedCount = allProducts.filter(hasAiTags).length;
+  const aiTaggedCount = allProducts.filter(hasAiStyleAxes).length;
   const aiUntaggedCount = allProducts.filter(
-    (product) => !hasAiTags(product) && product.taggingStatus !== "failed"
+    (product) => !hasAiStyleAxes(product) && product.styleAxisAnalysisStatus !== "failed"
   ).length;
   const failedTaggingCount = allProducts.filter(
-    (product) => product.taggingStatus === "failed"
+    (product) => product.styleAxisAnalysisStatus === "failed"
   ).length;
   const factsReviewPendingCount =
     allProducts.filter(isFactsReviewPending).length;
   const axisReviewPendingCount = allProducts.filter(isAxisReviewPending).length;
   const fullyReviewedCount = allProducts.filter(isFullyReviewed).length;
-  const rejectedReviewCount = allProducts.filter(isRejectedReview).length;
   const categoryCounts = new Map<string, number>();
   for (const product of allProducts) {
     categoryCounts.set(
@@ -139,14 +133,14 @@ export function AdminProductsList({
 
   const filteredProducts = allProducts
     .filter((p) => {
-      const productHasAiTags = hasAiTags(p);
+      const productHasAiTags = hasAiStyleAxes(p);
       if (aiTagFilter === "tagged" && !productHasAiTags) return false;
       if (
         aiTagFilter === "untagged" &&
-        (productHasAiTags || p.taggingStatus === "failed")
+        (productHasAiTags || p.styleAxisAnalysisStatus === "failed")
       )
         return false;
-      if (aiTagFilter === "failed" && p.taggingStatus !== "failed")
+      if (aiTagFilter === "failed" && p.styleAxisAnalysisStatus !== "failed")
         return false;
       if (
         aiTagFilter === "tagged" &&
@@ -164,12 +158,6 @@ export function AdminProductsList({
         aiTagFilter === "tagged" &&
         reviewFilter === "fully_reviewed" &&
         !isFullyReviewed(p)
-      )
-        return false;
-      if (
-        aiTagFilter === "tagged" &&
-        reviewFilter === "rejected" &&
-        !isRejectedReview(p)
       )
         return false;
       if (categoryFilter && p.category !== categoryFilter) return false;
@@ -364,7 +352,6 @@ export function AdminProductsList({
                 `최종 완료 ${fullyReviewedCount}`,
                 CheckCircle2,
               ],
-              ["rejected", `반려 ${rejectedReviewCount}`, XCircle],
             ] as const
           ).map(([value, label, Icon]) => (
             <button
@@ -520,38 +507,36 @@ export function AdminProductsList({
                       </span>
                       <span
                         className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
-                          product.taggingStatus === "failed"
+                          product.styleAxisAnalysisStatus === "failed"
                             ? "border-red-500/40 bg-red-500/10 text-red-200"
-                            : hasAiTags(product)
+                            : hasAiStyleAxes(product)
                               ? "border-orange-500/30 bg-orange-500/10 text-orange-200"
                               : "border-gray-700 bg-gray-800 text-gray-400"
                         }`}
                       >
-                        {product.taggingStatus === "failed"
-                          ? "태깅 실패"
-                          : hasAiTags(product)
-                            ? "AI 태그 있음"
-                            : "AI 태그 없음"}
+                        {product.styleAxisAnalysisStatus === "failed"
+                          ? "스타일 축 분석 실패"
+                          : hasAiStyleAxes(product)
+                            ? "AI 스타일 축 있음"
+                            : "AI 스타일 축 없음"}
                       </span>
-                      {hasAiTags(product) ? (
+                      {hasAiStyleAxes(product) ? (
                         <span
                           className={`rounded-md border px-2 py-0.5 text-xs font-medium ${isFullyReviewed(product) ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : "border-amber-500/40 bg-amber-500/10 text-amber-200"}`}
                         >
                           {isFullyReviewed(product)
                             ? "최종 검수 완료"
-                            : isRejectedReview(product)
-                              ? "반려"
-                              : !isFactsReviewed(product)
+                            : !isFactsReviewed(product)
                                 ? "사실값 검수 대기"
                                 : "스타일 축 검수 대기"}
                         </span>
                       ) : null}
                     </div>
-                    {product.taggingStatus === "failed" &&
-                    product.taggingError ? (
+                    {product.styleAxisAnalysisStatus === "failed" &&
+                    product.styleAxisAnalysisError ? (
                       <p className="mt-2 flex items-start gap-1.5 rounded-md border border-red-500/20 bg-red-500/[0.06] px-2.5 py-2 text-xs leading-5 text-red-200">
                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        {product.taggingError}
+                        {product.styleAxisAnalysisError}
                       </p>
                     ) : null}
                   </div>

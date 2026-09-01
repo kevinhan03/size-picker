@@ -168,9 +168,9 @@ export function TasteGraphCanvas({
     product.image,
     product.thumbnailImage,
     product.imagePath,
-    product.tagReviewStatus,
-    JSON.stringify(product.styleTags ?? null),
-    JSON.stringify(product.humanStyleTags ?? null),
+    product.styleAxesReviewedAt,
+    JSON.stringify(product.styleAxes ?? null),
+    JSON.stringify(product.humanStyleAxes ?? null),
   ].join("\u0001")).join("\u0002");
   const productsRef = useRef(products);
   productsRef.current = products;

@@ -44,11 +44,12 @@ import {
 } from "../utils/sizeTable";
 import { captureEvent } from "../utils/analytics";
 import { ClosetIcon } from "./icons/ClosetIcon";
-import { ProductSummaryDetailsPanel } from "./taste-graph/ProductTasteDecision";
+import { ProductStyleProfileCard } from "./ProductStyleProfileCard";
 import { buildLoginHref } from "../utils/authNavigation";
 import { isNonApparelSizeCategory, isShoeCategory } from "../utils/shoeSize";
 import { getProductPageUrl } from "../utils/product";
 import { DigboxSizeDecisionCard } from "./DigboxSizeDecisionCard";
+import { getProductStyleProfile } from "../utils/styleProfile";
 
 export interface ProductDetailModalProps {
   product: Product;
@@ -364,6 +365,7 @@ function ProductDetailModalContent({
   const savedSizeRowIndex = getClosetSizeRowIndex(savedClosetProduct);
   const isShoe = isShoeCategory(product.category);
   const isNonApparelSize = isNonApparelSizeCategory(product.category);
+  const hasStyleProfile = Boolean(getProductStyleProfile(product));
   const displaySizeTable = useMemo(
     () => getDisplaySizeTable(product),
     [product]
@@ -651,7 +653,7 @@ function ProductDetailModalContent({
             trapDialogFocus(event);
             if (event.key === "Escape") closeModal();
           }}
-          className="ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] outline-none md:h-[88.44vh] md:max-h-none md:max-w-[64.064rem]"
+          className={`ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] outline-none md:max-h-[88.44vh] ${hasStyleProfile ? "md:max-w-[64.064rem]" : "md:max-w-3xl"}`}
           data-visible={presence.isVisible}
         >
           <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-2 text-white sm:px-6 sm:py-3">
@@ -761,14 +763,14 @@ function ProductDetailModalContent({
 
           <div
             ref={modalRef}
-            className="flex-1 overflow-y-auto overscroll-contain"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
           >
             <div className="relative z-[1] p-6 md:p-8">
-              <div className="flex flex-col gap-6 md:flex-row md:items-center">
+              <div className={`flex flex-col gap-6 md:flex-row ${hasStyleProfile ? "md:items-start" : "md:items-center"}`}>
                 <button
                   type="button"
                   onClick={onZoomImage}
-                  className="relative isolate h-[15.5rem] w-full max-w-[22rem] self-center cursor-zoom-in overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:h-[19rem] md:w-[19rem] md:max-w-none"
+                  className={`relative isolate h-[15.5rem] w-full max-w-[22rem] self-center cursor-zoom-in overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:max-w-none ${hasStyleProfile ? "md:h-[22rem] md:w-[22rem] md:self-start" : "md:h-[19rem] md:w-[19rem] md:self-center"}`}
                 >
                   <div className="pointer-events-none absolute inset-[-10%] rounded-[32px] bg-[radial-gradient(circle,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_36%,rgba(255,255,255,0.02)_52%,transparent_74%)] opacity-80 blur-xl" />
                   <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015)_40%,transparent_100%)]" />
@@ -796,7 +798,7 @@ function ProductDetailModalContent({
                   <h4 className="mb-2 text-2xl font-bold text-white">
                     {product.name}
                   </h4>
-                  <ProductSummaryDetailsPanel product={product} />
+                  <ProductStyleProfileCard product={product} />
                   <div className="mt-3 space-y-2">
                     {savedClosetProduct ? (
                       <SavedSizeSummary product={savedClosetProduct} />

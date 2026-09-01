@@ -1,33 +1,18 @@
-import { Check, CircleHelp, Save, X } from "lucide-react";
+import { Check, CircleHelp, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   COMMON_FACT_FIELD_KEYS,
   fieldsForCategory,
   isCoreTasteCategory,
   STYLE_AXIS_FIELDS,
-  STYLE_TAG_NAMES,
 } from "../../constants/styleAnalysis.js";
 import type {
   Product,
   ProductStyleReviewInput,
   ProductTargetGender,
   StyleAxes,
-  StyleTags,
 } from "../../types";
 
-const TAGS = STYLE_TAG_NAMES as Array<keyof StyleTags>;
-const tagLabels: Record<keyof StyleTags, string> = {
-  casual: "캐주얼",
-  minimal: "미니멀",
-  street: "스트리트",
-  classic: "클래식",
-  vintage: "빈티지",
-  lovely_romantic: "러블리·로맨틱",
-  sporty: "스포티",
-  workwear_gorpcore: "워크웨어·고프코어",
-  chic_modern: "시크·모던",
-  glam_sexy: "글램·섹시",
-};
 const genderLabels: Record<ProductTargetGender, string> = {
   menswear: "남성복",
   womenswear: "여성복",
@@ -51,13 +36,6 @@ const valuesOf = (value: unknown) =>
     : value
       ? [String(value)]
       : [];
-const tagsOf = (value: unknown): StyleTags =>
-  Object.fromEntries(
-    TAGS.map((tag) => [
-      tag,
-      Math.max(0, Math.min(1, Number(asRecord(value)[tag]) || 0)),
-    ])
-  ) as StyleTags;
 const axesOf = (ai: unknown, human?: unknown): StyleAxes =>
   Object.fromEntries(
     STYLE_AXIS_FIELDS.map((field) => {
@@ -235,44 +213,29 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: Props) {
       ),
     [product.styleAttributes, product.humanStyleAttributes, fields]
   );
-  const initialTags = useMemo(
-    () => tagsOf(product.humanStyleTags ?? product.styleTags),
-    [product.humanStyleTags, product.styleTags]
-  );
   const initialAxes = useMemo(
     () => axesOf(product.styleAxes, product.humanStyleAxes),
     [product.styleAxes, product.humanStyleAxes]
   );
   const [facts, setFacts] = useState(initialFacts);
-  const [tags, setTags] = useState(initialTags);
   const [axes, setAxes] = useState(initialAxes);
   const [gender, setGender] = useState<ProductTargetGender>(
     product.humanTargetGender ?? product.targetGender ?? "unknown"
   );
-  const [note, setNote] = useState(product.tagReviewNote ?? "");
   const [openKey, setOpenKey] = useState<string | null>(null);
   useEffect(() => {
     setFacts(initialFacts);
   }, [initialFacts]);
   useEffect(() => {
-    setTags(initialTags);
-  }, [initialTags]);
-  useEffect(() => {
     setAxes(initialAxes);
   }, [initialAxes]);
   useEffect(() => {
     setGender(product.humanTargetGender ?? product.targetGender ?? "unknown");
-    setNote(product.tagReviewNote ?? "");
-  }, [product.humanTargetGender, product.targetGender, product.tagReviewNote]);
+  }, [product.humanTargetGender, product.targetGender]);
   const save = (approval?: "facts" | "axes") =>
     onSave(product.id, {
-      tagReviewStatus: "edited",
-      humanStyleTags: tags,
       humanStyleAttributes: detailed ? facts : {},
       humanStyleAxes: detailed ? axes : null,
-      humanStyleTagsEvidence:
-        product.humanStyleTagsEvidence ?? product.styleTagsEvidence ?? null,
-      tagReviewNote: note,
       targetGender: gender,
       approveFacts: approval === "facts",
       approveStyleAxes: approval === "axes",
@@ -351,22 +314,12 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: Props) {
       </div>
     );
   };
-  const status = product.tagReviewStatus ?? "none";
-  const canSave = Boolean(product.styleTags);
+  const canSave = Boolean(product.styleAxes);
   return (
     <div className="mt-4 rounded-xl border border-gray-800 bg-black/30 p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-bold tracking-wide text-gray-300">
-              AI 분석 검수
-            </p>
-            {status === "rejected" ? (
-              <span className="rounded-md border border-red-800 px-2 py-0.5 text-xs text-red-300">
-                반려
-              </span>
-            ) : null}
-          </div>
+          <p className="text-xs font-bold tracking-wide text-gray-300">AI 분석 검수</p>
           <p className="mt-1 text-xs text-gray-500">
             수정 사항은 저장하고, 사실값과 스타일 축은 각각 승인하세요.
           </p>
@@ -380,20 +333,6 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: Props) {
           >
             <Save className="h-3.5 w-3.5" />
             저장
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              onSave(product.id, {
-                tagReviewStatus: "rejected",
-                tagReviewNote: note,
-              })
-            }
-            disabled={isSaving}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-red-300"
-          >
-            <X className="h-3.5 w-3.5" />
-            반려
           </button>
         </div>
       </div>
@@ -472,7 +411,7 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: Props) {
                 상품 사실값 검수
               </p>
               <p className="mt-1 text-xs text-gray-500">
-                타깃 성별과 AI 태그를 확인한 뒤 승인하세요.
+                타깃 성별과 AI 사실값을 확인한 뒤 승인하세요.
               </p>
             </div>
             <button
@@ -529,48 +468,11 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: Props) {
           ))}
         </div>
       </section>
-      {canSave ? (
-        <div className="mt-4 grid gap-2 md:grid-cols-2">
-          {TAGS.map((tag) => (
-            <div
-              key={tag}
-              className="grid grid-cols-[112px_1fr_54px] items-center gap-2 text-xs"
-            >
-              <span className="font-medium text-gray-300">
-                {tagLabels[tag]}
-              </span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={tags[tag]}
-                onChange={(event) =>
-                  setTags((current) => ({
-                    ...current,
-                    [tag]: Number(event.target.value),
-                  }))
-                }
-                className="h-2 w-full accent-orange-500"
-              />
-              <span className="text-right text-gray-400">
-                {tags[tag].toFixed(2)}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
+      {!canSave ? (
         <p className="mt-4 text-xs text-gray-500">
-          AI 분석값이 없어 저장할 수 없습니다.
+          AI 스타일 축 분석값이 없어 저장할 수 없습니다.
         </p>
-      )}
-      <textarea
-        value={note}
-        onChange={(event) => setNote(event.target.value)}
-        placeholder="수정 이유"
-        rows={2}
-        className="mt-3 w-full resize-none rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500"
-      />
+      ) : null}
     </div>
   );
 }

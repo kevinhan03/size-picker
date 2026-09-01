@@ -1,16 +1,17 @@
 import type { Product, StyleTagName, StyleTags } from "../types";
 import { isAccessoryCategory } from "../constants";
 import { fieldsForCategory } from "../constants/styleAnalysis.js";
+import { getProductStyleProfile, styleProfileLabels, styleProfileVector } from "./styleProfile";
 
 export const TAGS: StyleTagName[] = [
-  "casual",
   "minimal",
   "street",
   "classic",
   "vintage",
-  "lovely_romantic",
+  "lovely",
   "sporty",
-  "workwear_gorpcore",
+  "workwear",
+  "gorpcore",
   "chic_modern",
   "glam_sexy",
 ];
@@ -19,14 +20,14 @@ export const TAGS: StyleTagName[] = [
 // (worst all-pairs ΔE 8.5, deutan floor-band 통과 — 태그 노드에 항상 라벨 텍스트가 같이 그려지므로
 // secondary encoding 요건 충족)
 export const TAG_COLORS: Record<StyleTagName, { base: string; bright: string }> = {
-  casual: { base: "#3987e5", bright: "#5598e9" },
   minimal: { base: "#199e70", bright: "#39ac84" },
   street: { base: "#c98500", bright: "#d19624" },
   classic: { base: "#008300", bright: "#249424" },
   vintage: { base: "#8f3fe0", bright: "#9f5ae4" },
-  lovely_romantic: { base: "#e66767", bright: "#ea7c7c" },
+  lovely: { base: "#e66767", bright: "#ea7c7c" },
   sporty: { base: "#c94f9e", bright: "#d168ac" },
-  workwear_gorpcore: { base: "#d95926", bright: "#de7044" },
+  workwear: { base: "#d95926", bright: "#de7044" },
+  gorpcore: { base: "#71844c", bright: "#91a666" },
   chic_modern: { base: "#2a9fb0", bright: "#48acbb" },
   glam_sexy: { base: "#e0629c", bright: "#e478aa" },
 };
@@ -34,18 +35,6 @@ export const TAG_COLORS: Record<StyleTagName, { base: string; bright: string }> 
 export const DEFAULT_TAG_COLOR = { base: "#f59e0b", bright: "#f97316" };
 
 export const tagColor = (tag: string) => TAG_COLORS[tag as StyleTagName] || DEFAULT_TAG_COLOR;
-
-export const LEGACY_TAG_KEY_MAP: Record<string, StyleTagName> = {
-  "캐주얼": "casual",
-  "미니멀": "minimal",
-  "스트릿": "street",
-  "클래식": "classic",
-  "빈티지": "vintage",
-  "레트로": "vintage",
-  "로맨틱": "lovely_romantic",
-  "스포티": "sporty",
-  "워크웨어": "workwear_gorpcore",
-};
 
 export const TAG_TOP_N = 2;
 export const PRODUCT_PANEL_TAG_TOP_N = 5;
@@ -109,7 +98,7 @@ export function normalizeStyleTags(styleTags: unknown): Partial<StyleTags> {
   if (!styleTags || typeof styleTags !== "object" || Array.isArray(styleTags)) return {};
   const normalized: Partial<StyleTags> = {};
   for (const [rawTag, rawScore] of Object.entries(styleTags as Record<string, unknown>)) {
-    const tag = (TAGS as string[]).includes(rawTag) ? (rawTag as StyleTagName) : LEGACY_TAG_KEY_MAP[rawTag];
+    const tag = (TAGS as string[]).includes(rawTag) ? (rawTag as StyleTagName) : null;
     if (!tag) continue;
     const score = Number(rawScore);
     if (Number.isFinite(score)) {
@@ -120,17 +109,8 @@ export function normalizeStyleTags(styleTags: unknown): Partial<StyleTags> {
 }
 
 export function getEffectiveStyleTags(product: Product): { tags: unknown; source: "human" | "ai" } {
-  const status = String(product.tagReviewStatus || "").trim();
-  // An approved review can legitimately retain an empty human tag object when
-  // only another field was reviewed. Do not let that empty override discard the
-  // product's already-complete AI tags from reports and the taste timeline.
-  const hasReviewedTags = Object.keys(normalizeStyleTags(product.humanStyleTags)).length > 0;
-
-  if ((status === "approved" || status === "edited") && hasReviewedTags) {
-    return { tags: product.humanStyleTags, source: "human" };
-  }
-
-  return { tags: product.styleTags, source: "ai" };
+  const profile = getProductStyleProfile(product);
+  return { tags: styleProfileVector(product) || {}, source: profile?.source || "ai" };
 }
 
 export function selectTopTags(
@@ -159,8 +139,6 @@ export interface TasteGraphProduct {
   fallbackImageUrl: string;
   styleTags: Partial<StyleTags>;
   styleTagSource: "human" | "ai";
-  tagReviewStatus: string;
-  tagReviewNote: string;
   embedding: number[] | null;
   tagAssignments: { tag: StyleTagName; score: number; rank: number }[];
   panelTagAssignments: { tag: StyleTagName; score: number; rank: number }[];
@@ -253,8 +231,6 @@ export function createGraph(products: Product[]): TasteGraphState {
           : "",
       styleTags: normalizeStyleTags(effectiveStyleTags.tags),
       styleTagSource: effectiveStyleTags.source,
-      tagReviewStatus: String(product.tagReviewStatus || "").trim(),
-      tagReviewNote: String(product.tagReviewNote || "").trim(),
       embedding,
       tagAssignments: [],
       panelTagAssignments: [],
@@ -478,27 +454,27 @@ export interface TasteCollectionInterpretation {
 }
 
 const TAG_TASTE_COPY: Record<StyleTagName, string> = {
-  casual: "편안한 데일리함",
   minimal: "정돈된 형태",
   street: "도시적인 존재감",
   classic: "단정한 구조감",
   vintage: "시간감 있는 질감",
-  lovely_romantic: "부드럽고 섬세한 장식",
+  lovely: "부드럽고 섬세한 장식",
   sporty: "활동적인 리듬",
-  workwear_gorpcore: "실용적인 디테일",
+  workwear: "실용적인 디테일",
+  gorpcore: "아웃도어 기반의 기술적 무드",
   chic_modern: "선명한 현대적 긴장감",
   glam_sexy: "드레스업을 의식한 화려함",
 };
 
 const TAG_TASTE_COPY_EN: Record<StyleTagName, string> = {
-  casual: "Comfortable, everyday ease",
   minimal: "Clean, orderly form",
   street: "Urban presence",
   classic: "Tidy structure",
   vintage: "Time-worn texture",
-  lovely_romantic: "Soft, delicate detail",
+  lovely: "Soft, delicate detail",
   sporty: "Active rhythm",
-  workwear_gorpcore: "Utilitarian detail",
+  workwear: "Utilitarian detail",
+  gorpcore: "Outdoor technical mood",
   chic_modern: "Sharp modern edge",
   glam_sexy: "Dressed-up glamour",
 };
@@ -507,45 +483,26 @@ function tagTasteCopy(tag: StyleTagName) {
   return isEnglishLocale() ? TAG_TASTE_COPY_EN[tag] : TAG_TASTE_COPY[tag];
 }
 
-const TAG_LABELS: Record<StyleTagName, string> = {
-  casual: "캐주얼",
-  minimal: "미니멀",
-  street: "스트리트",
-  classic: "클래식",
-  vintage: "빈티지",
-  lovely_romantic: "러블리 로맨틱",
-  sporty: "스포티",
-  workwear_gorpcore: "워크웨어 고프코어",
-  chic_modern: "시크 모던",
-  glam_sexy: "글램 섹시",
-};
-
-const TAG_LABELS_EN: Record<StyleTagName, string> = {
-  casual: "Casual", minimal: "Minimal", street: "Street", classic: "Classic", vintage: "Vintage",
-  lovely_romantic: "Lovely romantic", sporty: "Sporty", workwear_gorpcore: "Workwear / gorpcore",
-  chic_modern: "Chic modern", glam_sexy: "Glam / sexy",
-};
-
 function isEnglishLocale(): boolean {
   return typeof document !== "undefined" && document.documentElement.lang === "en";
 }
 
 export function styleTagLabel(tag: StyleTagName) {
-  return isEnglishLocale() ? TAG_LABELS_EN[tag] : TAG_LABELS[tag];
+  return styleProfileLabels(tag, isEnglishLocale() ? "en" : "ko");
 }
 
 // 조사(을/를, 이/가) 선택을 위해 영문 라벨의 한글 발음을 기준으로 받침 여부를 판정한다.
 const TAG_LABEL_READINGS: Record<StyleTagName, string> = {
-  casual: "캐주얼",
   minimal: "미니멀",
   street: "스트리트",
   classic: "클래식",
   vintage: "빈티지",
-  lovely_romantic: "러블리 로맨틱",
+  lovely: "러블리",
   sporty: "스포티",
-  workwear_gorpcore: "워크웨어 고프코어",
+  workwear: "워크웨어",
+  gorpcore: "고프코어",
   chic_modern: "시크 모던",
-  glam_sexy: "글램 섹시",
+  glam_sexy: "글램섹시",
 };
 
 function endsWithBatchim(word: string): boolean {
@@ -575,7 +532,7 @@ const COLLECTION_AXES: Array<{
     negativeLabel: "실용적인 장비감",
     negativeLabelEn: "Functional gear feel",
     positiveTags: ["classic", "chic_modern"],
-    negativeTags: ["casual", "sporty", "workwear_gorpcore"],
+    negativeTags: ["sporty", "workwear", "gorpcore"],
   },
   {
     title: "표면의 결",
@@ -585,7 +542,7 @@ const COLLECTION_AXES: Array<{
     negativeLabel: "질감과 사용감이 있는 인상",
     negativeLabelEn: "Textured, well-worn impression",
     positiveTags: ["minimal", "chic_modern"],
-    negativeTags: ["vintage", "workwear_gorpcore"],
+    negativeTags: ["vintage", "workwear"],
   },
   {
     title: "표현의 강도",
@@ -595,7 +552,7 @@ const COLLECTION_AXES: Array<{
     negativeLabel: "분명한 존재감",
     negativeLabelEn: "Bold presence",
     positiveTags: ["minimal", "classic"],
-    negativeTags: ["street", "lovely_romantic", "glam_sexy"],
+    negativeTags: ["street", "lovely", "glam_sexy"],
   },
   {
     title: "시간의 결",
@@ -643,23 +600,19 @@ const ATTRIBUTE_LABELS_EN: Record<string, Record<string, string>> = {
   },
 };
 
-// 상품 단위로 그래프의 태그 링크(tagAssignments)와 동일한 top-tag 집계를 재사용해
-// 옷장 전체의 스타일 분포를 계산한다. 원본 10개 태그 점수를 그대로 평균 내지 않고,
-// 그래프에 실제로 표시되는 상위 태그(들)만 집계 대상으로 삼아 그래프와 숫자가 항상 일치하게 한다.
+// 컬렉션 집계는 화면용 상위 3개 비율이 아니라 각 상품의 원본 10개 중심점 유사도를
+// 합산한다. 그래야 특정 상품의 화면 표시 규칙이 전체 취향을 왜곡하지 않는다.
 export function computeTasteSummary(products: Product[]): TasteSummary {
   const totals = new Map<StyleTagName, number>(TAGS.map((tag) => [tag, 0]));
   let taggedCount = 0;
 
   for (const product of products) {
-    const effective = getEffectiveStyleTags(product);
-    const normalized = normalizeStyleTags(effective.tags);
-    const topTags = selectTopTags(normalized);
-    if (!topTags.length) continue;
+    const vector = styleProfileVector(product);
+    if (!vector) continue;
 
     taggedCount += 1;
-    const scoreTotal = topTags.reduce((sum, [, score]) => sum + score, 0) || 1;
-    for (const [tag, score] of topTags) {
-      totals.set(tag, (totals.get(tag) || 0) + score / scoreTotal);
+    for (const tag of TAGS) {
+      totals.set(tag, (totals.get(tag) || 0) + Number(vector[tag] || 0));
     }
   }
 
@@ -1136,7 +1089,7 @@ export function getProductTasteDecision(product: Product, closetProducts: Produc
 function getEffectiveStyleAttributes(product: Product, includeAccessories = false): Record<string, unknown> | null {
   if (!includeAccessories && isAccessoryCategory(product.category)) return null;
   const hasHumanAttributes = product.humanStyleAttributes && typeof product.humanStyleAttributes === "object" && !Array.isArray(product.humanStyleAttributes);
-  if (hasHumanAttributes && (product.tagReviewStatus === "approved" || product.tagReviewStatus === "edited")) {
+  if (hasHumanAttributes && product.factsReviewedAt) {
     return product.humanStyleAttributes as Record<string, unknown>;
   }
   return product.styleAttributes && typeof product.styleAttributes === "object" && !Array.isArray(product.styleAttributes)
@@ -1253,15 +1206,15 @@ export function describeTasteCollection(products: Product[], summary = computeTa
   let summaryCopy: string;
   if (isEnglish) {
     title = secondary
-      ? `${TAG_LABELS_EN[primary]}-centered taste with a touch of ${TAG_LABELS_EN[secondary]}`
-      : `A taste where ${TAG_LABELS_EN[primary]} stands out`;
+      ? `${styleTagLabel(primary)}-centered taste with a touch of ${styleTagLabel(secondary)}`
+      : `A taste where ${styleTagLabel(primary)} stands out`;
     summaryCopy = secondary
       ? `${tagTasteCopy(primary)}, layered repeatedly with ${tagTasteCopy(secondary).toLowerCase()}.`
       : `${tagTasteCopy(primary)} appears most often in this collection.`;
   } else {
     title = secondary
-      ? `${TAG_LABELS[primary]}${josa(TAG_LABEL_READINGS[primary], "을", "를")} 중심으로 ${TAG_LABELS[secondary]}${josa(TAG_LABEL_READINGS[secondary], "을", "를")} 더한 취향`
-      : `${TAG_LABELS[primary]}${josa(TAG_LABEL_READINGS[primary], "이", "가")} 두드러지는 취향`;
+      ? `${styleTagLabel(primary)}${josa(TAG_LABEL_READINGS[primary], "을", "를")} 중심으로 ${styleTagLabel(secondary)}${josa(TAG_LABEL_READINGS[secondary], "을", "를")} 더한 취향`
+      : `${styleTagLabel(primary)}${josa(TAG_LABEL_READINGS[primary], "이", "가")} 두드러지는 취향`;
     summaryCopy = secondary
       ? `${TAG_TASTE_COPY[primary]} 위에 ${TAG_TASTE_COPY[secondary]}${josa(TAG_TASTE_COPY[secondary], "이", "가")} 반복해서 쌓여 있습니다.`
       : `${TAG_TASTE_COPY[primary]}${josa(TAG_TASTE_COPY[primary], "이", "가")} 이 컬렉션에서 가장 자주 나타납니다.`;

@@ -1,8 +1,8 @@
 export const CORE_TASTE_CATEGORIES = ["Top", "Bottom", "Outer", "DressSkirt", "Shoes"];
 
 export const STYLE_TAG_NAMES = [
-  "casual", "minimal", "street", "classic", "vintage", "lovely_romantic",
-  "sporty", "workwear_gorpcore", "chic_modern", "glam_sexy",
+  "minimal", "street", "classic", "vintage", "lovely",
+  "sporty", "workwear", "gorpcore", "chic_modern", "glam_sexy",
 ];
 
 export const COMMON_FACT_FIELD_KEYS = [
@@ -77,6 +77,21 @@ export const STYLE_AXIS_FIELDS = [
   field("affective_softness", "전체 분위기는 어떤가요?", common, [["1", "매우 강하고 차가움"], ["2", "강하고 차가움"], ["3", "조금 강한 느낌"], ["4", "어느 쪽도 아님"], ["5", "조금 부드러움"], ["6", "부드럽고 포근함"], ["7", "매우 부드럽고 포근함"]], { startLabel: "강하고 차가운 느낌", endLabel: "부드럽고 포근한 느낌", description: "전체 분위기가 강하고 차가운지, 부드럽고 포근한지 고르세요.", anchors: { 1: "긴장감·공격성·차가움·단단함이 강합니다.", 4: "강함과 부드러움 어느 쪽도 두드러지지 않습니다.", 7: "연약함·온화함·로맨틱한 정서가 전체 인상을 지배합니다." }, caution: "소재의 실제 촉감을 평가하지 않으며 니트·가죽만으로 판단하지 않습니다." }),
   field("unconventionality", "같은 종류의 옷과 비교해 얼마나 독특한가요?", common, [["1", "매우 익숙한 디자인"], ["2", "익숙한 디자인"], ["3", "조금 독특함"], ["4", "보통"], ["5", "독특한 편"], ["6", "매우 독특함"], ["7", "아주 실험적인 디자인"]], { startLabel: "익숙한 디자인", endLabel: "독특한 디자인", description: "같은 종류의 일반 상품과 비교해 디자인이 얼마나 독특한지 고르세요.", anchors: { 1: "해당 상품군의 일반적인 형태와 구성을 거의 그대로 따릅니다.", 4: "전형성과 실험성이 비슷한 수준으로 혼합되어 있습니다.", 7: "상품군 자체의 형태나 구조를 새롭게 재해석한 수준입니다." }, caution: "항상 동일 카테고리 안의 일반 제품과 비교합니다." }),
   field("sensuality", "몸선을 얼마나 의식한 디자인인가요?", common, [["1", "몸선 강조가 거의 없음"], ["2", "몸선 강조가 약함"], ["3", "조금 몸선을 의식함"], ["4", "어느 쪽도 아님"], ["5", "몸선이 조금 드러남"], ["6", "몸선을 강조함"], ["7", "몸선 강조가 핵심"]], { startLabel: "몸선 강조가 거의 없음", endLabel: "몸선을 강조한 느낌", description: "몸선을 얼마나 의식하고 강조한 디자인인지 고르세요.", anchors: { 1: "몸을 강조하려는 인상이 거의 없습니다.", 4: "신체 강조와 비강조 어느 쪽도 지배적이지 않습니다.", 7: "신체 강조가 상품의 주요 디자인 언어입니다." }, caution: "짧은 기장·슬림핏·높은 굽 같은 단일 사실값만으로 결정하지 않습니다." }),
+];
+
+// Read-only style prototypes used as the reference points for the eight-axis
+// style map. These are intentionally separate from product facts and AI tags.
+export const STYLE_PROTOTYPE_CENTERS = [
+  { key: "minimal", label: "미니멀", axes: { formality: 4, refinement: 7, technicality: 2, historical_orientation: 2, visual_boldness: 1, affective_softness: 5, unconventionality: 2, sensuality: 3 } },
+  { key: "street", label: "스트릿", axes: { formality: 2, refinement: 3, technicality: 4, historical_orientation: 3, visual_boldness: 6, affective_softness: 3, unconventionality: 5, sensuality: 2 } },
+  { key: "classic", label: "클래식", axes: { formality: 7, refinement: 6, technicality: 3, historical_orientation: 6, visual_boldness: 2, affective_softness: 4, unconventionality: 1, sensuality: 4 } },
+  { key: "vintage", label: "빈티지", axes: { formality: 3, refinement: 2, technicality: 3, historical_orientation: 7, visual_boldness: 4, affective_softness: 4, unconventionality: 3, sensuality: 3 } },
+  { key: "lovely", label: "러블리", axes: { formality: 4, refinement: 5, technicality: 1, historical_orientation: 5, visual_boldness: 4, affective_softness: 7, unconventionality: 4, sensuality: 4 } },
+  { key: "sporty", label: "스포티", axes: { formality: 1, refinement: 4, technicality: 6, historical_orientation: 4, visual_boldness: 3, affective_softness: 4, unconventionality: 4, sensuality: 4 } },
+  { key: "workwear", label: "워크웨어", axes: { formality: 3, refinement: 2, technicality: 5, historical_orientation: 6, visual_boldness: 3, affective_softness: 4, unconventionality: 2, sensuality: 1 } },
+  { key: "gorpcore", label: "고프코어", axes: { formality: 1, refinement: 4, technicality: 7, historical_orientation: 1, visual_boldness: 5, affective_softness: 3, unconventionality: 6, sensuality: 1 } },
+  { key: "chic_modern", label: "시크 모던", axes: { formality: 6, refinement: 7, technicality: 2, historical_orientation: 2, visual_boldness: 4, affective_softness: 2, unconventionality: 5, sensuality: 6 } },
+  { key: "glam_sexy", label: "글램섹시", axes: { formality: 5, refinement: 5, technicality: 1, historical_orientation: 3, visual_boldness: 7, affective_softness: 1, unconventionality: 6, sensuality: 7 } },
 ];
 
 export const fieldsForCategory = (category) => STYLE_ATTRIBUTE_FIELDS.filter((field) => field.categories.includes(category));

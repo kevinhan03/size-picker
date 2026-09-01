@@ -124,15 +124,8 @@ export const normalizeProductRow = (row) => {
     isInstagram: Boolean(row.is_instagram),
     instagramOrder:
       typeof row.instagram_order === "number" ? row.instagram_order : null,
-    styleTags: row.style_tags ?? null,
     styleAttributes: row.style_attributes ?? null,
     styleAxes: row.style_axes ?? null,
-    styleTagsEvidence: row.style_tags_evidence ?? null,
-    styleTagsConfidence:
-      typeof row.style_tags_confidence === "number"
-        ? row.style_tags_confidence
-        : null,
-    taggingStatus: row.tagging_status ? String(row.tagging_status) : null,
     styleAxisAnalysisStatus: row.style_axis_analysis_status
       ? String(row.style_axis_analysis_status)
       : null,
@@ -149,18 +142,8 @@ export const normalizeProductRow = (row) => {
     styleAxesReviewedBy: row.style_axes_reviewed_by
       ? String(row.style_axes_reviewed_by)
       : null,
-    taggingError: row.tagging_error ? String(row.tagging_error) : null,
-    taggedAt: row.tagged_at || null,
-    humanStyleTags: row.human_style_tags ?? null,
     humanStyleAttributes: row.human_style_attributes ?? null,
     humanStyleAxes: row.human_style_axes ?? null,
-    humanStyleTagsEvidence: row.human_style_tags_evidence ?? null,
-    tagReviewStatus: row.tag_review_status
-      ? String(row.tag_review_status)
-      : null,
-    tagReviewNote: row.tag_review_note ? String(row.tag_review_note) : null,
-    reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
-    reviewedAt: row.reviewed_at || null,
     imageEmbedding: row.image_embedding ?? null,
     targetGender: row.target_gender ? String(row.target_gender) : null,
     humanTargetGender: row.human_target_gender
@@ -341,7 +324,6 @@ export const insertProductRow = async (input) => {
         sub_category: sanitizedSubCategory,
         category_analysis_status: effectiveCategoryAnalysisStatus,
         category_reviewed: false,
-        tagging_status: "pending",
         url: sanitizeDatabaseText(url),
         image_path: effectiveImagePath,
         size_table: effectiveSizeTable,

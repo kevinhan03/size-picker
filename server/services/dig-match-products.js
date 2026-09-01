@@ -14,11 +14,11 @@ const DIG_MATCH_PRODUCT_COLUMNS = [
   "url",
   "image_path",
   "slug",
-  "style_tags",
   "style_attributes",
-  "human_style_tags",
+  "style_axes",
   "human_style_attributes",
-  "tag_review_status",
+  "human_style_axes",
+  "style_axes_reviewed_at",
 ].join(",");
 
 function toProductImageUrls(imagePath) {
@@ -43,10 +43,6 @@ function normalizeDigMatchProduct(row) {
 
   const imagePath = String(row.image_path || "").trim() || null;
   const { image, thumbnailImage } = toProductImageUrls(imagePath);
-  const hasReviewedAttributes = row.human_style_attributes
-    && typeof row.human_style_attributes === "object"
-    && !Array.isArray(row.human_style_attributes)
-    && (row.tag_review_status === "approved" || row.tag_review_status === "edited");
   return {
     id,
     brand,
@@ -56,8 +52,10 @@ function normalizeDigMatchProduct(row) {
     image,
     thumbnailImage,
     slug: String(row.slug || "").trim() || null,
-    styleTags: hasReviewedAttributes ? row.human_style_tags : (row.style_tags ?? null),
-    styleAttributes: hasReviewedAttributes ? row.human_style_attributes : (row.style_attributes ?? null),
+    styleAttributes: row.human_style_attributes ?? row.style_attributes ?? null,
+    styleAxes: row.style_axes ?? null,
+    humanStyleAxes: row.human_style_axes ?? null,
+    styleAxesReviewedAt: row.style_axes_reviewed_at ?? null,
   };
 }
 

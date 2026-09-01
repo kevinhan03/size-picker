@@ -37,7 +37,7 @@ export interface DigMatchSignal {
 }
 
 export interface DigMatchProfile {
-  version: 1;
+  version: 2;
   completedSessions: number;
   signals: Partial<Record<StyleTagName, DigMatchSignal>>;
   updatedAt: string;
@@ -70,7 +70,7 @@ export const DIG_MATCH_AXES: DigMatchAxis[] = [
     positiveLabel: "정돈된 구조감",
     negativeLabel: "실용적인 장비감",
     positiveTags: ["classic", "chic_modern"],
-    negativeTags: ["casual", "sporty", "workwear_gorpcore"],
+    negativeTags: ["sporty", "workwear", "gorpcore"],
   },
   {
     id: "clean_vs_textured",
@@ -78,7 +78,7 @@ export const DIG_MATCH_AXES: DigMatchAxis[] = [
     positiveLabel: "깨끗하고 매끈한 인상",
     negativeLabel: "질감과 사용감이 있는 인상",
     positiveTags: ["minimal", "chic_modern"],
-    negativeTags: ["vintage", "workwear_gorpcore"],
+    negativeTags: ["vintage", "workwear"],
   },
   {
     id: "restrained_vs_expressive",
@@ -86,15 +86,15 @@ export const DIG_MATCH_AXES: DigMatchAxis[] = [
     positiveLabel: "절제된 표현",
     negativeLabel: "분명한 존재감",
     positiveTags: ["minimal", "classic"],
-    negativeTags: ["street", "lovely_romantic", "glam_sexy"],
+    negativeTags: ["street", "lovely", "glam_sexy"],
   },
   {
     id: "soft_vs_urban",
     title: "부드러운 무드와 도회적인 무드",
     positiveLabel: "부드럽고 유연한 무드",
     negativeLabel: "도시적이고 러기드한 무드",
-    positiveTags: ["lovely_romantic"],
-    negativeTags: ["street", "workwear_gorpcore"],
+    positiveTags: ["lovely"],
+    negativeTags: ["street", "workwear", "gorpcore"],
   },
   {
     id: "heritage_vs_contemporary",
@@ -110,14 +110,14 @@ const PRIMARY_CATEGORY_SEQUENCE = ["Top", "Bottom", "Outer", "Top", "Bottom", "O
 export const DIG_MATCH_OPENING_QUESTION_COUNT = 8;
 
 const tagLabels: Record<StyleTagName, string> = {
-  casual: "Casual",
   minimal: "Minimal",
   street: "Street",
   classic: "Classic",
   vintage: "Vintage",
-  lovely_romantic: "Lovely romantic",
+  lovely: "Lovely",
   sporty: "Sporty",
-  workwear_gorpcore: "Workwear gorpcore",
+  workwear: "Workwear",
+  gorpcore: "Gorpcore",
   chic_modern: "Chic modern",
   glam_sexy: "Glam sexy",
 };
@@ -194,7 +194,7 @@ export function calculateTasteSwipeProfile(previous: DigMatchProfile | null, pro
       confidence: Math.min(1, prior.confidence + Math.min(0.12, evidence[tag] * 0.035)),
     };
   }
-  return { version: 1, completedSessions: previous?.completedSessions || 0, signals, updatedAt: new Date().toISOString() };
+  return { version: 2, completedSessions: previous?.completedSessions || 0, signals, updatedAt: new Date().toISOString() };
 }
 
 function buildQuestion(
@@ -345,7 +345,7 @@ export function calculateDigMatchProfile(
     signals[tag] = { score: Math.max(-1, Math.min(1, score)), confidence };
   }
 
-  return { version: 1, completedSessions: sessions, signals, updatedAt: new Date().toISOString() };
+  return { version: 2, completedSessions: sessions, signals, updatedAt: new Date().toISOString() };
 }
 
 export function getDigMatchHighlights(profile: DigMatchProfile) {
@@ -438,14 +438,14 @@ export function getDigMatchProgressInsight(questions: DigMatchQuestion[], answer
 }
 
 const TAG_INTERPRETATIONS: Record<StyleTagName, string> = {
-  casual: "편안하지만 무드가 흐려지지 않는 데일리함",
   minimal: "불필요한 장식보다 정돈된 형태",
   street: "도시적이고 분명한 유스 컬처의 존재감",
   classic: "오래 입을 수 있는 단정한 구조",
   vintage: "시간이 쌓인 듯한 질감과 과거의 결",
-  lovely_romantic: "부드러운 곡선과 섬세한 장식",
+  lovely: "부드러운 곡선과 섬세한 장식",
   sporty: "활동성과 스포츠에서 온 리듬",
-  workwear_gorpcore: "실용적인 디테일과 러기드한 기능성",
+  workwear: "실용적인 디테일과 러기드한 기능성",
+  gorpcore: "아웃도어 기반의 기술적 인상",
   chic_modern: "도시적이고 날카로운 현대적 긴장감",
   glam_sexy: "몸선과 드레스업을 의식한 화려한 인상",
 };
@@ -453,7 +453,7 @@ const TAG_INTERPRETATIONS: Record<StyleTagName, string> = {
 function effectiveAttributes(product: Product) {
   if (isAccessoryCategory(product.category)) return null;
   const hasHumanAttributes = product.humanStyleAttributes && typeof product.humanStyleAttributes === "object" && !Array.isArray(product.humanStyleAttributes);
-  return hasHumanAttributes && (product.tagReviewStatus === "approved" || product.tagReviewStatus === "edited")
+  return hasHumanAttributes && product.factsReviewedAt
     ? product.humanStyleAttributes as Record<string, unknown>
     : product.styleAttributes as Record<string, unknown> | null;
 }
@@ -539,6 +539,7 @@ export function getDigMatchInterpretation(profile: DigMatchProfile, questions: D
 export function parseDigMatchProfile(value: unknown): DigMatchProfile | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const raw = value as Partial<DigMatchProfile>;
+  if (Number(raw.version) !== 2) return null;
   if (!raw.signals || typeof raw.signals !== "object") return null;
   const signals: Partial<Record<StyleTagName, DigMatchSignal>> = {};
   for (const tag of TAGS) {
@@ -549,7 +550,7 @@ export function parseDigMatchProfile(value: unknown): DigMatchProfile | null {
     if (Number.isFinite(score) && Number.isFinite(confidence)) signals[tag] = { score, confidence };
   }
   return {
-    version: 1,
+    version: 2,
     completedSessions: Math.max(0, Number(raw.completedSessions || 0)),
     signals,
     updatedAt: String(raw.updatedAt || ""),

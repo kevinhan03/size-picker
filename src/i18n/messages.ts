@@ -853,7 +853,7 @@ export const messages = {
     "brandGraph.savedClosetProducts": "저장·옷장 상품",
     "brandGraph.nearbyBrands": "비슷한 브랜드",
     "brandGraph.totalProducts": "저장한 상품과 옷장에 {count}개 상품",
-    "brandGraph.styleTags": "스타일 태그",
+    "brandGraph.styleTags": "스타일 성향",
     "brandGraph.nearby": "가까운 브랜드",
     "brandGraph.noNearby": "지금은 비슷한 브랜드 연결이 없어요.",
     "tasteCanvas.guide": "취향 그래프 읽는 법",
@@ -924,9 +924,9 @@ export const messages = {
       "고른 3개 상품의 스타일을 100% 기준으로 나눠 봤어요.",
     "guestTaste.styleShareAria": "{tag} 비중 {share}%",
     "guestTaste.otherStyleShare": "그 외 스타일 {share}%",
-    "guestTaste.loadingStyleTags": "스타일 태그를 불러오는 중이에요.",
+    "guestTaste.loadingStyleTags": "스타일 성향을 불러오는 중이에요.",
     "guestTaste.styleTagsUnavailable":
-      "스타일 태그가 없는 상품이 있어 무드를 정리하지 못했어요.",
+      "스타일 축이 없는 상품이 있어 무드를 정리하지 못했어요.",
     "guestTaste.firstAnalysisSummary":
       "지금은 첫 분석이에요. 가입하면 이 3개를 보관하고, 더 많은 선택으로 내 취향을 더 정확하게 알아볼 수 있어요.",
     "guestTaste.saveThreeWithSignup": "이 3개 저장하고 내 DIGBOX 시작하기",
@@ -1884,7 +1884,7 @@ export const messages = {
     "brandGraph.nearbyBrands": "Similar brands",
     "brandGraph.totalProducts":
       "{count} products across saved products and Closet",
-    "brandGraph.styleTags": "Style tags",
+    "brandGraph.styleTags": "Style profile",
     "brandGraph.nearby": "Nearby brands",
     "brandGraph.noNearby": "There are no similar brand connections yet.",
     "tasteCanvas.guide": "How to read the taste graph",
@@ -1961,9 +1961,9 @@ export const messages = {
       "We broke down the styles of your 3 picks out of 100%.",
     "guestTaste.styleShareAria": "{tag} share {share}%",
     "guestTaste.otherStyleShare": "Other styles {share}%",
-    "guestTaste.loadingStyleTags": "Loading style tags...",
+    "guestTaste.loadingStyleTags": "Loading style profile...",
     "guestTaste.styleTagsUnavailable":
-      "One of your items has no style tags, so we couldn't summarize the mood.",
+      "One of your items has no style axes, so we couldn't summarize the mood.",
     "guestTaste.firstAnalysisSummary":
       "This is your first analysis. Sign up to keep these 3 items and get a more accurate read on your taste as you pick more.",
     "guestTaste.saveThreeWithSignup": "Save these 3 and start my DIGBOX",

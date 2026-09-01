@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
+import { migrateTasteProfileFromSwipeEvents } from "../../../../server/services/taste-profile-migration";
 
 const unauthorized = () => NextResponse.json({ ok: false, error: "registered account required" }, { status: 401 });
 
 function parseProfile(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const raw = value as { version?: unknown; completedSessions?: unknown; signals?: unknown; updatedAt?: unknown };
+  if (Number(raw.version) !== 2) return null;
   if (!raw.signals || typeof raw.signals !== "object" || Array.isArray(raw.signals)) return null;
   const completedSessions = Number(raw.completedSessions);
   if (!Number.isInteger(completedSessions) || completedSessions < 1 || completedSessions > 10000) return null;
-  return { version: 1, completedSessions, signals: raw.signals, updatedAt: String(raw.updatedAt || new Date().toISOString()) };
+  return { version: 2, completedSessions, signals: raw.signals, updatedAt: String(raw.updatedAt || new Date().toISOString()) };
 }
 
 export async function GET(request: Request) {
@@ -31,10 +33,24 @@ export async function GET(request: Request) {
       .order("completed_at", { ascending: false })
       .limit(5);
     if (sessionsError) throw sessionsError;
+    let profile = data?.profile || null;
+    if (profile && typeof profile === "object" && Number((profile as { version?: unknown }).version) !== 2) {
+      const migrated = await migrateTasteProfileFromSwipeEvents(user.id, profile as { version?: unknown; completedSessions?: unknown });
+      if (migrated) {
+        const { error: migrationError } = await supabase!
+          .from("user_taste_profiles")
+          .update({ profile: migrated, completed_sessions: migrated.completedSessions, updated_at: migrated.updatedAt })
+          .eq("user_id", user.id);
+        if (migrationError) throw migrationError;
+        profile = migrated;
+      } else {
+        profile = null;
+      }
+    }
     return NextResponse.json({
       ok: true,
       data: {
-        profile: data?.profile || null,
+        profile,
         history: (sessions || []).map((session) => ({ completedAt: session.completed_at, profile: session.profile_snapshot })),
       },
     });

@@ -11,10 +11,9 @@ import { buildLoginHref, saveAuthContinuation } from "../utils/authNavigation";
 import { requestGuestDigboxImport } from "../utils/guestDigbox";
 import {
   computeTasteSummary,
-  getEffectiveStyleTags,
-  normalizeStyleTags,
   styleTagLabel,
 } from "../utils/tasteGraph";
+import { getProductStyleProfile } from "../utils/styleProfile";
 import { ProgressiveImage } from "./ProgressiveImage";
 import type { Product, StyleTagName } from "../types";
 
@@ -22,31 +21,11 @@ const getCurrentPath = () =>
   typeof window === "undefined" ? "/" : `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
 function getProductStyleShares(product: Product) {
-  const tags = normalizeStyleTags(getEffectiveStyleTags(product).tags);
-  const entries = (Object.entries(tags) as Array<[StyleTagName, number]>).filter(([, score]) => Number.isFinite(score) && score > 0);
-  const topEntries = entries.sort((left, right) => right[1] - left[1]).slice(0, 2);
-  const total = topEntries.reduce((sum, [, score]) => sum + score, 0);
-  if (!total) return [];
-
-  return topEntries
-    .map(([tag, score]) => ({ tag, share: Math.round((score / total) * 100) }))
-    .sort((left, right) => right.share - left.share);
+  return getProductStyleProfile(product)?.displayEntries.map((entry) => ({ tag: entry.key, share: entry.score })) ?? [];
 }
 
 function getTasteShares(products: Product[]) {
-  const totals = new Map<StyleTagName, number>();
-
-  for (const product of products) {
-    for (const { tag, share } of getProductStyleShares(product)) {
-      totals.set(tag, (totals.get(tag) || 0) + share);
-    }
-  }
-
-  const total = Array.from(totals.values()).reduce((sum, share) => sum + share, 0);
-  if (!total) return [];
-
-  return Array.from(totals, ([tag, share]) => ({ tag, share: Math.round((share / total) * 100) }))
-    .sort((left, right) => right.share - left.share);
+  return computeTasteSummary(products).entries.map((entry) => ({ tag: entry.tag, share: Math.round(entry.percent) }));
 }
 
 export function GuestDigboxExperience() {

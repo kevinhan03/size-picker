@@ -12,12 +12,12 @@ export const PRODUCT_CARD_COLUMNS = [
 export const PRODUCT_DETAIL_COLUMNS = [
   PRODUCT_CARD_COLUMNS,
   "size_table", "normalized_size_table", "registered_by",
-  "style_tags", "style_attributes", "style_axes", "human_style_tags", "human_style_attributes", "human_style_axes", "style_axis_review_required", "tag_review_status", "tagging_status",
+  "style_attributes", "style_axes", "human_style_attributes", "human_style_axes", "style_axis_review_required", "facts_reviewed_at", "style_axes_reviewed_at", "style_axis_analysis_status",
 ].join(",");
 
 export const RECOMMENDATION_COLUMNS = [
-  PRODUCT_CARD_COLUMNS, "style_tags", "style_attributes", "style_axes", "human_style_tags", "human_style_attributes", "human_style_axes", "style_axis_review_required",
-  "tag_review_status", "human_target_gender",
+  PRODUCT_CARD_COLUMNS, "style_attributes", "style_axes", "human_style_attributes", "human_style_axes", "style_axis_review_required", "style_axes_reviewed_at",
+  "human_target_gender",
 ].join(",");
 
 // Backward-compatible aliases for server-only callers while their response contracts
@@ -56,15 +56,14 @@ export const normalizeProductDetail = (row: unknown): ProductDetailData | null =
     sizeTable: product.sizeTable,
     normalizedSizeTable: product.normalizedSizeTable,
     registeredBy: product.registeredBy,
-    styleTags: product.styleTags,
     styleAttributes: product.styleAttributes,
     styleAxes: product.styleAxes,
-    humanStyleTags: product.humanStyleTags,
     humanStyleAttributes: product.humanStyleAttributes,
     humanStyleAxes: product.humanStyleAxes,
     styleAxisReviewRequired: product.styleAxisReviewRequired,
-    tagReviewStatus: product.tagReviewStatus,
-    taggingStatus: product.taggingStatus,
+    factsReviewedAt: product.factsReviewedAt,
+    styleAxesReviewedAt: product.styleAxesReviewedAt,
+    styleAxisAnalysisStatus: product.styleAxisAnalysisStatus,
   };
 };
 

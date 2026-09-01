@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
-import { applyActiveClusterStyleTags } from "../../../../server/services/style-cluster-scoring.js";
+import type { Product } from "../../../../src/types";
+import { getProductStyleProfile, STYLE_PROFILE_VERSION } from "../../../../src/utils/styleProfile";
 
 type SwipeRequestAction = { productId: string; decision: "like" | "pass" };
-type SwipeProduct = { id: string; style_tags: unknown; styleTags?: unknown; human_style_tags: unknown; tag_review_status: unknown };
+type SwipeProduct = {
+  id: string;
+  style_axes: unknown;
+  human_style_axes: unknown;
+  style_axes_reviewed_at: string | null;
+};
 
 export async function POST(request: Request) {
   if (!hasValidMutationOrigin(request)) return NextResponse.json({ ok: false, error: "invalid origin" }, { status: 403 });
@@ -15,20 +21,33 @@ export async function POST(request: Request) {
     const body = await request.json();
     const profile = body?.profile;
     const actions: SwipeRequestAction[] = Array.isArray(body?.actions) ? body.actions.slice(0, 50) : [];
-    if (!profile || typeof profile !== "object" || !profile.signals || !actions.length || actions.some((item) => !item || typeof item.productId !== "string" || !["like", "pass"].includes(item.decision))) {
+    if (!profile || typeof profile !== "object" || Number(profile.version) !== 2 || !profile.signals || !actions.length || actions.some((item) => !item || typeof item.productId !== "string" || !["like", "pass"].includes(item.decision))) {
       return NextResponse.json({ ok: false, error: "invalid taste swipe" }, { status: 400 });
     }
     const productIds = [...new Set(actions.map((item) => item.productId))];
-    const { data: products, error: productError } = await supabase!.from("products").select("id,style_tags,human_style_tags,tag_review_status").in("id", productIds);
+    const { data: products, error: productError } = await supabase!
+      .from("products")
+      .select("id,style_axes,human_style_axes,style_axes_reviewed_at")
+      .in("id", productIds);
     if (productError) throw productError;
-    const scoredProducts = await applyActiveClusterStyleTags(products || []);
-    const byId = new Map<string, SwipeProduct>(scoredProducts.map((product: SwipeProduct) => [String(product.id), product]));
+    const byId = new Map<string, SwipeProduct>((products || []).map((product: SwipeProduct) => [String(product.id), product]));
     const events = actions.filter((item) => byId.has(item.productId)).map((item) => {
       const product = byId.get(item.productId)!;
-      const tagSnapshot = ["approved", "edited"].includes(String(product.tag_review_status)) && product.human_style_tags
-        ? product.human_style_tags
-        : (product.styleTags ?? product.style_tags);
-      return { user_id: user.id, product_id: item.productId, decision: item.decision, tag_snapshot: tagSnapshot || {} };
+      const styleProfile = getProductStyleProfile({
+        id: product.id,
+        styleAxes: product.style_axes,
+        humanStyleAxes: product.human_style_axes,
+        styleAxesReviewedAt: product.style_axes_reviewed_at,
+      } as Product);
+      return {
+        user_id: user.id,
+        product_id: item.productId,
+        decision: item.decision,
+        style_profile_snapshot: styleProfile
+          ? { entries: styleProfile.entries, source: styleProfile.source, axes: styleProfile.axes }
+          : null,
+        style_profile_version: styleProfile?.version || STYLE_PROFILE_VERSION,
+      };
     });
     if (!events.length) return NextResponse.json({ ok: false, error: "products not found" }, { status: 400 });
     const { error: profileError } = await supabase!.from("user_taste_profiles").upsert({ user_id: user.id, profile, completed_sessions: Math.max(0, Number(profile.completedSessions || 0)), updated_at: new Date().toISOString() });

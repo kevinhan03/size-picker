@@ -188,11 +188,11 @@ export const AdminPage = ({
                   <span className="text-lg font-bold text-white">인스타 상품 등록</span>
                 </button>
                 <Link
-                  href="/admin/style-clusters"
+                  href="/admin/style-centers"
                   className="flex w-72 items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.06] px-8 py-7 text-left shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.1]"
                 >
                   <Tag className="h-7 w-7 flex-shrink-0 text-orange-400" />
-                  <span className="text-lg font-bold text-white">스타일 클러스터 검수</span>
+                  <span className="text-lg font-bold text-white">스타일 중심점</span>
                 </Link>
               </div>
             )}

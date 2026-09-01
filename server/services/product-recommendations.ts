@@ -3,7 +3,6 @@ import { unstable_cache } from "next/cache";
 import { SUPABASE_PRODUCTS_TABLE } from "../config/env.js";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { RECOMMENDATION_COLUMNS, normalizeAnalysisProduct, normalizeProductCard } from "./catalog";
-import { applyActiveClusterStyleTags } from "./style-cluster-scoring.js";
 import {
   getCrossCategoryStyleSimilarity,
   getEffectiveProductTargetGender,
@@ -165,9 +164,9 @@ async function queryProductRecommendationData(productId: string) {
     }
   }
   byId.set(source.id, sourceRow);
-  const candidates: Product[] = await applyActiveClusterStyleTags([...byId.values()]
+  const candidates: Product[] = [...byId.values()]
     .map(normalizeAnalysisProduct)
-    .filter((product): product is NonNullable<typeof product> => Boolean(product)));
+    .filter((product): product is NonNullable<typeof product> => Boolean(product));
   const scoredSource = candidates.find((product: Product) => product.id === source.id) || source;
   const recommendations = buildProductRecommendations(scoredSource, candidates, visualScores);
   const toCard = (product: typeof source) => normalizeProductCard(byId.get(product.id));

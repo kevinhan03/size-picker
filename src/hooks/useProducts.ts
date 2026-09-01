@@ -27,8 +27,8 @@ const ANALYSIS_POLL_MAX_ATTEMPTS = 48;
 
 const isAnalysisFinished = (product: Product) =>
   product.categoryAnalysisStatus === "failed" ||
-  product.taggingStatus === "failed" ||
-  (product.categoryAnalysisStatus === "completed" && product.taggingStatus === "tagged");
+  product.styleAxisAnalysisStatus === "failed" ||
+  (product.categoryAnalysisStatus === "completed" && product.styleAxisAnalysisStatus === "tagged");
 
 export function useProducts(
   initialProducts: Product[] = [],
