@@ -3,9 +3,11 @@ import { STYLE_PROTOTYPE_CENTERS } from "../constants/styleAnalysis.js";
 import type { Product, StyleAxes } from "../types";
 import {
   calculateStyleProfile,
+  eligibleStyleProfileKeys,
   getEffectiveStyleAxes,
   getProductStyleProfile,
   normalizeStyleAxes,
+  styleProfileVector,
 } from "./styleProfile";
 
 const axes = (value: Record<string, number>) => value as StyleAxes;
@@ -39,6 +41,40 @@ describe("style profile from fixed centres", () => {
     const profile = calculateStyleProfile(axes(STYLE_PROTOTYPE_CENTERS[4].axes), "ai");
     expect(profile.displayEntries).toHaveLength(3);
     expect(profile.displayEntries.reduce((sum, entry) => sum + entry.score, 0)).toBe(100);
+  });
+
+  it("only includes lovely and glam-sexy for womenswear products", () => {
+    const base = { styleAxes: axes(STYLE_PROTOTYPE_CENTERS[4].axes) };
+    const womenswear = product({ ...base, targetGender: "womenswear" });
+    const menswear = product({ ...base, targetGender: "menswear" });
+    const unisex = product({ ...base, targetGender: "unisex" });
+    const unknown = product(base);
+
+    expect(eligibleStyleProfileKeys(womenswear)).toContain("lovely");
+    for (const candidate of [menswear, unisex, unknown]) {
+      expect(eligibleStyleProfileKeys(candidate)).not.toContain("lovely");
+      expect(eligibleStyleProfileKeys(candidate)).not.toContain("glam_sexy");
+      expect(getProductStyleProfile(candidate)?.entries.map((entry) => entry.key)).not.toContain("lovely");
+      expect(getProductStyleProfile(candidate)?.entries.map((entry) => entry.key)).not.toContain("glam_sexy");
+    }
+  });
+
+  it("uses the admin-reviewed gender before the inferred gender", () => {
+    const result = eligibleStyleProfileKeys(product({
+      targetGender: "womenswear",
+      humanTargetGender: "menswear",
+    }));
+    expect(result).not.toContain("lovely");
+    expect(result).not.toContain("glam_sexy");
+  });
+
+  it("keeps excluded centres at zero in the similarity vector", () => {
+    const vector = styleProfileVector(product({
+      styleAxes: axes(STYLE_PROTOTYPE_CENTERS[4].axes),
+      targetGender: "menswear",
+    }));
+    expect(vector?.lovely).toBe(0);
+    expect(vector?.glam_sexy).toBe(0);
   });
 
   it("returns no profile without complete axes", () => {

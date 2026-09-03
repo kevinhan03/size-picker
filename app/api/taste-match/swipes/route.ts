@@ -10,6 +10,8 @@ type SwipeProduct = {
   style_axes: unknown;
   human_style_axes: unknown;
   style_axes_reviewed_at: string | null;
+  target_gender: Product["targetGender"];
+  human_target_gender: Product["humanTargetGender"];
 };
 
 export async function POST(request: Request) {
@@ -27,7 +29,7 @@ export async function POST(request: Request) {
     const productIds = [...new Set(actions.map((item) => item.productId))];
     const { data: products, error: productError } = await supabase!
       .from("products")
-      .select("id,style_axes,human_style_axes,style_axes_reviewed_at")
+      .select("id,style_axes,human_style_axes,style_axes_reviewed_at,target_gender,human_target_gender")
       .in("id", productIds);
     if (productError) throw productError;
     const byId = new Map<string, SwipeProduct>((products || []).map((product: SwipeProduct) => [String(product.id), product]));
@@ -38,6 +40,8 @@ export async function POST(request: Request) {
         styleAxes: product.style_axes,
         humanStyleAxes: product.human_style_axes,
         styleAxesReviewedAt: product.style_axes_reviewed_at,
+        targetGender: product.target_gender,
+        humanTargetGender: product.human_target_gender,
       } as Product);
       return {
         user_id: user.id,

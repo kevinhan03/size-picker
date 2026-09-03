@@ -1,12 +1,14 @@
 import type { Product, StyleAxes, StyleProfile, StyleProfileKey } from "../types";
 import { STYLE_AXIS_FIELDS, STYLE_PROTOTYPE_CENTERS } from "../constants/styleAnalysis.js";
 
-export const STYLE_PROFILE_VERSION = "centers-v1";
+// v2 excludes female-only style centres unless the product is targeted at women.
+export const STYLE_PROFILE_VERSION = "centers-v2-gender";
 export const STYLE_PROFILE_TEMPERATURE = 3.606;
 export const STYLE_PROFILE_DISPLAY_COUNT = 3;
 
 const AXIS_KEYS = STYLE_AXIS_FIELDS.map((field: { key: string }) => field.key) as Array<keyof StyleAxes>;
 const PROFILE_KEYS = STYLE_PROTOTYPE_CENTERS.map((center: { key: string }) => center.key) as StyleProfileKey[];
+const WOMENS_STYLE_KEYS = new Set<StyleProfileKey>(["lovely", "glam_sexy"]);
 
 export type StyleProfileSource = "human" | "ai";
 
@@ -51,6 +53,21 @@ export function getEffectiveStyleAxes(product: Product): { axes: StyleAxes; sour
   if (human && product.styleAxesReviewedAt) return { axes: human, source: "human" };
   const ai = normalizeStyleAxes(product.styleAxes);
   return ai ? { axes: ai, source: "ai" } : null;
+}
+
+/**
+ * The admin-reviewed value takes precedence. Lovely and glam-sexy are only
+ * candidate centres for products explicitly targeted at womenswear; this
+ * prevents menswear, unisex, and unreviewed products from being assigned a
+ * female-coded tag merely because it is the nearest available centre.
+ */
+export function eligibleStyleProfileKeys(product: Product): StyleProfileKey[] {
+  const reviewedGender = String(product.humanTargetGender || "").trim().toLowerCase();
+  const inferredGender = String(product.targetGender || "").trim().toLowerCase();
+  const targetGender = reviewedGender || inferredGender;
+  return targetGender === "womenswear"
+    ? PROFILE_KEYS
+    : PROFILE_KEYS.filter((key) => !WOMENS_STYLE_KEYS.has(key));
 }
 
 export function styleProfileLabels(key: StyleProfileKey, locale = "ko") {
@@ -106,8 +123,13 @@ function roundedTopThree(entries: StyleProfileEntry[]) {
   return entries.map((entry, index) => ({ ...entry, score: rounded[index] }));
 }
 
-export function calculateStyleProfile(axes: StyleAxes, source: StyleProfileSource): ProductStyleProfile {
-  const entries = STYLE_PROTOTYPE_CENTERS.map((center) => {
+export function calculateStyleProfile(
+  axes: StyleAxes,
+  source: StyleProfileSource,
+  candidateKeys: readonly StyleProfileKey[] = PROFILE_KEYS
+): ProductStyleProfile {
+  const candidateKeySet = new Set(candidateKeys);
+  const entries = STYLE_PROTOTYPE_CENTERS.filter((center) => candidateKeySet.has(center.key as StyleProfileKey)).map((center) => {
     const distance = Math.sqrt(AXIS_KEYS.reduce((sum, key) => sum + Math.pow(axes[key] - Number(center.axes[key]), 2), 0));
     return { key: center.key as StyleProfileKey, distance, score: Math.exp(-(distance * distance) / (2 * STYLE_PROFILE_TEMPERATURE * STYLE_PROFILE_TEMPERATURE)), rank: 0 };
   })
@@ -127,12 +149,17 @@ export function calculateStyleProfile(axes: StyleAxes, source: StyleProfileSourc
 
 export function getProductStyleProfile(product: Product): ProductStyleProfile | null {
   const effective = getEffectiveStyleAxes(product);
-  return effective ? calculateStyleProfile(effective.axes, effective.source) : null;
+  return effective
+    ? calculateStyleProfile(effective.axes, effective.source, eligibleStyleProfileKeys(product))
+    : null;
 }
 
 export function styleProfileVector(product: Product): StyleProfile | null {
   const profile = getProductStyleProfile(product);
   if (!profile) return null;
   const total = profile.entries.reduce((sum, entry) => sum + entry.score, 0) || 1;
-  return Object.fromEntries(profile.entries.map((entry) => [entry.key, entry.score / total])) as StyleProfile;
+  return Object.fromEntries(PROFILE_KEYS.map((key) => {
+    const entry = profile.entries.find((candidate) => candidate.key === key);
+    return [key, entry ? entry.score / total : 0];
+  })) as StyleProfile;
 }
