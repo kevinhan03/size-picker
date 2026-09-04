@@ -1,62 +1,36 @@
+"use client";
+
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { STYLE_AXIS_FIELDS, STYLE_PROTOTYPE_CENTERS } from "../../constants/styleAnalysis";
 
+type Candidate = { id: string; brand: string; name: string; category: string; imagePath: string | null; distance: number; margin: number; source: "human" | "ai"; decision: "accepted" | "rejected" | null };
+type CenterData = { key: string; label: string; candidateCount: number; acceptedCount: number; proposedAxes: Record<string, number> | null; candidates: Candidate[] };
+
 function AxisReference({ field, value }: { field: (typeof STYLE_AXIS_FIELDS)[number]; value: number }) {
-  return (
-    <div className="rounded-xl border border-gray-800 bg-black/20 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-gray-200">{field.label}</p>
-          <p className="mt-1 text-xs text-gray-500">{field.description}</p>
-        </div>
-        <span className="shrink-0 rounded-full border border-orange-400/50 bg-orange-400/10 px-2 py-1 text-xs font-bold text-orange-300">
-          {value}점
-        </span>
-      </div>
-      <div className="mt-3 grid grid-cols-[minmax(44px,1fr)_auto_minmax(44px,1fr)] items-center gap-2 sm:grid-cols-[minmax(72px,1fr)_auto_minmax(72px,1fr)] sm:gap-3">
-        <span className="text-[11px] leading-4 text-gray-400 sm:text-xs">{field.startLabel}</span>
-        <div className="flex items-center justify-center gap-0.5 sm:gap-1" aria-label={`${field.label}: ${value}점`}>
-          {Array.from({ length: 7 }, (_, index) => {
-            const score = index + 1;
-            const active = score === value;
-            return (
-              <span
-                key={score}
-                aria-hidden="true"
-                className={`flex h-10 w-7 items-center justify-center rounded-full sm:h-11 sm:w-8 ${active ? "bg-orange-400/10" : ""}`}
-              >
-                <span className={`h-5 w-5 rounded-full border-2 sm:h-6 sm:w-6 ${active ? "border-orange-400 bg-orange-400 shadow-[0_0_0_4px_rgba(251,146,60,0.18)]" : "border-sky-400"}`} />
-              </span>
-            );
-          })}
-        </div>
-        <span className="text-right text-[11px] leading-4 text-gray-400 sm:text-xs">{field.endLabel}</span>
-      </div>
-    </div>
-  );
+  return <div className="rounded-xl border border-gray-800 bg-black/20 p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-gray-200">{field.label}</p><p className="mt-1 text-xs text-gray-500">{field.description}</p></div><span className="shrink-0 rounded-full border border-orange-400/50 bg-orange-400/10 px-2 py-1 text-xs font-bold text-orange-300">{value}점</span></div><div className="mt-3 grid grid-cols-[minmax(44px,1fr)_auto_minmax(44px,1fr)] items-center gap-2 sm:grid-cols-[minmax(72px,1fr)_auto_minmax(72px,1fr)] sm:gap-3"><span className="text-[11px] leading-4 text-gray-400 sm:text-xs">{field.startLabel}</span><div className="flex items-center justify-center gap-0.5 sm:gap-1" aria-label={`${field.label}: ${value}점`}>{Array.from({ length: 7 }, (_, index) => { const score = index + 1; const active = score === value; return <span key={score} aria-hidden="true" className={`flex h-10 w-7 items-center justify-center rounded-full sm:h-11 sm:w-8 ${active ? "bg-orange-400/10" : ""}`}><span className={`h-5 w-5 rounded-full border-2 sm:h-6 sm:w-6 ${active ? "border-orange-400 bg-orange-400 shadow-[0_0_0_4px_rgba(251,146,60,0.18)]" : "border-sky-400"}`} /></span>; })}</div><span className="text-right text-[11px] leading-4 text-gray-400 sm:text-xs">{field.endLabel}</span></div></div>;
 }
 
 export function StyleCentersPage() {
-  return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 text-white">
-      <Link href="/admin" className="text-sm text-gray-400">← 관리자</Link>
-      <header>
-        <h1 className="text-2xl font-bold">스타일 중심점</h1>
-        <p className="mt-2 text-sm text-gray-400">상품의 8개 스타일 축과 비교하는 기준점입니다. 값은 읽기 전용이며, 스타일 성향과 혼합 비율을 계산할 때 사용합니다.</p>
-      </header>
-      <section className="grid gap-4 lg:grid-cols-2">
-        {STYLE_PROTOTYPE_CENTERS.map((prototype) => (
-          <article key={prototype.key} className="rounded-xl border border-white/10 bg-white/[0.035] p-4 sm:p-5">
-            <h2 className="text-lg font-bold text-orange-300">{prototype.label}</h2>
-            <p className="mt-1 text-xs text-gray-500">스타일 비율 계산 기준점</p>
-            <div className="mt-4 space-y-3">
-              {STYLE_AXIS_FIELDS.map((field) => (
-                <AxisReference key={field.key} field={field} value={(prototype.axes as Record<string, number>)[field.key]} />
-              ))}
-            </div>
-          </article>
-        ))}
-      </section>
-    </main>
-  );
+  const [centers, setCenters] = useState<CenterData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updating, setUpdating] = useState<string | null>(null);
+  const loadCenters = useCallback(async () => {
+    setLoading(true); setError("");
+    try { const response = await fetch("/api/admin/style-centers", { cache: "no-store" }); const payload = await response.json(); if (!response.ok || !payload.ok) throw new Error(payload.error || "후보를 불러오지 못했어요."); setCenters(payload.data.centers || []); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "후보를 불러오지 못했어요."); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { void loadCenters(); }, [loadCenters]);
+  const setDecision = async (styleKey: string, productId: string, decision: "accepted" | "rejected") => {
+    const requestKey = `${styleKey}:${productId}`; setUpdating(requestKey);
+    try { const response = await fetch("/api/admin/style-centers", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ styleKey, productId, decision }) }); const payload = await response.json(); if (!response.ok || !payload.ok) throw new Error(payload.error || "표본 상태를 저장하지 못했어요."); await loadCenters(); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "표본 상태를 저장하지 못했어요."); }
+    finally { setUpdating(null); }
+  };
+  return <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 text-white"><Link href="/admin" className="text-sm text-gray-400">← 관리자</Link><header><h1 className="text-2xl font-bold">스타일 중심점</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-gray-400">현재 중심점에 가장 가까운 상품을 표본 후보로 모읍니다. 채택된 표본은 나중에 중심점 보정안을 만들 때만 사용하며, 이 화면에서 중심점 자체는 바뀌지 않습니다.</p></header>{error ? <div className="rounded-xl border border-red-400/40 bg-red-400/10 p-3 text-sm text-red-200">{error}</div> : null}{loading ? <div className="py-12 text-center text-sm text-gray-400">스타일 표본 후보를 계산하고 있어요…</div> : null}{!loading && centers.map((center) => {
+    const prototype = STYLE_PROTOTYPE_CENTERS.find((item) => item.key === center.key); if (!prototype) return null;
+    return <article key={center.key} className="rounded-xl border border-white/10 bg-white/[0.035] p-4 sm:p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-orange-300">{center.label}</h2><p className="mt-1 text-xs text-gray-500">가까운 후보 {center.candidateCount}개 · 채택 표본 {center.acceptedCount}개</p></div>{center.proposedAxes ? <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-xs font-medium text-emerald-300">표본 평균 계산됨</span> : <span className="rounded-full border border-gray-600 px-2 py-1 text-xs text-gray-400">표본 채택 대기</span>}</div><details className="mt-4 rounded-xl border border-white/10 bg-black/10 p-3"><summary className="cursor-pointer text-sm font-medium text-gray-300">현재 기준점 8축 보기</summary><div className="mt-3 grid gap-3 lg:grid-cols-2">{STYLE_AXIS_FIELDS.map((field) => <AxisReference key={field.key} field={field} value={(prototype.axes as Record<string, number>)[field.key]} />)}</div></details>{center.proposedAxes ? <p className="mt-3 text-xs text-emerald-200/80">채택 표본 평균: {STYLE_AXIS_FIELDS.map((field) => `${field.label} ${center.proposedAxes?.[field.key]}`).join(" · ")}</p> : null}<div className="mt-4 overflow-hidden rounded-xl border border-white/10"><div className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-gray-400 sm:grid-cols-[minmax(0,1fr)_80px_90px_145px]"><span>표본 후보 (가까운 순)</span><span className="hidden sm:block">거리</span><span className="hidden sm:block">축 출처</span><span>표본 결정</span></div>{center.candidates.length === 0 ? <p className="p-4 text-sm text-gray-500">완성된 8축 값을 가진 후보가 아직 없어요.</p> : center.candidates.map((candidate) => { const requestKey = `${center.key}:${candidate.id}`; const isUpdating = updating === requestKey; return <div key={candidate.id} className="grid grid-cols-[minmax(0,1fr)_145px] items-center gap-3 border-b border-white/5 px-3 py-3 last:border-0 sm:grid-cols-[minmax(0,1fr)_80px_90px_145px]"><div className="flex min-w-0 items-center gap-3">{candidate.imagePath ? <img src={candidate.imagePath} alt="" className="h-11 w-9 rounded-md object-cover" /> : <div className="h-11 w-9 rounded-md bg-gray-800" />}<div className="min-w-0"><p className="truncate text-sm font-medium text-gray-100">{candidate.brand ? `${candidate.brand} · ` : ""}{candidate.name}</p><p className="mt-0.5 text-xs text-gray-500">{candidate.category || "분류 없음"} · 2위와 거리 차 {candidate.margin}</p></div></div><span className="hidden text-xs text-gray-300 sm:block">{candidate.distance}</span><span className={`hidden text-xs sm:block ${candidate.source === "human" ? "text-emerald-300" : "text-gray-400"}`}>{candidate.source === "human" ? "사람 검수" : "AI 분석"}</span><div className="flex justify-end gap-1.5"><button type="button" disabled={isUpdating} onClick={() => void setDecision(center.key, candidate.id, "accepted")} className={`rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50 ${candidate.decision === "accepted" ? "bg-emerald-400 text-black" : "bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"}`}>채택</button><button type="button" disabled={isUpdating} onClick={() => void setDecision(center.key, candidate.id, "rejected")} className={`rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50 ${candidate.decision === "rejected" ? "bg-gray-500 text-white" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>제외</button></div></div>; })}</div></article>;
+  })}</main>;
 }
