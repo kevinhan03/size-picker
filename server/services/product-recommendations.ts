@@ -7,7 +7,7 @@ import {
   getCrossCategoryStyleSimilarity,
   getEffectiveProductTargetGender,
   getProductRecommendationSimilarity,
-  hasSharedPrimaryStyleTag,
+  isOutfitCategoryPair,
 } from "../../src/utils/tasteGraph";
 
 const MIN_VISIBLE_PRODUCTS = 4;
@@ -16,9 +16,15 @@ const MIN_QUALITY_SCORE = 0.54;
 const NATURAL_SCORE_GAP = 0.075;
 const STYLE_TIE_BAND = 0.025;
 const STYLE_FALLBACK_MIN_TAG_SIMILARITY = 0.55;
-const STYLE_CATEGORIES = new Set(["top", "bottom", "outer", "shoes"]);
+const STYLE_CATEGORIES = new Set(["top", "bottom", "outer", "dressskirt", "shoes"]);
 
-type ScoredProduct = { product: Product; similarity: number };
+export type RecommendationDiagnostics = {
+  algorithmVersion: "recommendations-v9";
+  score: number;
+  reasonCodes: string[];
+  components: Record<string, number | null>;
+};
+type ScoredProduct = { product: Product; similarity: number; diagnostics: RecommendationDiagnostics };
 
 const normalizeCategory = (category: string | null | undefined) => String(category || "").trim().toLowerCase();
 
@@ -29,10 +35,31 @@ const selectNatural = (candidates: ScoredProduct[]) => {
     const previous = visible[index - 1].similarity;
     const current = visible[index].similarity;
     if (previous - current >= NATURAL_SCORE_GAP && current < previous * 0.91) {
-      return visible.slice(0, index).map(({ product }) => product);
+      return visible.slice(0, index);
     }
   }
-  return visible.map(({ product }) => product);
+  return visible;
+};
+
+const diversifySimilarProducts = (candidates: ScoredProduct[]) => {
+  const selected: ScoredProduct[] = [];
+  let previousBrand: string | null = null;
+  let previousSubCategory: string | null = null;
+  let brandStreak = 0;
+  let subCategoryStreak = 0;
+  for (const candidate of candidates) {
+    const brand = String(candidate.product.brand || "").trim().toLowerCase() || null;
+    const subCategory = String(candidate.product.subCategory || "").trim().toLowerCase() || null;
+    const nextBrandStreak = brand && brand === previousBrand ? brandStreak + 1 : brand ? 1 : 0;
+    const nextSubCategoryStreak = subCategory && subCategory === previousSubCategory ? subCategoryStreak + 1 : subCategory ? 1 : 0;
+    if (nextBrandStreak > 2 || nextSubCategoryStreak > 2) continue;
+    selected.push(candidate);
+    previousBrand = brand;
+    previousSubCategory = subCategory;
+    brandStreak = nextBrandStreak;
+    subCategoryStreak = nextSubCategoryStreak;
+  }
+  return selected;
 };
 
 const compatibleGender = (source: Product, candidate: Product) => {
@@ -57,18 +84,28 @@ const diversifyCategories = (candidates: ScoredProduct[]) => {
       seen.add(normalizeCategory(next.product.category));
     }
   }
-  return result;
+  const categoryCounts = new Map<string, number>();
+  return result.filter(({ product }) => {
+    const category = normalizeCategory(product.category);
+    const count = categoryCounts.get(category) || 0;
+    if (count >= 2) return false;
+    categoryCounts.set(category, count + 1);
+    return true;
+  });
 };
 
 export const buildProductRecommendations = (source: Product, products: Product[], visualScores = new Map<string, number>()) => {
   const sourceCategory = normalizeCategory(source.category);
   const similarCandidates = products
     .filter((candidate) => candidate.id !== source.id && normalizeCategory(candidate.category) === sourceCategory)
-    .map((candidate) => {
+    .map((candidate): ScoredProduct | null => {
       const visualScore = visualScores.get(candidate.id);
-      if ((visualScores.size && typeof visualScore !== "number") || hasSharedPrimaryStyleTag(source, candidate) === false) return null;
+      if ((visualScores.size && typeof visualScore !== "number")) return null;
       const similarity = getProductRecommendationSimilarity(source, candidate, visualScore);
-      return !similarity || similarity.visualSimilarity === null ? null : { product: candidate, similarity: similarity.score };
+      return !similarity || similarity.visualSimilarity === null ? null : {
+        product: candidate, similarity: similarity.score,
+        diagnostics: { algorithmVersion: "recommendations-v9", score: similarity.score, reasonCodes: ["same_category", "visual_similarity", "style_profile"], components: { visual: similarity.visualSimilarity, style: similarity.styleSimilarity, silhouette: similarity.shapeSimilarity, expression: similarity.expressionSimilarity } },
+      };
     })
     .filter((candidate): candidate is ScoredProduct => candidate !== null)
     .sort((left, right) => right.similarity - left.similarity);
@@ -78,12 +115,13 @@ export const buildProductRecommendations = (source: Product, products: Product[]
   if (STYLE_CATEGORIES.has(sourceCategory)) {
     for (const candidate of products) {
       const category = normalizeCategory(candidate.category);
-      if (candidate.id === source.id || !STYLE_CATEGORIES.has(category) || category === sourceCategory || !compatibleGender(source, candidate)) continue;
+      if (candidate.id === source.id || !STYLE_CATEGORIES.has(category) || !compatibleGender(source, candidate) || !isOutfitCategoryPair(source, candidate)) continue;
       const similarity = getCrossCategoryStyleSimilarity(source, candidate, visualScores.get(candidate.id));
       if (!similarity) continue;
-      const scored = { product: candidate, similarity: similarity.score };
-      if (hasSharedPrimaryStyleTag(source, candidate) === true) strict.push(scored);
-      else if ((similarity.styleSimilarity ?? 0) >= STYLE_FALLBACK_MIN_TAG_SIMILARITY) fallback.push(scored);
+      const scored: ScoredProduct = { product: candidate, similarity: similarity.score,
+        diagnostics: { algorithmVersion: "recommendations-v9" as const, score: similarity.score, reasonCodes: ["outfit_category_pair", "style_profile", "outfit_harmony"], components: similarity.recommendationComponents || { style: similarity.styleSimilarity, silhouette: similarity.shapeSimilarity, visual: similarity.visualSimilarity } } };
+      if ((similarity.styleSimilarity ?? 0) >= STYLE_FALLBACK_MIN_TAG_SIMILARITY) strict.push(scored);
+      else fallback.push(scored);
     }
   }
   strict.sort((left, right) => right.similarity - left.similarity);
@@ -92,7 +130,7 @@ export const buildProductRecommendations = (source: Product, products: Product[]
     .sort((left, right) => right.similarity - left.similarity);
 
   return {
-    similarProducts: sourceCategory ? selectNatural(similarCandidates) : [],
+    similarProducts: sourceCategory ? selectNatural(diversifySimilarProducts(similarCandidates)) : [],
     styleProducts: selectNatural(diversifyCategories(styleCandidates)),
   };
 };
@@ -140,7 +178,7 @@ async function queryProductRecommendationData(productId: string) {
   const { data: candidateRows, error: candidateError } = await supabase!.rpc("get_product_recommendation_candidates_v2", {
     source_product_id: Number(productId),
     similar_limit: 120,
-    style_limit: 160,
+    style_limit: 0,
   });
 
   const visualScores = new Map<string, number>();
@@ -169,9 +207,12 @@ async function queryProductRecommendationData(productId: string) {
     .filter((product): product is NonNullable<typeof product> => Boolean(product));
   const scoredSource = candidates.find((product: Product) => product.id === source.id) || source;
   const recommendations = buildProductRecommendations(scoredSource, candidates, visualScores);
-  const toCard = (product: typeof source) => normalizeProductCard(byId.get(product.id));
+  const toCard = (scored: ScoredProduct) => {
+    const product = normalizeProductCard(byId.get(scored.product.id));
+    return product ? { ...product, recommendation: scored.diagnostics } : null;
+  };
   return {
-    sourceProduct: toCard(source),
+    sourceProduct: normalizeProductCard(sourceRow),
     similarProducts: recommendations.similarProducts.map(toCard).filter((product): product is NonNullable<typeof product> => Boolean(product)),
     styleProducts: recommendations.styleProducts.map(toCard).filter((product): product is NonNullable<typeof product> => Boolean(product)),
   };
@@ -179,6 +220,6 @@ async function queryProductRecommendationData(productId: string) {
 
 export const getProductRecommendationData = (productId: string) => unstable_cache(
   () => queryProductRecommendationData(productId),
-  ["product-recommendations-v7", productId],
+  ["product-recommendations-v9", productId],
   { revalidate: 300, tags: ["recommendations", `recommendations:${productId}`] },
 )();

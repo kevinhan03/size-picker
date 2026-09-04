@@ -25,6 +25,12 @@ export function ProductDetailRouteModal({
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const source = searchParams.get("source");
+  const recommendationTab = searchParams.get("recommendation_tab");
+  const recommendationSourceProduct = searchParams.get("recommendation_source_product");
+  const recommendationPosition = searchParams.get("recommendation_position");
+  const recommendationAnalyticsSource = source === "recommendation"
+    ? `recommendation_${recommendationTab || "unknown"}_${recommendationSourceProduct || "unknown"}_${recommendationPosition || "unknown"}`
+    : "product_route";
   const hideCollectionActions = source === "closet";
 
   useEffect(() => {
@@ -73,11 +79,11 @@ export function ProductDetailRouteModal({
         modalRef={modalRef}
         onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
         isInCloset={isInCloset(normalizedProduct.id)}
-        onToggleDigbox={() => toggleDigbox(normalizedProduct.id, "product_route")}
+        onToggleDigbox={() => toggleDigbox(normalizedProduct.id, recommendationAnalyticsSource)}
         isInDigbox={isInDigbox(normalizedProduct.id)}
         hideDigboxButton={hideDigboxButton}
         hideCollectionActions={hideCollectionActions}
-        analyticsSource="product_route"
+        analyticsSource={recommendationAnalyticsSource}
       />
 
       <ImageViewerOverlay

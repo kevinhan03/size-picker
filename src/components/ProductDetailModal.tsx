@@ -606,10 +606,12 @@ function ProductDetailModalContent({
     onCollectionActionStart?.(getAnchorRect(event));
     if (isInCloset) {
       onToggleCloset(null);
+      captureEvent("closet_removed", { product_id: product.id, source: analyticsSource });
       return;
     }
     if (isNonApparelSize && !isShoe) {
       onToggleCloset(null);
+      captureEvent("closet_save_succeeded", { product_id: product.id, source: analyticsSource, size_selected: false });
       return;
     }
     setIsSizeSheetOpen(true);
@@ -618,6 +620,7 @@ function ProductDetailModalContent({
   const handleConfirmClosetSize = (selection: ClosetSizeSelection | null) => {
     setIsSizeSheetOpen(false);
     onToggleCloset?.(selection);
+    captureEvent("closet_save_succeeded", { product_id: product.id, source: analyticsSource, size_selected: Boolean(selection) });
   };
 
   const handleMissingMySizeAction = () => {

@@ -2,6 +2,7 @@ import type { Product, StyleTagName, StyleTags } from "../types";
 import { isAccessoryCategory } from "../constants";
 import { fieldsForCategory } from "../constants/styleAnalysis.js";
 import {
+  getEffectiveStyleAxes,
   getProductStyleProfile,
   styleProfileLabels,
   styleProfileVector,
@@ -1033,19 +1034,53 @@ const EXPRESSION_ATTRIBUTE_KEYS = [
   "pattern",
   "details",
 ];
-const COMPATIBILITY_ATTRIBUTE_KEYS = [
-  "formality",
-  "structure",
-  "utility",
-  "decoration",
-];
+const NEUTRAL_COLORS = new Set(["black", "white", "gray", "beige", "brown", "navy"]);
+const ADJACENT_COLOR_PAIRS = new Set([
+  "blue:green", "blue:purple", "green:yellow", "orange:red", "orange:yellow", "purple:red",
+]);
 
-const ORDERED_COMPATIBILITY_VALUES: Record<string, Record<string, number>> = {
-  formality: { casual: 0, smart: 0.5, formal: 1 },
-  structure: { soft: 0, balanced: 0.5, structured: 1 },
-  utility: { none: 0, light: 0.5, strong: 1 },
-  decoration: { minimal: 0, moderate: 0.5, statement: 1 },
-};
+function productColorValues(product: Product) {
+  const attributes = getEffectiveStyleAttributes(product);
+  if (!attributes) return [];
+  const raw = [attributes.primary_color, ...(Array.isArray(attributes.accent_colors) ? attributes.accent_colors : [])];
+  return raw.map(comparableAttributeValue).filter((value): value is string => Boolean(value));
+}
+
+function colorHarmony(left: Product, right: Product): number | null {
+  const leftColors = productColorValues(left);
+  const rightColors = productColorValues(right);
+  if (!leftColors.length || !rightColors.length) return null;
+  return Math.max(...leftColors.flatMap((leftColor) => rightColors.map((rightColor) => {
+    if (NEUTRAL_COLORS.has(leftColor) || NEUTRAL_COLORS.has(rightColor)) return 1;
+    if (leftColor === rightColor) return 0.9;
+    return ADJACENT_COLOR_PAIRS.has([leftColor, rightColor].sort().join(":")) ? 0.75 : 0.45;
+  })));
+}
+
+function outfitAxisCompatibility(left: Product, right: Product): number | null {
+  const leftAxes = getEffectiveStyleAxes(left)?.axes;
+  const rightAxes = getEffectiveStyleAxes(right)?.axes;
+  if (!leftAxes || !rightAxes) return null;
+  const keys = ["formality", "refinement", "technicality", "visual_boldness"] as const;
+  return keys.reduce((total, key) => total + (1 - Math.abs(leftAxes[key] - rightAxes[key]) / 6), 0) / keys.length;
+}
+
+function silhouetteBalance(left: Product, right: Product): number | null {
+  const leftAttributes = getEffectiveStyleAttributes(left);
+  const rightAttributes = getEffectiveStyleAttributes(right);
+  if (!leftAttributes || !rightAttributes) return null;
+  const leftFit = comparableAttributeValue(leftAttributes.fit_volume);
+  const rightFit = comparableAttributeValue(rightAttributes.fit_volume);
+  const leftSilhouette = comparableAttributeValue(leftAttributes.silhouette);
+  const rightSilhouette = comparableAttributeValue(rightAttributes.silhouette);
+  const fit = leftFit || rightFit;
+  const silhouette = leftSilhouette || rightSilhouette;
+  if (!fit || !silhouette) return null;
+  if (["oversized", "boxy"].includes(fit) && ["slim", "tapered"].includes(silhouette)) return 1;
+  if (["regular", "relaxed"].includes(fit) && silhouette === "straight") return 0.9;
+  if (["oversized", "boxy"].includes(fit) && ["wide", "balloon"].includes(silhouette)) return 0.65;
+  return 0.75;
+}
 
 function comparableAttributeValue(value: unknown): string | null {
   const normalized = String(value ?? "")
@@ -1129,57 +1164,31 @@ export interface ProductHybridSimilarity {
   expressionSimilarity: number | null;
   shapeMatches: string[];
   expressionMatches: string[];
-}
-
-/**
- * Unlike an exact attribute match, an outfit can bridge neighbouring levels
- * (for example casual with smart-casual). The value maps make that judgement
- * explicit and leave unknown values out instead of guessing.
- */
-function compatibilityAttributeSimilarity(left: Product, right: Product) {
-  const leftAttributes = getEffectiveStyleAttributes(left);
-  const rightAttributes = getEffectiveStyleAttributes(right);
-  if (!leftAttributes || !rightAttributes) return null;
-
-  const scores: number[] = [];
-  for (const key of COMPATIBILITY_ATTRIBUTE_KEYS) {
-    const leftValue = comparableAttributeValue(leftAttributes[key]);
-    const rightValue = comparableAttributeValue(rightAttributes[key]);
-    if (!leftValue || !rightValue) continue;
-
-    const scale = ORDERED_COMPATIBILITY_VALUES[key];
-    const leftPosition = scale?.[leftValue];
-    const rightPosition = scale?.[rightValue];
-    if (leftPosition === undefined || rightPosition === undefined) continue;
-    scores.push(1 - Math.abs(leftPosition - rightPosition));
-  }
-
-  return scores.length
-    ? scores.reduce((sum, score) => sum + score, 0) / scores.length
-    : null;
+  recommendationComponents?: Record<string, number | null>;
 }
 
 function categoryPairCompatibility(
   left: Product,
   right: Product
 ): number | null {
-  const leftCategory = String(left.category || "")
-    .trim()
-    .toLowerCase();
-  const rightCategory = String(right.category || "")
-    .trim()
-    .toLowerCase();
-  const pair = [leftCategory, rightCategory].sort().join(":");
-
+  const role = (product: Product) => {
+    const category = String(product.category || "").trim().toLowerCase();
+    if (category !== "dressskirt") return category;
+    const subCategory = String(product.subCategory || "").toLowerCase();
+    return subCategory.includes("스커트") || subCategory.includes("skirt") ? "skirt" : "dress";
+  };
+  const pair = [role(left), role(right)].sort().join(":");
   const pairScores: Record<string, number> = {
-    "bottom:outer": 0.9,
-    "bottom:shoes": 1,
-    "bottom:top": 0.95,
-    "outer:shoes": 0.9,
-    "outer:top": 0.85,
-    "shoes:top": 0.85,
+    "bottom:outer": 0.82, "bottom:shoes": 1, "bottom:top": 1,
+    "outer:shoes": 0.82, "outer:top": 0.82,
+    "shoes:top": 0.78, "outer:skirt": 0.82, "shoes:skirt": 0.9,
+    "skirt:top": 1, "dress:outer": 0.9, "dress:shoes": 1,
   };
   return pairScores[pair] ?? null;
+}
+
+export function isOutfitCategoryPair(left: Product, right: Product): boolean {
+  return categoryPairCompatibility(left, right) !== null;
 }
 
 /**
@@ -1203,22 +1212,18 @@ export function getCrossCategoryStyleSimilarity(
       : leftEmbedding && rightEmbedding
         ? cosineSimilarity(leftEmbedding, rightEmbedding)
         : null;
-  const expression = attributeSimilarity(
-    left,
-    right,
-    EXPRESSION_ATTRIBUTE_KEYS
-  );
-  const compatibility = compatibilityAttributeSimilarity(left, right);
+  const materialAndPattern = attributeSimilarity(left, right, ["primary_material", "pattern", "details"]);
+  const compatibility = outfitAxisCompatibility(left, right);
   const categoryPair = categoryPairCompatibility(left, right);
+  if (categoryPair === null) return null;
+  const color = colorHarmony(left, right);
+  const silhouette = silhouetteBalance(left, right);
   const sameCategory = sameProductCategory(left, right);
-  // A complementary item should first share the product's tagged mood. The
-  // structured attributes and category pair then refine compatibility; visual
-  // likeness is deliberately only a small tie-breaker, not the styling rule.
-  const components: Array<[number, number]> = [[style, 0.62]];
-  if (compatibility !== null) components.push([compatibility, 0.18]);
-  if (expression.score !== null) components.push([expression.score, 0.08]);
-  if (categoryPair !== null) components.push([categoryPair, 0.07]);
-  if (visual !== null) components.push([Math.max(0, visual), 0.05]);
+  const components: Array<[number, number]> = [[style, 0.35], [categoryPair, 0.2]];
+  if (compatibility !== null) components.push([compatibility, 0.25]);
+  const expression = [color, materialAndPattern.score].filter((value): value is number => value !== null);
+  if (expression.length) components.push([expression.reduce((sum, value) => sum + value, 0) / expression.length, 0.12]);
+  if (silhouette !== null) components.push([silhouette, 0.08]);
   const totalWeight = components.reduce((sum, [, weight]) => sum + weight, 0);
 
   return {
@@ -1228,10 +1233,20 @@ export function getCrossCategoryStyleSimilarity(
     styleSimilarity: style,
     visualSimilarity: visual,
     sameCategory,
-    shapeSimilarity: null,
-    expressionSimilarity: expression.score,
+    shapeSimilarity: silhouette,
+    expressionSimilarity: expression.length ? expression.reduce((sum, value) => sum + value, 0) / expression.length : null,
     shapeMatches: [],
-    expressionMatches: expression.matches,
+    expressionMatches: materialAndPattern.matches,
+    recommendationComponents: {
+      style,
+      outfitAxes: compatibility,
+      categoryPair,
+      colorHarmony: color,
+      materialPattern: materialAndPattern.score,
+      colorMaterialPattern: expression.length ? expression.reduce((sum, value) => sum + value, 0) / expression.length : null,
+      silhouette,
+      visual,
+    },
   };
 }
 

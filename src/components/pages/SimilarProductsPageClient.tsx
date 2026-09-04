@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, SyntheticEvent } from "react";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import { ProgressiveImage } from "../ProgressiveImage";
 import type { Product } from "../../types";
 import { getProductPageUrl, toPublicUrl } from "../../utils/product";
 import { useLocaleContext } from "../../contexts/LocaleContext";
+import { captureEvent } from "../../utils/analytics";
 type BehavioralStatus = "idle" | "loading" | "ready" | "error";
 type RecommendationSection = "similar" | "style" | "behavioral";
 
@@ -32,9 +33,10 @@ function normalizeProductImages(product: Product): Product {
   };
 }
 
-function ProductCard({ product, onImageLoadError }: { product: Product; onImageLoadError: (event: SyntheticEvent<HTMLImageElement>) => void }) {
+function ProductCard({ product, onImageLoadError, tab, sourceProductId, position }: { product: Product; onImageLoadError: (event: SyntheticEvent<HTMLImageElement>) => void; tab: RecommendationSection; sourceProductId: string; position: number }) {
+  const href = `${getProductPageUrl(product)}?source=recommendation&recommendation_tab=${encodeURIComponent(tab)}&recommendation_source_product=${encodeURIComponent(sourceProductId)}&recommendation_position=${position}`;
   return (
-    <Link href={getProductPageUrl(product)} scroll={false} className="ui-product-card ui-card-lift relative flex min-w-0 flex-col overflow-hidden rounded-[22px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(25,25,29,0.98),rgba(15,15,18,0.98))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-transform duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70">
+    <Link href={href} scroll={false} onClick={() => captureEvent("recommendation_clicked", { source_product_id: sourceProductId, candidate_product_id: product.id, recommendation_tab: tab, recommendation_position: position, algorithm_version: "recommendations-v9" })} className="ui-product-card ui-card-lift relative flex min-w-0 flex-col overflow-hidden rounded-[22px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(25,25,29,0.98),rgba(15,15,18,0.98))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-transform duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70">
       <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48 sm:rounded-[18px]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
         <div className="absolute inset-3 z-[1] sm:inset-4">
@@ -82,6 +84,7 @@ export function SimilarProductsPageClient({ id, initialData = null }: { id: stri
   const [activeSection, setActiveSection] = useState<RecommendationSection>("similar");
   const [behavioralRequestedForId, setBehavioralRequestedForId] = useState<string | null>(null);
   const numericId = parseNumericId(id);
+  const impressionKeys = useRef(new Set<string>());
 
   useEffect(() => {
     if (initialData?.sourceProduct) return;
@@ -113,6 +116,17 @@ export function SimilarProductsPageClient({ id, initialData = null }: { id: stri
     () => (sourceProduct ? normalizeProductImages(sourceProduct) : null),
     [sourceProduct]
   );
+
+  useEffect(() => {
+    if (!normalizedSourceProduct) return;
+    for (const [tab, products] of [["similar", similarProducts], ["style", styleProducts]] as const) {
+      if (!products.length) continue;
+      const key = `${numericId}:${tab}:${products.map((product) => product.id).join(",")}`;
+      if (impressionKeys.current.has(key)) continue;
+      impressionKeys.current.add(key);
+      captureEvent("recommendation_impression", { source_product_id: numericId, recommendation_tab: tab, candidate_product_ids: products.map((product) => product.id).join(","), candidate_count: products.length, algorithm_version: "recommendations-v9" });
+    }
+  }, [normalizedSourceProduct, numericId, similarProducts, styleProducts]);
 
   useEffect(() => {
     if (behavioralRequestedForId === numericId) return;
@@ -231,7 +245,7 @@ export function SimilarProductsPageClient({ id, initialData = null }: { id: stri
                 {isBehavioral && (!hasProducts || behavioralStatus !== "ready") ? (
                   <EmptyBehavioralCard status={behavioralStatus} />
                 ) : hasProducts ? (
-                  <div className="grid grid-cols-2 gap-3 pb-2 lg:grid-cols-4 lg:gap-5">{productsForSection.map((product) => <ProductCard key={product.id} product={product} onImageLoadError={handleImageLoadError} />)}</div>
+                  <div className="grid grid-cols-2 gap-3 pb-2 lg:grid-cols-4 lg:gap-5">{productsForSection.map((product, index) => <ProductCard key={product.id} product={product} tab={section.id} sourceProductId={numericId} position={index + 1} onImageLoadError={handleImageLoadError} />)}</div>
                 ) : (
                   <EmptyRecommendationState title={emptyTitle} description={emptyDescription} />
                 )}
