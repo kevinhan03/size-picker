@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, MessageCircleMore, Plus, Shirt } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fetchOutfitRequests } from "../../api/outfits";
 import { useAuthContext } from "../../contexts/AuthContext";
@@ -227,6 +228,7 @@ export function OutfitsPageClient({ initialScope, initialData = null }: { initia
   return (
     <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto w-full max-w-[70rem]">
+        <div className="mb-4 flex justify-end"><Link href="/outfit-explorer" className="text-sm text-orange-300 hover:text-orange-200">{t("nav.outfitExplorer")} →</Link></div>
         <PageHeader
           eyebrow="STYLE TOGETHER"
           title={<span className="break-keep">서로의 취향으로 코디를 만드는 곳</span>}

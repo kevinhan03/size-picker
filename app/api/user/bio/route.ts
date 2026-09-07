@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
 import { getRegisteredRequestUser, hasValidMutationOrigin } from "../../../../server/auth/request-user";
@@ -26,7 +27,8 @@ export async function PATCH(request: Request) {
 
     if (error) throw error;
 
-    return NextResponse.json({ ok: true, data: { bio } });
+    revalidateTag("public-digbox", { expire: 0 });
+    return NextResponse.json({ ok: true, data: { bio } }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "bio update error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

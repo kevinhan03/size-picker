@@ -48,7 +48,7 @@ export function GuestSavedPageClient() {
 
   useEffect(() => {
     if (!auth.isAuthLoading && auth.authUser) {
-      router.replace(auth.dbUsername ? `/u/${encodeURIComponent(auth.dbUsername)}` : "/mypage");
+      router.replace(`/mypage${window.location.search || "?tab=saved"}`);
     }
   }, [auth.authUser, auth.dbUsername, auth.isAuthLoading, router]);
 

@@ -1,4 +1,9 @@
 const USERNAME_PATTERN = /^[A-Za-z0-9_.]{3,20}$/;
+const RESERVED_PROFILE_USERNAMES = new Set([
+  'admin', 'api', 'auth', 'closet', 'dig-match', 'grid', 'login', 'mypage',
+  'onboarding', 'outfit-explorer', 'outfits', 'privacy', 'product', 'saved',
+  'settings', 'sizes', 'taste', 'taste-graph', 'terms', 'u',
+]);
 
 export function normalizeUsername(value) {
   return String(value || '').trim();
@@ -8,10 +13,12 @@ const USERNAME_MESSAGES = {
   ko: {
     required: '사용자 이름을 입력해 주세요.',
     invalidFormat: '사용자 이름은 영문, 숫자, 밑줄(_), 마침표(.)만 사용해 3~20자로 입력해 주세요.',
+    reserved: '사용할 수 없는 사용자 이름이에요.',
   },
   en: {
     required: 'Please enter a username.',
     invalidFormat: 'Usernames can only contain letters, numbers, underscores (_), and periods (.), and must be 3-20 characters long.',
+    reserved: 'This username is not available.',
   },
 };
 
@@ -21,6 +28,9 @@ export function validateUsername(value, locale = 'ko') {
   if (!username) return m.required;
   if (!USERNAME_PATTERN.test(username)) {
     return m.invalidFormat;
+  }
+  if (RESERVED_PROFILE_USERNAMES.has(username.toLowerCase())) {
+    return m.reserved;
   }
   return null;
 }

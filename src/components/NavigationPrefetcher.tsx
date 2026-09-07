@@ -13,7 +13,7 @@ export function NavigationPrefetcher() {
   useEffect(() => {
     if (isAuthLoading) return;
     const paths = authUser
-      ? ["/outfits", "/taste", "/closet", dbUsername ? `/u/${encodeURIComponent(dbUsername)}` : "/mypage"]
+      ? ["/outfits", "/taste", "/mypage", "/mypage?tab=closet"]
       : ["/outfits", "/saved"];
     const prefetch = () => {
       paths.forEach((path) => router.prefetch(path));

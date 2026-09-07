@@ -2,10 +2,8 @@
 
 import {
   ArrowLeft,
-  GalleryVerticalEnd,
   LogIn,
   Plus,
-  UserRound,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,6 +16,7 @@ import { useLocaleContext } from "../contexts/LocaleContext";
 import { getAlternateLocale } from "../i18n/locale";
 import {
   getPrimaryNavigationDestination,
+  isPublicProfilePath,
   primaryNavigationItems,
   type PrimaryNavigationDestination,
 } from "./primaryNavigation";
@@ -66,14 +65,13 @@ export function AppHeader({
 
   const isAdmin = pathname.startsWith("/admin");
   const activeDestination = getPrimaryNavigationDestination(pathname);
-  const isMyPage = pathname === "/mypage";
   const compactActions = isIconOnlyActions;
   const headerFrameClass = isCompactViewport
-    ? "h-[calc(4rem+env(safe-area-inset-top))] w-full max-w-[calc(70rem+var(--app-main-px)+var(--app-main-px))] px-[var(--app-main-px)] pt-[env(safe-area-inset-top)]"
-    : "h-16 w-full max-w-[calc(70rem+var(--app-main-px)+var(--app-main-px))] px-[var(--app-main-px)]";
+    ? "h-[var(--app-header-height)] w-full max-w-[calc(70rem+var(--app-main-px)+var(--app-main-px))] px-[var(--app-main-px)] pt-[env(safe-area-inset-top)]"
+    : "h-[var(--app-header-height)] w-full max-w-[calc(70rem+var(--app-main-px)+var(--app-main-px))] px-[var(--app-main-px)]";
 
   function navigate(destination: PrimaryNavigationDestination) {
-    if (activeDestination === destination) return;
+    if (activeDestination === destination && !(destination === "profile" && isPublicProfilePath(pathname))) return;
     startNavigation();
     if (destination === "digging") {
       router.push("/");
@@ -81,6 +79,10 @@ export function AppHeader({
     }
     if (destination === "outfits") {
       router.push("/outfits");
+      return;
+    }
+    if (destination === "digbox") {
+      router.push("/saved");
       return;
     }
     if (destination === "taste") {
@@ -96,12 +98,10 @@ export function AppHeader({
       return;
     }
     if (!auth.authUser) {
-      router.push("/saved");
+      router.push("/login");
       return;
     }
-    router.push(
-      auth.dbUsername ? `/u/${encodeURIComponent(auth.dbUsername)}` : "/mypage"
-    );
+    router.push(auth.dbUsername ? `/${encodeURIComponent(auth.dbUsername)}` : "/mypage");
   }
 
   function openProductForm() {
@@ -224,22 +224,7 @@ export function AppHeader({
                 </button>
               )
             )}
-            <button
-              type="button"
-              aria-current={
-                activeDestination === "outfit-explorer" ? "page" : undefined
-              }
-              aria-label={t("nav.outfitExplorer")}
-              onClick={() => navigate("outfit-explorer")}
-              className={desktopNavClass(
-                activeDestination === "outfit-explorer"
-              )}
-            >
-              <GalleryVerticalEnd className="h-5 w-5" />
-              <span className="text-xs font-bold">
-                {t("nav.outfitExplorer")}
-              </span>
-            </button>
+
           </nav>
         )}
 
@@ -276,22 +261,7 @@ export function AppHeader({
                   aria-hidden="true"
                 />
               </span>
-            ) : auth.authUser ? (
-              <div className="group relative">
-                <button
-                  type="button"
-                  aria-label={t("header.myPage")}
-                  onClick={() => router.push("/mypage")}
-                  className={`flex items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"} ${isMyPage ? "bg-orange-500/[0.08] text-orange-300" : ""}`}
-                >
-                  <UserRound className="h-4 w-4" />
-                </button>
-                <div className={tooltipClass}>
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                  {t("header.myPage")}
-                </div>
-              </div>
-            ) : (
+            ) : !auth.authUser ? (
               <>
                 <div className="group relative">
                   <button
@@ -327,7 +297,7 @@ export function AppHeader({
                   />
                 </button>
               </>
-            )}
+            ) : null}
           </div>
         )}
       </div>

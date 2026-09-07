@@ -1,0 +1,685 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
+import Link from "next/link";
+import dynamic from "next/dynamic";
+import { Search, X } from "lucide-react";
+import { useAuthContext } from "../../contexts/AuthContext";
+import { useClosetContext } from "../../contexts/ClosetContext";
+import { useDigboxContext } from "../../contexts/DigboxContext";
+import { useLocaleContext } from "../../contexts/LocaleContext";
+import { useProductModalQuery } from "../../hooks/useProductModalQuery";
+import { prefetchProductDetail, useProductDetail } from "../../hooks/useProductDetail";
+import { useProgressiveList } from "../../hooks/useProgressiveList";
+import { ProgressiveImage } from "../ProgressiveImage";
+import { FilterBar } from "../FilterBar";
+import { toPublicUrl } from "../../utils/product";
+import { CollectionSearchField } from "../CollectionSearchField";
+import { CollectionEmptyState } from "../CollectionEmptyState";
+import { PageState } from "../PageState";
+import { captureEvent } from "../../utils/analytics";
+import type { Product } from "../../types";
+import { loadProductDetailModal } from "../productDetailModalLoader";
+
+const ProductDetailModal = dynamic(loadProductDetailModal, { ssr: false });
+const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
+
+const cardStyle: React.CSSProperties = {
+  background: "#111114",
+  border: "1px solid rgba(255,255,255,0.09)",
+  borderRadius: "1.25rem",
+  overflow: "hidden",
+  boxShadow: "0 1px 0 rgba(255,255,255,0.08) inset, 0 12px 40px rgba(0,0,0,0.55)",
+};
+
+function GridCard({
+  product,
+  selected,
+  isEditing,
+  onSelect,
+  onOpen,
+  onPrefetch,
+}: {
+  product: Product;
+  selected: boolean;
+  isEditing: boolean;
+  onSelect: () => void;
+  onOpen: () => void;
+  onPrefetch: () => void;
+}) {
+  const { t } = useLocaleContext();
+  const [imgOk, setImgOk] = useState(true);
+  const imageSrc = product.image || product.thumbnailImage || "";
+
+  return (
+    <div
+      data-editing={isEditing}
+      data-selected={isEditing && selected}
+      className={`digbox-product-card ui-card ui-product-card relative flex h-full flex-col overflow-hidden rounded-[22px] border bg-[linear-gradient(180deg,rgba(25,25,29,0.98),rgba(15,15,18,0.98))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-[transform,border-color,box-shadow,background-color] duration-150 [transition-timing-function:var(--ease-out)] ${
+        isEditing && selected
+          ? "border-orange-400 bg-orange-500/[0.08] shadow-[0_0_0_2px_rgba(251,146,60,0.3),0_14px_34px_rgba(0,0,0,0.18)]"
+          : "border-white/[0.09]"
+      }`}
+    >
+      <Link
+        href={`?product=${encodeURIComponent(product.id)}`}
+        onMouseEnter={() => { void loadProductDetailModal(); onPrefetch(); }}
+        onFocus={() => { void loadProductDetailModal(); onPrefetch(); }}
+        onTouchStart={() => { void loadProductDetailModal(); onPrefetch(); }}
+        onClick={(event) => {
+          if (isEditing) return;
+          event.preventDefault();
+          onOpen();
+        }}
+        className="digbox-product-card-link relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[22px] text-inherit no-underline transition-transform duration-150 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none"
+      >
+        <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
+          <div className="absolute inset-3 z-[1] sm:inset-4">
+            {imgOk && imageSrc ? (
+              <ProgressiveImage
+                src={imageSrc}
+                thumbnailSrc={product.thumbnailImage}
+                alt={product.name}
+                className="rounded-[10px] object-contain"
+                onError={() => setImgOk(false)}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase text-gray-700">
+                {product.brand}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
+          <div className="mb-1 flex items-center gap-2">
+            <div className="min-w-0 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+            {product.digboxSizeDecision?.label ? <span className="shrink-0 rounded-md border border-orange-300/30 bg-orange-400/[0.12] px-1.5 py-0.5 text-[10px] font-black text-orange-100">{t("digbox.purchasedSizeBadge", { label: product.digboxSizeDecision.label })}</span> : null}
+          </div>
+          <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
+          <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
+        </div>
+      </Link>
+
+      {isEditing && (
+        <button
+          type="button"
+          aria-label={selected ? t("common.deselectProduct") : t("common.selectProduct")}
+          aria-pressed={selected}
+          onClick={onSelect}
+          className="absolute inset-0 z-10 rounded-[22px] bg-transparent"
+        />
+      )}
+
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing dormant list view.
+function ListRow({
+  product,
+  selected,
+  isEditing,
+  onSelect,
+  onOpen,
+}: {
+  product: Product;
+  selected: boolean;
+  isEditing: boolean;
+  onSelect: () => void;
+  onOpen: () => void;
+}) {
+  const [imgOk, setImgOk] = useState(true);
+
+  return (
+    <div
+      className={`digbox-list-row ${isEditing && selected ? "border-orange-400/80 bg-orange-500/[0.08]" : "border-white/[0.09]"}`}
+      data-editing={isEditing}
+      style={{
+        ...cardStyle,
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        padding: "12px 16px",
+        transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
+        borderColor: isEditing && selected ? "rgba(251,146,60,0.8)" : "rgba(255,255,255,0.09)",
+        background: isEditing && selected ? "rgba(249,115,22,0.08)" : "#111114",
+      }}
+    >
+      {isEditing && (
+        <button
+          type="button"
+          aria-label={selected ? "상품 선택 해제" : "상품 선택"}
+          onClick={onSelect}
+          style={{
+            flexShrink: 0,
+            width: 22,
+            height: 22,
+            borderRadius: 6,
+            border: `2px solid ${selected ? "#F97316" : "rgba(255,255,255,0.2)"}`,
+            background: selected ? "#F97316" : "transparent",
+            boxShadow: "none",
+            padding: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
+            position: "relative",
+            zIndex: 20,
+          }}
+        >
+          {selected && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3">
+              <polyline points="20,6 9,17 4,12" />
+            </svg>
+          )}
+        </button>
+      )}
+      <Link
+        href={`?product=${encodeURIComponent(product.id)}`}
+        onClick={(event) => {
+          if (isEditing) return;
+          event.preventDefault();
+          onOpen();
+        }}
+        style={{ textDecoration: "none", flexShrink: 0 }}
+      >
+        <div style={{ width: 52, height: 52, borderRadius: 10, background: "rgba(17,24,39,0.8)", overflow: "hidden", cursor: "pointer" }}>
+          {imgOk && (
+            // eslint-disable-next-line @next/next/no-img-element -- Preserve the existing native list-thumbnail behavior.
+            <img
+              src={product.thumbnailImage || product.image}
+              alt={product.name}
+              onError={() => setImgOk(false)}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          )}
+        </div>
+      </Link>
+      <Link
+        href={`?product=${encodeURIComponent(product.id)}`}
+        onClick={(event) => {
+          if (isEditing) return;
+          event.preventDefault();
+          onOpen();
+        }}
+        style={{ flex: 1, cursor: "pointer", minWidth: 0, textDecoration: "none" }}
+      >
+        <p style={{ fontSize: 10, fontWeight: 700, color: "#F97316", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
+          {product.brand}
+        </p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {product.name}
+        </p>
+      </Link>
+      <span style={{ fontSize: 10, color: "#6b7280", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "3px 8px", flexShrink: 0 }}>
+        {product.category}
+      </span>
+      {isEditing && (
+        <button
+          type="button"
+          aria-label={selected ? "상품 선택 해제" : "상품 선택"}
+          aria-pressed={selected}
+          onClick={onSelect}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 10,
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing dormant confirmation UI.
+function DeleteConfirmDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onClick={onCancel} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} />
+      <div style={{ position: "relative", background: "rgba(17,24,39,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 28, maxWidth: 320, width: "100%", textAlign: "center", boxShadow: "0 24px 48px rgba(0,0,0,0.6)" }}>
+        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2">
+            <polyline points="3,6 5,6 21,6" />
+            <path d="m19,6-.867,14.142A2,2 0 0,1 16.138,22H7.862a2,2 0 0,1-1.995-1.858L5,6m5,5v6m4-6v6" />
+            <path d="M9,6V4h6v2" />
+          </svg>
+        </div>
+        <h3 style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 8 }}>저장 목록에서 삭제할까요?</h3>
+        <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
+          이 상품을 저장 목록에서 삭제합니다.
+          <br />나중에 다시 담을 수 있어요.
+        </p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={onCancel} style={{ flex: 1, padding: "11px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "none", color: "#9ca3af", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            취소
+          </button>
+          <button onClick={onConfirm} style={{ flex: 1, padding: "11px", borderRadius: 12, background: "rgba(239,68,68,0.85)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            삭제
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function SavedCollectionContent({
+  username,
+  products: initialProducts,
+  discoveredDigboxCounts: initialDiscoveredDigboxCounts = {},
+  hydrateOwner = false,
+  active = true,
+  brandFilter = "",
+  onClearBrand,
+}: {
+  username: string;
+  products: Product[];
+  discoveredDigboxCounts?: Record<string, number>;
+  hydrateOwner?: boolean;
+  active?: boolean;
+  brandFilter?: string;
+  onClearBrand?: () => void;
+}) {
+  const { t } = useLocaleContext();
+  const auth = useAuthContext();
+  const digbox = useDigboxContext();
+  const hydrateDigbox = digbox.hydrate;
+  const isDigboxLoaded = digbox.isLoaded;
+  const savedListViewedRef = useRef(false);
+  const removalUndoTimerRef = useRef<number | null>(null);
+  const productModal = useProductModalQuery();
+  const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
+
+  const isOwner = Boolean(auth.authUser && auth.dbUsername?.toLowerCase() === username.toLowerCase());
+  const isLoading = auth.isAuthLoading || (isOwner && !isDigboxLoaded);
+  const products = isOwner && isDigboxLoaded ? digbox.digboxProducts : initialProducts;
+  const discoveredDigboxCounts = isOwner && isDigboxLoaded ? digbox.discoveredDigboxCounts : initialDiscoveredDigboxCounts;
+
+  useEffect(() => {
+    if (hydrateOwner && isOwner && !isDigboxLoaded) {
+      hydrateDigbox(initialProducts, initialDiscoveredDigboxCounts);
+    }
+  }, [hydrateDigbox, hydrateOwner, initialDiscoveredDigboxCounts, initialProducts, isDigboxLoaded, isOwner]);
+
+
+
+  useEffect(() => {
+    if (isOwner && !isLoading && !savedListViewedRef.current) {
+      savedListViewedRef.current = true;
+      captureEvent("saved_list_viewed", { product_count: products.length, is_owner: true });
+    }
+  }, [isLoading, isOwner, products.length]);
+
+  useEffect(() => {
+    if (isOwner && productModal.productId) ensureClosetLoaded();
+  }, [ensureClosetLoaded, isOwner, productModal.productId]);
+
+  useEffect(() => () => {
+    if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+  }, []);
+
+  const [catFilter, setCatFilter] = useState("");
+  const [subCategoryFilter, setSubCategoryFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => {
+    if (!brandFilter) return;
+    setCatFilter("");
+    setSubCategoryFilter("");
+    setSearchQuery("");
+  }, [brandFilter]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [isUndoingRemoval, setIsUndoingRemoval] = useState(false);
+  const [removalUndoProducts, setRemovalUndoProducts] = useState<Product[] | null>(null);
+  const [removalError, setRemovalError] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const detailedProduct = useProductDetail(productModal.productId, selectedProduct);
+  const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
+  const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const keyword = searchQuery.trim().toLowerCase();
+    return products.filter((p) => {
+      if (brandFilter && p.brand.trim().toLowerCase() !== brandFilter.toLowerCase()) return false;
+      if (catFilter && p.category !== catFilter) return false;
+      if (subCategoryFilter && p.subCategory !== subCategoryFilter) return false;
+      if (!keyword) return true;
+      return `${p.brand} ${p.name}`.toLowerCase().includes(keyword);
+    });
+  }, [brandFilter, catFilter, products, searchQuery, subCategoryFilter]);
+  const { visibleCount, sentinelRef } = useProgressiveList(filtered.length, `${brandFilter}:${catFilter}:${subCategoryFilter}:${searchQuery}`);
+  const visibleProducts = filtered.slice(0, visibleCount);
+
+  const normalizedProduct = useMemo<Product | null>(() => {
+    if (!detailedProduct) return null;
+    const imagePath = String(detailedProduct.imagePath || "").trim();
+    const image = imagePath ? toPublicUrl(imagePath) : detailedProduct.image;
+    const thumbnailImage = imagePath
+      ? toPublicUrl(imagePath, { width: 320, height: 320, quality: 65 })
+      : detailedProduct.thumbnailImage;
+    return { ...detailedProduct, image, thumbnailImage };
+  }, [detailedProduct]);
+
+  useEffect(() => {
+    if (!productModal.productId) {
+      setSelectedProduct(null);
+      setActiveRowIndex(null);
+      setIsDetailImageZoomed(false);
+      return;
+    }
+
+    const product = products.find((item) => item.id === productModal.productId);
+    if (product) setSelectedProduct(product);
+  }, [productModal.productId, products]);
+
+  const handleProductOpen = (product: Product, replace = false) => {
+    setSelectedProduct(product);
+    setActiveRowIndex(null);
+    setIsDetailImageZoomed(false);
+    productModal.openProduct(product.id, replace);
+  };
+
+  const handleModalClose = () => {
+    productModal.closeProduct();
+    setSelectedProduct(null);
+    setActiveRowIndex(null);
+    setIsDetailImageZoomed(false);
+  };
+
+  const handleImageLoadError = (event: SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.onerror = null;
+    event.currentTarget.style.display = "none";
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const removeSelected = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length || isRemoving) return;
+
+    setIsRemoving(true);
+    setRemovalError(null);
+    const results = await Promise.allSettled(ids.map((id) => digbox.removeFromDigbox(id)));
+    const succeededIds = new Set(ids.filter((_, index) => results[index]?.status === "fulfilled"));
+    const failedIds = ids.filter((id) => !succeededIds.has(id));
+    const removedProducts = products.filter((product) => succeededIds.has(product.id));
+
+    if (removedProducts.length) {
+      if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+      setRemovalUndoProducts(removedProducts);
+      removalUndoTimerRef.current = window.setTimeout(() => setRemovalUndoProducts(null), 5000);
+    }
+
+    setSelectedIds(new Set(failedIds));
+    setIsEditing(failedIds.length > 0);
+    if (failedIds.length) setRemovalError(t("saved.removeFailed"));
+    setIsRemoving(false);
+  };
+
+  const undoRemoval = async () => {
+    if (!removalUndoProducts?.length || isUndoingRemoval) return;
+
+    setIsUndoingRemoval(true);
+    setRemovalError(null);
+    const results = await Promise.allSettled(removalUndoProducts.map((product) => digbox.addToDigbox(product.id)));
+    const failedCount = results.filter((result) => result.status === "rejected").length;
+    if (failedCount) {
+      setRemovalError(t("saved.restoreFailed"));
+    } else {
+      if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+      setRemovalUndoProducts(null);
+    }
+    setIsUndoingRemoval(false);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing label helper.
+  const getCardDigboxCountLabel = (count: number) =>
+    isOwner ? `${count}명이 저장했어요` : `${count}명이 저장했어요`;
+
+  const getDetailDigboxCountLabel = (count: number) =>
+    isOwner ? t("digbox.discoveredByOwner", { count }) : t("digbox.discoveredByOther", { count });
+
+  if (isOwner && digbox.error && products.length === 0) {
+    return (
+      <section className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]">
+        <PageState
+          kind="error"
+          title={t("saved.loadError")}
+          description={t("closet.loadErrorDescription")}
+          action={(
+            <button type="button" onClick={() => void digbox.reload()} className="ui-button ui-button-primary px-5 py-2.5">
+              {t("common.retry")}
+            </button>
+          )}
+        />
+      </section>
+    );
+  }
+
+  if (isLoading && products.length === 0) {
+    return <p role="status" className="py-8 text-gray-400">{t("mypage.preparing")}</p>;
+  }
+
+  return (
+    <section
+      style={{
+        minHeight: 0,
+        background: "#000",
+        padding: "16px 0",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 1280 }}>
+        <div className="mx-auto w-full max-w-[70rem]">
+        <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("saved.search")} />
+        {brandFilter && <button type="button" onClick={onClearBrand} className="my-3 rounded-full border border-orange-400/30 px-3 py-1 text-sm text-orange-300">{brandFilter} ×</button>}
+        {/* Category filter */}
+        <FilterBar
+          categoryValue={catFilter}
+          onCategoryChange={(value) => {
+            setCatFilter(value);
+            setSubCategoryFilter("");
+          }}
+          subCategoryValue={subCategoryFilter}
+          onSubCategoryChange={setSubCategoryFilter}
+          disabled={isEditing}
+        />
+        </div>
+
+        {/* Toolbar */}
+        <div className="hidden">
+          <div className="flex h-9 w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 transition focus-within:border-orange-500/45 focus-within:bg-white/[0.055] sm:h-[34px]">
+            <Search className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search items"
+              className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-white outline-none placeholder:text-gray-600"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06] p-0 text-gray-500 transition hover:bg-orange-500/[0.14] hover:text-orange-300"
+                aria-label="Clear saved items search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Right controls */}
+          <div className="hidden">
+            {isEditing && (
+              <p aria-live="polite" className="text-xs font-bold text-orange-300">
+                {selectedIds.size ? `${selectedIds.size}개 선택됨` : "상품을 선택하세요"}
+              </p>
+            )}
+
+            {/* Delete button — owner only */}
+            {isOwner && !isEditing && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRemovalError(null);
+                  setIsEditing(true);
+                }}
+                style={{
+                  height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 12px", borderRadius: 11,
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#d1d5db",
+                  cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
+                }}
+                aria-label="편집"
+              >
+                저장 목록에서 삭제
+              </button>
+            )}
+
+            {isOwner && isEditing && (
+              <button
+                type="button"
+                onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }}
+                style={{
+                  height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 12px", borderRadius: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#6b7280", cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
+                }}
+                aria-label="취소"
+              >
+                취소
+              </button>
+            )}
+          </div>
+        </div>
+
+        {removalError && <p role="alert" className="mb-4 text-xs font-semibold text-red-300">{removalError}</p>}
+        {/* Empty state */}
+        {isLoading ? null : filtered.length === 0 ? (
+          <CollectionEmptyState
+            collection="saved"
+            query={searchQuery}
+            category={catFilter}
+            onClearSearch={() => setSearchQuery("")}
+            onClearCategory={() => {
+              setCatFilter("");
+              setSubCategoryFilter("");
+            }}
+            onClearAll={() => {
+              onClearBrand?.();
+              setSearchQuery("");
+              setCatFilter("");
+              setSubCategoryFilter("");
+            }}
+          />
+        ) : (
+          <>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p aria-live="polite" className={`text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
+              {isEditing
+                ? (selectedIds.size ? t("saved.selected", { count: selectedIds.size }) : t("saved.selectToDelete"))
+                : (searchQuery.trim() ? t("saved.searchResults", { count: filtered.length }) : t("saved.productCount", { count: filtered.length }))}
+            </p>
+            {isOwner && !isEditing && (
+              <button type="button" onClick={() => { setRemovalError(null); setIsEditing(true); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                {t("saved.delete")}
+              </button>
+            )}
+            {isOwner && isEditing && (
+              <button type="button" onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                {t("common.cancel")}
+              </button>
+            )}
+          </div>
+          <div className="closet-product-grid" style={{ display: "grid" }}>
+            {visibleProducts.map((p) => (
+              <GridCard
+                key={p.id}
+                product={p}
+                selected={selectedIds.has(p.id)}
+                isEditing={isEditing}
+                onSelect={() => toggleSelect(p.id)}
+                onOpen={() => handleProductOpen(p)}
+                onPrefetch={() => prefetchProductDetail(p.id)}
+              />
+            ))}
+          </div>
+          {visibleCount < filtered.length ? (
+            <div ref={sentinelRef} className="h-px w-full" aria-hidden="true" />
+          ) : null}
+          </>
+        )}
+      </div>
+
+      {isOwner && isEditing && selectedIds.size > 0 && (
+        <div className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
+          <p className="min-w-0 text-sm font-bold text-white">{t("saved.selected", { count: selectedIds.size })}</p>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }} className="h-10 rounded-xl px-3 text-sm font-bold text-gray-300 transition hover:bg-white/[0.06] hover:text-white">
+              {t("common.cancel")}
+            </button>
+            <button type="button" disabled={isRemoving} onClick={() => void removeSelected()} className="h-10 rounded-xl bg-red-500 px-4 text-sm font-bold text-white transition hover:bg-red-400 disabled:cursor-wait disabled:bg-red-500/50">
+              {isRemoving ? t("saved.deleting") : t("saved.deleteSelected")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {removalUndoProducts?.length ? (
+        <div role="status" className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 px-4 py-3 text-sm shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
+          <p className="min-w-0 font-semibold text-white">{t("saved.deleted", { count: removalUndoProducts.length })}</p>
+          <button type="button" disabled={isUndoingRemoval} onClick={() => void undoRemoval()} className="shrink-0 font-bold text-orange-300 transition hover:text-orange-200 disabled:cursor-wait disabled:text-orange-300/50">
+            {isUndoingRemoval ? t("common.undoing") : t("common.undo")}
+          </button>
+        </div>
+      ) : null}
+
+      {active && normalizedProduct && (
+        <ProductDetailModal
+          product={normalizedProduct}
+          activeRowIndex={activeRowIndex}
+          onClose={handleModalClose}
+          onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
+          onRecommendationClick={(product) => handleProductOpen(product, true)}
+          onZoomImage={() => setIsDetailImageZoomed(true)}
+          onImageError={handleImageLoadError}
+          modalRef={modalRef}
+          onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
+          isInCloset={isInCloset(normalizedProduct.id)}
+          onToggleDigbox={() => digbox.toggleDigbox(normalizedProduct.id)}
+          isInDigbox={digbox.isInDigbox(normalizedProduct.id)}
+          digboxProduct={digbox.digboxProducts.find((product) => product.id === normalizedProduct.id) || null}
+          onUpdateDigboxSizeDecision={(decision) => digbox.updateSizeDecision(normalizedProduct.id, decision)}
+          hideDigboxButton={digbox.isInDigbox(normalizedProduct.id)}
+          otherDigboxCount={discoveredDigboxCounts[normalizedProduct.id] || 0}
+          otherDigboxCountLabel={
+            discoveredDigboxCounts[normalizedProduct.id]
+              ? getDetailDigboxCountLabel(discoveredDigboxCounts[normalizedProduct.id])
+              : undefined
+          }
+        />
+      )}
+
+      {active && normalizedProduct && <ImageViewerOverlay open={isDetailImageZoomed} src={normalizedProduct.image} alt={normalizedProduct.name} onClose={() => setIsDetailImageZoomed(false)} />}
+    </section>
+  );
+}

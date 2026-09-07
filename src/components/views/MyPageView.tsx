@@ -4,27 +4,20 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, Languages, LogOut, Pencil, Plus, Ruler, Search, Trash2, UserRound, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Languages, LogOut, Pencil, Plus, Ruler, Search, Trash2, X } from "lucide-react";
 import type { DiscoveryProduct, MySizeInput, MySizeProfile, MySizeUpdateInput, Product } from "../../types";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
 import { getProductPageUrl } from "../../utils/product";
-import { UsernameSetupForm } from "../UsernameSetupForm";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import { getAlternateLocale } from "../../i18n/locale";
 import { displayMeasurementLabel } from "../../utils/sizeTable";
 
 interface MyPageViewProps {
-  username: string;
+  section?: "settings" | "discoveries";
   discoveredProducts: DiscoveryProduct[];
   discoveryTotalSaveCount: number;
   isDiscoveriesLoading: boolean;
-  closetProducts: Product[];
-  mySizes: MySizeProfile[];
-  onCreateMySize: (input: MySizeInput) => Promise<void>;
-  onUpdateMySize: (id: string, input: MySizeUpdateInput) => Promise<void>;
-  onDeleteMySize: (id: string) => Promise<void>;
   onLogout: () => void;
-  onChangeUsername: (username: string) => Promise<void>;
   onDeleteAccount: () => void;
   isDeletingAccount: boolean;
   deleteAccountError: string | null;
@@ -70,7 +63,7 @@ function trapDialogFocus(event: React.KeyboardEvent<HTMLElement>) {
   }
 }
 
-function MySizesManager({
+export function MySizesManager({
   closetProducts,
   mySizes,
   onCreateMySize,
@@ -689,17 +682,11 @@ function MySizesManager({
 }
 
 export function MyPageView({
-  username,
+  section = "settings",
   discoveredProducts,
   discoveryTotalSaveCount,
   isDiscoveriesLoading,
-  closetProducts,
-  mySizes,
-  onCreateMySize,
-  onUpdateMySize,
-  onDeleteMySize,
   onLogout,
-  onChangeUsername,
   onDeleteAccount,
   isDeletingAccount,
   deleteAccountError,
@@ -710,8 +697,6 @@ export function MyPageView({
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDiscoveriesOpen, setIsDiscoveriesOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [isUsernameEditorOpen, setIsUsernameEditorOpen] = useState(false);
-  const [usernameChangeError, setUsernameChangeError] = useState<string | null>(null);
   const discoveriesTriggerRef = useRef<HTMLButtonElement>(null);
   const discoveriesCloseButtonRef = useRef<HTMLButtonElement>(null);
   const isProductDetailOpen = pathname.startsWith("/product/");
@@ -746,25 +731,7 @@ export function MyPageView({
   return (
     <>
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 sm:gap-9">
-      <section className={`${primaryCardClass} flex items-center gap-4 p-4 sm:p-5`} aria-labelledby="settings-title">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-400 shadow-[0_0_24px_rgba(249,115,22,0.1)]">
-          <UserRound className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">{t("mypage.title")}</p>
-          <h1 id="settings-title" className="mt-1 break-all text-2xl font-black leading-tight tracking-[-0.03em] text-white sm:text-[1.75rem]">{username}</h1>
-        </div>
-      </section>
-
-      <MySizesManager
-        closetProducts={closetProducts}
-        mySizes={mySizes}
-        onCreateMySize={onCreateMySize}
-        onUpdateMySize={onUpdateMySize}
-        onDeleteMySize={onDeleteMySize}
-      />
-
-      <section className={`${primaryCardClass} min-w-0 overflow-hidden p-4 sm:p-5`} aria-labelledby="discoveries-title">
+      {section === "discoveries" && <section className={`${primaryCardClass} min-w-0 overflow-hidden p-4 sm:p-5`} aria-labelledby="discoveries-title">
         <div className="mb-5 flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.045] text-gray-300">
             <Search className="h-4 w-4" />
@@ -786,26 +753,15 @@ export function MyPageView({
           </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-gray-600" />
         </button>
-      </section>
+      </section>}
 
-      <section aria-labelledby="account-settings-title">
+      {section === "settings" && <section aria-labelledby="account-settings-title">
         <h2 id="account-settings-title" className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gray-500">{t("mypage.account")}</h2>
         <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#111114]">
           <button
             type="button"
-            onClick={() => { setUsernameChangeError(null); setIsUsernameEditorOpen((open) => !open); }}
-            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transition-none"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-300"><UserRound className="h-4 w-4" /></span>
-            <span className="min-w-0 flex-1"><span className="block text-sm font-black text-gray-200">{t("mypage.changeUsername")}</span><span className="mt-0.5 block break-all text-xs font-semibold text-gray-500">{t("mypage.current", { value: username })}</span></span>
-            <ChevronRight className={`h-4 w-4 shrink-0 text-gray-600 transition-transform ${isUsernameEditorOpen ? "rotate-90" : ""}`} />
-          </button>
-          {isUsernameEditorOpen && <div className="border-t border-white/10 px-4 py-5"><p className="text-sm font-semibold leading-relaxed text-gray-400">{t("mypage.usernameRenameHint")}</p><UsernameSetupForm initialUsername={username} submitLabel={t("mypage.renameUsername")} showSuggestions={false} onSuggestionSelected={() => {}} onSubmit={async (nextUsername) => { try { await onChangeUsername(nextUsername); setIsUsernameEditorOpen(false); } catch (error) { const message = error instanceof Error ? error.message : t("mypage.changeUsernameError"); setUsernameChangeError(message); throw error; } }} />{usernameChangeError && <p role="alert" className="mt-3 text-sm font-semibold text-red-300">{usernameChangeError}</p>}</div>}
-          <div className="mx-4 border-t border-white/[0.07]" />
-          <button
-            type="button"
             onClick={() => void setLocale(alternateLocale)}
-            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transition-none"
+            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-[background-color,transform] duration-150 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-white/[0.045] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-gray-300"><Languages className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1">
@@ -818,7 +774,7 @@ export function MyPageView({
           <button
             type="button"
             onClick={() => setIsLogoutConfirmOpen(true)}
-            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transition-none"
+            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-[background-color,transform] duration-150 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-white/[0.045] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-gray-300">
               <LogOut className="h-4 w-4" />
@@ -835,7 +791,7 @@ export function MyPageView({
             type="button"
             onClick={() => setIsDeleteConfirmOpen(true)}
             disabled={isDeletingAccount}
-            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-red-500/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
+            className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left transition-[background-color,transform] duration-150 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-500/[0.06] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-300">
               <Trash2 className="h-4 w-4" />
@@ -848,7 +804,7 @@ export function MyPageView({
           </button>
         </div>
         {deleteAccountError && <p className="mt-3 text-sm font-semibold text-red-300">{deleteAccountError}</p>}
-      </section>
+      </section>}
     </div>
     {isLogoutConfirmOpen && (
       <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">

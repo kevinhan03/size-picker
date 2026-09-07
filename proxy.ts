@@ -52,6 +52,6 @@ export const config = {
     "/api/product-metadata-from-image",
     "/api/size-table",
     "/api/remove-bg",
-    "/api/user/bio",
+    "/api/user/:path*",
   ],
 };

@@ -158,7 +158,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    revalidateTag("public-digbox", "max");
+    revalidateTag("public-digbox", { expire: 0 });
 
     return NextResponse.json({ ok: true, data: { added: true } }, { status: 201 });
   } catch (error: unknown) {

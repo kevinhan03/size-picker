@@ -56,4 +56,11 @@ describe("validateUsername", () => {
   it("accepts a valid username", () => {
     expect(validateUsername("kevin_han")).toBeNull();
   });
+
+  it.each(["admin", "MyPage", "saved", "api", "settings", "sizes"])(
+    "rejects reserved profile path %s",
+    (value) => {
+      expect(validateUsername(value)).toBe("사용할 수 없는 사용자 이름이에요.");
+    }
+  );
 });

@@ -8,7 +8,8 @@ import { captureEvent } from "../utils/analytics";
 import { useLocaleContext } from "../contexts/LocaleContext";
 import {
   getPrimaryNavigationDestination,
-  primaryNavigationItems,
+  isPublicProfilePath,
+  mobilePrimaryNavigationItems,
   type PrimaryNavigationDestination,
 } from "./primaryNavigation";
 
@@ -26,18 +27,17 @@ export function MobileBottomNav() {
       destination,
       is_authenticated: Boolean(auth.authUser),
     });
-    if (activeDestination === destination) return;
+    if (activeDestination === destination && !(destination === "profile" && isPublicProfilePath(pathname))) return;
     startNavigation();
     if (destination === "digging") return void router.push("/");
     if (destination === "outfits") return void router.push("/outfits");
+    if (destination === "digbox") return void router.push("/saved");
     if (destination === "taste") return void router.push("/taste");
     if (destination === "closet") return void router.push("/closet");
     if (destination === "outfit-explorer")
       return void router.push("/outfit-explorer");
-    if (!auth.authUser) return void router.push("/saved");
-    router.push(
-      auth.dbUsername ? `/u/${encodeURIComponent(auth.dbUsername)}` : "/mypage"
-    );
+    if (!auth.authUser) return void router.push("/login");
+    router.push(auth.dbUsername ? `/${encodeURIComponent(auth.dbUsername)}` : "/mypage");
   }
 
   return (
@@ -46,7 +46,7 @@ export function MobileBottomNav() {
       className="fixed inset-x-0 bottom-0 z-[60] h-[calc(var(--app-bottom-nav-height)+env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0b0b0d]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl lg:hidden"
     >
       <div className="mx-auto grid h-[var(--app-bottom-nav-height)] max-w-md grid-cols-5 px-2">
-        {primaryNavigationItems.map(({ destination, labelKey, icon: Icon }) => {
+        {mobilePrimaryNavigationItems.map(({ destination, labelKey, icon: Icon }) => {
           const active = activeDestination === destination;
           return (
             <button
@@ -65,7 +65,7 @@ export function MobileBottomNav() {
               )}
               <span className="relative">
                 <Icon
-                  className={`h-6 w-6 ${destination === "digbox" && active ? "fill-current" : ""}`}
+                  className={`h-6 w-6 ${destination === "profile" && active ? "fill-current" : ""}`}
                 />
                 {destination === "digbox" &&
                   !auth.authUser &&

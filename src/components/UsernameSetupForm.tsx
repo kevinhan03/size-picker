@@ -15,11 +15,13 @@ type Props = {
   onUsernameChange?: (username: string) => void;
   analyticsSource?: string;
   showSuggestions?: boolean;
+  autoFocus?: boolean;
+  variant?: "default" | "profile";
 };
 
 type Availability = "idle" | "checking" | "available" | "unavailable";
 
-export function UsernameSetupForm({ initialUsername = "", submitLabel, onSubmit, onSuggestionSelected, onUsernameChange, analyticsSource = "username_settings", showSuggestions = true }: Props) {
+export function UsernameSetupForm({ initialUsername = "", submitLabel, onSubmit, onSuggestionSelected, onUsernameChange, analyticsSource = "username_settings", showSuggestions = true, autoFocus = true, variant = "default" }: Props) {
   const { t } = useLocaleContext();
   const tRef = useRef(t);
   tRef.current = t;
@@ -30,6 +32,7 @@ export function UsernameSetupForm({ initialUsername = "", submitLabel, onSubmit,
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputId = useId();
   const didCheckRef = useRef("");
+  const isProfileVariant = variant === "profile";
 
   useEffect(() => setUsername(initialUsername), [initialUsername]);
   useEffect(() => { onUsernameChange?.(username); }, [onUsernameChange, username]);
@@ -93,26 +96,26 @@ export function UsernameSetupForm({ initialUsername = "", submitLabel, onSubmit,
   };
 
   return (
-    <div>
-      <label htmlFor={inputId} className="block text-sm font-black text-gray-200">{t("username.label")}</label>
-      <div className="relative mt-2">
+    <div className={isProfileVariant ? "profile-username-form" : undefined}>
+      <label htmlFor={inputId} className={isProfileVariant ? "profile-form-label" : "block text-sm font-black text-gray-200"}>{t("username.label")}</label>
+      <div className={isProfileVariant ? "relative profile-form-input-shell" : "relative mt-2"}>
         <input
           id={inputId}
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           onKeyDown={(event) => { if (event.key === "Enter") void submit(); }}
           autoComplete="username"
-          autoFocus
+          autoFocus={autoFocus}
           maxLength={20}
           placeholder={t("username.placeholder")}
-          className="h-12 w-full rounded-xl border border-white/10 bg-black/35 px-4 pr-11 text-sm font-bold text-white outline-none transition-[border-color,box-shadow] placeholder:text-gray-600 focus-visible:border-orange-400/70 focus-visible:ring-2 focus-visible:ring-orange-400/35"
+          className={isProfileVariant ? "profile-form-input" : "h-12 w-full rounded-xl border border-white/10 bg-black/35 px-4 pr-11 text-sm font-bold text-white outline-none transition-[border-color,box-shadow] placeholder:text-gray-600 focus-visible:border-orange-400/70 focus-visible:ring-2 focus-visible:ring-orange-400/35"}
           aria-describedby={`${inputId}-hint ${inputId}-status`}
           aria-invalid={availability === "unavailable"}
         />
         {availability === "checking" && <LoaderCircle className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-500 motion-reduce:animate-none" />}
         {availability === "available" && <Check className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />}
       </div>
-      <p id={`${inputId}-hint`} className="mt-2 text-xs font-semibold leading-relaxed text-gray-500">{t("username.hint")}</p>
+      <p id={`${inputId}-hint`} className={isProfileVariant ? "profile-form-hint" : "mt-2 text-xs font-semibold leading-relaxed text-gray-500"}>{t("username.hint")}</p>
       <p id={`${inputId}-status`} aria-live="polite" className={`mt-1.5 min-h-5 text-xs font-semibold ${availability === "available" ? "text-emerald-300" : availability === "unavailable" ? "text-red-300" : "text-gray-500"}`}>{message}</p>
 
       {showSuggestions && suggestions.length > 0 && (
@@ -128,7 +131,7 @@ export function UsernameSetupForm({ initialUsername = "", submitLabel, onSubmit,
         </div>
       )}
 
-      <button type="button" onClick={() => void submit()} disabled={availability !== "available" || isSubmitting} className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition-[transform,background-color,opacity] hover:bg-orange-400 active:scale-[0.985] motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#171719] disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400">
+      <button type="button" onClick={() => void submit()} disabled={availability !== "available" || isSubmitting} className={isProfileVariant ? "profile-form-submit" : "mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-orange-500 px-4 text-sm font-black text-black transition-[transform,background-color,opacity] hover:bg-orange-400 active:scale-[0.985] motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#171719] disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"}>
         {isSubmitting ? t("username.saving") : submitLabel}
       </button>
     </div>

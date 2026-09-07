@@ -45,6 +45,7 @@ export function useDigbox(
   const refreshAnalysisAfterMutation = options.refreshAnalysisAfterMutation === true;
   const analysisRequestedRef = useRef(false);
   const isLoadingRef = useRef(false);
+  const reloadRequestedRef = useRef(false);
   const syncAttemptedRef = useRef(false);
 
   const showToast = useCallback((nextToast: DigboxToast) => {
@@ -98,7 +99,10 @@ export function useDigbox(
       analysisRequestedRef.current = false;
       return;
     }
-    if (isLoadingRef.current) return;
+    if (isLoadingRef.current) {
+      reloadRequestedRef.current = true;
+      return;
+    }
     isLoadingRef.current = true;
     setIsLoading(true);
     let requestedAnalysis = false;
@@ -123,8 +127,10 @@ export function useDigbox(
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
-      if (analysisRequestedRef.current && !requestedAnalysis) {
-        window.setTimeout(() => void load(true), 0);
+      if (reloadRequestedRef.current || (analysisRequestedRef.current && !requestedAnalysis)) {
+        reloadRequestedRef.current = false;
+        const includeQueuedAnalysis = analysisRequestedRef.current;
+        window.setTimeout(() => void load(includeQueuedAnalysis), 0);
       }
     }
   }, [bootstrap, isLoggedIn]);
@@ -209,7 +215,9 @@ export function useDigbox(
   const addToDigbox = useCallback(async (productId: string, source = "unknown") => {
     if (!isLoggedIn || digboxIds.has(productId)) return;
     await addServerItem(productId);
-    if (refreshAnalysisAfterMutation) await load(true);
+    // Profile summaries and recent activity need the saved row (including added_at),
+    // not only its ID. Reuse the collection fetch after a successful addition.
+    await load(refreshAnalysisAfterMutation);
     const properties = { product_id: productId, source, logged_in: true };
     captureEvent("server_digbox_save_completed", properties);
     captureEvent("save_succeeded", properties);

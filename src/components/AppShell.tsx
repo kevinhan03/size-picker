@@ -199,7 +199,7 @@ function DigboxToast() {
     clearToast();
     const username = usernameRef.current;
     if (username) {
-      router.push(`/u/${encodeURIComponent(username)}`);
+      router.push(`/${encodeURIComponent(username)}`);
     } else {
       router.push("/mypage");
     }

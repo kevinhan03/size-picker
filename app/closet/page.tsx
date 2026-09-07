@@ -1,14 +1,14 @@
-import type { Metadata } from "next";
-import { ClosetPageClient } from "../../src/components/pages/ClosetPageClient";
-
-export const metadata: Metadata = {
-  title: "내 옷장 | DIGBOX",
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
-
-export default function ClosetPage() {
-  return <ClosetPageClient />;
+import { redirect } from "next/navigation";
+export default async function ClosetPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(await searchParams)) {
+    if (Array.isArray(value)) value.forEach((v) => params.append(key, v));
+    else if (value !== undefined) params.set(key, value);
+  }
+  params.set("tab", "closet");
+  redirect(`/mypage?${params}`);
 }

@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { assertSupabaseConfig, supabase } from "../../../../server/lib/supabase.js";
@@ -31,7 +32,8 @@ export async function PATCH(request: Request) {
     if (error) throw error;
     const result = Array.isArray(data) ? data[0] : null;
     if (!result?.username) throw new Error("username change returned no username");
-    return NextResponse.json({ ok: true, data: { username: String(result.username), changed: Boolean(result.changed) } });
+    revalidateTag("public-digbox", { expire: 0 });
+    return NextResponse.json({ ok: true, data: { username: String(result.username), changed: Boolean(result.changed) } }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error: unknown) {
     return NextResponse.json({ ok: false, error: getErrorMessage(error, "username change error") }, { status: getErrorStatusCode(error) });
   }

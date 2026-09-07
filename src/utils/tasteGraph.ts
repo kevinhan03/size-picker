@@ -567,8 +567,8 @@ const TAG_TASTE_COPY_EN: Record<StyleTagName, string> = {
   glam_sexy: "Dressed-up glamour",
 };
 
-function tagTasteCopy(tag: StyleTagName) {
-  return isEnglishLocale() ? TAG_TASTE_COPY_EN[tag] : TAG_TASTE_COPY[tag];
+function tagTasteCopy(tag: StyleTagName, english = isEnglishLocale()) {
+  return english ? TAG_TASTE_COPY_EN[tag] : TAG_TASTE_COPY[tag];
 }
 
 function isEnglishLocale(): boolean {
@@ -1567,12 +1567,13 @@ function averageTagScores(products: Product[]) {
 
 export function describeTasteCollection(
   products: Product[],
-  summary = computeTasteSummary(products)
+  summary = computeTasteSummary(products),
+  locale = isEnglishLocale() ? "en" : "ko"
 ): TasteCollectionInterpretation | null {
   const coreTags = summary.entries.slice(0, 3).map((entry) => entry.tag);
   if (!coreTags.length) return null;
 
-  const isEnglish = isEnglishLocale();
+  const isEnglish = locale === "en";
   const attributeLabels = isEnglish ? ATTRIBUTE_LABELS_EN : ATTRIBUTE_LABELS;
   const bothMoodsLabel = isEnglish
     ? "A mix of both moods"
@@ -1625,15 +1626,15 @@ export function describeTasteCollection(
   let summaryCopy: string;
   if (isEnglish) {
     title = secondary
-      ? `${styleTagLabel(primary)}-centered taste with a touch of ${styleTagLabel(secondary)}`
-      : `A taste where ${styleTagLabel(primary)} stands out`;
+      ? `${styleProfileLabels(primary, locale)}-centered taste with a touch of ${styleProfileLabels(secondary, locale)}`
+      : `A taste where ${styleProfileLabels(primary, locale)} stands out`;
     summaryCopy = secondary
-      ? `${tagTasteCopy(primary)}, layered repeatedly with ${tagTasteCopy(secondary).toLowerCase()}.`
-      : `${tagTasteCopy(primary)} appears most often in this collection.`;
+      ? `${tagTasteCopy(primary, isEnglish)}, layered repeatedly with ${tagTasteCopy(secondary, isEnglish).toLowerCase()}.`
+      : `${tagTasteCopy(primary, isEnglish)} appears most often in this collection.`;
   } else {
     title = secondary
-      ? `${styleTagLabel(primary)}${josa(TAG_LABEL_READINGS[primary], "을", "를")} 중심으로 ${styleTagLabel(secondary)}${josa(TAG_LABEL_READINGS[secondary], "을", "를")} 더한 취향`
-      : `${styleTagLabel(primary)}${josa(TAG_LABEL_READINGS[primary], "이", "가")} 두드러지는 취향`;
+      ? `${styleProfileLabels(primary, locale)}${josa(TAG_LABEL_READINGS[primary], "을", "를")} 중심으로 ${styleProfileLabels(secondary, locale)}${josa(TAG_LABEL_READINGS[secondary], "을", "를")} 더한 취향`
+      : `${styleProfileLabels(primary, locale)}${josa(TAG_LABEL_READINGS[primary], "이", "가")} 두드러지는 취향`;
     summaryCopy = secondary
       ? `${TAG_TASTE_COPY[primary]} 위에 ${TAG_TASTE_COPY[secondary]}${josa(TAG_TASTE_COPY[secondary], "이", "가")} 반복해서 쌓여 있습니다.`
       : `${TAG_TASTE_COPY[primary]}${josa(TAG_TASTE_COPY[primary], "이", "가")} 이 컬렉션에서 가장 자주 나타납니다.`;
