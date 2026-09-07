@@ -5,6 +5,8 @@ export interface PublicProfile {
   bio: string;
   avatarUrl: string | null;
   products: Product[];
+  closetIsPublic: boolean;
+  closetProducts?: Product[];
 }
 
 export function savedAt(product: Product): number {

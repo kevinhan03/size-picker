@@ -160,6 +160,7 @@ export function ProfileView({
             <button type="button" onClick={() => router.push("/sizes")}>
               {c.size}
             </button>
+            {discoveries}
             <button type="button" onClick={() => void share()}>
               {c.share}
             </button>
@@ -183,7 +184,9 @@ export function ProfileView({
           aria-labelledby="profile-taste-title"
         >
           <div className="profile-section-heading">
-            <h2 id="profile-taste-title">{c.taste}</h2>
+            <h2 id="profile-taste-title">
+              {`${profile.username}'s taste`}
+            </h2>
             <span className="profile-muted">
               {c.based} · {summary.taggedCount} {c.count}
             </span>
@@ -238,18 +241,7 @@ export function ProfileView({
               {c.details}
               <ArrowUpRight size={16} />
             </Link>
-          ) : (
-            interpretation && (
-              <details className="profile-public-details">
-                <summary>{c.details}</summary>
-                <p>
-                  {interpretation.axes
-                    .map((axis) => `${axis.title}: ${axis.label}`)
-                    .join(" / ")}
-                </p>
-              </details>
-            )
-          )}
+          ) : null}
           {!products.length && isOwner && (
             <Link href="/" className="profile-detail-link">
               {c.discovering}
@@ -353,16 +345,12 @@ export function ProfileView({
         >
           {isOwner ? (
             contentTab === "closet" && (
-              <>
               <ClosetCollectionContent initialProducts={initialCloset} active={contentTab === "closet"} />
-              {discoveries}
-              </>
             )
           ) : (
-            <div className="profile-private">
-              <LockKeyhole size={22} />
-              <p>{c.private}</p>
-            </div>
+            profile.closetIsPublic ? (
+              profile.closetProducts?.length ? <div className="profile-public-closet-grid">{profile.closetProducts.map((product) => <Link key={product.id} href={getProductPageUrl(product)}><img src={product.thumbnailImage || product.image || "/images/default-product.svg"} alt={`${product.brand} ${product.name}`} /><span>{product.brand}</span><strong>{product.name}</strong><small>{product.category}</small></Link>)}</div> : <p className="profile-posts-placeholder">{c.publicClosetEmpty}</p>
+            ) : <div className="profile-private"><LockKeyhole size={22} /><p>{c.private}</p></div>
           )}
         </section>
       </div>

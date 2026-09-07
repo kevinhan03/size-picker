@@ -84,7 +84,7 @@
 }
 .profile-owner-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
   margin: -0.75rem 0 1.875rem;
 }
@@ -93,6 +93,7 @@
 }
 .profile-actions button,
 .profile-owner-actions button,
+.profile-owner-actions a,
 .profile-editor button,
 .profile-dialog-heading button {
   min-height: 2.5rem;
@@ -106,6 +107,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  text-decoration: none;
   transition: transform var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out);
 }
 .profile-actions button:disabled,
@@ -301,9 +303,6 @@
   display: none !important;
 }
 .profile-content-tabs {
-  position: sticky;
-  top: var(--app-header-height);
-  z-index: 25;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border-top: 1px solid rgb(255 255 255 / 0.05);
@@ -345,6 +344,14 @@
 .profile-closet {
   padding: 0 0 2rem;
 }
+.profile-public-closet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; padding: 1rem 0 2rem; }
+.profile-public-closet-grid a { min-width: 0; overflow: hidden; border: 1px solid var(--surface-border); border-radius: .875rem; background: #111114; color: inherit; text-decoration: none; }
+.profile-public-closet-grid img { width: 100%; aspect-ratio: 1; display: block; object-fit: contain; background: #18181c; }
+.profile-public-closet-grid span, .profile-public-closet-grid strong, .profile-public-closet-grid small { display: block; overflow: hidden; padding: 0 .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.profile-public-closet-grid span { padding-top: .625rem; color: #fb923c; font-size: .6875rem; font-weight: 700; }
+.profile-public-closet-grid strong { margin-top: .25rem; color: #f4f4f6; font-size: .8125rem; }
+.profile-public-closet-grid small { padding-bottom: .75rem; margin-top: .375rem; color: #9898a2; font-size: .6875rem; }
+@media (min-width: 40rem) { .profile-public-closet-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .profile-closet > h2 {
   margin: 0;
   color: #f4f4f6;
@@ -622,6 +629,7 @@
 @media (hover: hover) and (pointer: fine) {
   .profile-actions button:hover,
   .profile-owner-actions button:hover,
+  .profile-owner-actions a:hover,
   .profile-editor button:hover,
   .profile-action-menu button:hover {
     background: #242429;

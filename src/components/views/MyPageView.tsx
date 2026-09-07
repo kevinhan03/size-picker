@@ -2,23 +2,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, Languages, LogOut, Pencil, Plus, Ruler, Search, Trash2, X } from "lucide-react";
-import type { DiscoveryProduct, MySizeInput, MySizeProfile, MySizeUpdateInput, Product } from "../../types";
+import { Check, ChevronDown, ChevronRight, Languages, LogOut, Pencil, Plus, Ruler, Trash2, X } from "lucide-react";
+import type { MySizeInput, MySizeProfile, MySizeUpdateInput, Product } from "../../types";
 import { OnboardingTutorial, type TutorialAnchorRect, type TutorialId } from "../OnboardingTutorial";
-import { getProductPageUrl } from "../../utils/product";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import { getAlternateLocale } from "../../i18n/locale";
 import { displayMeasurementLabel } from "../../utils/sizeTable";
 
 interface MyPageViewProps {
-  section?: "settings" | "discoveries";
-  discoveredProducts: DiscoveryProduct[];
-  discoveryTotalSaveCount: number;
-  isDiscoveriesLoading: boolean;
-  discoveriesError?: boolean;
-  onRetryDiscoveries?: () => void;
   onLogout: () => void;
   onDeleteAccount: () => void;
   isDeletingAccount: boolean;
@@ -101,7 +92,6 @@ export function MySizesManager({
   const [isAdding, setIsAdding] = useState(false);
   const [sourceProductId, setSourceProductId] = useState("");
   const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
-  const [pendingProductSelectionId, setPendingProductSelectionId] = useState<string | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [fitNote, setFitNote] = useState("");
   const [expandedProfileId, setExpandedProfileId] = useState<string | null>(null);
@@ -115,22 +105,14 @@ export function MySizesManager({
   const [isDeletingProfile, setIsDeletingProfile] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
+  const [openCategories, setOpenCategories] = useState<Set<string>>(
+    () => new Set(groupedProfiles[0] ? [groupedProfiles[0][0]] : [])
+  );
   const [activeTutorial, setActiveTutorial] = useState<{ id: TutorialId; anchorRect?: TutorialAnchorRect } | null>(null);
   const noteEditorRef = useRef<HTMLTextAreaElement>(null);
   const noteEditorTriggerRef = useRef<HTMLButtonElement>(null);
   const deleteCancelButtonRef = useRef<HTMLButtonElement>(null);
   const deleteTriggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!pendingProductSelectionId) return;
-    const timeoutId = window.setTimeout(() => {
-      setIsProductPickerOpen(false);
-      setProductSearchQuery("");
-      setPendingProductSelectionId(null);
-    }, 110);
-    return () => window.clearTimeout(timeoutId);
-  }, [pendingProductSelectionId]);
 
   const getAnchorRect = (element: Element): TutorialAnchorRect => {
     const rect = element.getBoundingClientRect();
@@ -176,7 +158,6 @@ export function MySizesManager({
   const resetForm = () => {
     setSourceProductId("");
     setIsProductPickerOpen(false);
-    setPendingProductSelectionId(null);
     setProductSearchQuery("");
     setFitNote("");
     setFormError(null);
@@ -193,15 +174,17 @@ export function MySizesManager({
     try {
       const snapshot = selectedProduct?.closetSelectedSizeSnapshot;
       if (!selectedProduct || !snapshot) throw new Error(t("mysize.selectRequiredError"));
+      const category = selectedProduct.category || "Item";
       await onCreateMySize({
         sourceProductId: selectedProduct.id,
         brand: selectedProduct.brand || null,
-        category: selectedProduct.category || "Item",
+        category,
         title: selectedProduct.name || selectedProduct.category || "My size",
         sizeLabel: selectedProduct.closetSelectedSizeLabel || snapshot.row[0] || null,
         measurementSnapshot: snapshot,
         fitNote: fitNote.trim() || null,
       });
+      setOpenCategories((previous) => new Set(previous).add(category));
       closeAddDialog();
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : t("mysize.saveError"));
@@ -291,7 +274,7 @@ export function MySizesManager({
             <Ruler className="h-4 w-4" />
           </span>
           <div>
-            <h2 id="my-size-title" className="text-lg font-black tracking-[-0.02em] text-white">{t("mysize.title")}</h2>
+            <h2 id="my-size-title" className="text-lg font-black tracking-[-0.02em] text-white">{t("mysize.workspaceTitle")}</h2>
             <p className="mt-0.5 text-xs font-medium text-gray-500">{t("mysize.description")}</p>
           </div>
         </div>
@@ -382,7 +365,6 @@ export function MySizesManager({
                       type="button"
                       onClick={() => {
                         setSourceProductId(product.id);
-                        setPendingProductSelectionId(product.id);
                       }}
                       className={`ui-my-size-pressable flex min-w-0 items-center gap-3 rounded-xl p-2 text-left transition-[background-color,transform] duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none ${
                         selected
@@ -684,37 +666,19 @@ export function MySizesManager({
 }
 
 export function MyPageView({
-  section = "settings",
-  discoveredProducts,
-  discoveryTotalSaveCount,
-  isDiscoveriesLoading,
-  discoveriesError = false,
-  onRetryDiscoveries,
   onLogout,
   onDeleteAccount,
   isDeletingAccount,
   deleteAccountError,
 }: MyPageViewProps) {
-  const pathname = usePathname();
   const { locale, setLocale, t } = useLocaleContext();
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [isDiscoveriesOpen, setIsDiscoveriesOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const discoveriesTriggerRef = useRef<HTMLButtonElement>(null);
-  const discoveriesCloseButtonRef = useRef<HTMLButtonElement>(null);
-  const isProductDetailOpen = pathname.startsWith("/product/");
   const alternateLocale = getAlternateLocale(locale);
   const alternateLocaleLabel = alternateLocale === "en" ? "English" : "한국어";
   const deleteConfirmationWord = locale === "en" ? "delete" : "삭제";
   const canConfirmDelete = deleteConfirmText.trim().toLowerCase() === deleteConfirmationWord;
-  const sortedDiscoveredProducts = useMemo(
-    () => discoveredProducts
-      .map((product, index) => ({ product, index }))
-      .sort((left, right) => right.product.saveCount - left.product.saveCount || left.index - right.index)
-      .map(({ product }) => product),
-    [discoveredProducts]
-  );
 
   const closeDeleteConfirm = () => {
     if (isDeletingAccount) return;
@@ -722,44 +686,10 @@ export function MyPageView({
     setDeleteConfirmText("");
   };
 
-  useEffect(() => {
-    if (!isDiscoveriesOpen) return;
-    const trigger = discoveriesTriggerRef.current;
-    const frameId = window.requestAnimationFrame(() => discoveriesCloseButtonRef.current?.focus());
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      trigger?.focus();
-    };
-  }, [isDiscoveriesOpen]);
-
   return (
     <>
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 sm:gap-9">
-      {section === "discoveries" && <section className={`${primaryCardClass} min-w-0 overflow-hidden p-4 sm:p-5`} aria-labelledby="discoveries-title">
-        <div className="mb-5 flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.045] text-gray-300">
-            <Search className="h-4 w-4" />
-          </span>
-          <div>
-            <h2 id="discoveries-title" className="text-lg font-black tracking-[-0.02em] text-white">{t("discoveries.title")}</h2>
-            <p className="mt-0.5 text-xs font-medium text-gray-500">{t("discoveries.description")}</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          ref={discoveriesTriggerRef}
-          onClick={() => setIsDiscoveriesOpen(true)}
-          className="flex w-full items-center justify-between rounded-lg px-1 py-4 text-left transition-[background-color,transform] duration-150 hover:bg-white/[0.035] active:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
-        >
-          <span className="min-w-0">
-            <span className="block text-sm font-black text-white">{t("discoveries.viewAll")}</span>
-            <span className="mt-0.5 block text-xs font-semibold text-gray-500">{isDiscoveriesLoading ? t("discoveries.loading") : discoveriesError ? t("discoveries.loadError") : t("discoveries.summary", { products: discoveredProducts.length, saves: discoveryTotalSaveCount })}</span>
-          </span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-gray-600" />
-        </button>
-      </section>}
-
-      {section === "settings" && <section aria-labelledby="account-settings-title">
+      <section aria-labelledby="account-settings-title">
         <h2 id="account-settings-title" className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gray-500">{t("mypage.account")}</h2>
         <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#111114]">
           <button
@@ -808,7 +738,7 @@ export function MyPageView({
           </button>
         </div>
         {deleteAccountError && <p className="mt-3 text-sm font-semibold text-red-300">{deleteAccountError}</p>}
-      </section>}
+      </section>
     </div>
     {isLogoutConfirmOpen && (
       <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
@@ -889,46 +819,6 @@ export function MyPageView({
             >
               {isDeletingAccount ? t("mypage.deleting") : t("mypage.deleteAccount")}
             </button>
-          </div>
-        </div>
-      </div>
-    )}
-    {isDiscoveriesOpen && (
-      <div
-        className="fixed inset-0 z-[64] flex items-end justify-center bg-black/75 px-4 py-4 backdrop-blur-sm sm:items-center sm:py-8"
-        role="dialog"
-        aria-hidden={isProductDetailOpen}
-        aria-modal={isProductDetailOpen ? undefined : "true"}
-        aria-label={t("discoveries.performance")}
-        inert={isProductDetailOpen}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            setIsDiscoveriesOpen(false);
-            return;
-          }
-          trapDialogFocus(event);
-        }}
-      >
-        <div className="my-discoveries-panel flex max-h-[min(780px,calc(100vh-2rem))] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#151518] shadow-[0_24px_64px_rgba(0,0,0,0.68)]">
-          <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
-            <div><p className="text-xs font-bold uppercase text-orange-300">MY DISCOVERIES</p><h2 className="mt-1 text-lg font-black text-white">{t("discoveries.performance")}</h2></div>
-            <button ref={discoveriesCloseButtonRef} type="button" onClick={() => setIsDiscoveriesOpen(false)} aria-label={t("discoveries.closeAria")} className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-gray-400 transition hover:border-white/30 hover:text-white"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
-            {isDiscoveriesLoading ? <p className="py-12 text-center text-sm font-semibold text-gray-500">{t("discoveries.loadingItems")}</p> : discoveredProducts.length ? (
-              <>
-                <div className="mb-5 grid grid-cols-2 gap-2 sm:gap-3">
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-gray-500">{t("discoveries.statDiscovered")}</p><p className="mt-1 text-xl font-black tracking-[-0.02em] text-white">{discoveredProducts.length}{locale === "ko" && <span className="ml-1 text-sm text-gray-400">개</span>}</p></div>
-                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/[0.08] px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-orange-200/80">{t("discoveries.statOtherSaves")}</p><p className="mt-1 text-xl font-black tracking-[-0.02em] text-orange-100">{discoveryTotalSaveCount}{locale === "ko" && <span className="ml-1 text-sm text-orange-200/80">회</span>}</p></div>
-                </div>
-                <p className="mb-3 text-xs font-semibold text-gray-500">{t("discoveries.sortedBySaves")}</p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {/* eslint-disable-next-line @next/next/no-img-element -- Preserve native loading for the existing discovery thumbnails. */}
-                {sortedDiscoveredProducts.map((product) => <Link key={product.id} href={getProductPageUrl(product)} className="group min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] no-underline transition hover:border-orange-400/60"><div className="aspect-square bg-white/[0.04]"><img src={product.thumbnailImage || product.image} alt={product.name} className="h-full w-full object-contain transition duration-[var(--duration-layer-enter)] group-hover:scale-[1.03]" /></div><div className="min-w-0 p-3"><p className="truncate text-[11px] font-bold uppercase text-orange-300">{product.brand}</p><p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{product.name}</p><p className={`mt-2 text-xs font-black ${product.saveCount > 0 ? "text-orange-200" : "text-gray-500"}`}>{product.saveCount > 0 ? t("discoveries.savedByCount", { count: product.saveCount }) : t("discoveries.savedByNone")}</p></div></Link>)}
-              </div>
-              </>
-            ) : discoveriesError ? <div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-gray-600" /><p className="mt-3 text-sm font-bold text-gray-300">{t("discoveries.loadError")}</p>{onRetryDiscoveries && <button type="button" onClick={onRetryDiscoveries} className="mt-4 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-white/30 hover:text-white">{t("common.retry")}</button>}</div> : <div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-gray-600" /><p className="mt-3 text-sm font-bold text-gray-300">{t("discoveries.empty")}</p></div>}
           </div>
         </div>
       </div>

@@ -1,12 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import { getInitialAuthState } from "../../server/auth/user-session";
 import {
   getDigboxProducts,
 } from "../../server/services/user-collections";
 import {
   getProfileIdentityByUsername,
+  getPublicClosetProducts,
   getPublicProfileProducts,
 } from "../../server/services/profile";
 import { PublicProfileClient } from "../../src/components/profile/PublicProfileClient";
@@ -15,14 +15,6 @@ import { MyPageClient } from "../../src/components/pages/MyPageClient";
 interface Props {
   params: Promise<{ username: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-function getCachedProfileIdentity(username: string) {
-  return unstable_cache(
-    () => getProfileIdentityByUsername(username),
-    ["public-profile-identity-v1", username],
-    { revalidate: 60, tags: ["public-digbox"] }
-  )();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -42,7 +34,7 @@ export default async function PublicProfilePage({
   const resolvedSearchParams = await searchParams;
   const name = username.trim().toLowerCase();
   const [identity, auth] = await Promise.all([
-    getCachedProfileIdentity(name),
+    getProfileIdentityByUsername(name),
     getInitialAuthState(),
   ]);
 
@@ -77,15 +69,14 @@ export default async function PublicProfilePage({
     );
   }
 
-  const products = await unstable_cache(
-    () => getPublicProfileProducts(identity.id),
-    ["public-profile-products-v1", identity.id],
-    { revalidate: 60, tags: ["public-digbox"] }
-  )();
+  const [products, closetProducts] = await Promise.all([
+    getPublicProfileProducts(identity.id),
+    identity.closetIsPublic ? getPublicClosetProducts(identity.id) : Promise.resolve([]),
+  ]);
 
   return (
     <PublicProfileClient
-      profile={{ ...identity, products }}
+      profile={{ ...identity, products, closetProducts }}
       initialContentTab={initialContentTab}
     />
   );
