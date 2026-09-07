@@ -7,7 +7,7 @@ import { getClosetProducts, getMySizes } from "../../server/services/user-collec
 import { buildLoginHref } from "../../src/utils/authNavigation";
 
 export const metadata: Metadata = {
-  title: "내 기준 사이즈 관리 | DIGBOX",
+  title: "마이 사이즈 | DIGBOX",
   robots: { index: false, follow: false },
 };
 export const dynamic = "force-dynamic";

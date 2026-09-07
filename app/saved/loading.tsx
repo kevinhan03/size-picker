@@ -4,5 +4,5 @@ import { translate } from "../../src/i18n/messages";
 
 export default async function Loading() {
   const locale = await getRequestLocale();
-  return <CollectionLoadingSkeleton eyebrow="SAVED ITEMS" title={translate(locale, "saved.title")} locale={locale} />;
+  return <CollectionLoadingSkeleton eyebrow="MY SAVED" title={translate(locale, "saved.title")} locale={locale} />;
 }

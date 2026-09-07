@@ -1,12 +1,20 @@
 import { supabase, assertSupabaseConfig } from "../lib/supabase.js";
 import { SUPABASE_STORAGE_BUCKET } from "../config/env.js";
-import { getDigboxProducts } from "./user-collections";
 import {
   publicProfileProduct,
   type PublicProfile,
 } from "../../src/utils/profile";
+import { normalizeClientProduct } from "./catalog";
+import type { Product } from "../../src/types";
 
-export async function getProfileIdentity(userId: string) {
+export type ProfileIdentity = {
+  id: string;
+  username: string;
+  bio: string;
+  avatarUrl: string | null;
+};
+
+export async function getProfileIdentity(userId: string): Promise<ProfileIdentity> {
   assertSupabaseConfig();
   const { data, error } = await supabase!
     .from("users")
@@ -15,6 +23,7 @@ export async function getProfileIdentity(userId: string) {
     .single();
   if (error) throw error;
   return {
+    id: userId,
     username: String(data.username),
     bio: String(data.bio || ""),
     avatarUrl: data.avatar_path
@@ -25,32 +34,59 @@ export async function getProfileIdentity(userId: string) {
   };
 }
 
-export async function getPublicProfile(
+/** Resolves a current or still-active former username without loading a collection. */
+export async function getProfileIdentityByUsername(
   username: string
-): Promise<PublicProfile | null> {
+): Promise<ProfileIdentity | null> {
   assertSupabaseConfig();
   const literalName = username.replace(/[\\%_]/g, "\\$&");
   const { data, error } = await supabase!
     .from("users")
-    .select("id")
+    .select("id,username,bio,avatar_path")
     .ilike("username", literalName)
     .maybeSingle();
   if (error) throw error;
-  let userId = data?.id;
-  if (!userId) {
-    const { data: alias, error: aliasError } = await supabase!
-      .from("username_aliases")
-      .select("user_id")
-      .eq("username", username.toLowerCase())
-      .gt("available_at", new Date().toISOString())
-      .maybeSingle();
-    if (aliasError) throw aliasError;
-    userId = alias?.user_id;
+
+  if (data?.id) {
+    return {
+      id: String(data.id),
+      username: String(data.username),
+      bio: String(data.bio || ""),
+      avatarUrl: data.avatar_path
+        ? supabase!.storage
+            .from(SUPABASE_STORAGE_BUCKET)
+            .getPublicUrl(data.avatar_path).data.publicUrl
+        : null,
+    };
   }
-  if (!userId) return null;
-  const [identity, saved] = await Promise.all([
-    getProfileIdentity(userId),
-    getDigboxProducts(userId),
-  ]);
-  return { ...identity, products: saved.products.map(publicProfileProduct) };
+
+  const { data: alias, error: aliasError } = await supabase!
+    .from("username_aliases")
+    .select("user_id")
+    .eq("username", username.toLowerCase())
+    .gt("available_at", new Date().toISOString())
+    .maybeSingle();
+  if (aliasError) throw aliasError;
+  return alias?.user_id ? getProfileIdentity(String(alias.user_id)) : null;
+}
+
+/** Loads only fields that are safe and necessary to render a public profile. */
+export async function getPublicProfileProducts(userId: string): Promise<Product[]> {
+  assertSupabaseConfig();
+  const { data, error } = await supabase!.rpc("get_public_profile_products", {
+    target_user_id: userId,
+  });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : [])
+    .map(normalizeClientProduct)
+    .filter((product): product is Product => Boolean(product));
+}
+
+export async function getPublicProfile(
+  username: string
+): Promise<PublicProfile | null> {
+  const identity = await getProfileIdentityByUsername(username);
+  if (!identity) return null;
+  const products = await getPublicProfileProducts(identity.id);
+  return { ...identity, products: products.map(publicProfileProduct) };
 }

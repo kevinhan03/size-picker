@@ -17,6 +17,8 @@ interface MyPageViewProps {
   discoveredProducts: DiscoveryProduct[];
   discoveryTotalSaveCount: number;
   isDiscoveriesLoading: boolean;
+  discoveriesError?: boolean;
+  onRetryDiscoveries?: () => void;
   onLogout: () => void;
   onDeleteAccount: () => void;
   isDeletingAccount: boolean;
@@ -289,7 +291,7 @@ export function MySizesManager({
             <Ruler className="h-4 w-4" />
           </span>
           <div>
-            <h2 id="my-size-title" className="text-lg font-black tracking-[-0.02em] text-white">My Size</h2>
+            <h2 id="my-size-title" className="text-lg font-black tracking-[-0.02em] text-white">{t("mysize.title")}</h2>
             <p className="mt-0.5 text-xs font-medium text-gray-500">{t("mysize.description")}</p>
           </div>
         </div>
@@ -686,6 +688,8 @@ export function MyPageView({
   discoveredProducts,
   discoveryTotalSaveCount,
   isDiscoveriesLoading,
+  discoveriesError = false,
+  onRetryDiscoveries,
   onLogout,
   onDeleteAccount,
   isDeletingAccount,
@@ -749,7 +753,7 @@ export function MyPageView({
         >
           <span className="min-w-0">
             <span className="block text-sm font-black text-white">{t("discoveries.viewAll")}</span>
-            <span className="mt-0.5 block text-xs font-semibold text-gray-500">{isDiscoveriesLoading ? t("discoveries.loading") : t("discoveries.summary", { products: discoveredProducts.length, saves: discoveryTotalSaveCount })}</span>
+            <span className="mt-0.5 block text-xs font-semibold text-gray-500">{isDiscoveriesLoading ? t("discoveries.loading") : discoveriesError ? t("discoveries.loadError") : t("discoveries.summary", { products: discoveredProducts.length, saves: discoveryTotalSaveCount })}</span>
           </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-gray-600" />
         </button>
@@ -924,7 +928,7 @@ export function MyPageView({
                 {sortedDiscoveredProducts.map((product) => <Link key={product.id} href={getProductPageUrl(product)} className="group min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] no-underline transition hover:border-orange-400/60"><div className="aspect-square bg-white/[0.04]"><img src={product.thumbnailImage || product.image} alt={product.name} className="h-full w-full object-contain transition duration-[var(--duration-layer-enter)] group-hover:scale-[1.03]" /></div><div className="min-w-0 p-3"><p className="truncate text-[11px] font-bold uppercase text-orange-300">{product.brand}</p><p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{product.name}</p><p className={`mt-2 text-xs font-black ${product.saveCount > 0 ? "text-orange-200" : "text-gray-500"}`}>{product.saveCount > 0 ? t("discoveries.savedByCount", { count: product.saveCount }) : t("discoveries.savedByNone")}</p></div></Link>)}
               </div>
               </>
-            ) : <div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-gray-600" /><p className="mt-3 text-sm font-bold text-gray-300">{t("discoveries.empty")}</p></div>}
+            ) : discoveriesError ? <div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-gray-600" /><p className="mt-3 text-sm font-bold text-gray-300">{t("discoveries.loadError")}</p>{onRetryDiscoveries && <button type="button" onClick={onRetryDiscoveries} className="mt-4 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-gray-300 transition hover:border-white/30 hover:text-white">{t("common.retry")}</button>}</div> : <div className="py-12 text-center"><Search className="mx-auto h-7 w-7 text-gray-600" /><p className="mt-3 text-sm font-bold text-gray-300">{t("discoveries.empty")}</p></div>}
           </div>
         </div>
       </div>

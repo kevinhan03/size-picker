@@ -3,17 +3,26 @@ import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { getInitialAuthState } from "../../server/auth/user-session";
 import {
-  getClosetProducts,
   getDigboxProducts,
-  getUserDiscoveries,
 } from "../../server/services/user-collections";
-import { getPublicProfile } from "../../server/services/profile";
+import {
+  getProfileIdentityByUsername,
+  getPublicProfileProducts,
+} from "../../server/services/profile";
 import { PublicProfileClient } from "../../src/components/profile/PublicProfileClient";
 import { MyPageClient } from "../../src/components/pages/MyPageClient";
 
 interface Props {
   params: Promise<{ username: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function getCachedProfileIdentity(username: string) {
+  return unstable_cache(
+    () => getProfileIdentityByUsername(username),
+    ["public-profile-identity-v1", username],
+    { revalidate: 60, tags: ["public-digbox"] }
+  )();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -32,50 +41,52 @@ export default async function PublicProfilePage({
   const { username } = await params;
   const resolvedSearchParams = await searchParams;
   const name = username.trim().toLowerCase();
-  const profile = await unstable_cache(
-    () => getPublicProfile(name),
-    ["public-profile-v2", name],
-    { revalidate: 60, tags: ["public-digbox"] }
-  )();
+  const [identity, auth] = await Promise.all([
+    getCachedProfileIdentity(name),
+    getInitialAuthState(),
+  ]);
 
-  if (!profile) notFound();
+  if (!identity) notFound();
 
-  if (profile.username.toLowerCase() !== name) {
+  if (identity.username.toLowerCase() !== name) {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(resolvedSearchParams)) {
       if (Array.isArray(value)) value.forEach((item) => query.append(key, item));
       else if (value !== undefined) query.set(key, value);
     }
     redirect(
-      `/${encodeURIComponent(profile.username)}${query.size ? `?${query}` : ""}`
+      `/${encodeURIComponent(identity.username)}${query.size ? `?${query}` : ""}`
     );
   }
 
-  const auth = await getInitialAuthState();
   const initialContentTab = resolvedSearchParams.tab === "closet" ? "closet" : "posts";
   const isOwner = Boolean(
     auth.user?.id &&
-      auth.username?.toLowerCase() === profile.username.toLowerCase()
+      auth.username?.toLowerCase() === identity.username.toLowerCase()
   );
 
   if (isOwner && auth.user) {
-    const [closet, discovery, saved] = await Promise.all([
-      getClosetProducts(auth.user.id),
-      getUserDiscoveries(auth.user.id),
-      getDigboxProducts(auth.user.id),
-    ]);
+    const saved = await getDigboxProducts(auth.user.id);
     return (
       <MyPageClient
         ownerId={auth.user.id}
-        initialCloset={closet}
         initialCounts={saved.discoveredDigboxCounts}
-        profile={{ ...profile, products: saved.products }}
-        initialDiscoveries={discovery.products}
-        initialDiscoveryTotalSaveCount={discovery.totalSaveCount}
+        profile={{ ...identity, products: saved.products }}
         initialContentTab={initialContentTab}
       />
     );
   }
 
-  return <PublicProfileClient profile={profile} initialContentTab={initialContentTab} />;
+  const products = await unstable_cache(
+    () => getPublicProfileProducts(identity.id),
+    ["public-profile-products-v1", identity.id],
+    { revalidate: 60, tags: ["public-digbox"] }
+  )();
+
+  return (
+    <PublicProfileClient
+      profile={{ ...identity, products }}
+      initialContentTab={initialContentTab}
+    />
+  );
 }

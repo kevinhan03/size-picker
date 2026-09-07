@@ -1,19 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
-  current: null as { id: string } | null,
+  current: null as { id: string; username?: string; bio?: string; avatar_path?: string | null } | null,
   alias: null as { user_id: string } | null,
   error: null as Error | null,
   tables: vi.fn(),
   pattern: vi.fn(),
-  saved: vi.fn(),
+  publicProducts: vi.fn(),
 }));
-vi.mock("./user-collections", () => ({ getDigboxProducts: state.saved }));
 vi.mock("../config/env.js", () => ({
   SUPABASE_STORAGE_BUCKET: "product-assets",
 }));
 vi.mock("../lib/supabase.js", () => ({
   assertSupabaseConfig: vi.fn(),
   supabase: {
+    rpc: (name: string, args: Record<string, unknown>) => {
+      state.tables(`rpc:${name}`);
+      return state.publicProducts(args);
+    },
     from: (table: string) => {
       state.tables(table);
       const query = {
@@ -44,11 +47,11 @@ vi.mock("../lib/supabase.js", () => ({
 import { getPublicProfile } from "./profile";
 beforeEach(() => {
   vi.clearAllMocks();
-  state.current = { id: "owner" };
+  state.current = { id: "owner", username: "current_name", bio: "Public bio", avatar_path: null };
   state.alias = null;
   state.error = null;
-  state.saved.mockResolvedValue({
-    products: [
+  state.publicProducts.mockResolvedValue({
+    data: [
       {
         id: "item",
         brand: "Brand",
@@ -56,20 +59,20 @@ beforeEach(() => {
         category: "Top",
         url: "",
         image: "",
-        digboxSizeDecision: { note: "PRIVATE_FIT" },
-        closetSelectedSizeLabel: "PRIVATE_SIZE",
+        size_decision_note: "PRIVATE_FIT",
+        discovered_save_count: 77,
       },
     ],
-    discoveredDigboxCounts: { item: 77 },
+    error: null,
   });
 });
 describe("public profile service", () => {
-  it("only loads public identity and saved products, never closet or my sizes", async () => {
+  it("only loads public identity and the dedicated public-product RPC", async () => {
     const result = await getPublicProfile("current_name");
-    expect(state.saved).toHaveBeenCalledWith("owner");
-    expect(state.tables.mock.calls.flat()).toEqual(["users", "users"]);
+    expect(state.publicProducts).toHaveBeenCalledWith({ target_user_id: "owner" });
+    expect(state.tables.mock.calls.flat()).toEqual(["users", "rpc:get_public_profile_products"]);
     expect(JSON.stringify(result)).not.toMatch(
-      /PRIVATE_|discoveredDigboxCounts|closetSelected|digboxSizeDecision/
+      /discoveredDigboxCounts|closetSelected|digboxSizeDecision|size_decision/
     );
     expect(result?.username).toBe("current_name");
     expect(state.pattern).toHaveBeenCalledWith("current\\_name");
@@ -78,12 +81,12 @@ describe("public profile service", () => {
     state.current = null;
     state.alias = { user_id: "renamed-owner" };
     expect((await getPublicProfile("former"))?.username).toBe("current_name");
-    expect(state.saved).toHaveBeenCalledWith("renamed-owner");
+    expect(state.publicProducts).toHaveBeenCalledWith({ target_user_id: "renamed-owner" });
   });
   it("returns not found when neither a current name nor an active alias exists", async () => {
     state.current = null;
     expect(await getPublicProfile("missing")).toBeNull();
-    expect(state.saved).not.toHaveBeenCalled();
+    expect(state.publicProducts).not.toHaveBeenCalled();
   });
   it("propagates a read error instead of presenting an empty profile", async () => {
     state.error = new Error("database unavailable");

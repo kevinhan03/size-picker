@@ -1,8 +1,7 @@
-import { CollectionLoadingSkeleton } from "../../src/components/CollectionLoadingSkeleton";
+import { ProfileLoadingSkeleton } from "../../src/components/ProfileLoadingSkeleton";
 import { getRequestLocale } from "../../server/utils/locale";
-import { translate } from "../../src/i18n/messages";
 
 export default async function Loading() {
   const locale = await getRequestLocale();
-  return <CollectionLoadingSkeleton eyebrow="SAVED ITEMS" title={translate(locale, "saved.title")} locale={locale} />;
+  return <ProfileLoadingSkeleton locale={locale} />;
 }

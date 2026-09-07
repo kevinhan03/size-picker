@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Product and uploaded profile images use native fallbacks. */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, LockKeyhole, Settings, Share2 } from "lucide-react";
@@ -16,10 +17,20 @@ import {
 } from "../../utils/styleProfile";
 import { profileActivity, type PublicProfile } from "../../utils/profile";
 import { getProductPageUrl } from "../../utils/product";
-import { ClosetCollectionContent } from "../collections/ClosetCollectionContent";
 import type { Product } from "../../types";
 import { profileMessages } from "./messages";
 import "./profile.css";
+
+const ClosetCollectionContent = dynamic(
+  () =>
+    import("../collections/ClosetCollectionContent").then(
+      (module) => module.ClosetCollectionContent
+    ),
+  {
+    ssr: false,
+    loading: () => <div aria-busy="true" className="profile-posts-placeholder" />,
+  }
+);
 
 export function ProfileView({
   profile,
@@ -107,8 +118,21 @@ export function ProfileView({
               </span>
             )}
             <div className="min-w-0">
-              <span className="profile-eyebrow">TASTE ARCHIVE</span>
               <h1>{profile.username}</h1>
+              <dl className="profile-stats">
+                <div>
+                  <dt>{c.posts}</dt>
+                  <dd>0</dd>
+                </div>
+                <div>
+                  <dt>{c.followers}</dt>
+                  <dd>0</dd>
+                </div>
+                <div>
+                  <dt>{c.following}</dt>
+                  <dd>0</dd>
+                </div>
+              </dl>
               <p className="profile-bio">{bio || c.intro}</p>
             </div>
           </div>
@@ -328,10 +352,12 @@ export function ProfileView({
           className="profile-closet"
         >
           {isOwner ? (
-            <>
+            contentTab === "closet" && (
+              <>
               <ClosetCollectionContent initialProducts={initialCloset} active={contentTab === "closet"} />
               {discoveries}
-            </>
+              </>
+            )
           ) : (
             <div className="profile-private">
               <LockKeyhole size={22} />

@@ -38,19 +38,35 @@
   font-size: 2.125rem;
   font-weight: 600;
 }
-.profile-eyebrow {
-  font-size: 0.625rem;
-  letter-spacing: 0.18em;
-  color: #a28e7b;
-  font-weight: 600;
-}
 .profile-heading h1 {
   font-size: clamp(1.5rem, 2.4vw, 1.75rem);
   line-height: 1.15;
   font-weight: 650;
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
-  margin: 0.3125rem 0 0.5rem;
+  margin: 0 0 0.5rem;
+}
+.profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem;
+  color: #a9a9b1;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+.profile-stats div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+.profile-stats dt {
+  font-weight: 500;
+}
+.profile-stats dd {
+  margin: 0;
+  color: #f2f2f4;
+  font-weight: 750;
 }
 .profile-bio {
   font-size: 0.875rem;
