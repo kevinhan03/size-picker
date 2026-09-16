@@ -1,10 +1,12 @@
 import type { Product } from "../types";
+import type { TasteSignature } from "./tasteSignature";
 
 export interface PublicProfile {
   username: string;
   bio: string;
   avatarUrl: string | null;
   products: Product[];
+  tasteSignature: TasteSignature | null;
   closetIsPublic: boolean;
   closetProducts?: Product[];
 }

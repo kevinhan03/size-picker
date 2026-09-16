@@ -6,6 +6,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function OutfitExplorerPage() {
-  return <OutfitExplorerPageClient />;
+export default async function OutfitExplorerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ feed?: string }>;
+}) {
+  return (
+    <OutfitExplorerPageClient
+      initialFollowing={(await searchParams).feed === "following"}
+    />
+  );
 }

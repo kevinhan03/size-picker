@@ -248,7 +248,7 @@ export const messages = {
     "discoveries.description": "직접 찾아 저장한 상품",
     "discoveries.viewAll": "발굴한 상품 전체보기",
     "discoveries.loading": "불러오는 중",
-    "discoveries.performance": "발굴 성과",
+    "discoveries.performance": "디깅 성과",
     "discoveries.pageDescription": "내가 먼저 발견한 아이템들이 다른 사람의 옷장에 담겼어요.",
     "discoveries.itemsHeading": "내가 발굴한 아이템",
     "discoveries.backToProfile": "프로필로 돌아가기",

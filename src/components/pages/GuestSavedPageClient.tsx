@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Star, Trash2 } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Product, StyleTagName } from "../../types";
@@ -13,6 +13,9 @@ import { requestGuestDigboxImport } from "../../utils/guestDigbox";
 import { getEffectiveStyleTags, normalizeStyleTags, styleTagLabel } from "../../utils/tasteGraph";
 import { PageHeader } from "../PageHeader";
 import { ProgressiveImage } from "../ProgressiveImage";
+import { SocialTabs } from "../social/SocialTabs";
+import { useSocialMessages } from "../social/messages";
+import "../social/social.css";
 
 function getProductStyleShares(product: Product) {
   const tags = normalizeStyleTags(getEffectiveStyleTags(product).tags);
@@ -36,6 +39,8 @@ function getTasteShares(products: Product[]) {
 export function GuestSavedPageClient() {
   const router = useRouter();
   const { t } = useLocaleContext();
+  const c = useSocialMessages();
+  const [tab, setTab] = useState<"products" | "posts">("products");
   const auth = useAuthContext();
   const digbox = useDigboxContext();
   const tasteSignals = useMemo(() => getTasteShares(digbox.guestProducts).slice(0, 3), [digbox.guestProducts]);
@@ -73,6 +78,9 @@ export function GuestSavedPageClient() {
     <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto w-full max-w-[70rem]">
         <PageHeader eyebrow="MY SAVED" title={title} description={description} />
+        <SocialTabs label={t("saved.title")} value={tab} options={[{value:"products",label:c.savedProducts},{value:"posts",label:c.savedPosts}]} onChange={setTab}/>
+        {tab === "posts" && <div className="social-empty"><p>{c.emptySaved}</p><Link className="social-button social-primary" href={buildLoginHref("login", "/saved?tab=posts", "saved")}>{c.login}</Link></div>}
+        <div hidden={tab !== "products"}>
         <section className="mt-[var(--page-header-content-gap)] rounded-2xl border border-white/[0.1] bg-[#141416] px-5 py-5 sm:px-6 lg:px-8" aria-label={t("guestSaved.progressAria")}>
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">
@@ -99,6 +107,7 @@ export function GuestSavedPageClient() {
         {digbox.guestProducts.length > 0 && <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label={t("guestSaved.tempSavedProductsAria")}>
           {digbox.guestProducts.map((product) => <div key={product.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3"><div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white/[0.05]"><ProgressiveImage src={product.thumbnailImage || product.image} thumbnailSrc={product.thumbnailImage} alt={product.name} className="object-contain" /></div><div className="min-w-0 flex-1"><p className="truncate text-[11px] font-extrabold uppercase tracking-wide text-orange-400">{product.brand}</p><p className="truncate text-sm font-bold text-white">{product.name}</p>{productStyleShares.get(product.id)?.length ? <p className="mt-1 truncate text-xs font-semibold text-sky-200">{productStyleShares.get(product.id)!.map(({ tag, share }) => `${styleTagLabel(tag)} ${share}%`).join(" · ")}</p> : null}</div><button type="button" onClick={() => digbox.removeGuestItem(product.id)} aria-label={t("guestTaste.remove", { product: product.name })} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-[background-color,color,transform] duration-[var(--duration-press)] [transition-timing-function:var(--ease-press)] hover:bg-red-500/10 hover:text-red-300 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/70"><Trash2 className="h-4 w-4" /></button></div>)}
         </section>}
+        </div>
       </div>
     </main>
   );

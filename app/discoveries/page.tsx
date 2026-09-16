@@ -6,7 +6,7 @@ import { getUserDiscoveries } from "../../server/services/user-collections";
 import { buildLoginHref } from "../../src/utils/authNavigation";
 
 export const metadata: Metadata = {
-  title: "발굴 성과 | DIGBOX",
+  title: "디깅 성과 | DIGBOX",
   robots: { index: false, follow: false },
 };
 

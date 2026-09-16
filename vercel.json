@@ -3,6 +3,10 @@
   "regions": ["icn1"],
   "crons": [
     {
+      "path": "/api/cron/cleanup-social",
+      "schedule": "37 3 * * *"
+    },
+    {
       "path": "/api/cron/cleanup-unregistered-google",
       "schedule": "17 3 * * *"
     }

@@ -3,12 +3,14 @@ import type { Metadata } from "next";
 import { getInitialAuthState } from "../../server/auth/user-session";
 import {
   getDigboxProducts,
+  getClosetProducts,
 } from "../../server/services/user-collections";
 import {
   getProfileIdentityByUsername,
   getPublicClosetProducts,
-  getPublicProfileProducts,
+  getProfileTasteSignature,
 } from "../../server/services/profile";
+import { createTasteSignature } from "../../src/utils/tasteSignature";
 import { PublicProfileClient } from "../../src/components/profile/PublicProfileClient";
 import { MyPageClient } from "../../src/components/pages/MyPageClient";
 
@@ -58,25 +60,28 @@ export default async function PublicProfilePage({
   );
 
   if (isOwner && auth.user) {
-    const saved = await getDigboxProducts(auth.user.id);
+    const [saved, closet] = await Promise.all([
+      getDigboxProducts(auth.user.id),
+      getClosetProducts(auth.user.id),
+    ]);
     return (
       <MyPageClient
         ownerId={auth.user.id}
         initialCounts={saved.discoveredDigboxCounts}
-        profile={{ ...identity, products: saved.products }}
+        profile={{ ...identity, products: saved.products, tasteSignature: createTasteSignature(saved.products, closet) }}
         initialContentTab={initialContentTab}
       />
     );
   }
 
-  const [products, closetProducts] = await Promise.all([
-    getPublicProfileProducts(identity.id),
+  const [tasteSignature, closetProducts] = await Promise.all([
+    getProfileTasteSignature(identity.id),
     identity.closetIsPublic ? getPublicClosetProducts(identity.id) : Promise.resolve([]),
   ]);
 
   return (
     <PublicProfileClient
-      profile={{ ...identity, products, closetProducts }}
+      profile={{ ...identity, products: [], tasteSignature, closetProducts }}
       initialContentTab={initialContentTab}
     />
   );

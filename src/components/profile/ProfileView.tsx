@@ -4,22 +4,18 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, LockKeyhole, Settings, Share2 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, LockKeyhole, Settings, Share2, UserRound } from "lucide-react";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
-import {
-  computeTasteSummary,
-  describeTasteCollection,
-} from "../../utils/tasteGraph";
-import {
-  styleProfileLabels as styleTagLabel,
-  styleProfileVector,
-} from "../../utils/styleProfile";
+import { presentTasteSignature } from "../../utils/tasteSignature";
 import { profileActivity, type PublicProfile } from "../../utils/profile";
 import { getProductPageUrl } from "../../utils/product";
 import type { Product } from "../../types";
 import { profileMessages } from "./messages";
 import "./profile.css";
+import { SocialProfile } from "../social/SocialProfile";
+import { PostFeed } from "../social/PostFeed";
+import { CreatePostButton } from "../social/CreatePostButton";
 
 const ClosetCollectionContent = dynamic(
   () =>
@@ -63,25 +59,9 @@ export function ProfileView({
   }, [profile.bio, profile.avatarUrl]);
   const products =
     isOwner && isLoaded ? digbox.digboxProducts : profile.products;
-  const summary = useMemo(() => computeTasteSummary(products), [products]);
-  // The existing interpretation follows the active locale.
-  const interpretation = describeTasteCollection(products, summary, locale);
-  const representativeProducts = useMemo(() => {
-    const coreTags = summary.entries.slice(0, 3).map((entry) => entry.tag);
-    if (!coreTags.length) return [];
-    return products
-      .map((product) => {
-        const vector = styleProfileVector(product);
-        const score = vector
-          ? coreTags.reduce((sum, tag) => sum + Number(vector[tag] || 0), 0)
-          : 0;
-        return { product, score };
-      })
-      .filter(({ score }) => score > 0)
-      .sort((left, right) => right.score - left.score)
-      .slice(0, 4)
-      .map(({ product }) => product);
-  }, [products, summary.entries]);
+  const signature = profile.tasteSignature
+    ? presentTasteSignature(profile.tasteSignature, locale)
+    : null;
   const activity = useMemo(
     () => profileActivity(products, now),
     [products, now]
@@ -113,26 +93,13 @@ export function ProfileView({
                 onError={() => setAvatar(null)}
               />
             ) : (
-              <span className="profile-avatar" aria-hidden="true">
-                {profile.username.slice(0, 1).toUpperCase()}
+              <span className="profile-avatar profile-avatar-placeholder" aria-hidden="true">
+                <UserRound />
               </span>
             )}
             <div className="min-w-0">
               <h1>{profile.username}</h1>
-              <dl className="profile-stats">
-                <div>
-                  <dt>{c.posts}</dt>
-                  <dd>0</dd>
-                </div>
-                <div>
-                  <dt>{c.followers}</dt>
-                  <dd>0</dd>
-                </div>
-                <div>
-                  <dt>{c.following}</dt>
-                  <dd>0</dd>
-                </div>
-              </dl>
+              <SocialProfile username={profile.username} />
               <p className="profile-bio">{bio || c.intro}</p>
             </div>
           </div>
@@ -179,77 +146,27 @@ export function ProfileView({
             </button>
           </p>
         )}
-        <section
-          className="profile-taste"
-          aria-labelledby="profile-taste-title"
-        >
-          <div className="profile-section-heading">
-            <h2 id="profile-taste-title">
-              {`${profile.username}'s taste`}
-            </h2>
-            <span className="profile-muted">
-              {c.based} · {summary.taggedCount} {c.count}
-            </span>
-          </div>
-          <p className="profile-taste-sentence">
-            {products.length ? interpretation?.summary || c.pending : c.noTaste}
-          </p>
-          <div className="profile-traits">
-            {summary.entries.slice(0, 3).map((entry) => (
-              <span key={entry.tag}>{styleTagLabel(entry.tag, locale)}</span>
-            ))}
-          </div>
-          {interpretation?.details.length ? (
-            <div className="profile-taste-evidence">
-              <span>{c.evidence}</span>
-              <p>{interpretation.details.slice(0, 3).join(" · ")}</p>
+        {signature ? (
+          <section className="profile-taste profile-taste-signature" aria-labelledby="profile-taste-title">
+            <div className="profile-section-heading">
+              <h2 id="profile-taste-title">{c.signatureTitle.replace("{username}", profile.username)}</h2>
             </div>
-          ) : null}
-          {representativeProducts.length ? (
-            <section
-              className="profile-taste-representatives"
-              aria-labelledby="profile-representative-title"
-            >
-              <h3 id="profile-representative-title">{c.representative}</h3>
-              <div className="profile-representative-grid">
-                {representativeProducts.map((product) => (
-                  <Link
-                    key={product.id}
-                    href={getProductPageUrl(product)}
-                    title={`${product.brand} ${product.name}`}
-                  >
-                    <img
-                      src={
-                        product.thumbnailImage ||
-                        product.image ||
-                        "/images/default-product.svg"
-                      }
-                      alt={`${product.brand} ${product.name}`}
-                      onError={(event) => {
-                        event.currentTarget.onerror = null;
-                        event.currentTarget.src = "/images/default-product.svg";
-                      }}
-                    />
-                    <span>{product.brand}</span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ) : null}
-          {isOwner ? (
-            <Link className="profile-detail-link" href="/taste">
-              {c.details}
-              <ArrowUpRight size={16} />
-            </Link>
-          ) : null}
-          {!products.length && isOwner && (
-            <Link href="/" className="profile-detail-link">
-              {c.discovering}
-              <ArrowUpRight size={16} />
-            </Link>
-          )}
-        </section>
-        <div className="profile-activity">
+            <p className="profile-taste-sentence">{signature.title}</p>
+            <div className="profile-traits" aria-label={c.signatureTags}>
+              {signature.tags.map((tag) => <span key={tag}>{tag}</span>)}
+            </div>
+            {signature.axes.length ? <div className="profile-signature-group"><h3>{c.signaturePoints}</h3><div className="profile-signature-points">{signature.axes.map((axis) => <span key={axis}>{axis}</span>)}</div></div> : null}
+            {signature.details.length ? <div className="profile-signature-group"><h3>{c.signatureDetails}</h3><p className="profile-signature-details">{signature.details.slice(0, 2).join(" · ")}</p></div> : null}
+            {isOwner ? <Link className="profile-detail-link" href="/taste"><span>{c.details}</span><ArrowRight size={17} aria-hidden="true" /></Link> : null}
+          </section>
+        ) : isOwner ? (
+          <section className="profile-taste profile-taste-empty" aria-labelledby="profile-taste-title">
+            <h2 id="profile-taste-title">{c.signatureTitle.replace("{username}", profile.username)}</h2>
+            <p className="profile-taste-sentence">{c.signaturePending}</p>
+            <Link href="/" className="profile-detail-link">{c.discovering}<ArrowUpRight size={16} /></Link>
+          </section>
+        ) : null}
+        {isOwner && <div className="profile-activity">
           <section>
             <h2>{c.recent}</h2>
             {activity.recent.length ? (
@@ -299,7 +216,7 @@ export function ProfileView({
               )}
             </div>
           </section>
-        </div>
+        </div>}
         <div
           className="profile-content-tabs"
           role="tablist"
@@ -332,9 +249,23 @@ export function ProfileView({
           role="tabpanel"
           aria-labelledby="profile-posts-tab"
           hidden={contentTab !== "posts"}
-          className="profile-posts-placeholder"
+          className="social-profile-content"
         >
-          <p>{c.noPosts}</p>
+          {contentTab === "posts" && (
+            <PostFeed
+              author={profile.username}
+              action={isOwner ? <CreatePostButton /> : undefined}
+              emptyContent={
+                isOwner ? (
+                  <div className="profile-posts-empty">
+                    <h2>{c.noPosts}</h2>
+                    <p>{c.noPostsDescription}</p>
+                    <CreatePostButton label={c.createFirstPost} />
+                  </div>
+                ) : undefined
+              }
+            />
+          )}
         </section>
         <section
           id="profile-closet-panel"

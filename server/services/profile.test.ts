@@ -67,12 +67,17 @@ beforeEach(() => {
   });
 });
 describe("public profile service", () => {
-  it("only loads public identity and the dedicated public-product RPC", async () => {
+  it("returns a public aggregate without serializing collection products", async () => {
     const result = await getPublicProfile("current_name");
+    expect(state.publicProducts).toHaveBeenCalledTimes(2);
     expect(state.publicProducts).toHaveBeenCalledWith({ target_user_id: "owner" });
-    expect(state.tables.mock.calls.flat()).toEqual(["users", "rpc:get_public_profile_products"]);
+    expect(state.tables.mock.calls.flat()).toEqual([
+      "users",
+      "rpc:get_digbox_products",
+      "rpc:get_closet_products",
+    ]);
     expect(JSON.stringify(result)).not.toMatch(
-      /discoveredDigboxCounts|closetSelected|digboxSizeDecision|size_decision/
+      /discoveredDigboxCounts|closetSelected|digboxSizeDecision|size_decision|Private|Item/
     );
     expect(result?.username).toBe("current_name");
     expect(state.pattern).toHaveBeenCalledWith("current\\_name");

@@ -6,6 +6,8 @@ import {
 } from "../../src/utils/profile";
 import { normalizeClientProduct } from "./catalog";
 import type { Product } from "../../src/types";
+import { createTasteSignature, type TasteSignature } from "../../src/utils/tasteSignature";
+import { getClosetProducts, getDigboxProducts } from "./user-collections";
 
 export type ProfileIdentity = {
   id: string;
@@ -92,14 +94,23 @@ export async function getPublicClosetProducts(userId: string): Promise<Product[]
   return (Array.isArray(data) ? data : []).map(normalizeClientProduct).filter((product): product is Product => Boolean(product));
 }
 
+/** Reads private collections only on the server and returns a safe aggregate. */
+export async function getProfileTasteSignature(userId: string): Promise<TasteSignature | null> {
+  const [saved, closet] = await Promise.all([
+    getDigboxProducts(userId),
+    getClosetProducts(userId),
+  ]);
+  return createTasteSignature(saved.products, closet);
+}
+
 export async function getPublicProfile(
   username: string
 ): Promise<PublicProfile | null> {
   const identity = await getProfileIdentityByUsername(username);
   if (!identity) return null;
-  const [products, closetProducts] = await Promise.all([
-    getPublicProfileProducts(identity.id),
+  const [tasteSignature, closetProducts] = await Promise.all([
+    getProfileTasteSignature(identity.id),
     identity.closetIsPublic ? getPublicClosetProducts(identity.id) : Promise.resolve([]),
   ]);
-  return { ...identity, products: products.map(publicProfileProduct), closetProducts: closetProducts.map(publicProfileProduct) };
+  return { ...identity, products: [], tasteSignature, closetProducts: closetProducts.map(publicProfileProduct) };
 }

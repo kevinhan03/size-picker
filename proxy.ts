@@ -36,6 +36,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/api/outfit-explorer/:path*",
+    "/api/saved-posts",
+    "/api/social-profile",
+    "/api/users/:path*",
     "/api/auth/:path*",
     "/api/closet/:path*",
     "/api/digbox/:path*",

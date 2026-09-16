@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Local blob previews and user-uploaded avatars. */
 import { useEffect, useState } from "react";
+import { UserRound } from "lucide-react";
 import { UsernameSetupForm } from "../UsernameSetupForm";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import { profileMessages } from "./messages";
@@ -80,7 +81,9 @@ export function ProfileEditor({
                 {preview || avatarUrl ? (
                   <img className="profile-avatar" src={preview || avatarUrl!} alt={c.photo} />
                 ) : (
-                  <span className="profile-avatar">{username.slice(0, 1).toUpperCase()}</span>
+                  <span className="profile-avatar profile-avatar-placeholder" aria-hidden="true">
+                    <UserRound />
+                  </span>
                 )}
                 <label className="profile-photo-change">
                   <span>{c.changePhoto}</span>
