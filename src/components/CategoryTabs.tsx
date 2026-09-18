@@ -10,6 +10,7 @@ interface CategoryTabsProps {
   ariaLabel?: string;
   className?: string;
   spacing?: "default" | "tight" | "result";
+  alignment?: "start" | "center" | "justify";
   disabled?: boolean;
 }
 
@@ -32,6 +33,7 @@ export function CategoryTabs({
   ariaLabel = "상품 카테고리",
   className = "",
   spacing = "default",
+  alignment = "center",
   disabled = false,
 }: CategoryTabsProps) {
   const tablistRef = useRef<HTMLDivElement>(null);
@@ -62,7 +64,7 @@ export function CategoryTabs({
         role="tablist"
         aria-label="상위 카테고리"
       >
-        <div className="flex w-max min-w-full px-3 sm:justify-center">
+        <div className={`flex w-max min-w-full ${alignment === "center" ? "px-3 sm:justify-center" : alignment === "justify" ? "justify-between px-0" : "px-0"}`}>
           <button
             type="button"
             role="tab"

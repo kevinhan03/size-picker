@@ -54,6 +54,22 @@ const SearchResultOverlay = dynamic(
   { ssr: false }
 );
 
+function isFocusedMobileRoute(pathname: string) {
+  return (
+    pathname.startsWith("/product/") ||
+    pathname.startsWith("/outfit-explorer/") ||
+    pathname.startsWith("/outfits/") ||
+    pathname.startsWith("/dig-match/swipe") ||
+    pathname === "/settings" ||
+    pathname.startsWith("/sizes") ||
+    pathname.startsWith("/taste-graph") ||
+    /^\/taste\/[^/]+/.test(pathname) ||
+    pathname.startsWith("/discoveries") ||
+    pathname === "/privacy" ||
+    pathname === "/terms"
+  );
+}
+
 function ClosetToast() {
   const { toast, clearToast } = useClosetContext();
   const { t } = useLocaleContext();
@@ -411,7 +427,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname === "/login" || pathname?.startsWith("/auth/");
   const usesMinimalChrome = isAuthPage || isOnboardingPage;
   const showFullChrome = !isAdminPage && !usesMinimalChrome;
-  const hideMobileBottomNav = isAdminPage || usesMinimalChrome;
+  const hideMobileGlobalHeader = showFullChrome && isFocusedMobileRoute(pathname || "");
+  const hideMobileBottomNav =
+    isAdminPage || usesMinimalChrome || isFocusedMobileRoute(pathname || "");
+  const shellStyle = hideMobileBottomNav
+    ? ({
+        "--app-bottom-nav-height": "0rem",
+        "--app-main-pb": "calc(2rem + var(--app-safe-bottom))",
+      } as React.CSSProperties)
+    : undefined;
 
   useEffect(() => {
     if (!auth.isAuthLoading && auth.needsUsername && !isOnboardingPage) {
@@ -423,8 +447,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [auth.isAuthLoading, auth.needsUsername, isOnboardingPage, pathname, router]);
 
   return (
-    <>
-      {showFullChrome && <AppHeader />}
+    <div className={hideMobileGlobalHeader ? "app-shell--hide-mobile-header" : undefined} style={shellStyle}>
+      {showFullChrome && (
+        <div className={hideMobileGlobalHeader ? "hidden lg:block" : undefined}>
+          <AppHeader />
+        </div>
+      )}
       {usesMinimalChrome && <AppHeader variant="minimal" />}
       {children}
       {showFullChrome && search.result && <SearchResultOverlay />}
@@ -436,6 +464,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {showFullChrome && <DigboxToast />}
       {showFullChrome && <GuestDigboxExperience />}
       {!hideMobileBottomNav && <MobileBottomNav />}
-    </>
+    </div>
   );
 }

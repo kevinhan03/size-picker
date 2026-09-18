@@ -1,5 +1,5 @@
-import { RouteLoadingSkeleton } from "../../src/components/RouteLoadingSkeleton";
+import { OutfitLoadingState } from "../../src/components/outfits/OutfitLoadingState";
 
 export default function Loading() {
-  return <RouteLoadingSkeleton eyebrow="OUTFITS" title="코디를 불러오는 중" variant="outfits" />;
+  return <OutfitLoadingState variant="list" title="코디 요청을 불러오는 중" description="요청과 제안을 준비하고 있습니다." />;
 }

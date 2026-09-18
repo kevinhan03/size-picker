@@ -104,7 +104,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     revalidateOpenOutfits();
-    const hydrated = await hydrateRequestDetail(db, outfitRequest, locale);
+    const hydrated = await hydrateRequestDetail(db, outfitRequest, locale, user.id);
     return NextResponse.json({ ok: true, data: { request: hydrated } });
   } catch (error: unknown) {
     console.error("[outfits] proposal update failed", error);

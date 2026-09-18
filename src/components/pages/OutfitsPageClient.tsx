@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, MessageCircleMore, Plus, Shirt } from "lucide-react";
+import { ArrowRight, MessageCircleMore, Shirt } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { fetchOutfitRequests } from "../../api/outfits";
 import { useAuthContext } from "../../contexts/AuthContext";
@@ -10,8 +10,7 @@ import type { MessageKey } from "../../i18n/messages";
 import type { OutfitRequestMineStatus, OutfitRequestScope, OutfitRequestSummary } from "../../types";
 import { captureEvent } from "../../utils/analytics";
 import { buildLoginHref } from "../../utils/authNavigation";
-import { PageHeader } from "../PageHeader";
-import { PageState } from "../PageState";
+import { OutfitLoadingState } from "../outfits/OutfitLoadingState";
 
 type HubScope = Extract<OutfitRequestScope, "open" | "mine" | "proposed">;
 type CachedRequestList = { requests: OutfitRequestSummary[]; total: number; nextCursor: string | null };
@@ -206,7 +205,7 @@ export function OutfitsPageClient({ initialScope, initialData = null }: { initia
   }, [scope, updateStatusFilterHint]);
 
   if (isAuthLoading) {
-    return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title="코디 요청을 준비하고 있어요" description="요청과 제안 상태를 불러오는 중입니다." /></main>;
+    return <OutfitLoadingState variant="list" title={t("outfits.loading")} description={t("outfits.loadingDescription")} />;
   }
 
   const startRequest = () => {
@@ -227,17 +226,13 @@ export function OutfitsPageClient({ initialScope, initialData = null }: { initia
   return (
     <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto w-full max-w-[70rem]">
-        <PageHeader
-          eyebrow="STYLE TOGETHER"
-          title={<span className="break-keep">서로의 취향으로 코디를 만드는 곳</span>}
-          description="코디 고민을 올리거나, 다른 회원의 옷으로 코디를 제안해보세요."
-          action={<button onClick={startRequest} className="outfit-pressable outfit-primary-action flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-black text-black transition-[background-color,transform] duration-150"><Plus className="h-4 w-4" /> 코디 요청하기</button>}
-        />
-
-        <div className={`mt-[var(--page-header-content-gap)] grid gap-1 border-b border-white/[0.08] ${isGuest ? "grid-cols-1" : "grid-cols-3"}`}>
-          {(isGuest ? tabs.filter((tab) => tab.value === "open") : tabs).map((tab) => (
-            <button key={tab.value} type="button" aria-pressed={scope === tab.value} onClick={() => selectScope(tab.value)} className={`outfit-pressable outfit-tab min-h-11 border-b-2 px-4 py-2 text-sm font-black transition-[border-color,color,transform] duration-150 ${scope === tab.value ? "border-orange-400 text-orange-200" : "border-transparent text-white/45"}`}>{tab.label}</button>
-          ))}
+        <div className="flex items-end gap-2">
+          <div className="grid min-w-0 flex-1 grid-cols-3 gap-1 border-b border-white/[0.08]">
+            {tabs.map((tab) => (
+              <button key={tab.value} type="button" aria-pressed={scope === tab.value} onClick={() => selectScope(tab.value)} className={`outfit-pressable outfit-tab min-h-11 border-b-2 px-1 py-2 text-[13px] font-black tracking-[-0.015em] transition-[border-color,color,transform] duration-150 sm:px-4 sm:text-sm ${scope === tab.value ? "border-orange-400 text-orange-200" : "border-transparent text-white/45"}`}>{tab.label}</button>
+            ))}
+          </div>
+          <button type="button" onClick={startRequest} aria-label="코디 요청하기" className="outfit-pressable outfit-primary-action inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-orange-500 px-3.5 text-sm font-black text-black transition-[background-color,transform] duration-150">요청</button>
         </div>
 
         {scope === "mine" && (
@@ -264,19 +259,15 @@ export function OutfitsPageClient({ initialScope, initialData = null }: { initia
         )}
 
         {error && <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-sm text-red-200">{error}<button onClick={() => void load(scope, mineStatus)} className="ml-3 font-bold underline">{t("common.retry")}</button></div>}
-        <div className="min-h-[28rem]" aria-busy={loading}>
-        {isRefreshing && <p role="status" className="mb-3 text-xs font-semibold text-white/55">{t("outfits.refreshing")}</p>}
+        <div className="min-h-[22rem]" aria-busy={loading}>
         <div className={isRefreshing ? "pointer-events-none select-none opacity-45 transition-opacity duration-150" : "transition-opacity duration-150"} inert={isRefreshing} aria-hidden={isRefreshing}>
         {loading && !hasCompletedInitialLoad ? (
           <div className="mt-5 grid gap-4 md:grid-cols-2" aria-label={t("outfits.listLoadingAria")}>
             {["first", "second", "third", "fourth"].map((key) => (
-              <div key={key} className="h-72 rounded-3xl border border-white/[0.07] bg-white/[0.025] p-5">
-                <div className="h-3 w-20 rounded-full bg-white/[0.07]" />
-                <div className="mt-5 h-4 w-full rounded-full bg-white/[0.055]" />
-                <div className="mt-2 h-4 w-2/3 rounded-full bg-white/[0.045]" />
-                <div className="mt-6 grid grid-cols-4 gap-2">
-                  {["one", "two", "three", "four"].map((imageKey) => <div key={imageKey} className="aspect-square rounded-xl bg-white/[0.05]" />)}
-                </div>
+              <div key={key} className="rounded-3xl border border-white/[0.07] bg-white/[0.025] p-5">
+                <div className="h-3 w-24 rounded-full bg-white/[0.07]" />
+                <div className="mt-4 h-5 w-3/4 rounded-full bg-white/[0.055]" />
+                <div className="mt-6 flex items-end justify-between"><div className="h-3 w-20 rounded-full bg-white/[0.045]" /><div className="h-9 w-28 rounded-xl bg-white/[0.06]" /></div>
               </div>
             ))}
           </div>
@@ -308,22 +299,19 @@ export function OutfitsPageClient({ initialScope, initialData = null }: { initia
               return (
               <button key={item.id} onClick={() => router.push(`/outfits/${item.id}${source}`)} className={`outfit-pressable outfit-request-card group overflow-hidden rounded-2xl border p-4 text-left transition-[background-color,border-color,transform] duration-150 sm:p-5 ${isMyProposal && item.isAccepted ? "border-orange-500/30 bg-orange-500/[0.055]" : "border-white/[0.08] bg-[#111114]"}`}>
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs font-bold text-orange-400">{item.authorUsername}<span className="ml-1.5 font-medium text-white/35">· {relativeTime(isMyProposal ? item.proposedAt || item.createdAt : item.createdAt, t)}</span></p>
+                  <p className="text-xs font-semibold text-white/60">{item.authorUsername}<span className="ml-1.5 font-medium text-white/35">· {relativeTime(isMyProposal ? item.proposedAt || item.createdAt : item.createdAt, t)}</span></p>
                   {isMyProposal ? (
                     <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-bold ${item.isAccepted ? "border-orange-500/30 bg-orange-500/15 text-orange-200" : item.status === "open" ? "border-white/[0.1] bg-white/[0.04] text-white/60" : "border-white/[0.08] bg-white/[0.03] text-white/55"}`}>{proposalStatus}</span>
-                  ) : showProposalCount ? (
-                    <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-white/55"><MessageCircleMore className="h-3.5 w-3.5" />{t("outfits.card.proposals", { count: item.proposalCount })}</span>
-                  ) : (
+                  ) : !showProposalCount && (
                     <span className={`rounded-full border border-white/[0.08] px-2.5 py-1 text-[11px] font-bold ${item.status === "open" ? "bg-emerald-500/10 text-emerald-300/75" : "bg-white/[0.04] text-white/45"}`}>{item.status === "open" ? t("outfits.status.open") : item.status === "accepted" ? t("outfits.status.accepted") : t("outfits.status.closed")}</span>
                   )}
                 </div>
                 <div className="outfit-request-copy mt-4">
-                  <div className="flex items-center gap-1.5 text-[11px] font-black tracking-[0.06em] text-orange-300">
-                    <MessageCircleMore className="h-3.5 w-3.5" />
-                    <span>{t("outfits.card.concern")}</span>
+                  <p className="line-clamp-3 text-[15px] font-semibold leading-6 tracking-[-0.01em] text-white sm:text-base">{item.description}</p>
+                  <div className="mt-5 flex items-center justify-between gap-3 text-xs font-bold text-white/60">
+                    {showProposalCount && !isMyProposal ? <span className="flex items-center gap-1.5"><MessageCircleMore className="h-3.5 w-3.5" />{t("outfits.card.proposals", { count: item.proposalCount })}</span> : <span />}
+                    <span className="flex items-center gap-1.5">{cardActionLabel} <ArrowRight className="outfit-request-card-arrow h-3.5 w-3.5 transition-transform duration-150" /></span>
                   </div>
-                  <p className="mt-2 line-clamp-3 text-base font-semibold leading-7 tracking-[-0.01em] text-white sm:text-[17px]">{item.description}</p>
-                  <div className="mt-6 flex items-center justify-end gap-1.5 border-t border-white/[0.08] pt-4 text-xs font-bold text-white/60">{cardActionLabel} <ArrowRight className="outfit-request-card-arrow h-3.5 w-3.5 transition-transform duration-150" /></div>
                 </div>
               </button>
               );

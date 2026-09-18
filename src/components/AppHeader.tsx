@@ -2,12 +2,15 @@
 
 import {
   ArrowLeft,
+  ImagePlus,
   LogIn,
   Plus,
+  ShoppingBag,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useProductFormContext } from "../contexts/ProductFormContext";
@@ -20,6 +23,11 @@ import {
   primaryNavigationItems,
   type PrimaryNavigationDestination,
 } from "./primaryNavigation";
+
+const PostComposer = dynamic(
+  () => import("./social/PostComposer").then((mod) => mod.PostComposer),
+  { ssr: false }
+);
 
 export function AppHeader({
   variant = "full",
@@ -35,18 +43,25 @@ export function AppHeader({
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isIconOnlyActions, setIsIconOnlyActions] = useState(false);
   const [hiddenOnCompact, setHiddenOnCompact] = useState(false);
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
+  const createMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let lastY = window.scrollY;
     const media = window.matchMedia("(max-width: 1023px)");
     const narrowActionsMedia = window.matchMedia("(max-width: 640px)");
+    const visualViewport = window.visualViewport;
+    const getScrollPosition = () =>
+      Math.max(window.scrollY, visualViewport?.offsetTop ?? 0);
+    let lastY = getScrollPosition();
     const updateViewport = () => {
       setIsCompactViewport(media.matches);
       setIsIconOnlyActions(narrowActionsMedia.matches);
       if (!media.matches) setHiddenOnCompact(false);
+      lastY = getScrollPosition();
     };
     const onScroll = () => {
-      const nextY = window.scrollY;
+      const nextY = getScrollPosition();
       if (!media.matches || nextY <= 8) setHiddenOnCompact(false);
       else if (nextY > lastY) setHiddenOnCompact(true);
       else if (nextY < lastY) setHiddenOnCompact(false);
@@ -54,14 +69,37 @@ export function AppHeader({
     };
     updateViewport();
     window.addEventListener("scroll", onScroll, { passive: true });
+    visualViewport?.addEventListener("scroll", onScroll, { passive: true });
     media.addEventListener("change", updateViewport);
     narrowActionsMedia.addEventListener("change", updateViewport);
     return () => {
       window.removeEventListener("scroll", onScroll);
+      visualViewport?.removeEventListener("scroll", onScroll);
       media.removeEventListener("change", updateViewport);
       narrowActionsMedia.removeEventListener("change", updateViewport);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isCreateMenuOpen) return;
+
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!createMenuRef.current?.contains(event.target as Node)) {
+        setIsCreateMenuOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsCreateMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isCreateMenuOpen]);
 
   const isAdmin = pathname.startsWith("/admin");
   const activeDestination = getPrimaryNavigationDestination(pathname);
@@ -110,6 +148,14 @@ export function AppHeader({
       return;
     }
     productForm.openModal();
+  }
+
+  function openPostComposer() {
+    if (!auth.authUser) {
+      router.push("/login");
+      return;
+    }
+    setIsPostComposerOpen(true);
   }
 
   const alternateLocale = getAlternateLocale(locale);
@@ -232,25 +278,54 @@ export function AppHeader({
           <div
             className={`flex items-center justify-end ${compactActions ? "gap-0" : "gap-1"}`}
           >
-            <div className="group relative">
+            {auth.authUser && <div ref={createMenuRef} className="group relative">
               <button
                 type="button"
-                onClick={openProductForm}
-                aria-label={t("header.addProduct")}
-                className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg px-2 text-gray-400 transition-[width,background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11 px-0" : "h-10 w-[4.5rem]"}`}
+                onClick={() => setIsCreateMenuOpen((open) => !open)}
+                aria-label={t("header.create")}
+                aria-expanded={isCreateMenuOpen}
+                aria-haspopup="menu"
+                className={`flex shrink-0 items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}
               >
                 <Plus className="h-4 w-4" />
-                <span
-                  className={`overflow-hidden whitespace-nowrap text-xs font-bold transition-[max-width,margin,opacity] duration-[var(--duration-popover)] ease-out ${compactActions ? "ml-0 max-w-0 opacity-0" : "ml-1 max-w-10 opacity-100"}`}
-                >
-                  {t("header.product")}
-                </span>
               </button>
               <div className={tooltipClass}>
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                {t("header.addProduct")}
+                {t("header.create")}
               </div>
-            </div>
+              {isCreateMenuOpen && (
+                <div
+                  role="menu"
+                  aria-label={t("header.create")}
+                  className="ui-floating-surface absolute right-0 top-[calc(100%+0.5rem)] z-20 w-44 overflow-hidden rounded-xl border border-white/[0.1] bg-[#111114]/95 p-1 shadow-[0_14px_36px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      openProductForm();
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-gray-200 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400"
+                  >
+                    <ShoppingBag className="h-4 w-4 text-orange-400" />
+                    {t("header.addProduct")}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      openPostComposer();
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-gray-200 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400"
+                  >
+                    <ImagePlus className="h-4 w-4 text-orange-400" />
+                    {t("header.createPost")}
+                  </button>
+                </div>
+              )}
+            </div>}
             {auth.isAuthLoading ? (
               <span
                 aria-label={t("header.checkingAccount")}
@@ -280,27 +355,20 @@ export function AppHeader({
                 <button
                   type="button"
                   onClick={changeGuestLocale}
-                  aria-label={t("header.changeLanguage", {
-                    language: alternateLocaleLabel,
-                  })}
-                  title={t("header.changeLanguage", {
-                    language: alternateLocaleLabel,
-                  })}
+                  aria-label={t("header.changeLanguage", { language: alternateLocaleLabel })}
+                  title={t("header.changeLanguage", { language: alternateLocaleLabel })}
                   className={`flex shrink-0 items-center justify-center rounded-lg text-gray-400 transition-[background-color,color,transform] duration-150 ease-out hover:bg-white/[0.06] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 motion-reduce:transform-none ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}
                 >
-                  <Image
-                    src="/icons/language-globe-white.png"
-                    alt=""
-                    width={20}
-                    height={20}
-                    className="h-5 w-5 object-contain"
-                  />
+                  <Image src="/icons/language-globe-white.png" alt="" width={20} height={20} className="h-5 w-5 object-contain" />
                 </button>
               </>
             ) : null}
           </div>
         )}
       </div>
+      {isPostComposerOpen && (
+        <PostComposer onClose={() => setIsPostComposerOpen(false)} />
+      )}
     </header>
   );
 }

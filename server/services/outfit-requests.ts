@@ -31,7 +31,7 @@ function normalizeProducts(value: unknown): Product[] {
 function normalizeSummary(value: Record<string, unknown>): OutfitRequestSummary {
   const previewProducts = normalizeProducts(value.preview_products);
   return {
-    id: String(value.id || ""), authorId: String(value.author_id || ""), authorUsername: String(value.author_username || ""),
+    id: String(value.id || ""), authorId: String(value.author_id || ""), authorUsername: String(value.author_username || ""), authorAvatarUrl: value.author_avatar_url ? String(value.author_avatar_url) : null,
     description: String(value.description || ""), status: String(value.status || "open") as OutfitRequestSummary["status"],
     acceptedProposalId: value.accepted_proposal_id ? String(value.accepted_proposal_id) : null, createdAt: String(value.created_at || ""),
     itemCount: Number(value.item_count) || previewProducts.length, proposalCount: Number(value.proposal_count) || 0, previewProducts,

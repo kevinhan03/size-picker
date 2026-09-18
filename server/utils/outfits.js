@@ -1,4 +1,5 @@
 import { normalizeProductRow } from "./product.js";
+import { SUPABASE_STORAGE_BUCKET } from "../config/env.js";
 
 export const OUTFIT_PRODUCT_SNAPSHOT_SELECT =
   "id,brand,name,category,url,created_at,image_path,slug";
@@ -112,9 +113,17 @@ export function validateProposalInput(body, locale = "ko") {
 
 async function fetchUsers(db, ids) {
   if (!ids.length) return new Map();
-  const { data, error } = await db.from("users").select("id,username").in("id", [...new Set(ids)]);
+  const { data, error } = await db.from("users").select("id,username,avatar_path").in("id", [...new Set(ids)]);
   if (error) throw error;
-  return new Map((data || []).map((row) => [String(row.id), String(row.username || "") ]));
+  return new Map((data || []).map((row) => [
+    String(row.id),
+    {
+      username: String(row.username || ""),
+      avatarUrl: row.avatar_path
+        ? db.storage.from(SUPABASE_STORAGE_BUCKET).getPublicUrl(row.avatar_path).data.publicUrl
+        : null,
+    },
+  ]));
 }
 
 function snapshotProducts(itemRows) {
@@ -123,6 +132,64 @@ function snapshotProducts(itemRows) {
       .map((item) => normalizeProductRow(item.product_snapshot))
       .filter(Boolean)
       .map((product) => [String(product.id), product])
+  );
+}
+
+async function applyLiveProductCategories(db, products) {
+  const productIds = [...products.keys()];
+  if (!productIds.length) return products;
+  const { data, error } = await db
+    .from("products")
+    .select("id,category,sub_category,image_path,style_attributes,style_axes,human_style_attributes,human_style_axes,style_axes_reviewed_at,target_gender,human_target_gender")
+    .in("id", productIds);
+  if (error) throw error;
+
+  const liveProducts = new Map(
+    (data || []).map((product) => [String(product.id), product])
+  );
+  return new Map(
+    [...products].map(([id, product]) => [
+      id,
+      (() => {
+        const liveProduct = liveProducts.get(id);
+        if (!liveProduct) return product;
+
+        // Product metadata can change after a request is created. In particular,
+        // legacy external images may later be imported into Storage, so use the
+        // current image path instead of retaining a stale request snapshot URL.
+        const liveImagePath = String(liveProduct.image_path || "").trim();
+        const refreshedImage = liveImagePath
+          ? normalizeProductRow({
+              ...product,
+              category: liveProduct.category,
+              image: "",
+              image_path: liveImagePath,
+            })
+          : null;
+
+        return {
+          ...product,
+          category: String(liveProduct.category || ""),
+          subCategory: liveProduct.sub_category ? String(liveProduct.sub_category) : null,
+          styleAttributes: liveProduct.style_attributes ?? null,
+          styleAxes: liveProduct.style_axes ?? null,
+          humanStyleAttributes: liveProduct.human_style_attributes ?? null,
+          humanStyleAxes: liveProduct.human_style_axes ?? null,
+          styleAxesReviewedAt: liveProduct.style_axes_reviewed_at || null,
+          targetGender: liveProduct.target_gender ? String(liveProduct.target_gender) : null,
+          humanTargetGender: liveProduct.human_target_gender
+            ? String(liveProduct.human_target_gender)
+            : null,
+          ...(refreshedImage
+            ? {
+                imagePath: refreshedImage.imagePath,
+                image: refreshedImage.image,
+                thumbnailImage: refreshedImage.thumbnailImage,
+              }
+            : {}),
+        };
+      })(),
+    ])
   );
 }
 
@@ -138,7 +205,7 @@ export async function hydrateRequestSummaries(db, rows, locale = "ko") {
     ]);
   if (itemError) throw itemError;
   if (proposalError) throw proposalError;
-  const products = snapshotProducts(itemRows);
+  const products = await applyLiveProductCategories(db, snapshotProducts(itemRows));
 
   return rows.map((row) => {
     const requestItems = (itemRows || [])
@@ -147,7 +214,8 @@ export async function hydrateRequestSummaries(db, rows, locale = "ko") {
     return {
       id: String(row.id),
       authorId: String(row.author_id),
-      authorUsername: users.get(String(row.author_id)) || m.unknownUser,
+      authorUsername: users.get(String(row.author_id))?.username || m.unknownUser,
+      authorAvatarUrl: users.get(String(row.author_id))?.avatarUrl || null,
       description: String(row.description),
       status: String(row.status),
       acceptedProposalId: row.accepted_proposal_id ? String(row.accepted_proposal_id) : null,
@@ -163,7 +231,7 @@ export async function hydrateRequestSummaries(db, rows, locale = "ko") {
   });
 }
 
-export async function hydrateRequestDetail(db, row, locale = "ko") {
+export async function hydrateRequestDetail(db, row, locale = "ko", viewerId = /** @type {string | null} */ (null)) {
   const m = messages(locale);
   const requestId = String(row.id);
   const [{ data: itemRows, error: itemError }, { data: proposalRows, error: proposalError }, users] =
@@ -176,12 +244,16 @@ export async function hydrateRequestDetail(db, row, locale = "ko") {
   if (proposalError) throw proposalError;
 
   const proposalIds = (proposalRows || []).map((proposal) => String(proposal.id));
-  const { data: proposalItemRows, error: proposalItemError } = proposalIds.length
-    ? await db.from("outfit_proposal_items").select("proposal_id,product_id,sort_order").in("proposal_id", proposalIds)
-    : { data: [], error: null };
+  const [{ data: proposalItemRows, error: proposalItemError }, { data: proposalLikeRows, error: proposalLikeError }] = proposalIds.length
+    ? await Promise.all([
+      db.from("outfit_proposal_items").select("proposal_id,product_id,sort_order").in("proposal_id", proposalIds),
+      db.from("outfit_proposal_likes").select("proposal_id,user_id").in("proposal_id", proposalIds),
+    ])
+    : [{ data: [], error: null }, { data: [], error: null }];
   if (proposalItemError) throw proposalItemError;
+  if (proposalLikeError) throw proposalLikeError;
 
-  const products = snapshotProducts(itemRows);
+  const products = await applyLiveProductCategories(db, snapshotProducts(itemRows));
   const proposalUsers = await fetchUsers(db, (proposalRows || []).map((proposal) => String(proposal.author_id)));
 
   const items = (itemRows || [])
@@ -191,6 +263,13 @@ export async function hydrateRequestDetail(db, row, locale = "ko") {
   const focusProductIds = (itemRows || [])
     .filter((item) => item.is_focus)
     .map((item) => String(item.product_id));
+  const likeCounts = new Map();
+  const likedProposalIds = new Set();
+  for (const like of proposalLikeRows || []) {
+    const proposalId = String(like.proposal_id);
+    likeCounts.set(proposalId, (likeCounts.get(proposalId) || 0) + 1);
+    if (viewerId && String(like.user_id) === String(viewerId)) likedProposalIds.add(proposalId);
+  }
   const proposals = (proposalRows || []).map((proposal) => {
     const proposalProducts = (proposalItemRows || [])
       .filter((item) => String(item.proposal_id) === String(proposal.id))
@@ -209,9 +288,11 @@ export async function hydrateRequestDetail(db, row, locale = "ko") {
     return {
       id: String(proposal.id),
       authorId: String(proposal.author_id),
-      authorUsername: proposalUsers.get(String(proposal.author_id)) || m.unknownUser,
+      authorUsername: proposalUsers.get(String(proposal.author_id))?.username || m.unknownUser,
       explanation: String(proposal.explanation),
       createdAt: proposal.created_at,
+      likeCount: likeCounts.get(String(proposal.id)) || 0,
+      isLiked: likedProposalIds.has(String(proposal.id)),
       products: proposalProducts,
       focusMatch,
       matchedFocusItemCount,
@@ -221,7 +302,8 @@ export async function hydrateRequestDetail(db, row, locale = "ko") {
   return {
     id: requestId,
     authorId: String(row.author_id),
-    authorUsername: users.get(String(row.author_id)) || m.unknownUser,
+    authorUsername: users.get(String(row.author_id))?.username || m.unknownUser,
+    authorAvatarUrl: users.get(String(row.author_id))?.avatarUrl || null,
     description: String(row.description),
     status: String(row.status),
     acceptedProposalId: row.accepted_proposal_id ? String(row.accepted_proposal_id) : null,

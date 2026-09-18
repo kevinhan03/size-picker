@@ -1,26 +1,32 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- User avatars are dynamic Supabase Storage URLs. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Ellipsis, LoaderCircle, LockKeyhole, Pencil, Shirt, Trash2, X } from "lucide-react";
+import { ArrowDownUp, ArrowLeft, Check, ChevronDown, Ellipsis, Heart, LoaderCircle, LockKeyhole, Pencil, Shirt, Trash2, UserRound, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   createOutfitProposal,
   deleteOutfitProposal,
   deleteOutfitRequest,
   fetchOutfitRequest,
+  setOutfitProposalLike,
   updateOutfitProposal,
   updateOutfitRequest,
 } from "../../api/outfits";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import type { MessageKey } from "../../i18n/messages";
-import { CATEGORY_OPTIONS } from "../../constants";
+import { getCategoryLabel } from "../../constants";
 import type { OutfitProposal, OutfitRequestDetail, Product } from "../../types";
 import { captureEvent } from "../../utils/analytics";
 import { buildLoginHref } from "../../utils/authNavigation";
 import { OutfitProductTile } from "../outfits/OutfitProductTile";
 import { OutfitImageFrame } from "../outfits/OutfitImageFrame";
+import { OutfitLoadingState } from "../outfits/OutfitLoadingState";
+import { ProductStyleProfileCard } from "../ProductStyleProfileCard";
 import { PageState } from "../PageState";
+import { CategoryTabs } from "../CategoryTabs";
 import { usePresence } from "../../hooks/usePresence";
 
 const SHARED_CLOSET_PAGE_SIZE = 10;
@@ -76,16 +82,22 @@ function OutfitFocusProductPreviewDialog({
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
       <button type="button" aria-label={t("outfits.detail.closeProductImage")} onClick={close} className="ui-layer-scrim absolute inset-0 cursor-default bg-black/80 backdrop-blur-sm" data-visible={presence.isVisible} />
       <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={t("outfits.detail.productImageDialog", { product: `${product.brand} ${product.name}` })} tabIndex={-1} onKeyDown={(event) => { trapDialogFocus(event); if (event.key === "Escape") close(); }} className="ui-layer-modal ui-floating-surface relative z-10 h-[min(44rem,calc(100dvh-2rem))] w-full max-w-4xl overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#17171a] shadow-[0_24px_64px_rgba(0,0,0,0.68)] outline-none" data-visible={presence.isVisible}>
-        <button type="button" onClick={close} aria-label={t("outfits.detail.closeProductImage")} className="outfit-detail-pressable absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><X className="h-5 w-5" /></button>
+        <button type="button" onClick={close} aria-label={t("outfits.detail.closeProductImage")} className="outfit-detail-modal-close outfit-detail-pressable absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white shadow-md backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><X className="h-5 w-5" /></button>
         <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_19rem] md:grid-rows-1">
           <div className="relative min-h-0 bg-black/25 p-6 sm:p-8 md:p-10">
             <OutfitImageFrame product={product} alt={`${product.brand} ${product.name}`} fit="contain" />
           </div>
           <div className="flex min-h-0 flex-col border-t border-white/10 bg-[#17171a] p-5 sm:p-6 md:border-l md:border-t-0 md:p-7">
-            <div className="pr-11">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/55">{product.brand}</p>
-              <h2 className="mt-1 text-lg font-bold leading-6 tracking-[-0.015em] text-white">{product.name}</h2>
-              <p className="mt-2 text-sm text-white/55">{product.category}</p>
+            <div>
+              <div className="pr-11">
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/55">{product.brand}</p>
+                <h2 className="mt-1 text-lg font-bold leading-6 tracking-[-0.015em] text-white">{product.name}</h2>
+              </div>
+              <p className="mt-2 text-sm text-white/55">
+                {getCategoryLabel(product.category)}
+                {product.subCategory ? ` · ${product.subCategory}` : ""}
+              </p>
+              <ProductStyleProfileCard product={product} />
             </div>
             {onToggle && (
               <div className="mt-6 border-t border-white/10 pt-5 md:mt-auto">
@@ -179,21 +191,19 @@ function OutfitRequestConfirmDialog({
 function OutfitProposalConfirmDialog({
   matchedCount,
   totalCount,
-  isEditing,
   working,
   onCancel,
   onConfirm,
 }: {
   matchedCount: number;
   totalCount: number;
-  isEditing: boolean;
   working: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
   const { t } = useLocaleContext();
   const isAlternative = matchedCount === 0;
-  const actionLabel = isEditing ? t("outfits.detail.edit") : t("outfits.detail.propose");
+  const actionLabel = t("outfits.detail.propose");
   const presence = usePresence(true);
   const dialogRef = useRef<HTMLElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -220,7 +230,7 @@ function OutfitProposalConfirmDialog({
         </h2>
         <p className="mt-2 text-sm font-semibold leading-relaxed text-gray-400">
           {isAlternative
-            ? t("outfits.detail.alternativeOutfitDescription", { action: isEditing ? t("outfits.detail.save") : t("outfits.detail.propose") })
+            ? t("outfits.detail.alternativeOutfitDescription", { action: t("outfits.detail.propose") })
             : t("outfits.detail.partialFocusDescription", { total: totalCount, matched: matchedCount })}
         </p>
         <div className="mt-6 grid grid-cols-2 gap-2">
@@ -296,7 +306,15 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
   const { t } = useLocaleContext();
   const returnToOutfits = () => {
     const source = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("from") : null;
-    router.push(source === "mine" ? "/outfits?tab=mine" : source === "proposed" ? "/outfits?tab=proposed" : "/outfits");
+    if (source === "mine" || source === "proposed") {
+      router.push(`/outfits?tab=${source}`);
+      return;
+    }
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/outfits");
   };
   const { authUser, isAuthLoading } = useAuthContext();
   const authUserId = authUser?.id;
@@ -315,13 +333,15 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
   const [requestMenuOpen, setRequestMenuOpen] = useState(false);
   const [proposalMenuOpen, setProposalMenuOpen] = useState<string | null>(null);
+  const [proposalSort, setProposalSort] = useState<"likes" | "latest">("latest");
+  const [proposalSortMenuOpen, setProposalSortMenuOpen] = useState(false);
+  const [likingProposalId, setLikingProposalId] = useState<string | null>(null);
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [visibleProductAnnouncement, setVisibleProductAnnouncement] = useState("");
-  const [hasMoreCategories, setHasMoreCategories] = useState(false);
   const requestMenuRef = useRef<HTMLDivElement>(null);
   const proposalMenuRef = useRef<HTMLDivElement>(null);
-  const categoryFilterRef = useRef<HTMLDivElement>(null);
+  const proposalSortMenuRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLElement>(null);
   const explanationRef = useRef<HTMLTextAreaElement>(null);
 
@@ -381,31 +401,24 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
     };
   }, [proposalMenuOpen]);
 
-  const updateCategoryHint = useCallback(() => {
-    const element = categoryFilterRef.current;
-    if (!element) return;
-    setHasMoreCategories(element.scrollLeft + element.clientWidth < element.scrollWidth - 1);
-  }, []);
-
   useEffect(() => {
-    if (!categoryFilterRef.current) return;
-    const element = categoryFilterRef.current;
-    updateCategoryHint();
-    const resizeObserver = new ResizeObserver(updateCategoryHint);
-    resizeObserver.observe(element);
-    element.addEventListener("scroll", updateCategoryHint, { passive: true });
-    return () => {
-      resizeObserver.disconnect();
-      element.removeEventListener("scroll", updateCategoryHint);
-    };
-  }, [outfitRequest?.products, updateCategoryHint]);
+    if (!proposalSortMenuOpen) return;
 
-  const categories = useMemo(() => {
-    if (!outfitRequest) return [];
-    const availableCategories = new Set(outfitRequest.products.map((product) => product.category).filter(Boolean));
-    const orderedCategories = CATEGORY_OPTIONS.filter((category) => availableCategories.delete(category));
-    return [...orderedCategories, ...[...availableCategories].sort((left, right) => left.localeCompare(right, "ko"))];
-  }, [outfitRequest]);
+    const closeMenu = (event: MouseEvent) => {
+      if (!proposalSortMenuRef.current?.contains(event.target as Node)) setProposalSortMenuOpen(false);
+    };
+    const closeMenuWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProposalSortMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", closeMenu);
+    document.addEventListener("keydown", closeMenuWithEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeMenu);
+      document.removeEventListener("keydown", closeMenuWithEscape);
+    };
+  }, [proposalSortMenuOpen]);
+
   const selectedProducts = useMemo(() => {
     if (!outfitRequest) return [];
     const productsById = new Map(outfitRequest.products.map((product) => [String(product.id), product]));
@@ -427,7 +440,6 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
   const canComposeProposal = Boolean(authUserId && !isOwner && outfitRequest?.status === "open" && (!myProposal || isEditingMyProposal));
   const selectionTrayPresence = usePresence(canComposeProposal && selectedProducts.length > 0);
   const selectionTrayCount = selectedProducts.length || (selectionTrayPresence.isMounted ? 1 : 0);
-  const acceptedProposal = outfitRequest?.proposals.find((proposal) => proposal.id === outfitRequest.acceptedProposalId) || null;
   const focusProducts = useMemo(() => {
     if (!outfitRequest) return [];
     const focusIds = new Set(outfitRequest.focusProductIds);
@@ -550,6 +562,37 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
     }
   }
 
+  async function toggleProposalLike(proposal: OutfitProposal) {
+    if (!authUserId) {
+      router.push(buildLoginHref("login", `/outfits/${requestId}${window.location.search}`));
+      return;
+    }
+    if (likingProposalId) return;
+    const active = !proposal.isLiked;
+    const previousRequest = outfitRequest;
+    setLikingProposalId(proposal.id);
+    setOutfitRequest((current) => current && {
+      ...current,
+      proposals: current.proposals.map((item) => item.id === proposal.id
+        ? { ...item, isLiked: active, likeCount: Math.max(0, item.likeCount + (active ? 1 : -1)) }
+        : item),
+    });
+    try {
+      const result = await setOutfitProposalLike(proposal.id, active);
+      setOutfitRequest((current) => current && {
+        ...current,
+        proposals: current.proposals.map((item) => item.id === proposal.id
+          ? { ...item, isLiked: result.active, likeCount: result.likeCount }
+          : item),
+      });
+    } catch (likeError) {
+      setOutfitRequest(previousRequest);
+      setError(likeError instanceof Error ? likeError.message : "좋아요를 반영하지 못했습니다.");
+    } finally {
+      setLikingProposalId(null);
+    }
+  }
+
   async function acceptProposal(proposal: OutfitProposal) {
     if (working) return;
     setWorking(true);
@@ -608,101 +651,69 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
     finally { setWorking(false); }
   }
 
-  if (isAuthLoading || loading || (!authUser && !error)) return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="loading" title={t("outfits.loading")} description={t("outfits.detail.loadingDescription")} /></main>;
+  if (isAuthLoading || loading || (!authUser && !error)) return <OutfitLoadingState variant="detail" title={t("outfits.loading")} description={t("outfits.detail.loadingDescription")} />;
   if (!outfitRequest) return <main className="flex min-h-screen items-center bg-black px-4 pt-[var(--app-main-pt)]"><PageState kind="error" title={t("outfits.detail.notFound")} description={error || t("outfits.detail.notFoundDescription")} action={<button type="button" onClick={returnToOutfits} className="rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-bold text-black">{t("outfits.detail.backToList")}</button>} /></main>;
 
-  const otherProposals = outfitRequest.proposals.filter((proposal) => proposal.id !== myProposal?.id);
-  const orderedOtherProposals = acceptedProposal && acceptedProposal.id !== myProposal?.id
-    ? [acceptedProposal, ...otherProposals.filter((proposal) => proposal.id !== acceptedProposal.id)]
-    : otherProposals;
-  const orderedProposals = outfitRequest.status === "open" && myProposal
-    ? [myProposal, ...orderedOtherProposals]
-    : acceptedProposal
-      ? [acceptedProposal, ...outfitRequest.proposals.filter((proposal) => proposal.id !== acceptedProposal.id)]
-      : outfitRequest.proposals;
+  const compareProposals = (left: OutfitProposal, right: OutfitProposal) => proposalSort === "likes"
+    ? right.likeCount - left.likeCount || new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    : new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  const otherProposals = outfitRequest.proposals.filter((proposal) => proposal.id !== myProposal?.id).sort(compareProposals);
+  const orderedProposals = myProposal ? [myProposal, ...otherProposals] : [...outfitRequest.proposals].sort(compareProposals);
 
   return (
     <main className={`min-h-screen bg-black px-[var(--app-main-px)] pt-[var(--app-main-pt)] text-white lg:pt-24 ${canComposeProposal ? "pb-32 sm:pb-[var(--app-main-pb)]" : "pb-[var(--app-main-pb)]"}`} aria-busy={loading || working}>
       <div className="mx-auto flex max-w-5xl flex-col">
-        <div className="flex min-h-11 items-center justify-between gap-3">
+        <section className="relative w-full rounded-3xl border border-white/[0.1] bg-[#111114] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] sm:p-7">
           <button
             type="button"
             onClick={returnToOutfits}
-            className="outfit-detail-pressable flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold text-gray-400 transition-[background-color,color,transform] duration-150"
+            aria-label={t("outfits.detail.list")}
+            title={t("outfits.detail.list")}
+            className="outfit-detail-pressable absolute left-2 top-5 flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition-[background-color,color,transform] duration-150 sm:left-4 sm:top-7"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>{t("outfits.detail.list")}</span>
           </button>
 
-          {isOwner && (
-            <div ref={requestMenuRef} className="relative">
-              <button
-                type="button"
-                aria-label={t("outfits.detail.manageRequest")}
-                aria-haspopup="menu"
-                aria-expanded={requestMenuOpen}
-                aria-controls="outfit-request-management-menu"
-                onClick={() => setRequestMenuOpen((open) => !open)}
-                className={`outfit-detail-pressable flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold transition-[background-color,color,transform] duration-150 ${requestMenuOpen ? "bg-white/[0.08] text-white" : "text-gray-400"}`}
-              >
-                <Ellipsis className="h-5 w-5" />
-                <span className="hidden sm:inline">{t("outfits.detail.manageRequest")}</span>
-              </button>
-
-              {requestMenuOpen && (
-                <div
-                  id="outfit-request-management-menu"
-                  role="menu"
-                  aria-label={t("outfits.detail.requestManagementMenu")}
-                  className="outfit-detail-menu absolute right-0 top-[calc(100%+0.5rem)] z-40 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#17171a] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.6)]"
-                >
-                  {outfitRequest.status === "open" && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setRequestMenuOpen(false);
-                        setConfirmAction("close");
-                      }}
-                      className="outfit-detail-pressable flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-gray-200 transition-[background-color,color,transform] duration-150 focus:bg-white/[0.07] focus:outline-none"
-                    >
-                      <LockKeyhole className="h-4 w-4 text-gray-400" />
-                      {t("outfits.detail.closeRequest")}
-                    </button>
+          <div className="flex min-h-10 flex-wrap items-center justify-between gap-3 pl-8 sm:pl-9">
+            <Link
+              href={`/${encodeURIComponent(outfitRequest.authorUsername)}`}
+              aria-label={`${outfitRequest.authorUsername} 프로필 보기`}
+              className="group inline-flex min-w-0 items-center gap-2 rounded-full pr-2 text-[13px] font-bold tracking-[-0.01em] text-white/70 transition-[color,transform] duration-150 hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+            >
+              {outfitRequest.authorAvatarUrl ? (
+                <img src={outfitRequest.authorAvatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full border border-white/10 object-cover transition-colors duration-150 group-hover:border-white/25" />
+              ) : (
+                <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/50 transition-[border-color,color] duration-150 group-hover:border-white/25 group-hover:text-white/70"><UserRound className="h-4 w-4" /></span>
+              )}
+              <span className="truncate">{outfitRequest.authorUsername}</span>
+            </Link>
+            <div className="flex items-center gap-2">
+              {outfitRequest.status !== "open" && <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-white/45">{outfitRequest.status === "accepted" ? t("outfits.status.accepted") : t("outfits.status.closed")}</span>}
+              {outfitRequest.proposals.length > 0 && <span className="inline-flex min-h-8 shrink-0 items-center rounded-full border border-white/[0.1] bg-white/[0.06] px-3 text-[13px] font-bold text-white/75">{t("outfits.card.proposals", { count: outfitRequest.proposals.length })}</span>}
+              {isOwner && (
+                <div ref={requestMenuRef} className="relative">
+                  <button type="button" aria-label={t("outfits.detail.manageRequest")} aria-haspopup="menu" aria-expanded={requestMenuOpen} aria-controls="outfit-request-management-menu" onClick={() => setRequestMenuOpen((open) => !open)} className={`outfit-detail-pressable flex h-10 w-10 items-center justify-center rounded-xl transition-[background-color,color,transform] duration-150 ${requestMenuOpen ? "bg-white/[0.08] text-white" : "text-gray-400"}`}><Ellipsis className="h-5 w-5" /></button>
+                  {requestMenuOpen && (
+                    <div id="outfit-request-management-menu" role="menu" aria-label={t("outfits.detail.requestManagementMenu")} className="outfit-detail-menu absolute right-0 top-[calc(100%+0.5rem)] z-40 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#17171a] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.6)]">
+                      {outfitRequest.status === "open" && <button type="button" role="menuitem" onClick={() => { setRequestMenuOpen(false); setConfirmAction("close"); }} className="outfit-detail-pressable flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-gray-200 transition-[background-color,color,transform] duration-150 focus:bg-white/[0.07] focus:outline-none"><LockKeyhole className="h-4 w-4 text-gray-400" />{t("outfits.detail.closeRequest")}</button>}
+                      <div className={outfitRequest.status === "open" ? "mt-1 border-t border-white/10 pt-1" : ""}><button type="button" role="menuitem" onClick={() => { setRequestMenuOpen(false); setConfirmAction("delete"); }} className="outfit-detail-pressable outfit-detail-danger-action flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-red-300 transition-[background-color,color,transform] duration-150 focus:bg-red-500/10 focus:outline-none"><Trash2 className="h-4 w-4" />{t("outfits.detail.deleteRequest")}</button></div>
+                    </div>
                   )}
-                  <div className={outfitRequest.status === "open" ? "mt-1 border-t border-white/10 pt-1" : ""}>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setRequestMenuOpen(false);
-                        setConfirmAction("delete");
-                      }}
-                      className="outfit-detail-pressable outfit-detail-danger-action flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-red-300 transition-[background-color,color,transform] duration-150 focus:bg-red-500/10 focus:outline-none"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {t("outfits.detail.deleteRequest")}
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
-          )}
-        </div>
-
-        <section className="mt-7 rounded-3xl border border-white/[0.1] bg-[#111114] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] sm:p-7">
-          <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm font-black tracking-[-0.01em] text-orange-300">{t("outfits.detail.concern")}</p>{outfitRequest.status !== "open" && <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-white/45">{outfitRequest.status === "accepted" ? t("outfits.status.accepted") : t("outfits.status.closed")}</span>}</div>
-          <p className="mt-4 text-sm font-semibold text-white/45">{outfitRequest.authorUsername}</p>
-          <h1 className="mt-2 max-w-3xl whitespace-pre-wrap break-words text-[clamp(1.25rem,2.4vw,1.75rem)] font-bold leading-8 tracking-[-0.02em] text-white sm:leading-10">{outfitRequest.description}</h1>
-          {focusProducts.length > 0 && (
-            <div className="mt-7 border-t border-white/[0.1] pt-5">
-              <p className="text-sm font-semibold text-white/70">{t("outfits.detail.desiredItems")}</p>
-              <p className="mt-1 text-xs leading-5 text-white/55">{t("outfits.detail.desiredItemsHelp")}</p>
-              <div className="mt-3 grid grid-cols-3 gap-2.5 sm:gap-3">
-                {focusProducts.slice(0, 3).map((product) => <article key={product.id} className="min-w-0"><button type="button" onClick={() => setPreviewProduct(product)} aria-label={t("outfits.detail.productImageDialog", { product: `${product.brand} ${product.name}` })} className="outfit-detail-pressable relative block w-full overflow-hidden rounded-xl border border-white/[0.1] bg-white/[0.035] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><div className="relative aspect-[4/5] bg-white/[0.035]"><OutfitImageFrame product={product} alt={`${product.brand} ${product.name}`} fit="contain" /></div></button><p className="mt-2 truncate text-[11px] font-semibold uppercase tracking-wide text-white/55">{product.brand}</p><p className="mt-1 min-h-10 line-clamp-2 text-[13px] font-semibold leading-5 text-white/90">{product.name}</p></article>)}
+          </div>
+          <div className={`mt-4 ${focusProducts.length > 0 ? "md:grid md:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)] md:gap-8" : ""}`}>
+            <h1 className="max-w-3xl whitespace-pre-wrap break-words text-[clamp(1.25rem,2.4vw,1.75rem)] font-bold leading-8 tracking-[-0.02em] text-white sm:mt-1 sm:leading-10">{outfitRequest.description}</h1>
+            {focusProducts.length > 0 && (
+            <div className="mt-6 border-t border-white/[0.1] pt-4 md:mt-0 md:border-l md:border-t-0 md:pl-6 md:pt-0 sm:pt-5">
+              <p className="text-xs font-bold tracking-[0.01em] text-white/65">{t("outfits.detail.desiredItems")}</p>
+              <div className="mt-3 flex gap-2.5 sm:mt-3.5 sm:gap-3">
+                {focusProducts.slice(0, 3).map((product) => <article key={product.id} className="w-[calc((100%_-_1.25rem)_/_3)] max-w-36 min-w-0 sm:w-[calc((100%_-_1.5rem)_/_3)] sm:max-w-40"><button type="button" onClick={() => setPreviewProduct(product)} aria-label={t("outfits.detail.productImageDialog", { product: `${product.brand} ${product.name}` })} className="outfit-detail-pressable relative block w-full overflow-hidden rounded-xl border border-white/[0.1] bg-white/[0.035] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><div className="relative aspect-[4/5] bg-white/[0.035]"><OutfitImageFrame product={product} alt={`${product.brand} ${product.name}`} fit="contain" /></div></button><p className="mt-2 truncate text-[11px] font-semibold uppercase tracking-wide text-white/55">{product.brand}</p><p className="mt-1 min-h-10 line-clamp-2 text-[13px] font-semibold leading-5 text-white/90">{product.name}</p></article>)}
               </div>
             </div>
-          )}
+            )}
+          </div>
         </section>
 
         <p aria-live="polite" className="sr-only">{statusMessage}</p>
@@ -711,37 +722,11 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
 
         {!isOwner && (
         <section id="shared-closet-section" className="mt-10 scroll-mt-24">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-black">{t("outfits.detail.sharedCloset", { username: outfitRequest.authorUsername })}</h2>
-              <p className="mt-1 text-sm text-white/55">{t("outfits.detail.sharedClosetHelp")}</p>
-            </div>
-            <div className="relative max-w-full">
-            <div ref={categoryFilterRef} aria-label={t("outfits.detail.categoryFilter")} className="flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <button
-                type="button"
-                aria-pressed={!category}
-                onClick={() => selectCategory("")}
-                className={`outfit-detail-pressable outfit-detail-filter min-h-11 whitespace-nowrap rounded-full border px-4 text-xs font-bold transition-[background-color,border-color,color,transform] duration-150 ${!category ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.035] text-white/55"}`}
-              >
-                {t("outfits.detail.all")}
-              </button>
-              {categories.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  aria-pressed={category === item}
-                  onClick={() => selectCategory(item)}
-                  className={`outfit-detail-pressable outfit-detail-filter min-h-11 whitespace-nowrap rounded-full border px-4 text-xs font-bold transition-[background-color,border-color,color,transform] duration-150 ${category === item ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.035] text-white/55"}`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-            {hasMoreCategories && <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-black via-black/85 to-transparent" />}
-            </div>
+          <div>
+            <h2 className="text-xl font-black tracking-[-0.015em]">{t("outfits.detail.sharedCloset", { username: outfitRequest.authorUsername })}</h2>
+            <CategoryTabs category={category} onCategoryChange={(value) => selectCategory(value)} allLabel={t("outfits.detail.all")} ariaLabel={t("outfits.detail.categoryFilter")} className="mt-4" spacing="default" alignment="center" />
           </div>
-          <div id="shared-closet-product-grid" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <div id="shared-closet-product-grid" className="mt-0 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {displayedProducts.map((product) => {
               const productId = String(product.id);
               return (
@@ -787,7 +772,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
           {selectionTrayPresence.isMounted && (
             <aside aria-label={t("outfits.detail.selectionStatus")} data-visible={selectionTrayPresence.isVisible} className="outfit-detail-selection-tray fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-white/15 bg-[#161619]/95 p-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)] backdrop-blur sm:sticky sm:bottom-4 sm:inset-x-auto sm:mt-5 sm:max-w-3xl">
               <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-                <span aria-live="polite" className="text-sm font-bold text-white/80">{selectionTrayCount === 1 ? t("outfits.detail.selectOneMore") : selectionTrayCount === 6 ? t("outfits.detail.selectionLimit") : t("outfits.detail.selectedItems", { count: selectionTrayCount })}</span>
+                <span aria-live="polite" className="text-sm font-bold text-white/80">{t("outfits.detail.selectedItems", { count: selectionTrayCount })}</span>
               </div>
               {selectionTrayCount >= 2 && <button type="button" onClick={focusComposer} className="outfit-detail-pressable outfit-detail-primary-action min-h-11 shrink-0 rounded-xl bg-orange-500 px-4 text-xs font-black text-black transition-[background-color,transform] duration-150">{t("outfits.detail.writeProposal")}</button>}
             </aside>
@@ -799,8 +784,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
           <section ref={composerRef} aria-labelledby="outfit-proposal-heading" className="mx-auto mt-8 w-full max-w-5xl scroll-mt-24 rounded-3xl border border-orange-500/25 bg-[#121214] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] sm:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 id="outfit-proposal-heading" className="text-xl font-black tracking-[-0.02em] sm:text-2xl">{isEditingMyProposal ? t("outfits.detail.editOutfit") : t("outfits.detail.proposeOutfit")}</h2>
-                <p className="mt-2 text-sm leading-6 text-white/55">{t("outfits.detail.proposalHelp")}</p>
+                <h2 id="outfit-proposal-heading" className="text-xl font-black tracking-[-0.02em] sm:text-2xl">{t("outfits.detail.proposeOutfit")}</h2>
               </div>
             </div>
 
@@ -834,18 +818,37 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
             <div className={`mt-4 grid gap-2 ${isEditingMyProposal ? "grid-cols-2" : "grid-cols-1"}`}>
               {isEditingMyProposal && (
                 <button type="button" disabled={working} onClick={cancelEditingProposal} className="outfit-detail-pressable rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-black text-white/60 transition-[background-color,border-color,color,transform] duration-150 disabled:opacity-40">
-                  {t("outfits.detail.cancelEdit")}
+                  {t("common.cancel")}
                 </button>
               )}
-              <button disabled={selectedIds.length < 2 || explanation.trim().length < 10 || working} onClick={() => void submitProposal()} className="outfit-detail-pressable outfit-detail-primary-action flex w-full items-center justify-center rounded-xl bg-orange-500 py-3 text-sm font-black text-black transition-[background-color,transform] duration-150 disabled:opacity-35">{working ? <LoaderCircle className="h-4 w-4 animate-spin" /> : isEditingMyProposal ? t("outfits.detail.saveEdit") : t("outfits.detail.proposeThisOutfit")}</button>
+              <button disabled={selectedIds.length < 2 || explanation.trim().length < 10 || working} onClick={() => void submitProposal()} className="outfit-detail-pressable outfit-detail-primary-action flex w-full items-center justify-center rounded-xl bg-orange-500 py-3 text-sm font-black text-black transition-[background-color,transform] duration-150 disabled:opacity-35">{working ? <LoaderCircle className="h-4 w-4 animate-spin" /> : isEditingMyProposal ? t("outfits.detail.edit") : t("outfits.detail.proposeThisOutfit")}</button>
             </div>
           </section>
         )}
 
         <section className={`mt-12 border-t border-white/10 pt-9 ${isOwner ? "order-3" : ""}`}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black">{t("outfits.detail.recommendedOutfits", { count: outfitRequest.proposals.length })}</h2>
-            {outfitRequest.status !== "open" && <span className="flex items-center gap-1.5 text-xs text-white/35"><LockKeyhole className="h-3.5 w-3.5" />{t("outfits.detail.proposalsClosed")}</span>}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-black">추천 코디</h2>
+            <div className="flex items-center gap-2">
+              <div ref={proposalSortMenuRef} className="relative">
+                <button type="button" aria-label={t("outfits.detail.sortProposals")} aria-haspopup="menu" aria-expanded={proposalSortMenuOpen} aria-controls="outfit-proposal-sort-menu" onClick={() => setProposalSortMenuOpen((open) => !open)} className={`outfit-detail-pressable flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-[background-color,color,transform] ${proposalSortMenuOpen ? "bg-white/[0.08] text-white" : "text-white/65"}`}>
+                  <ArrowDownUp className="h-3.5 w-3.5" />
+                  <span>{proposalSort === "likes" ? t("outfits.detail.sortByLikes") : t("outfits.detail.sortByLatest")}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${proposalSortMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+                {proposalSortMenuOpen && (
+                  <div id="outfit-proposal-sort-menu" role="menu" aria-label={t("outfits.detail.sortProposals")} className="outfit-detail-menu absolute right-0 top-[calc(100%+0.5rem)] z-40 w-32 overflow-hidden rounded-2xl border border-white/10 bg-[#17171a] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.6)]">
+                    {(["latest", "likes"] as const).map((sort) => (
+                      <button key={sort} type="button" role="menuitemradio" aria-checked={proposalSort === sort} onClick={() => { setProposalSort(sort); setProposalSortMenuOpen(false); }} className={`outfit-detail-pressable flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-left text-xs font-bold transition-[background-color,color,transform] ${proposalSort === sort ? "bg-white/[0.08] text-white" : "text-white/55"}`}>
+                        {sort === "likes" ? t("outfits.detail.sortByLikes") : t("outfits.detail.sortByLatest")}
+                        {proposalSort === sort && <Check className="h-3.5 w-3.5 text-orange-300" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {outfitRequest.status !== "open" && <span className="flex items-center gap-1.5 text-xs text-white/35"><LockKeyhole className="h-3.5 w-3.5" />{t("outfits.detail.proposalsClosed")}</span>}
+            </div>
           </div>
           {orderedProposals.length === 0 ? (
             <div className="mt-5 rounded-3xl border border-dashed border-white/15 py-16 text-center">
@@ -854,19 +857,13 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
             </div>
           ) : (
             <div className="mt-5 space-y-4">
-              {orderedProposals.map((proposal, index) => {
+              {orderedProposals.map((proposal) => {
                 const accepted = proposal.id === outfitRequest.acceptedProposalId;
                 const matchLabel = focusMatchLabel(proposal, outfitRequest.focusProductIds.length, t);
                 const isMine = proposal.authorId === currentUserId;
                 const isEditingThisProposal = editingProposalId === proposal.id;
-                const previousProposal = orderedProposals[index - 1];
-                const previousIsMine = previousProposal?.authorId === currentUserId;
-                const showOtherHeading = !isMine && (index === 0 || previousIsMine);
                 return (
                   <div key={proposal.id} className="space-y-3">
-                    {showOtherHeading && (
-                      <p className="px-1 text-xs font-black tracking-[-0.01em] text-white/55">{t("outfits.detail.otherProposals")}</p>
-                    )}
                     <article className={`rounded-2xl border p-5 sm:p-6 ${accepted ? "border-orange-500/35 bg-orange-500/[0.055]" : "border-white/[0.09] bg-[#111114]"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -878,29 +875,42 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
                           </div>}
                       </div>
                       <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={likingProposalId === proposal.id}
+                          aria-pressed={proposal.isLiked}
+                          aria-label={proposal.isLiked ? t("outfits.detail.unlikeProposal") : t("outfits.detail.likeProposal")}
+                          onClick={() => void toggleProposalLike(proposal)}
+                          className={`outfit-detail-pressable flex h-11 items-center gap-2 rounded-full px-3.5 text-sm font-bold transition-[background-color,color,transform] disabled:opacity-50 ${proposal.isLiked ? "bg-orange-500/10 text-orange-300" : "text-white/60"}`}
+                        >
+                          <Heart className="h-[1.125rem] w-[1.125rem]" fill={proposal.isLiked ? "currentColor" : "none"} />
+                          <span>{proposal.likeCount}</span>
+                        </button>
                         {accepted && <span className="rounded-full bg-orange-500 px-2.5 py-1 text-[11px] font-black text-black">{t("outfits.detail.accepted")}</span>}
                         {isMine && outfitRequest.status === "open" && (
                           isEditingThisProposal ? (
                             <button type="button" disabled={working} onClick={cancelEditingProposal} className="outfit-detail-pressable flex h-11 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-white/60 transition-[background-color,color,transform] duration-150 disabled:opacity-40">
                               {t("outfits.detail.cancelEdit")}
                             </button>
-                          ) : <>
-                            <button type="button" disabled={working} onClick={() => startEditingProposal(proposal)} className="outfit-detail-pressable flex h-11 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-white/60 transition-[background-color,color,transform] duration-150 disabled:opacity-40" aria-label={t("outfits.detail.editProposal")}>
-                              <Pencil className="h-3.5 w-3.5" />{t("outfits.detail.edit")}
-                            </button>
+                          ) : (
                             <div ref={proposalMenuOpen === proposal.id ? proposalMenuRef : undefined} className="relative">
                               <button type="button" disabled={working} aria-label={t("outfits.detail.moreProposalActions")} aria-haspopup="menu" aria-expanded={proposalMenuOpen === proposal.id} aria-controls={`outfit-proposal-menu-${proposal.id}`} onClick={() => setProposalMenuOpen((open) => open === proposal.id ? null : proposal.id)} className={`outfit-detail-pressable flex h-11 w-11 items-center justify-center rounded-xl transition-[background-color,color,transform] duration-150 disabled:opacity-40 ${proposalMenuOpen === proposal.id ? "bg-white/[0.08] text-white" : "text-white/45"}`}>
                                 <Ellipsis className="h-5 w-5" />
                               </button>
                               {proposalMenuOpen === proposal.id && (
                                 <div id={`outfit-proposal-menu-${proposal.id}`} role="menu" aria-label={t("outfits.detail.proposalManagement")} className="outfit-detail-menu absolute right-0 top-[calc(100%+0.5rem)] z-40 w-40 overflow-hidden rounded-2xl border border-white/10 bg-[#17171a] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.6)]">
+                                  <button type="button" role="menuitem" onClick={() => { setProposalMenuOpen(null); startEditingProposal(proposal); }} className="outfit-detail-pressable flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-gray-200 transition-[background-color,color,transform] duration-150 focus:bg-white/[0.07] focus:outline-none">
+                                    <Pencil className="h-4 w-4 text-gray-400" />{t("outfits.detail.edit")}
+                                  </button>
+                                  <div className="mt-1 border-t border-white/10 pt-1">
                                   <button type="button" role="menuitem" onClick={() => { setProposalMenuOpen(null); setProposalAction({ type: "delete", proposal }); }} className="outfit-detail-pressable outfit-detail-danger-action flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-red-300 transition-[background-color,color,transform] duration-150 focus:bg-red-500/10 focus:outline-none">
                                     <Trash2 className="h-4 w-4" />{t("outfits.detail.deleteProposal")}
                                   </button>
+                                  </div>
                                 </div>
                               )}
                             </div>
-                          </>
+                          )
                         )}
                       </div>
                     </div>
@@ -919,22 +929,13 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
         </section>
         {isOwner && (
           <section id="shared-closet-section" className="mt-10 scroll-mt-24">
-            <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
               <div>
                 <h2 className="text-xl font-black">{t("outfits.detail.sharedClosetTitle")}</h2>
-              <p className="mt-1 text-sm text-white/55">{t("outfits.detail.sharedClosetCount", { count: outfitRequest.products.length })}</p>
               </div>
-              <div className="relative max-w-full">
-                <div ref={categoryFilterRef} aria-label={t("outfits.detail.categoryFilter")} className="flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <button type="button" aria-pressed={!category} onClick={() => selectCategory("")} className={`outfit-detail-pressable outfit-detail-filter min-h-11 whitespace-nowrap rounded-full border px-4 text-xs font-bold transition-[background-color,border-color,color,transform] duration-150 ${!category ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.035] text-white/55"}`}>{t("outfits.detail.all")}</button>
-                  {categories.map((item) => (
-                    <button key={item} type="button" aria-pressed={category === item} onClick={() => selectCategory(item)} className={`outfit-detail-pressable outfit-detail-filter min-h-11 whitespace-nowrap rounded-full border px-4 text-xs font-bold transition-[background-color,border-color,color,transform] duration-150 ${category === item ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.035] text-white/55"}`}>{item}</button>
-                  ))}
-                </div>
-                {hasMoreCategories && <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-black via-black/85 to-transparent" />}
-              </div>
+              <CategoryTabs category={category} onCategoryChange={(value) => selectCategory(value)} allLabel={t("outfits.detail.all")} ariaLabel={t("outfits.detail.categoryFilter")} className="mt-4" spacing="default" alignment="center" />
             </div>
-            <div id="shared-closet-product-grid" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <div id="shared-closet-product-grid" className="mt-0 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {displayedProducts.map((product) => {
                 const productId = String(product.id);
                 return <OutfitProductTile key={product.id} product={product} badge={outfitRequest.focusProductIds.includes(productId) ? t("outfits.detail.desiredBadge") : undefined} selectable={canComposeProposal} selected={selectedIds.includes(productId)} selectionLimitReached={selectedIds.length >= 6} onClick={() => toggleProduct(productId)} />;
@@ -944,7 +945,7 @@ export function OutfitRequestDetailPageClient({ requestId }: { requestId: string
           </section>
         )}
         {confirmAction && <OutfitRequestConfirmDialog action={confirmAction} working={working} onCancel={() => setConfirmAction(null)} onConfirm={() => { if (confirmAction === "delete") void removeRequest(); else void closeRequest(); }} />}
-        {proposalConfirmOpen && <OutfitProposalConfirmDialog matchedCount={outfitRequest.focusProductIds.filter((id) => selectedIds.includes(id)).length} totalCount={outfitRequest.focusProductIds.length} isEditing={isEditingMyProposal} working={working} onCancel={() => setProposalConfirmOpen(false)} onConfirm={() => void submitProposal(true)} />}
+        {proposalConfirmOpen && <OutfitProposalConfirmDialog matchedCount={outfitRequest.focusProductIds.filter((id) => selectedIds.includes(id)).length} totalCount={outfitRequest.focusProductIds.length} working={working} onCancel={() => setProposalConfirmOpen(false)} onConfirm={() => void submitProposal(true)} />}
         {proposalAction && <OutfitProposalActionDialog action={proposalAction} working={working} onCancel={() => setProposalAction(null)} onConfirm={() => { if (proposalAction.type === "delete") void removeProposal(proposalAction.proposal.id); else void acceptProposal(proposalAction.proposal); }} />}
         {previewProduct && <OutfitFocusProductPreviewDialog product={previewProduct} onClose={() => setPreviewProduct(null)} selected={selectedIds.includes(String(previewProduct.id))} onToggle={canComposeProposal ? () => toggleProduct(String(previewProduct.id)) : undefined} />}
       </div>

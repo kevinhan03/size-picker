@@ -21,7 +21,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const { data, error } = await supabase!.from("outfit_requests").select(REQUEST_SELECT).eq("id", id).maybeSingle();
     if (error) throw error;
     if (!data) return notFound(locale);
-    const outfitRequest = await hydrateRequestDetail(supabase!, data, locale);
+    const outfitRequest = await hydrateRequestDetail(supabase!, data, locale, user?.id || null);
     return NextResponse.json({ ok: true, data: { request: outfitRequest, currentUserId: user?.id || null } });
   } catch (error: unknown) {
     console.error("[outfits] detail failed", error);
@@ -82,7 +82,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (updateError) throw updateError;
     if (!updated) return NextResponse.json({ ok: false, error: outfitMessage(locale, "requestAlreadyClosedByOther") }, { status: 409 });
     revalidateOpenOutfits();
-    const outfitRequest = await hydrateRequestDetail(db, updated, locale);
+    const outfitRequest = await hydrateRequestDetail(db, updated, locale, user.id);
     return NextResponse.json({ ok: true, data: { request: outfitRequest } });
   } catch (error: unknown) {
     console.error("[outfits] update failed", error);

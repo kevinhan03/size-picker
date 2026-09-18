@@ -118,7 +118,7 @@ export async function POST(request: Request) {
       throw itemError;
     }
 
-    const outfitRequest = await hydrateRequestDetail(db, created, locale);
+    const outfitRequest = await hydrateRequestDetail(db, created, locale, user.id);
     revalidateOpenOutfits();
     return NextResponse.json({ ok: true, data: { request: outfitRequest } }, { status: 201 });
   } catch (error: unknown) {

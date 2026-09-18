@@ -17,7 +17,9 @@ export function OutfitImageFrame({
 }) {
   const { t } = useLocaleContext();
   const [failed, setFailed] = useState(false);
-  const src = product.thumbnailImage || product.image;
+  // Match Digbox: a product preview can be enlarged, so prefer the original
+  // Storage image and use the 320px thumbnail only as a fallback.
+  const src = product.image || product.thumbnailImage;
 
   if (!src || failed) {
     return (

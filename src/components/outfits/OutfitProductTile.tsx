@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Maximize2 } from "lucide-react";
+import { Maximize2 } from "lucide-react";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import type { Product } from "../../types";
 import { OutfitImageFrame } from "./OutfitImageFrame";
@@ -9,7 +9,6 @@ export function OutfitProductTile({
   product,
   selected = false,
   selectable = false,
-  order,
   selectionLimitReached = false,
   badge,
   onClick,
@@ -18,7 +17,6 @@ export function OutfitProductTile({
   product: Product;
   selected?: boolean;
   selectable?: boolean;
-  order?: number;
   selectionLimitReached?: boolean;
   badge?: string;
   onClick?: () => void;
@@ -40,11 +38,6 @@ export function OutfitProductTile({
       {badge && (
         <span className="absolute left-2 top-2 z-10 rounded-full bg-black/75 px-2 py-1 text-[10px] font-bold text-white/75 backdrop-blur">
           {badge}
-        </span>
-      )}
-      {selected && (
-        <span className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-black shadow-md">
-          {order || <Check className="h-4 w-4" />}
         </span>
       )}
     </div>

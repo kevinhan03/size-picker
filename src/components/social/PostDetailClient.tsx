@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
+  ArrowLeft,
   Bookmark,
   ChevronLeft,
   ChevronRight,
@@ -181,6 +182,14 @@ export function PostDetailClient({ postId }: { postId: string }) {
         ) : (
           <>
             <header className="social-author-row">
+              <Link
+                href="/outfit-explorer"
+                className="social-icon"
+                aria-label={c.returnExplore}
+                title={c.returnExplore}
+              >
+                <ArrowLeft size={20} />
+              </Link>
               {post.author ? (
                 <Link href={`/${encodeURIComponent(post.author.username)}`}>
                   {post.author.avatarUrl ? (

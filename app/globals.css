@@ -70,6 +70,11 @@
 }
 
 @media (max-width: 1023px) {
+  .app-shell--hide-mobile-header {
+    --app-main-pt: calc(1.5rem + env(safe-area-inset-top, 0px));
+    --page-header-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+  }
+
   :root {
     --app-page-min-h: 100vh;
     --app-main-min-h: 100vh;
@@ -330,7 +335,7 @@ button,
 
 /* Outfit discovery controls use restrained press feedback; hover detail stays desktop-only. */
 .outfit-pressable:not(:disabled):active {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 
 .outfit-request-card-arrow {
@@ -384,8 +389,13 @@ button,
     transform: translateX(0.25rem);
   }
 
-  .outfit-detail-pressable:not(.outfit-detail-filter):not(.outfit-detail-product-select):not(.outfit-detail-product-preview):hover:not(:disabled) {
+  .outfit-detail-pressable:not(.outfit-detail-filter):not(.outfit-detail-product-select):not(.outfit-detail-product-preview):not(.outfit-detail-modal-close):hover:not(:disabled) {
     background-color: rgb(255 255 255 / 0.075);
+  }
+
+  .outfit-detail-modal-close:hover:not(:disabled) {
+    background-color: rgb(0 0 0 / 0.9);
+    border-color: rgb(255 255 255 / 0.34);
   }
 
   .outfit-detail-filter[aria-pressed="false"]:hover:not(:disabled) {
@@ -752,8 +762,7 @@ button,
   }
 
   .app-header-motion {
-    transform: none !important;
-    transition: opacity var(--duration-reduced) ease !important;
+    transition: none !important;
   }
 
   .animate-\[filter-dropdown-in_var\(--duration-popover\)_var\(--ease-out\)\] {

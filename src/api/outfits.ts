@@ -80,3 +80,12 @@ export async function deleteOutfitProposal(id: string) {
   const response = await fetch(endpoint, { method: "DELETE", headers: authHeaders(), credentials: "same-origin" });
   return parseResponse<{ deleted: boolean }>(response, endpoint);
 }
+
+export async function setOutfitProposalLike(id: string, active: boolean) {
+  const endpoint = `/api/outfit-proposals/${encodeURIComponent(id)}/like`;
+  const response = await fetch(endpoint, {
+    method: active ? "PUT" : "DELETE",
+    headers: authHeaders(), credentials: "same-origin",
+  });
+  return parseResponse<{ active: boolean; likeCount: number }>(response, endpoint);
+}

@@ -67,7 +67,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
     revalidateOpenOutfits();
 
-    const hydrated = await hydrateRequestDetail(db, outfitRequest, locale);
+    const hydrated = await hydrateRequestDetail(db, outfitRequest, locale, user.id);
     return NextResponse.json({ ok: true, data: { request: hydrated } }, { status: 201 });
   } catch (error: unknown) {
     console.error("[outfits] proposal create failed", error);

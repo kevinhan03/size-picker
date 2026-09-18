@@ -342,6 +342,7 @@ export interface OutfitRequestSummary {
   id: string;
   authorId: string;
   authorUsername: string;
+  authorAvatarUrl: string | null;
   description: string;
   status: OutfitRequestStatus;
   acceptedProposalId: string | null;
@@ -361,6 +362,8 @@ export interface OutfitProposal {
   authorUsername: string;
   explanation: string;
   createdAt: string;
+  likeCount: number;
+  isLiked: boolean;
   products: Product[];
   focusMatch: OutfitFocusMatch;
   matchedFocusItemCount: number;
@@ -370,6 +373,7 @@ export interface OutfitRequestDetail {
   id: string;
   authorId: string;
   authorUsername: string;
+  authorAvatarUrl: string | null;
   description: string;
   status: OutfitRequestStatus;
   acceptedProposalId: string | null;

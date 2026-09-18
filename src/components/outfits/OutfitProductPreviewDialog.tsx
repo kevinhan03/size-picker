@@ -4,7 +4,9 @@ import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import type { Product } from "../../types";
 import { useLocaleContext } from "../../contexts/LocaleContext";
+import { getCategoryLabel } from "../../constants";
 import { usePresence } from "../../hooks/usePresence";
+import { ProductStyleProfileCard } from "../ProductStyleProfileCard";
 import { OutfitImageFrame } from "./OutfitImageFrame";
 
 function trapDialogFocus(event: React.KeyboardEvent<HTMLElement>) {
@@ -50,19 +52,25 @@ export function OutfitProductPreviewDialog({
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
       <button type="button" aria-label={t("outfits.detail.closeProductImage")} onClick={close} className="ui-layer-scrim absolute inset-0 cursor-default bg-black/80 backdrop-blur-sm" data-visible={presence.isVisible} />
       <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={t("outfits.detail.productImageDialog", { product: `${product.brand} ${product.name}` })} tabIndex={-1} onKeyDown={(event) => { trapDialogFocus(event); if (event.key === "Escape") close(); }} className="ui-layer-modal ui-floating-surface relative z-10 h-[min(44rem,calc(100dvh-2rem))] w-full max-w-4xl overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#17171a] shadow-[0_24px_64px_rgba(0,0,0,0.68)] outline-none" data-visible={presence.isVisible}>
-        <button type="button" onClick={close} aria-label={t("outfits.detail.closeProductImage")} className="outfit-detail-pressable absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><X className="h-5 w-5" /></button>
-        <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
+        <button type="button" onClick={close} aria-label={t("outfits.detail.closeProductImage")} className="outfit-detail-modal-close outfit-detail-pressable absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white shadow-md backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"><X className="h-5 w-5" /></button>
+        <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_19rem] md:grid-rows-1">
           <div className="relative min-h-0 bg-black/25 p-6 sm:p-8 md:p-10">
             <OutfitImageFrame product={product} alt={`${product.brand} ${product.name}`} fit="contain" />
           </div>
-          <div className="flex min-h-0 flex-col border-t border-white/10 bg-[#17171a] p-5 sm:p-6 md:flex-row md:items-center md:gap-6 md:px-7">
-            <div className="min-w-0 pr-11 md:flex-1 md:pr-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/55">{product.brand}</p>
-              <h2 className="mt-1 text-lg font-bold leading-6 tracking-[-0.015em] text-white">{product.name}</h2>
-              <p className="mt-2 text-sm text-white/55">{product.category}</p>
+          <div className="flex min-h-0 flex-col border-t border-white/10 bg-[#17171a] p-5 sm:p-6 md:border-l md:border-t-0 md:p-7">
+            <div>
+              <div className="pr-11">
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/55">{product.brand}</p>
+                <h2 className="mt-1 text-lg font-bold leading-6 tracking-[-0.015em] text-white">{product.name}</h2>
+              </div>
+              <p className="mt-2 text-sm text-white/55">
+                {getCategoryLabel(product.category)}
+                {product.subCategory ? ` · ${product.subCategory}` : ""}
+              </p>
+              <ProductStyleProfileCard product={product} />
             </div>
             {onToggle && (
-              <div className="mt-5 border-t border-white/10 pt-5 md:mt-0 md:w-52 md:shrink-0 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+              <div className="mt-6 border-t border-white/10 pt-5 md:mt-auto">
                 <p className={`min-h-5 whitespace-nowrap text-sm font-semibold ${selectionDisabled ? "text-orange-300" : "text-white/75"}`}>{selected ? (selectedLabel ?? t("outfits.detail.addedToOutfit")) : selectionDisabled ? t("outfits.detail.maximumSelection") : "\u00a0"}</p>
                 <button type="button" disabled={selectionDisabled} onClick={onToggle} className={`outfit-detail-pressable mt-3 min-h-11 w-full rounded-xl px-4 text-sm transition-[background-color,border-color,color,transform] duration-150 disabled:cursor-not-allowed disabled:opacity-35 ${selected ? "border border-white/15 bg-white/[0.06] font-bold text-white" : "bg-orange-500 font-black text-black"}`}>{selected ? t("outfits.detail.removeFromOutfit") : (selectLabel ?? t("outfits.detail.addToOutfit"))}</button>
               </div>
