@@ -26,6 +26,7 @@ beforeAll(async () => {
  create table public.users(id uuid primary key references auth.users(id) on delete cascade,username text,avatar_path text);
  create table public.products(id bigint primary key,name text,brand text,image_path text);
  create table public.user_closet_items(user_id uuid references auth.users(id) on delete cascade,product_id text,primary key(user_id,product_id));
+ create table public.user_digbox_items(user_id uuid references auth.users(id) on delete cascade,product_id text,primary key(user_id,product_id));
  grant usage on schema public,auth to service_role;
  grant all on all tables in schema public,auth to service_role;
  `);
@@ -50,10 +51,6 @@ beforeAll(async () => {
     "insert into outfit_explorer_posts(id,image_path,user_id) values($1,'legacy.jpg',$2)",
     [legacy, alice]
   );
-  await db.query(
-    "insert into outfit_explorer_comments(post_id,body) values($1,'Keep historical comment')",
-    [legacy]
-  );
   await db.exec(
     readFileSync(
       "supabase/migrations/20260914112007_social_style_posts.sql",
@@ -61,30 +58,29 @@ beforeAll(async () => {
     )
   );
   await db.exec(
-    "insert into products values(1,'Shirt','Brand','shirt.jpg'),(2,'Shoes','Brand','shoes.jpg'),(3,'Jacket','Brand','jacket.jpg');"
+    readFileSync(
+      "supabase/migrations/20260919092933_allow_saved_product_tags.sql",
+      "utf8"
+    )
+  );
+  await db.exec(
+    "insert into products values(1,'Shirt','Brand','shirt.jpg'),(2,'Shoes','Brand','shoes.jpg'),(3,'Jacket','Brand','jacket.jpg'),(4,'Coat','Brand','coat.jpg');"
   );
   await db.query("insert into user_closet_items values($1,'1'),($1,'3'),($2,'2')", [
     alice,
     bob,
   ]);
+  await db.query("insert into user_digbox_items values($1,'2')", [alice]);
 }, 60000);
 afterAll(async () => {
   await db.close();
 });
 describe("social migration and atomic publishing", () => {
-  it("preserves legacy post identity, media and historical comments", async () => {
+  it("preserves legacy post identity and media", async () => {
     expect(
       (
         await db.query(
           "select * from outfit_explorer_images where post_id=$1",
-          [legacy]
-        )
-      ).rows
-    ).toHaveLength(1);
-    expect(
-      (
-        await db.query(
-          "select * from outfit_explorer_comments where post_id=$1",
           [legacy]
         )
       ).rows
@@ -137,7 +133,7 @@ describe("social migration and atomic publishing", () => {
       publish(alice, {
         id,
         caption: "",
-        images: [{ id: image, tags: [{ productId: "2", x: 0.2, y: 0.5 }] }],
+        images: [{ id: image, tags: [{ productId: "4", x: 0.2, y: 0.5 }] }],
       })
     ).rejects.toThrow(/not_in_closet/);
     expect(
@@ -159,6 +155,21 @@ describe("social migration and atomic publishing", () => {
         images: [{ id: image, tags: [] }],
       })
     ).rejects.toThrow(/invalid_upload/);
+  });
+  it("allows tags for products saved to Digbox without requiring a closet entry", async () => {
+    const id = randomUUID();
+    const image = await upload();
+    await publish(alice, {
+      id,
+      caption: "saved product tag",
+      images: [{ id: image, tags: [{ productId: "2", x: 0.2, y: 0.5 }] }],
+    });
+    expect(
+      (await db.query<{ product_id: number }>(
+        "select product_id from outfit_explorer_tags where image_id=$1",
+        [image]
+      )).rows[0].product_id
+    ).toBe(2);
   });
   it("preserves tags after closet removal and reorders images atomically", async () => {
     const id = randomUUID(),

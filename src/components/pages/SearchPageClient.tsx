@@ -88,12 +88,12 @@ export function SearchPageClient() {
   const {
     clearQuery,
     handleQueryChange,
-    handleSearchSubmit,
     query,
     searchContainerRef,
     setShowSuggestions,
     showSuggestions,
     suggestions,
+    brandSuggestions: searchBrandSuggestions,
   } = useSearchContext();
   const grid = useGridState(products);
   const productModal = useProductModalQuery();
@@ -184,15 +184,26 @@ export function SearchPageClient() {
   const brandSuggestions = useMemo(() => {
     const normalizedQuery = normalizeBrandKey(query);
     if (!normalizedQuery) return [];
-    return brandSummaries
-      .filter((brand) => normalizeBrandKey(brand.name).includes(normalizedQuery))
-      .map((brand) => brand.name)
-      .sort((a, b) => a.localeCompare(b, "ko"));
-  }, [brandSummaries, query]);
+    const matched = new Map<string, string>();
+    // Server results cover brands outside the currently loaded catalog page.
+    for (const item of searchBrandSuggestions) {
+      const name = item.brand.trim();
+      if (name) matched.set(normalizeBrandKey(name), name);
+    }
+    for (const brand of brandSummaries) {
+      if (normalizeBrandKey(brand.name).includes(normalizedQuery)) {
+        matched.set(normalizeBrandKey(brand.name), brand.name);
+      }
+    }
+    return Array.from(matched.values());
+  }, [brandSummaries, query, searchBrandSuggestions]);
 
   const brandCountByName = useMemo(
-    () => new Map(brandSummaries.map((brand) => [brand.name, brand.itemCount])),
-    [brandSummaries]
+    () => new Map([
+      ...brandSummaries.map((brand) => [brand.name, brand.itemCount] as const),
+      ...searchBrandSuggestions.map((brand) => [brand.brand, brand.count] as const),
+    ]),
+    [brandSummaries, searchBrandSuggestions]
   );
 
   const recentBrandOptions = useMemo(
@@ -295,6 +306,24 @@ export function SearchPageClient() {
 
     event.preventDefault();
     const term = query.trim();
+    const exactBrand = brandSummaries.find(
+      (brand) => normalizeBrandKey(brand.name) === normalizeBrandKey(term)
+    );
+    // Catalog brands commonly include both English and Korean names, e.g.
+    // "AFTERPRAY(애프터프레이)". If the submitted Korean/English alias maps
+    // to one brand suggestion, treat it as the same explicit brand selection.
+    const selectedBrand = exactBrand?.name ?? (
+      brandSuggestions.length === 1 ? brandSuggestions[0] : undefined
+    );
+
+    // A brand submitted from the keyboard should behave exactly like choosing
+    // that brand from the discovery list: keep the brand heading and clear
+    // action rather than showing a generic keyword result.
+    if (selectedBrand) {
+      handleBrandSelect(selectedBrand);
+      return;
+    }
+
     grid.setGridSearchQuery(term);
     setShowSuggestions(false);
     captureEvent("catalog_search_submitted", { query_length: term.length, result_count: grid.filteredGridProducts.length });
@@ -455,7 +484,10 @@ export function SearchPageClient() {
                         <li key={item.id} className="border-b border-white/10 last:border-0">
                           <button
                             type="button"
-                            onClick={() => handleSearchSubmit(item)}
+                            onClick={(event) => {
+                              handleProductClick(item, getAnchorRect(event.currentTarget));
+                              setShowSuggestions(false);
+                            }}
                             className="flex w-full items-center gap-4 px-5 py-4 text-left transition-[background-color,color] hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400/80"
                           >
                             <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md bg-white/10">
@@ -463,6 +495,8 @@ export function SearchPageClient() {
                               src={item.thumbnailImage || item.image}
                               alt={item.name}
                               className="h-full w-full object-cover"
+                              loading="lazy"
+                              fetchPriority="low"
                               onError={handleImageLoadError}
                             />
                             </div>

@@ -2,15 +2,17 @@
 /* eslint-disable @next/next/no-img-element -- Signed post media preserves original proportions. */
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { UserRound } from "lucide-react";
+import { Bookmark, Heart, UserRound } from "lucide-react";
 import type { PostPage, PostSummary } from "../../types/social";
 import {
   socialFetch,
   socialRevision,
+  changed,
   useSocialAuth,
   useSocialVersion,
 } from "./client";
 import { socialError, useSocialMessages } from "./messages";
+import { SocialFeedLoadingCards } from "./SocialFeedLoadingSkeleton";
 import "./social.css";
 const feedCache = new Map<
   string,
@@ -22,12 +24,14 @@ export function PostFeed({
   following = false,
   action,
   emptyContent,
+  photoOnly = false,
 }: {
   author?: string;
   saved?: boolean;
   following?: boolean;
   action?: ReactNode;
   emptyContent?: ReactNode;
+  photoOnly?: boolean;
 }) {
   const c = useSocialMessages();
   const auth = useSocialAuth();
@@ -44,7 +48,7 @@ export function PostFeed({
   const lastRevision = useRef(socialRevision());
   const sentinel = useRef<HTMLDivElement>(null);
   const load = useCallback(
-    async (cursor?: string) => {
+    async (cursor?: string, fresh = false) => {
       if (lock.current) return;
       lock.current = true;
       const gen = generation.current;
@@ -54,7 +58,8 @@ export function PostFeed({
           endpoint +
             (cursor
               ? `${endpoint.includes("?") ? "&" : "?"}cursor=${encodeURIComponent(cursor)}`
-              : "")
+              : ""),
+          fresh ? { cache: "no-store" } : undefined
         );
         if (gen !== generation.current) return;
         setData((previous) => {
@@ -118,7 +123,7 @@ export function PostFeed({
       feedCache.clear();
       generation.current++;
       lock.current = false;
-      void load();
+      void load(undefined, true);
     }
   }, [version, load]);
   useEffect(() => {
@@ -148,13 +153,18 @@ export function PostFeed({
       ) : null}
       <div className="social-grid">
         {data.posts.map((post) => (
-          <PostCard key={post.id} post={post} onOpen={remember} />
+          <PostCard
+            key={post.id}
+            post={post}
+            onOpen={remember}
+            hideCaption={!author && !saved}
+            showQuickActions={!author && !saved}
+            photoOnly={photoOnly}
+          />
         ))}
-        {loading &&
-          data.posts.length === 0 &&
-          Array.from({ length: 6 }, (_, i) => (
-            <div className="social-skeleton" key={i} aria-hidden="true" />
-          ))}
+        {loading && data.posts.length === 0 && (
+          <SocialFeedLoadingCards photoOnly={photoOnly} />
+        )}
       </div>
       {!loading && !error && data.posts.length === 0 && (
         <div className="social-empty">
@@ -192,11 +202,48 @@ export function PostFeed({
 export function PostCard({
   post,
   onOpen,
+  hideCaption = false,
+  showQuickActions = false,
+  photoOnly = false,
 }: {
   post: PostSummary;
   onOpen?: () => void;
+  hideCaption?: boolean;
+  showQuickActions?: boolean;
+  photoOnly?: boolean;
 }) {
   const c = useSocialMessages();
+  const auth = useSocialAuth();
+  const lock = useRef(false);
+  const [busy, setBusy] = useState<"like" | "save" | null>(null);
+  const [isLiked, setIsLiked] = useState(post.isLiked);
+  const [isSaved, setIsSaved] = useState(post.isSaved);
+
+  useEffect(() => {
+    setIsLiked(post.isLiked);
+    setIsSaved(post.isSaved);
+  }, [post.id, post.isLiked, post.isSaved]);
+
+  async function toggle(kind: "like" | "save") {
+    if (lock.current || !auth.ensure()) return;
+    const wasActive = kind === "like" ? isLiked : isSaved;
+    const setActive = kind === "like" ? setIsLiked : setIsSaved;
+    lock.current = true;
+    setBusy(kind);
+    setActive(!wasActive);
+    try {
+      await socialFetch(`/api/outfit-explorer/${post.id}/${kind}`, {
+        method: wasActive ? "DELETE" : "PUT",
+      });
+      changed();
+    } catch {
+      setActive(wasActive);
+    } finally {
+      lock.current = false;
+      setBusy(null);
+    }
+  }
+
   return (
     <article className="social-card">
       <Link
@@ -212,31 +259,59 @@ export function PostCard({
           loading="lazy"
         />
       </Link>
-      <div className="social-card-meta">
-        {post.author ? (
-          <Link
-            className="social-card-author"
-            href={`/${encodeURIComponent(post.author.username)}`}
-            onClick={onOpen}
-          >
-            {post.author.avatarUrl ? (
-              <img
-                className="social-avatar"
-                src={post.author.avatarUrl}
-                alt=""
-              />
-            ) : (
-              <span className="social-avatar">
-                <UserRound size={14} />
-              </span>
-            )}
-            {post.author.username}
-          </Link>
-        ) : (
-          <span className="social-card-author">{post.uploaderName}</span>
+      {!photoOnly && <div className="social-card-meta">
+        <div className="social-card-header">
+          {post.author ? (
+            <Link
+              className="social-card-author"
+              href={`/${encodeURIComponent(post.author.username)}`}
+              onClick={onOpen}
+            >
+              {post.author.avatarUrl ? (
+                <img
+                  className="social-avatar"
+                  src={post.author.avatarUrl}
+                  alt=""
+                />
+              ) : (
+                <span className="social-avatar">
+                  <UserRound size={14} />
+                </span>
+              )}
+              {post.author.username}
+            </Link>
+          ) : (
+            <span className="social-card-author">{post.uploaderName}</span>
+          )}
+          {showQuickActions && (
+            <div className="social-card-quick-actions">
+              <button
+                type="button"
+                className={`social-card-quick-action ${isLiked ? "social-active" : ""}`}
+                aria-label={isLiked ? c.unlike : c.like}
+                aria-pressed={isLiked}
+                disabled={busy !== null}
+                onClick={() => void toggle("like")}
+              >
+                <Heart size={17} fill={isLiked ? "currentColor" : "none"} />
+              </button>
+              <button
+                type="button"
+                className={`social-card-quick-action ${isSaved ? "social-active" : ""}`}
+                aria-label={isSaved ? c.unsave : c.save}
+                aria-pressed={isSaved}
+                disabled={busy !== null}
+                onClick={() => void toggle("save")}
+              >
+                <Bookmark size={17} fill={isSaved ? "currentColor" : "none"} />
+              </button>
+            </div>
+          )}
+        </div>
+        {!hideCaption && post.caption && (
+          <p className="social-card-caption">{post.caption}</p>
         )}
-        {post.caption && <p className="social-card-caption">{post.caption}</p>}
-      </div>
+      </div>}
     </article>
   );
 }

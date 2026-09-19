@@ -4,6 +4,14 @@ import sharp from "sharp";
 import { decodeCursor, validatePost } from "./social-validation";
 import { normalizeSocialImage } from "./social-images";
 describe("social input boundaries", () => {
+  it("limits new posts to one photo while allowing existing albums explicitly", () => {
+    const post = { id: randomUUID(), caption: "", images: [
+      { id: randomUUID(), tags: [] }, { id: randomUUID(), tags: [] },
+    ] };
+    expect(() => validatePost(post)).toThrow("invalid_input");
+    expect(validatePost(post, 2)).toBe(post);
+    expect(() => validatePost(post, 1)).toThrow("invalid_input");
+  });
   it("allows no tags but rejects unsafe coordinates and duplicate images", () => {
     const p = {
       id: randomUUID(),

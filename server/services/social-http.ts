@@ -32,12 +32,21 @@ export async function mutationAccount(request: Request) {
 }
 export async function socialResponse(
   work: () => Promise<unknown>,
-  status = 200
+  status = 200,
+  headers?: HeadersInit
 ) {
+  const startedAt = performance.now();
   try {
     return NextResponse.json(
       { ok: true, data: await work() },
-      { status, headers: { "Cache-Control": "private, no-store" } }
+      {
+        status,
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Server-Timing": `social;dur=${Math.round(performance.now() - startedAt)}`,
+          ...headers,
+        },
+      }
     );
   } catch (error) {
     if (!(error instanceof SocialError))
@@ -49,7 +58,10 @@ export async function socialResponse(
       },
       {
         status: error instanceof SocialError ? error.status : 500,
-        headers: { "Cache-Control": "private, no-store" },
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Server-Timing": `social;dur=${Math.round(performance.now() - startedAt)}`,
+        },
       }
     );
   }

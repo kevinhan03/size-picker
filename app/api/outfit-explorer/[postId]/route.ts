@@ -1,9 +1,8 @@
 import {
-  check,
+  deletePost,
   publish,
   readPosts,
   requirePost,
-  socialDb,
 } from "../../../../server/services/social";
 import {
   mutationAccount,
@@ -31,12 +30,6 @@ export async function DELETE(request: Request, ctx: Context) {
   return socialResponse(async () => {
     const account = await mutationAccount(request);
     const { postId } = await ctx.params;
-    await requirePost(postId, account, true);
-    const result = await socialDb()
-      .from("outfit_explorer_posts")
-      .delete()
-      .eq("id", postId);
-    check(result.error);
-    return { deleted: true };
+    return deletePost(postId, account);
   });
 }

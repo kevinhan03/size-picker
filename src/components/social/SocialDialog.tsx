@@ -8,6 +8,7 @@ export function SocialDialog({
   onClose,
   children,
   wide = false,
+  className = "",
   onEscape,
   headerStart,
   headerEnd,
@@ -16,6 +17,7 @@ export function SocialDialog({
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  className?: string;
   onEscape?: () => boolean;
   headerStart?: ReactNode;
   headerEnd?: ReactNode;
@@ -37,7 +39,7 @@ export function SocialDialog({
   return (
     <dialog
       ref={ref}
-      className={`social-dialog ${wide ? "social-dialog-wide" : ""}`}
+      className={`social-dialog ${wide ? "social-dialog-wide" : ""} ${className}`}
       aria-label={title}
       onCancel={(e) => {
         e.preventDefault();

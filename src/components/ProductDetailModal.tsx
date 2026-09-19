@@ -655,7 +655,7 @@ function ProductDetailModalContent({
             trapDialogFocus(event);
             if (event.key === "Escape") closeModal();
           }}
-          className={`ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] outline-none md:max-h-[88.44vh] ${hasStyleProfile ? "md:max-w-[64.064rem]" : "md:max-w-3xl"}`}
+          className={`ui-product-detail-modal ui-layer-modal ui-floating-surface relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-[#1c1c1f] shadow-[0_24px_60px_rgba(0,0,0,0.38)] outline-none md:max-h-[88.44vh] ${hasStyleProfile ? "md:max-w-4xl" : "md:max-w-3xl"}`}
           data-visible={presence.isVisible}
         >
           <div className="z-10 flex flex-shrink-0 flex-nowrap items-center justify-between rounded-t-3xl border-b border-white/10 bg-[#1c1c1f] px-3 py-2 text-white sm:px-6 sm:py-3">

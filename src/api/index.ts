@@ -86,12 +86,22 @@ export const fetchCatalogProducts = (offset = 0, limit = 24): Promise<CatalogPag
   return request;
 };
 
+export type CatalogSearchBrand = { brand: string; count: number };
+
 export const searchCatalogProducts = async (query: string, signal?: AbortSignal, limit = 8): Promise<Product[]> => {
-  const endpoint = `/api/catalog/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}`;
+  const endpoint = `/api/catalog/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}&scope=products`;
   const response = await fetch(endpoint, { signal });
   const payload = await parseApiJson<{ ok?: boolean; data?: { products?: Product[] }; error?: string }>(response, endpoint);
   if (!response.ok || !payload.ok) throw new Error(payload.error || apiMessage('searchProducts'));
   return Array.isArray(payload.data?.products) ? payload.data.products : [];
+};
+
+export const searchCatalogBrands = async (query: string, signal?: AbortSignal, limit = 8): Promise<CatalogSearchBrand[]> => {
+  const endpoint = `/api/catalog/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}&scope=brands`;
+  const response = await fetch(endpoint, { signal });
+  const payload = await parseApiJson<{ ok?: boolean; data?: { brands?: CatalogSearchBrand[] }; error?: string }>(response, endpoint);
+  if (!response.ok || !payload.ok) throw new Error(payload.error || apiMessage('searchProducts'));
+  return Array.isArray(payload.data?.brands) ? payload.data.brands : [];
 };
 
 export const fetchCatalogProductsByIds = async (ids: string[], signal?: AbortSignal): Promise<Product[]> => {

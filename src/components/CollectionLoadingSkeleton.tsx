@@ -5,10 +5,11 @@ type CollectionLoadingSkeletonProps = {
   eyebrow: string;
   title: string;
   locale?: Locale;
+  compact?: boolean;
 };
 
 /** Keeps collection pages visually stable while client-side auth and data finish loading. */
-export function CollectionLoadingSkeleton({ eyebrow, title, locale = "ko" }: CollectionLoadingSkeletonProps) {
+export function CollectionLoadingSkeleton({ eyebrow, title, locale = "ko", compact = false }: CollectionLoadingSkeletonProps) {
   return (
     <main
       aria-busy="true"
@@ -16,8 +17,8 @@ export function CollectionLoadingSkeleton({ eyebrow, title, locale = "ko" }: Col
       className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)]"
     >
       <div className="mx-auto w-full max-w-[70rem] animate-pulse motion-reduce:animate-none">
-        <PageHeader eyebrow={eyebrow} title={title} />
-        <div className="mt-[var(--page-header-content-gap)] h-11 rounded-xl border border-white/[0.1] bg-white/[0.045]" />
+        {compact ? null : <PageHeader eyebrow={eyebrow} title={title} />}
+        <div className={`${compact ? "" : "mt-[var(--page-header-content-gap)] "}h-11 rounded-xl border border-white/[0.1] bg-white/[0.045]`} />
         <div className="mb-5 flex h-11 border-b-2 border-white/[0.1]">
           {Array.from({ length: 6 }).map((_, index) => (
             <span key={index} className="flex-1 border-r border-white/[0.08] last:border-r-0" />

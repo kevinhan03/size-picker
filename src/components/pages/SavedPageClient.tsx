@@ -1,7 +1,6 @@
 "use client";
 
 import { SavedCollectionContent } from "../collections/SavedCollectionContent";
-import { PageHeader } from "../PageHeader";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import type { Product } from "../../types";
 import { useState } from "react";
@@ -37,7 +36,6 @@ export function SavedPageClient({
   return (
     <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto w-full max-w-[70rem]">
-        <PageHeader eyebrow="MY SAVED" title={t("saved.title")} />
         <SocialTabs
           label={t("saved.title")}
           value={tab}

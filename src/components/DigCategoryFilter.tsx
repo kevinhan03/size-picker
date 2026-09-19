@@ -8,6 +8,7 @@ interface DigCategoryFilterProps {
   subCategory: string;
   onCategoryChange: (category: string) => void;
   onSubCategoryChange: (subcategory: string) => void;
+  disabled?: boolean;
 }
 
 const shortLabels: Record<string, string> = {
@@ -73,8 +74,8 @@ function useHorizontalRailDrag() {
 }
 
 function DigSubcategoryTabs({
-  category, subCategory, onSubCategoryChange,
-}: Pick<DigCategoryFilterProps, "category" | "subCategory" | "onSubCategoryChange">) {
+  category, subCategory, onSubCategoryChange, disabled = false,
+}: Pick<DigCategoryFilterProps, "category" | "subCategory" | "onSubCategoryChange" | "disabled">) {
   const railDrag = useHorizontalRailDrag();
   const options = getSubcategoryFilterOptions(category).map(item => ({
     ...item,
@@ -99,8 +100,9 @@ function DigSubcategoryTabs({
               type="button"
               role="tab"
               aria-selected={subCategory === item.value}
+              disabled={disabled}
               onClick={() => onSubCategoryChange(item.value)}
-              className={`h-10 shrink-0 border-b-2 px-3 text-sm font-semibold transition-[border-color,color,transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.98] sm:px-4 ${focusClass} ${subCategory === item.value ? "border-orange-400 text-orange-300" : "border-transparent text-gray-400 hover:text-white"}`}
+              className={`h-10 shrink-0 border-b-2 px-3 text-sm font-semibold transition-[border-color,color,transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:px-4 ${focusClass} ${subCategory === item.value ? "border-orange-400 text-orange-300" : "border-transparent text-gray-400 hover:text-white"}`}
             >
               {item.label}
             </button>
@@ -112,7 +114,7 @@ function DigSubcategoryTabs({
 }
 
 export function DigCategoryFilter({
-  category, subCategory, onCategoryChange, onSubCategoryChange,
+  category, subCategory, onCategoryChange, onSubCategoryChange, disabled = false,
 }: DigCategoryFilterProps) {
   const railRef = useRef<HTMLDivElement>(null);
   const railDrag = useHorizontalRailDrag();
@@ -141,16 +143,16 @@ export function DigCategoryFilter({
         >
           <div className="flex w-max min-w-full">
             {categories.map(item => (
-              <button key={item.value} type="button" aria-pressed={category === item.value}
+              <button key={item.value} type="button" aria-pressed={category === item.value} disabled={disabled}
                 onClick={() => onCategoryChange(item.value)}
-                className={`h-11 shrink-0 border-b-2 px-3 text-sm font-semibold transition-[border-color,color,transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.98] sm:px-4 ${focusClass} ${category === item.value ? "border-orange-400 text-orange-300" : "border-transparent text-gray-400 hover:text-white"}`}>
+                className={`h-11 shrink-0 border-b-2 px-3 text-sm font-semibold transition-[border-color,color,transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 sm:px-4 ${focusClass} ${category === item.value ? "border-orange-400 text-orange-300" : "border-transparent text-gray-400 hover:text-white"}`}>
                 {item.label}
               </button>
             ))}
           </div>
         </div>
       </div>
-      {category && <DigSubcategoryTabs key={category} category={category} subCategory={subCategory} onSubCategoryChange={onSubCategoryChange} />}
+      {category && <DigSubcategoryTabs key={category} category={category} subCategory={subCategory} onSubCategoryChange={onSubCategoryChange} disabled={disabled} />}
     </div>
   );
 }

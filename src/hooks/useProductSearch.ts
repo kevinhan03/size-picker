@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { searchCatalogProducts } from '../api';
+import { searchCatalogBrands, searchCatalogProducts, type CatalogSearchBrand } from '../api';
 import type { Product } from '../types';
 import { generateFallbackResult } from '../utils/product';
 import { useLocaleContext } from '../contexts/LocaleContext';
@@ -20,13 +20,15 @@ export function useProductSearch() {
   const [error, setError] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
+  const [brandSuggestions, setBrandSuggestions] = useState<CatalogSearchBrand[]>([]);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const normalized = query.trim();
-    if (normalized.length < 2) {
+    if (normalized.length < 1) {
       setSuggestions([]);
+      setBrandSuggestions([]);
       setIsLoading(false);
       setError(null);
       return;
@@ -36,6 +38,15 @@ export function useProductSearch() {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       setIsLoading(true);
+      // Brand matches do not wait for product cards or their thumbnails.
+      void searchCatalogBrands(normalized, controller.signal)
+        .then((brands) => {
+          setBrandSuggestions(brands);
+        })
+        .catch((searchError: unknown) => {
+          if (searchError instanceof DOMException && searchError.name === 'AbortError') return;
+          setBrandSuggestions([]);
+        });
       void searchCatalogProducts(normalized, controller.signal)
         .then((products) => {
           setSuggestions(products);
@@ -112,6 +123,7 @@ export function useProductSearch() {
     setQuery('');
     setShowSuggestions(false);
     setSuggestions([]);
+    setBrandSuggestions([]);
   };
 
   const resetSearch = () => {
@@ -120,6 +132,7 @@ export function useProductSearch() {
     setError(null);
     setResult(null);
     setSuggestions([]);
+    setBrandSuggestions([]);
   };
 
   return {
@@ -140,5 +153,6 @@ export function useProductSearch() {
     shouldHideSearchHero,
     showSuggestions,
     suggestions,
+    brandSuggestions,
   };
 }

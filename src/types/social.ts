@@ -42,13 +42,6 @@ export interface PostSummary {
 
 export interface PostDetail extends PostSummary {
   images: PostImage[];
-  comments: PostComment[];
-}
-
-export interface PostComment {
-  id: string;
-  body: string;
-  createdAt: string;
 }
 export interface PostPage {
   posts: PostSummary[];

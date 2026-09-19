@@ -8,13 +8,22 @@ import { socialFetch, useSocialResource, useSocialVersion } from "./client";
 import { socialError, useSocialMessages } from "./messages";
 import { FollowButton } from "./FollowButton";
 import { SocialDialog } from "./SocialDialog";
-export function SocialProfile({ username }: { username: string }) {
+export function SocialProfile({
+  username,
+  onProfileChange,
+}: {
+  username: string;
+  onProfileChange?: (profile: SocialProfileSummary | null) => void;
+}) {
   const c = useSocialMessages();
   const resource = useSocialResource<SocialProfileSummary>(
     `/api/social-profile?username=${encodeURIComponent(username)}`
   );
   const [list, setList] = useState<"followers" | "following" | null>(null);
   const p = resource.data;
+  useEffect(() => {
+    onProfileChange?.(p);
+  }, [onProfileChange, p]);
   return (
     <>
       <dl className="profile-stats">
@@ -47,7 +56,6 @@ export function SocialProfile({ username }: { username: string }) {
           </dd>
         </div>
       </dl>
-      {p && !p.isSelf && <FollowButton person={p} />}{" "}
       {resource.error && (
         <button
           className="social-button"

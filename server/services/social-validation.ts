@@ -14,7 +14,7 @@ export function uuid(value: string) {
   if (!UUID.test(value)) throw new SocialError("invalid_input");
   return value;
 }
-export function validatePost(value: unknown): PostInput {
+export function validatePost(value: unknown, maxImages = 1): PostInput {
   if (!value || typeof value !== "object")
     throw new SocialError("invalid_input");
   const p = value as PostInput;
@@ -24,7 +24,7 @@ export function validatePost(value: unknown): PostInput {
     p.caption.length > 2200 ||
     !Array.isArray(p.images) ||
     p.images.length < 1 ||
-    p.images.length > 10
+    p.images.length > maxImages
   )
     throw new SocialError("invalid_input");
   if (new Set(p.images.map((i) => i.id)).size !== p.images.length)

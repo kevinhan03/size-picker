@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ArrowUpRight, LockKeyhole, Settings, Share2, UserRound } from "lucide-react";
+import { ArrowRight, ArrowUpRight, LockKeyhole, Settings, UserRound } from "lucide-react";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { presentTasteSignature } from "../../utils/tasteSignature";
@@ -14,8 +14,10 @@ import type { Product } from "../../types";
 import { profileMessages } from "./messages";
 import "./profile.css";
 import { SocialProfile } from "../social/SocialProfile";
+import { FollowButton } from "../social/FollowButton";
 import { PostFeed } from "../social/PostFeed";
 import { CreatePostButton } from "../social/CreatePostButton";
+import type { SocialProfileSummary } from "../../types/social";
 
 const ClosetCollectionContent = dynamic(
   () =>
@@ -52,10 +54,12 @@ export function ProfileView({
     initialContentTab
   );
   const [message, setMessage] = useState("");
+  const [socialProfile, setSocialProfile] = useState<SocialProfileSummary | null>(null);
   const [now] = useState(() => Date.now());
   useEffect(() => {
     setBio(profile.bio);
     setAvatar(profile.avatarUrl);
+    setSocialProfile(null);
   }, [profile.bio, profile.avatarUrl]);
   const products =
     isOwner && isLoaded ? digbox.digboxProducts : profile.products;
@@ -99,7 +103,10 @@ export function ProfileView({
             )}
             <div className="min-w-0">
               <h1>{profile.username}</h1>
-              <SocialProfile username={profile.username} />
+              <SocialProfile
+                username={profile.username}
+                onProfileChange={setSocialProfile}
+              />
               <p className="profile-bio">{bio || c.intro}</p>
             </div>
           </div>
@@ -114,11 +121,8 @@ export function ProfileView({
                 <Settings size={18} />
               </button>
             )}
-            {!isOwner && (
-              <button type="button" onClick={() => void share()}>
-                <Share2 size={16} />
-                {c.share}
-              </button>
+            {!isOwner && socialProfile && !socialProfile.isSelf && (
+              <FollowButton person={socialProfile} />
             )}
           </div>
         </header>
@@ -254,6 +258,7 @@ export function ProfileView({
           {contentTab === "posts" && (
             <PostFeed
               author={profile.username}
+              photoOnly
               action={isOwner ? <CreatePostButton /> : undefined}
               emptyContent={
                 isOwner ? (

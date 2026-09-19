@@ -100,7 +100,12 @@ const getCachedCatalogPage = unstable_cache(queryCatalogPage, ["catalog-page-v3"
 
 export const getCatalogPage = (offset = 0, limit = 24) => getCachedCatalogPage(offset, limit);
 
-const queryCatalogSearch = async (query: string, limit: number): Promise<ProductCardData[]> => {
+export type CatalogSearchBrand = {
+  brand: string;
+  count: number;
+};
+
+const queryCatalogSearchProducts = async (query: string, limit: number): Promise<ProductCardData[]> => {
   assertSupabaseConfig();
   const { data, error } = await supabase!.rpc("search_catalog", {
     search_query: query,
@@ -112,12 +117,32 @@ const queryCatalogSearch = async (query: string, limit: number): Promise<Product
     .filter((product): product is ProductCardData => Boolean(product));
 };
 
-const getCachedCatalogSearch = unstable_cache(queryCatalogSearch, ["catalog-search-v3"], {
+const queryCatalogSearchBrands = async (query: string, limit: number): Promise<CatalogSearchBrand[]> => {
+  assertSupabaseConfig();
+  const { data, error } = await supabase!.rpc("search_catalog_brands", {
+    search_query: query,
+    result_limit: limit,
+  });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : [])
+    .map((row) => ({
+      brand: String(row?.brand || "").trim(),
+      count: Number(row?.item_count) || 0,
+    }))
+    .filter((brand): brand is CatalogSearchBrand => Boolean(brand.brand) && brand.count > 0);
+};
+
+const getCachedCatalogProductSearch = unstable_cache(queryCatalogSearchProducts, ["catalog-product-search-v4"], {
+  revalidate: 300,
+  tags: ["search"],
+});
+const getCachedCatalogBrandSearch = unstable_cache(queryCatalogSearchBrands, ["catalog-brand-search-v1"], {
   revalidate: 300,
   tags: ["search"],
 });
 
-export const searchCatalog = (query: string, limit = 8) => getCachedCatalogSearch(query, limit);
+export const searchCatalog = (query: string, limit = 8) => getCachedCatalogProductSearch(query, limit);
+export const searchCatalogBrands = (query: string, limit = 8) => getCachedCatalogBrandSearch(query, limit);
 
 const queryProductDetail = async (id: string): Promise<ProductDetailData | null> => {
   assertSupabaseConfig();

@@ -1,28 +1,24 @@
-import { addComment, feed, publish } from "../../../server/services/social";
+import { feed, publish } from "../../../server/services/social";
 import {
   mutationAccount,
   socialAccount,
   socialResponse,
 } from "../../../server/services/social-http";
-import { SocialError } from "../../../server/services/social-validation";
 export async function GET(request: Request) {
   return socialResponse(async () =>
-    feed(new URL(request.url), await socialAccount(request))
+    feed(new URL(request.url), await socialAccount(request)),
+    200,
+    {
+      // Likes and saves are personalized, so this must never be shared by a
+      // CDN. A short, cookie-keyed browser cache makes repeat visits instant.
+      "Cache-Control": "private, max-age=20, stale-while-revalidate=120",
+      Vary: "Cookie",
+    }
   );
 }
 export async function POST(request: Request) {
   return socialResponse(async () => {
     const account = await mutationAccount(request);
-    if (request.headers.get("content-type")?.includes("multipart/form-data")) {
-      const form = await request.formData();
-      if (form.get("intent") !== "comment")
-        throw new SocialError("invalid_input");
-      return addComment(
-        String(form.get("postId") || ""),
-        String(form.get("body") || ""),
-        account
-      );
-    }
     return publish(await request.json(), account, false);
   }, 201);
 }

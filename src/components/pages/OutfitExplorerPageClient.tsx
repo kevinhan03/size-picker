@@ -4,6 +4,7 @@ import { PostFeed } from "../social/PostFeed";
 import { useSocialMessages } from "../social/messages";
 import { useSocialAuth } from "../social/client";
 import { SocialTabs } from "../social/SocialTabs";
+import { UserSearch } from "../social/UserSearch";
 export function OutfitExplorerPageClient({
   initialFollowing = false,
 }: {
@@ -26,18 +27,18 @@ export function OutfitExplorerPageClient({
   return (
     <main className="social-page">
       <div className="social-shell">
-        <div className="social-toolbar">
-          <h1>{c.explore}</h1>
+        <div className="social-explorer-controls">
+          <UserSearch />
+          <SocialTabs
+            label={c.explore}
+            value={following ? "following" : "all"}
+            options={[
+              { value: "all", label: c.all },
+              { value: "following", label: c.following },
+            ]}
+            onChange={changeFeed}
+          />
         </div>
-        <SocialTabs
-          label={c.explore}
-          value={following ? "following" : "all"}
-          options={[
-            { value: "all", label: c.all },
-            { value: "following", label: c.following },
-          ]}
-          onChange={changeFeed}
-        />
         <PostFeed following={following} />
       </div>
     </main>

@@ -13,7 +13,7 @@ import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { prefetchProductDetail, useProductDetail } from "../../hooks/useProductDetail";
 import { useProgressiveList } from "../../hooks/useProgressiveList";
 import { ProgressiveImage } from "../ProgressiveImage";
-import { FilterBar } from "../FilterBar";
+import { DigCategoryFilter } from "../DigCategoryFilter";
 import { toPublicUrl } from "../../utils/product";
 import { CollectionSearchField } from "../CollectionSearchField";
 import { CollectionEmptyState } from "../CollectionEmptyState";
@@ -49,8 +49,17 @@ function GridCard({
   onPrefetch: () => void;
 }) {
   const { t } = useLocaleContext();
-  const [imgOk, setImgOk] = useState(true);
-  const imageSrc = product.image || product.thumbnailImage || "";
+  const source = product.image || product.thumbnailImage || "";
+  const [failedSource, setFailedSource] = useState<string | null>(null);
+  const [failedDirectUrl, setFailedDirectUrl] = useState<string | null>(null);
+  const useOriginal = failedSource === source;
+  const directUrl = product.cardThumbnailImage;
+  const useDirect = Boolean(directUrl && failedDirectUrl !== directUrl);
+  const imageSrc = useOriginal || !directUrl
+    ? source
+    : useDirect
+      ? directUrl
+      : `/api/products/${encodeURIComponent(product.id)}/card-image`;
 
   return (
     <div
@@ -74,28 +83,30 @@ function GridCard({
         }}
         className="digbox-product-card-link relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[22px] text-inherit no-underline transition-transform duration-150 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none"
       >
-        <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
-          <div className="absolute inset-3 z-[1] sm:inset-4">
-            {imgOk && imageSrc ? (
-              <ProgressiveImage
-                src={imageSrc}
-                thumbnailSrc={product.thumbnailImage}
-                alt={product.name}
-                className="rounded-[10px] object-contain"
-                onError={() => setImgOk(false)}
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase text-gray-700">
-                {product.brand}
-              </div>
-            )}
-          </div>
+        <div className="relative aspect-[4/5] overflow-hidden bg-[#f5f5f5]">
+          {imageSrc ? (
+            <ProgressiveImage
+              key={imageSrc}
+              src={imageSrc}
+              thumbnailSrc={product.thumbnailImage}
+              alt={product.name}
+              className="object-contain"
+              loading="lazy"
+              onError={() => {
+                if (!useOriginal && useDirect) setFailedDirectUrl(directUrl!);
+                else if (!useOriginal) setFailedSource(source);
+              }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase text-gray-500">
+              {product.brand}
+            </div>
+          )}
         </div>
         <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
           <div className="mb-1 flex items-center gap-2">
             <div className="min-w-0 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
-            {product.digboxSizeDecision?.label ? <span className="shrink-0 rounded-md border border-orange-300/30 bg-orange-400/[0.12] px-1.5 py-0.5 text-[10px] font-black text-orange-100">{t("digbox.purchasedSizeBadge", { label: product.digboxSizeDecision.label })}</span> : null}
+            {product.isInstagram ? <span className="flex-shrink-0 rounded-md border border-orange-500/35 bg-orange-500/[0.12] px-1.5 py-0.5 text-[9px] font-black leading-none text-orange-300">PICK</span> : null}
           </div>
           <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
           <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
@@ -407,6 +418,12 @@ export function SavedCollectionContent({
     });
   };
 
+  const exitSelectionMode = () => {
+    setSelectedIds(new Set());
+    setRemovalError(null);
+    setIsEditing(false);
+  };
+
   const removeSelected = async () => {
     const ids = [...selectedIds];
     if (!ids.length || isRemoving) return;
@@ -489,14 +506,13 @@ export function SavedCollectionContent({
         <div className="mx-auto w-full max-w-[70rem]">
         <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("saved.search")} />
         {brandFilter && <button type="button" onClick={onClearBrand} className="my-3 rounded-full border border-orange-400/30 px-3 py-1 text-sm text-orange-300">{brandFilter} ×</button>}
-        {/* Category filter */}
-        <FilterBar
-          categoryValue={catFilter}
+        <DigCategoryFilter
+          category={catFilter}
           onCategoryChange={(value) => {
             setCatFilter(value);
             setSubCategoryFilter("");
           }}
-          subCategoryValue={subCategoryFilter}
+          subCategory={subCategoryFilter}
           onSubCategoryChange={setSubCategoryFilter}
           disabled={isEditing}
         />
@@ -573,6 +589,14 @@ export function SavedCollectionContent({
         </div>
 
         {removalError && <p role="alert" className="mb-4 text-xs font-semibold text-red-300">{removalError}</p>}
+        {removalUndoProducts?.length ? (
+          <div role="status" className="mx-auto mb-3 flex w-full max-w-[70rem] items-center justify-between gap-3 rounded-xl border border-white/[0.1] bg-white/[0.045] px-3.5 py-2.5 text-sm">
+            <p className="min-w-0 font-semibold text-white">{t("saved.unsaved", { count: removalUndoProducts.length })}</p>
+            <button type="button" disabled={isUndoingRemoval} onClick={() => void undoRemoval()} className="shrink-0 font-bold text-orange-300 transition-[color,transform] duration-150 active:scale-[0.97] hover:text-orange-200 disabled:cursor-wait disabled:text-orange-300/50">
+              {isUndoingRemoval ? t("common.undoing") : t("common.undo")}
+            </button>
+          </div>
+        ) : null}
         {/* Empty state */}
         {isLoading ? null : filtered.length === 0 ? (
           <CollectionEmptyState
@@ -594,20 +618,28 @@ export function SavedCollectionContent({
         ) : (
           <>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <p aria-live="polite" className={`text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
+            <p aria-live="polite" className={`min-w-0 text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
               {isEditing
                 ? (selectedIds.size ? t("saved.selected", { count: selectedIds.size }) : t("saved.selectToDelete"))
                 : (searchQuery.trim() ? t("saved.searchResults", { count: filtered.length }) : t("saved.productCount", { count: filtered.length }))}
             </p>
-            {isOwner && !isEditing && (
-              <button type="button" onClick={() => { setRemovalError(null); setIsEditing(true); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
-                {t("saved.delete")}
-              </button>
-            )}
-            {isOwner && isEditing && (
-              <button type="button" onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
-                {t("common.cancel")}
-              </button>
+            {isOwner && (
+              <div className="flex shrink-0 items-center gap-1.5">
+                {!isEditing ? (
+                  <button type="button" onClick={() => { setRemovalError(null); setIsEditing(true); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                    {t("saved.delete")}
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" onClick={exitSelectionMode} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                      {t("common.cancel")}
+                    </button>
+                    <button type="button" disabled={selectedIds.size === 0 || isRemoving} onClick={() => void removeSelected()} className="h-9 rounded-lg bg-red-500 px-3 text-sm font-bold text-white transition-[background-color,transform,opacity] duration-150 active:scale-[0.97] hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
+                      {isRemoving ? t("saved.deleting") : t("saved.unsave")}
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
           <div className="closet-product-grid" style={{ display: "grid" }}>
@@ -629,29 +661,6 @@ export function SavedCollectionContent({
           </>
         )}
       </div>
-
-      {isOwner && isEditing && selectedIds.size > 0 && (
-        <div className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
-          <p className="min-w-0 text-sm font-bold text-white">{t("saved.selected", { count: selectedIds.size })}</p>
-          <div className="flex shrink-0 items-center gap-2">
-            <button type="button" onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }} className="h-10 rounded-xl px-3 text-sm font-bold text-gray-300 transition hover:bg-white/[0.06] hover:text-white">
-              {t("common.cancel")}
-            </button>
-            <button type="button" disabled={isRemoving} onClick={() => void removeSelected()} className="h-10 rounded-xl bg-red-500 px-4 text-sm font-bold text-white transition hover:bg-red-400 disabled:cursor-wait disabled:bg-red-500/50">
-              {isRemoving ? t("saved.deleting") : t("saved.deleteSelected")}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {removalUndoProducts?.length ? (
-        <div role="status" className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 px-4 py-3 text-sm shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
-          <p className="min-w-0 font-semibold text-white">{t("saved.deleted", { count: removalUndoProducts.length })}</p>
-          <button type="button" disabled={isUndoingRemoval} onClick={() => void undoRemoval()} className="shrink-0 font-bold text-orange-300 transition hover:text-orange-200 disabled:cursor-wait disabled:text-orange-300/50">
-            {isUndoingRemoval ? t("common.undoing") : t("common.undo")}
-          </button>
-        </div>
-      ) : null}
 
       {active && normalizedProduct && (
         <ProductDetailModal

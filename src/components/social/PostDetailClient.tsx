@@ -12,6 +12,7 @@ import {
   Heart,
   MoreHorizontal,
   Tag,
+  Upload,
   UserRound,
 } from "lucide-react";
 import { useLocaleContext } from "../../contexts/LocaleContext";
@@ -48,9 +49,10 @@ export function PostDetailClient({ postId }: { postId: string }) {
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [shareMenu, setShareMenu] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [comment, setComment] = useState("");
   const lock = useRef(false);
   const track = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; x: number; left: number; active: boolean } | null>(null);
@@ -127,28 +129,56 @@ export function PostDetailClient({ postId }: { postId: string }) {
       setBusy(null);
     }
   }
-  async function submitComment() {
-    if (!post || !comment.trim() || lock.current || !auth.ensure()) return;
-    lock.current = true;
-    setBusy("comment");
-    setError("");
+  function postUrl() {
+    return window.location.href;
+  }
+  async function copyLink() {
     try {
-      const form = new FormData();
-      form.set("intent", "comment");
-      form.set("postId", post.id);
-      form.set("body", comment);
-      await socialFetch(`/api/outfit-explorer`, { method: "POST", body: form });
-      setComment("");
-      await resource.reload();
+      const url = postUrl();
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const input = document.createElement("textarea");
+        input.value = url;
+        input.setAttribute("readonly", "");
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        document.body.append(input);
+        input.select();
+        const copied = document.execCommand("copy");
+        input.remove();
+        if (!copied) throw new Error("Unable to copy post link");
+      }
+      setLinkCopied(true);
     } catch (e) {
       setError(socialError(e, c));
+    }
+  }
+  async function sharePost() {
+    if (!post) return;
+    if (!navigator.share) {
+      await copyLink();
+      return;
+    }
+    setError("");
+    setBusy("share");
+    try {
+      await navigator.share({
+        title: `${post.uploaderName} · DIGBOX`,
+        text: post.caption || undefined,
+        url: postUrl(),
+      });
+      setShareMenu(false);
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === "AbortError")) {
+        setError(socialError(e, c));
+      }
     } finally {
-      lock.current = false;
       setBusy(null);
     }
   }
   const image = post?.images[Math.min(index, (post?.images.length || 1) - 1)];
-  const postFrameRatio = 4 / 5;
+  const postFrameRatio = 3 / 4;
   const items =
     post?.images
       .flatMap((i) => i.tags)
@@ -159,7 +189,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
           ) === i
       ) || [];
   return (
-    <main className="social-page">
+    <main className="social-page social-post-detail-page">
       <div className="social-detail">
         {resource.loading ? (
           <div
@@ -246,6 +276,33 @@ export function PostDetailClient({ postId }: { postId: string }) {
                 >
                   {c.deletePost}
                 </button>
+                </div>
+              </SocialDialog>
+            )}
+            {shareMenu && (
+              <SocialDialog
+                title={c.share}
+                onClose={() => {
+                  setShareMenu(false);
+                  setLinkCopied(false);
+                }}
+              >
+                <div className="social-share-actions">
+                  <button
+                    type="button"
+                    className="social-button"
+                    onClick={() => void copyLink()}
+                  >
+                    {linkCopied ? c.linkCopied : c.copyLink}
+                  </button>
+                  <button
+                    type="button"
+                    className="social-button"
+                    disabled={busy === "share"}
+                    onClick={() => void sharePost()}
+                  >
+                    {c.share}
+                  </button>
                 </div>
               </SocialDialog>
             )}
@@ -360,6 +417,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
                   );
                 })}
               </div>
+              {post.images.length > 1 && <>
               <span className="social-photo-counter" aria-live="polite">
                 {index + 1}/{post.images.length}
               </span>
@@ -393,6 +451,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
               >
                 <ChevronRight size={22} />
               </button>
+              </>}
               {image.tags.length > 0 && (
                 <button
                   type="button"
@@ -416,6 +475,58 @@ export function PostDetailClient({ postId }: { postId: string }) {
                   />
                 ))}
               </div>
+            )}
+            <p className="social-date">
+              {new Date(post.createdAt).toLocaleDateString(
+                locale === "en" ? "en-US" : "ko-KR"
+              )}
+            </p>
+            {post.caption && <p className="social-caption">{post.caption}</p>}
+            <div className="social-actions">
+              <button
+                className={`social-icon ${post.isLiked ? "social-active" : ""}`}
+                aria-pressed={post.isLiked}
+                aria-label={post.isLiked ? c.unlike : c.like}
+                disabled={!!busy}
+                onClick={() => void toggle("like")}
+              >
+                <Heart
+                  size={24}
+                  fill={post.isLiked ? "currentColor" : "none"}
+                />
+              </button>
+              {post.likeCount > 0 && (
+                <span className="social-muted">{post.likeCount}</span>
+              )}
+              <button
+                className={`social-icon social-save ${post.isSaved ? "social-active" : ""}`}
+                aria-pressed={post.isSaved}
+                aria-label={post.isSaved ? c.unsave : c.save}
+                disabled={!!busy}
+                onClick={() => void toggle("save")}
+              >
+                <Bookmark
+                  size={24}
+                  fill={post.isSaved ? "currentColor" : "none"}
+                />
+              </button>
+              <button
+                type="button"
+                className="social-icon"
+                aria-label={c.share}
+                title={c.share}
+                onClick={() => {
+                  setLinkCopied(false);
+                  setShareMenu(true);
+                }}
+              >
+                <Upload size={22} />
+              </button>
+            </div>
+            {error && (
+              <p className="social-error" role="alert">
+                {error}
+              </p>
             )}
             {items.length > 0 && (
               <>
@@ -446,68 +557,6 @@ export function PostDetailClient({ postId }: { postId: string }) {
                 </div>
               </>
             )}
-            <div className="social-actions">
-              <button
-                className={`social-icon ${post.isLiked ? "social-active" : ""}`}
-                aria-pressed={post.isLiked}
-                aria-label={post.isLiked ? c.unlike : c.like}
-                disabled={!!busy}
-                onClick={() => void toggle("like")}
-              >
-                <Heart
-                  size={24}
-                  fill={post.isLiked ? "currentColor" : "none"}
-                />
-              </button>
-              <span className="social-muted">{post.likeCount}</span>
-              <button
-                className={`social-icon social-save ${post.isSaved ? "social-active" : ""}`}
-                aria-pressed={post.isSaved}
-                aria-label={post.isSaved ? c.unsave : c.save}
-                disabled={!!busy}
-                onClick={() => void toggle("save")}
-              >
-                <Bookmark
-                  size={24}
-                  fill={post.isSaved ? "currentColor" : "none"}
-                />
-              </button>
-            </div>
-            {error && (
-              <p className="social-error" role="alert">
-                {error}
-              </p>
-            )}
-            {post.caption && <p className="social-caption">{post.caption}</p>}
-            <section className="social-comments" aria-label={c.comments}>
-              {post.comments.map((entry) => (
-                <p key={entry.id}>{entry.body}</p>
-              ))}
-              <form
-                className="social-comment-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void submitComment();
-                }}
-              >
-                <input
-                  className="social-input"
-                  value={comment}
-                  maxLength={1000}
-                  onChange={(event) => setComment(event.target.value)}
-                  placeholder={c.commentPlaceholder}
-                  aria-label={c.commentPlaceholder}
-                />
-                <button className="social-button" disabled={!!busy || !comment.trim()}>
-                  {c.comment}
-                </button>
-              </form>
-            </section>
-            <p className="social-date">
-              {new Date(post.createdAt).toLocaleDateString(
-                locale === "en" ? "en-US" : "ko-KR"
-              )}
-            </p>
             {editing && (
               <PostComposer
                 post={post}

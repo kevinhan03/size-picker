@@ -10,14 +10,15 @@ export interface FilterDropdownOption {
 }
 
 interface FilterDropdownProps {
-  eyebrow: string;
+  eyebrow?: string;
   options: FilterDropdownOption[];
   value: string;
   onChange: (value: string, anchorRect?: TutorialAnchorRect) => void;
   onOpenChange?: (isOpen: boolean, anchorRect?: TutorialAnchorRect) => void;
+  variant?: "default" | "tag-picker";
 }
 
-export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange }: FilterDropdownProps) {
+export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange, variant = "default" }: FilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [openedByKeyboard, setOpenedByKeyboard] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -68,6 +69,7 @@ export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange
     <div ref={dropdownRef} className="relative min-w-0 flex-[1_1_0]">
       <button
         type="button"
+        aria-label={eyebrow ?? "필터"}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={listboxId}
@@ -82,7 +84,7 @@ export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange
             setIsOpen(true);
           }
         }}
-        className={`flex h-10 w-full items-center justify-between gap-2.5 rounded-full border bg-[linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03))] px-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_14px_30px_rgba(0,0,0,.24)] outline-none backdrop-blur-xl transition focus-visible:border-orange-400/70 focus-visible:ring-2 focus-visible:ring-orange-500/20 sm:h-11 ${
+        className={`flex h-10 w-full items-center justify-between gap-2.5 rounded-full border bg-[linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03))] px-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_14px_30px_rgba(0,0,0,.24)] outline-none backdrop-blur-xl transition focus-visible:border-orange-400/70 focus-visible:ring-2 focus-visible:ring-orange-500/20 sm:h-11 ${variant === "tag-picker" ? "social-tag-filter-trigger" : ""} ${
           isOpen
             ? "border-orange-500/70"
             : hasValue
@@ -91,15 +93,17 @@ export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange
         }`}
       >
         <span className="min-w-0">
-          <span className="block text-[8px] font-black uppercase leading-none tracking-[.18em] text-gray-500 sm:text-[9px]">
-            {eyebrow}
-          </span>
-          <span className={`mt-0.5 block truncate text-[11px] font-black opacity-70 sm:text-xs ${hasValue ? "text-orange-300" : "text-white"}`}>
+          {eyebrow ? (
+            <span className="block text-[8px] font-black uppercase leading-none tracking-[.18em] text-gray-500 sm:text-[9px]">
+              {eyebrow}
+            </span>
+          ) : null}
+          <span className={`${eyebrow ? "mt-0.5 " : ""}block truncate text-[11px] font-black opacity-70 sm:text-xs ${hasValue ? "text-orange-300" : "text-white"} ${variant === "tag-picker" ? "social-tag-filter-value" : ""}`}>
             {selectedOption?.label ?? ""}
           </span>
         </span>
         <ChevronDown
-          className={`h-4 w-4 flex-shrink-0 text-gray-500 transition ${isOpen ? "rotate-180 text-orange-300" : ""}`}
+          className={`h-4 w-4 flex-shrink-0 text-gray-500 transition ${isOpen ? "rotate-180 text-orange-300" : ""} ${variant === "tag-picker" ? "social-tag-filter-chevron" : ""}`}
         />
       </button>
 
@@ -108,13 +112,13 @@ export function FilterDropdown({ eyebrow, options, value, onChange, onOpenChange
           id={listboxId}
           role="listbox"
           tabIndex={-1}
-          className={`ui-floating-surface absolute left-0 right-0 top-full z-30 mt-2 max-h-72 origin-top overflow-y-auto rounded-[16px] border border-white/[.12] bg-[#111114]/90 p-1.5 shadow-[0_22px_60px_rgba(0,0,0,.48)] backdrop-blur-[20px] ${openedByKeyboard ? "" : "animate-[filter-dropdown-in_var(--duration-popover)_var(--ease-out)]"} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+          className={`ui-floating-surface absolute left-0 right-0 top-full z-30 mt-2 max-h-72 origin-top overflow-y-auto rounded-[16px] border border-white/[.12] bg-[#111114]/90 p-1.5 shadow-[0_22px_60px_rgba(0,0,0,.48)] backdrop-blur-[20px] ${variant === "tag-picker" ? "social-tag-filter-menu" : ""} ${openedByKeyboard ? "" : "animate-[filter-dropdown-in_var(--duration-popover)_var(--ease-out)]"} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
         >
           {options.map((option) => {
             const selected = option.value === value;
             return (
               <button
-                key={`${eyebrow}-${option.value || "all"}`}
+                key={`${eyebrow ?? "filter"}-${option.value || "all"}`}
                 type="button"
                 role="option"
                 aria-selected={selected}

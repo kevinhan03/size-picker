@@ -1,14 +1,12 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Local previews and signed images. */
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  Crop,
   ImagePlus,
-  Images,
   LoaderCircle,
   Plus,
   Trash2,
@@ -22,6 +20,9 @@ import { socialError, useSocialMessages } from "./messages";
 import { changed, socialFetch, useSocialResource } from "./client";
 import { preparePhoto, renderPhotoEdit, uploadPhoto } from "./image-upload";
 import { useProductFormContext } from "../../contexts/ProductFormContext";
+import { getCategoryLabel } from "../../constants";
+import { FilterDropdown } from "../FilterDropdown";
+import { PageState } from "../PageState";
 import type { Product } from "../../types";
 import type { PostDetail, PostProductTag } from "../../types/social";
 
@@ -33,7 +34,7 @@ type DraftPhoto = {
   blob?: Blob;
   width: number | null;
   height: number | null;
-  edit: { aspect: "original" | "square" | "portrait" | "landscape"; zoom: number; offsetX: number; offsetY: number };
+  edit: { aspect: "original" | "portrait"; zoom: number; offsetX: number; offsetY: number };
   previewUrl?: string;
   previewSignature?: string;
   previewBlob?: Blob;
@@ -51,6 +52,7 @@ export function PostComposer({
   const c = useSocialMessages();
   const router = useRouter();
   const productForm = useProductFormContext();
+  const fileInputId = useId();
   const [step, setStep] = useState(post ? 3 : 0);
   const [photos, setPhotos] = useState<DraftPhoto[]>(
     () =>
@@ -70,11 +72,9 @@ export function PostComposer({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [preparing, setPreparing] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [showPhotoManager, setShowPhotoManager] = useState(false);
   const [dragOverPhoto, setDragOverPhoto] = useState<string | null>(null);
   const [draggingPhoto, setDraggingPhoto] = useState<string | null>(null);
   const [pressingPhoto, setPressingPhoto] = useState<string | null>(null);
@@ -87,7 +87,6 @@ export function PostComposer({
     width: number;
     height: number;
   } | null>(null);
-  const [showAspectOptions, setShowAspectOptions] = useState(false);
   const [showZoomControl, setShowZoomControl] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -131,6 +130,7 @@ export function PostComposer({
   const pendingThumbnailMotion = useRef<{ key: string; clientX: number; clientY: number } | null>(null);
   const filePickerCancelling = useRef(false);
   const closet = useSocialResource<{ products: Product[] }>("/api/closet");
+  const saved = useSocialResource<{ products: Product[] }>("/api/digbox");
   const photo = photos[active];
   useEffect(
     () => () => {
@@ -198,10 +198,18 @@ export function PostComposer({
     setActive(0);
     setPoint(null);
     setMoving(null);
-    setShowAspectOptions(false);
     setShowZoomControl(false);
     setDirty(false);
     setStep(0);
+  }
+  function selectEditPhoto(index: number) {
+    setActive(index);
+    const selected = photos[index];
+    if (selected && selected.edit.aspect !== "portrait") {
+      updatePhoto(selected.key, (current) => ({
+        ...current, edit: { ...current.edit, aspect: "portrait" },
+      }));
+    }
   }
   function goBack() {
     if (busy || preparing) return;
@@ -209,13 +217,19 @@ export function PostComposer({
       setConfirmExit("discard-photos");
       return;
     }
+    if (step === 2 && photo) {
+      updatePhoto(photo.key, (current) => ({
+        ...current,
+        edit: { ...current.edit, aspect: "portrait" },
+      }));
+    }
     setStep((current) => Math.max(0, current - 1));
   }
   function openFilePicker(replacement: string | null = null) {
     replaceKey.current = replacement;
     filePickerCancelling.current = true;
     if (input.current) {
-      input.current.multiple = !replacement;
+      input.current.multiple = false;
       input.current.click();
     }
   }
@@ -224,10 +238,8 @@ export function PostComposer({
     setDirty(true);
   }
   function editAspectRatio(photo: DraftPhoto) {
-    if (photo.edit.aspect === "square") return 1;
-    if (photo.edit.aspect === "portrait") return 4 / 5;
-    if (photo.edit.aspect === "landscape") return 16 / 9;
-    return photo.width && photo.height ? photo.width / photo.height : 4 / 5;
+    if (photo.edit.aspect === "portrait") return 3 / 4;
+    return photo.width && photo.height ? photo.width / photo.height : 3 / 4;
   }
   function editImageGeometry(photo: DraftPhoto) {
     const canvasRatio = editAspectRatio(photo);
@@ -246,7 +258,7 @@ export function PostComposer({
   function outputEdit(photo: DraftPhoto) {
     const { aspect, zoom, offsetX, offsetY } = photo.edit;
     return {
-      aspect: aspect === "square" ? 1 : aspect === "portrait" ? 4 / 5 : aspect === "landscape" ? 16 / 9 : null,
+      aspect: aspect === "portrait" ? 3 / 4 : null,
       zoom,
       offsetX,
       offsetY,
@@ -282,6 +294,8 @@ export function PostComposer({
             previewUrl,
             previewSignature: signature,
             previewBlob,
+            // Tags belong to the confirmed crop, never the source image.
+            tags: item.previewSignature !== signature ? [] : item.tags,
           };
         })
       );
@@ -303,9 +317,9 @@ export function PostComposer({
   }
   async function choose(files: FileList | null) {
     if (!files?.length) return;
-    const replacement = replaceKey.current;
+    const replacement = replaceKey.current ?? photos[active]?.key ?? null;
     replaceKey.current = null;
-    if ((replacement ? photos.length : photos.length + files.length) > 10) {
+    if (files.length !== 1) {
       setError(c.imageError);
       return;
     }
@@ -313,7 +327,7 @@ export function PostComposer({
     setError("");
     try {
       const additions: DraftPhoto[] = [];
-      for (const file of Array.from(files).slice(0, replacement ? 1 : 10)) {
+      for (const file of Array.from(files)) {
         const blob = await preparePhoto(file);
         const url = URL.createObjectURL(blob);
         const bitmap = await createImageBitmap(blob);
@@ -326,13 +340,13 @@ export function PostComposer({
           blob,
           width,
           height,
-          edit: { aspect: "original", zoom: 1, offsetX: 0, offsetY: 0 },
+          edit: { aspect: "portrait", zoom: 1, offsetX: 0, offsetY: 0 },
           tags: [],
         });
       }
       if (replacement)
         setPhotos((items) =>
-          items.map((p) => (p.key === replacement ? additions[0] : p))
+          items.map((p) => (p.key === replacement ? { ...additions[0], id: p.id } : p))
         );
       else {
         setPhotos((items) => [...items, ...additions]);
@@ -348,24 +362,6 @@ export function PostComposer({
       setPreparing(false);
       if (input.current) input.current.value = "";
     }
-  }
-  function reorder(offset: number) {
-    reorderAt(active, offset);
-  }
-  function reorderAt(index: number, offset: number) {
-    const next = index + offset;
-    if (next < 0 || next >= photos.length) return;
-    setPhotos((items) => {
-      const copy = [...items];
-      [copy[index], copy[next]] = [copy[next], copy[index]];
-      return copy;
-    });
-    setActive(next);
-    setDirty(true);
-    setPoint(null);
-  }
-  function remove() {
-    removeAt(active);
   }
   function removeAt(index: number) {
     const nextActive =
@@ -679,7 +675,6 @@ export function PostComposer({
     lock.current = true;
     setBusy(true);
     setError("");
-    setProgress(0);
     try {
       const prepared = [...photos];
       for (let i = 0; i < prepared.length; i++) {
@@ -693,9 +688,7 @@ export function PostComposer({
             p.previewBlob && p.previewSignature === previewSignature(p)
               ? p.previewBlob
               : await renderPhotoEdit(p.blob!, outputEdit(p));
-          const upload = await uploadPhoto(editedBlob, (v) =>
-            setProgress(Math.round(((i + v / 100) / prepared.length) * 100))
-          );
+          const upload = await uploadPhoto(editedBlob, () => {});
           uploads.current.add(upload.id);
           prepared[i] = {
             ...p,
@@ -706,7 +699,6 @@ export function PostComposer({
             items.map((item) => (item.key === p.key ? prepared[i] : item))
           );
         }
-        setProgress(Math.round(((i + 1) / prepared.length) * 100));
       }
       const payload = {
         id: postId.current,
@@ -745,7 +737,15 @@ export function PostComposer({
       lock.current = false;
     }
   }
-  const products = closet.data?.products || [];
+  const products = [
+    ...(closet.data?.products || []),
+    ...(saved.data?.products || []),
+  ].filter(
+    (product, index, all) =>
+      all.findIndex((candidate) => candidate.id === product.id) === index
+  );
+  const productsLoading = closet.loading || saved.loading;
+  const productsError = closet.error || saved.error;
   const filtered = products.filter(
     (p) =>
       (!category || p.category === category) &&
@@ -758,6 +758,7 @@ export function PostComposer({
   return (
     <SocialDialog
       wide
+      className={`social-post-composer social-post-composer--${step === 0 ? "upload" : step === 1 ? "editing" : "details"}${post && post.images.length > 1 ? " social-post-composer--album" : " social-post-composer--single"}`}
       title={composerTitle}
       onClose={close}
       onEscape={() => {
@@ -804,10 +805,10 @@ export function PostComposer({
         <div className="social-compose-body">
           <input
             ref={input}
+            id={fileInputId}
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            multiple
-            hidden
+            className="social-file-input"
             onChange={(e) => {
               filePickerCancelling.current = false;
               void choose(e.target.files);
@@ -829,23 +830,22 @@ export function PostComposer({
                 setIsDraggingOver(false);
                 void choose(event.dataTransfer.files);
               }}
-            >
+              >
               <ImagePlus size={36} strokeWidth={1} />
               <h3>{c.dropPhotos}</h3>
-              <p className="social-muted">{c.photoHelp}</p>
-              <button
-                className="social-button social-primary"
-                onClick={() => openFilePicker()}
+              <label
+                htmlFor={fileInputId}
+                className="social-button social-primary social-file-picker"
               >
                 <Plus size={16} />
                 {c.selectPhotos}
-              </button>
+              </label>
             </div>
           ) : (
             photo && (
               step === 1 ? (
-                <div className="social-edit-layout">
-                  <div className="social-edit-workspace">
+                <div className={`social-edit-layout${post && post.images.length > 1 ? "" : " social-edit-layout-single"}`}>
+                  <div className="social-edit-workspace" aria-label={c.cropHelp}>
                     <div
                       className="social-edit-crop-frame"
                       style={{
@@ -853,6 +853,18 @@ export function PostComposer({
                         width: `min(var(--social-edit-crop-max-width), calc(100cqh * ${editAspectRatio(photo)}))`,
                       }}
                     >
+                      <img
+                        src={photo.url}
+                        alt="" aria-hidden="true" className="social-crop-overflow-preview"
+                        draggable={false}
+                        style={{
+                          width: `${editImageGeometry(photo).baseWidth * 100}%`,
+                          height: `${editImageGeometry(photo).baseHeight * 100}%`,
+                          left: `${50 + photo.edit.offsetX * editImageGeometry(photo).maxX * 100}%`,
+                          top: `${50 + photo.edit.offsetY * editImageGeometry(photo).maxY * 100}%`,
+                          transform: `translate(-50%, -50%) scale(${photo.edit.zoom})`,
+                        }}
+                      />
                       <div
                         className={`social-edit-image${isCropping ? " is-cropping" : ""}`}
                         style={{
@@ -892,7 +904,7 @@ export function PostComposer({
                             className="social-edit-photo-nav social-edit-photo-nav-prev"
                             aria-label={c.previousPhoto}
                             disabled={active === 0}
-                            onClick={() => setActive((index) => Math.max(0, index - 1))}
+                            onClick={() => selectEditPhoto(Math.max(0, active - 1))}
                           >
                             <ArrowLeft size={14} />
                           </button>
@@ -901,7 +913,7 @@ export function PostComposer({
                             className="social-edit-photo-nav social-edit-photo-nav-next"
                             aria-label={c.nextPhoto}
                             disabled={active === photos.length - 1}
-                            onClick={() => setActive((index) => Math.min(photos.length - 1, index + 1))}
+                            onClick={() => selectEditPhoto(Math.min(photos.length - 1, active + 1))}
                           >
                             <ArrowRight size={14} />
                           </button>
@@ -916,35 +928,14 @@ export function PostComposer({
                               key={item.key}
                               aria-label={`${c.photo} ${index + 1}`}
                               aria-current={active === index ? "true" : undefined}
-                              onClick={() => setActive(index)}
+                              onClick={() => selectEditPhoto(index)}
                             />
                           ))}
                         </div>
                       </>
                     )}
                     <div className="social-edit-controls" aria-label={c.editPhoto}>
-                      <div className="social-edit-control-wrap">
-                        {showAspectOptions && (
-                          <div className="social-aspect-options" role="group" aria-label={c.aspectRatio}>
-                            {([
-                              ["original", c.original],
-                              ["square", "1:1"],
-                              ["portrait", "4:5"],
-                              ["landscape", "16:9"],
-                            ] as const).map(([aspect, label]) => (
-                              <button
-                                key={aspect}
-                                className={photo.edit.aspect === aspect ? "is-active" : ""}
-                                aria-pressed={photo.edit.aspect === aspect}
-                                onClick={() => updatePhoto(photo.key, (p) => ({ ...p, edit: { ...p.edit, aspect, zoom: 1, offsetX: 0, offsetY: 0 } }))}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        <button className="social-edit-control-button" aria-label={c.aspectRatio} aria-expanded={showAspectOptions} onClick={() => { setShowAspectOptions((value) => !value); setShowZoomControl(false); }}><Crop size={18} /></button>
-                      </div>
+                      <button type="button" className="social-button" onClick={() => openFilePicker(photo.key)}>{c.replace}</button>
                       <div className="social-edit-control-wrap">
                         {showZoomControl && (
                           <div className="social-zoom-controls" role="group" aria-label={c.zoom}>
@@ -959,11 +950,11 @@ export function PostComposer({
                             />
                           </div>
                         )}
-                        <button className="social-edit-control-button" aria-label={c.zoom} aria-expanded={showZoomControl} onClick={() => { setShowZoomControl((value) => !value); setShowAspectOptions(false); }}><ZoomIn size={18} /></button>
+                        <button className="social-edit-control-button" aria-label={c.zoom} aria-expanded={showZoomControl} onClick={() => setShowZoomControl((value) => !value)}><ZoomIn size={18} /></button>
                       </div>
                     </div>
                   </div>
-                  <aside className="social-edit-sidebar" aria-label={c.managePhotos}>
+                  {post && post.images.length > 1 && <aside className="social-edit-sidebar" aria-label={c.managePhotos}>
                     <p className="social-muted">{c.reorderHelp}</p>
                     <div className="social-edit-thumbnails">
                       {photos.map((p, i) => (
@@ -985,7 +976,7 @@ export function PostComposer({
                                 suppressThumbnailClick.current = false;
                                 return;
                               }
-                              setActive(i);
+                              selectEditPhoto(i);
                             }}
                           >
                             <img src={p.url} alt="" draggable={false} />
@@ -1000,15 +991,7 @@ export function PostComposer({
                           </button>
                         </div>
                       ))}
-                      <button
-                        type="button"
-                        className="social-thumbnail-add"
-                        aria-label={c.addPhotos}
-                        disabled={photos.length >= 10}
-                        onClick={() => openFilePicker()}
-                      >
-                        <Plus size={32} strokeWidth={1.75} />
-                      </button>
+
                     </div>
                     {thumbnailOverlay
                       ? createPortal(
@@ -1030,10 +1013,10 @@ export function PostComposer({
                           thumbnailOverlay.host
                         )
                       : null}
-                  </aside>
+                  </aside>}
                 </div>
               ) : (
-              <div className="social-compose-layout">
+              <div className={`social-compose-layout${step === 2 ? " social-compose-layout--tags" : ""}${step === 2 && point ? " is-picking-product" : ""}`}>
                 <div>
                   <div className="social-compose-photo-stage">
                     <div
@@ -1078,18 +1061,6 @@ export function PostComposer({
                       </span>
                       </Fragment>
                     ))}
-                    {step === 1 && <button
-                      type="button"
-                      className="social-photo-manager-toggle"
-                      aria-label={c.managePhotos}
-                      aria-expanded={showPhotoManager}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setShowPhotoManager((value) => !value);
-                      }}
-                    >
-                      <Images size={17} />
-                    </button>}
                     </div>
                     {photos.length > 1 && (
                       <nav className="social-compose-photo-navigation" aria-label={c.photo}>
@@ -1122,93 +1093,6 @@ export function PostComposer({
                       </nav>
                     )}
                   </div>
-                  {step === 1 && showPhotoManager && (
-                    <section className="social-photo-manager" aria-label={c.managePhotos}>
-                      <div className="social-photo-manager-header">
-                        <strong>{c.managePhotos}</strong>
-                        <button
-                          className="social-button"
-                          disabled={photos.length >= 10}
-                          onClick={() => {
-                            replaceKey.current = null;
-                            if (input.current) {
-                              input.current.multiple = true;
-                              input.current.click();
-                            }
-                          }}
-                        >
-                          <Plus size={16} />
-                          {c.addPhotos}
-                        </button>
-                      </div>
-                      <div className="social-thumbnails">
-                        {photos.map((p, i) => (
-                          <div className="social-thumbnail-item" key={p.key}>
-                            <button
-                              aria-pressed={active === i}
-                              aria-label={`${c.photo} ${i + 1}`}
-                              onClick={() => {
-                                setActive(i);
-                                setPoint(null);
-                                setMoving(null);
-                              }}
-                            >
-                              <img src={p.url} alt="" />
-                            </button>
-                            <div className="social-thumbnail-actions">
-                              <button className="social-icon" aria-label={c.moveLeft} disabled={i === 0} onClick={() => reorderAt(i, -1)}><ArrowLeft size={14} /></button>
-                              <button className="social-icon" aria-label={c.moveRight} disabled={i === photos.length - 1} onClick={() => reorderAt(i, 1)}><ArrowRight size={14} /></button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-                  {step === 1 && (
-                    <div className="social-editor-tools">
-                      <button
-                        className="social-icon"
-                        aria-label={c.moveLeft}
-                        disabled={active === 0}
-                        onClick={() => reorder(-1)}
-                      >
-                        <ArrowLeft size={16} />
-                      </button>
-                      <button
-                        className="social-icon"
-                        aria-label={c.moveRight}
-                        disabled={active === photos.length - 1}
-                        onClick={() => reorder(1)}
-                      >
-                        <ArrowRight size={16} />
-                      </button>
-                      <button
-                        className="social-button"
-                        onClick={() => {
-                          openFilePicker(photo.key)
-                        }}
-                      >
-                        {c.replace}
-                      </button>
-                      <button
-                        className="social-icon"
-                        aria-label={c.remove}
-                        onClick={remove}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                      <button
-                        className="social-button"
-                        disabled={photos.length >= 10}
-                        onClick={() => {
-                          openFilePicker()
-                        }}
-                      >
-                        <Plus size={16} />
-                        {c.addPhotos}
-                      </button>
-                    </div>
-                  )}
                 </div>
                 <div>
                   <>
@@ -1233,6 +1117,7 @@ export function PostComposer({
                     )}
                     {step === 2 && (
                       <>
+                    {!point && <div className="social-tag-summary-panel">
                     <button
                       type="button"
                       className="social-button social-tag-add-button"
@@ -1245,7 +1130,7 @@ export function PostComposer({
                       옷 태그 추가
                     </button>
                     <div className="social-tag-list">
-                        {photo.tags.map((tag, i) => (
+                        {photo.tags.map((tag) => (
                           <div className="social-tag-row" key={tag.id}>
                             <span className="social-tag-product-summary">
                               <img src={tag.product.image || "/images/default-product.svg"} alt="" />
@@ -1266,10 +1151,12 @@ export function PostComposer({
                           </div>
                         ))}
                     </div>
+                    </div>}
                     {point && (
-                        <section aria-label={c.closet}>
+                        <section className="social-tag-picker-panel" aria-label={`${c.closet} · ${c.savedProducts}`}>
+                          <div className="social-tag-picker-filters">
                           <div className="social-toolbar">
-                            <strong>{c.closet}</strong>
+                            <strong>{c.closet} · {c.savedProducts}</strong>
                             <button
                               className="social-button"
                               onClick={() => setPoint(null)}
@@ -1284,26 +1171,30 @@ export function PostComposer({
                             placeholder={c.search}
                             aria-label={c.search}
                           />
-                          <select
-                            className="social-input"
-                            style={{ marginTop: 8 }}
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            aria-label={c.closet}
-                          >
-                            <option value="">{c.all}</option>
-                            {[...new Set(products.map((p) => p.category))].map(
-                              (cat) => (
-                                <option key={cat}>{cat}</option>
-                              )
-                            )}
-                          </select>
-                          {closet.loading ? (
+                          <div className="social-tag-category-filter" onKeyDown={(event) => {
+                            // Let the dropdown handle Escape without dismissing the dialog.
+                            if (event.key === "Escape" && event.currentTarget.querySelector('[aria-expanded="true"]')) event.preventDefault();
+                          }}>
+                            <FilterDropdown
+                              value={category}
+                              onChange={setCategory}
+                              variant="tag-picker"
+                              options={[
+                                { value: "", label: c.all },
+                                ...[...new Set(products.map((p) => p.category))].map((cat) => ({ value: cat, label: getCategoryLabel(cat) })),
+                              ]}
+                            />
+                          </div>
+                          </div>
+                          {productsLoading ? (
                             <p className="social-muted">{c.loading}</p>
-                          ) : closet.error ? (
+                          ) : productsError ? (
                             <div className="social-error">
-                              {socialError(closet.error, c)}
-                              <button onClick={() => void closet.reload()}>
+                              {socialError(productsError, c)}
+                              <button onClick={() => {
+                                void closet.reload();
+                                void saved.reload();
+                              }}>
                                 {c.retry}
                               </button>
                             </div>
@@ -1362,14 +1253,11 @@ export function PostComposer({
             </div>
           )}
           {(busy || preparing) && (
-            <div role="status">
-              <p className="social-muted">
-                {preparing ? c.loading : `${c.uploading} ${progress}%`}
-              </p>
-              <progress
-                className="social-progress"
-                value={progress}
-                max={100}
+            <div className="social-composer-loading">
+              <PageState
+                kind="loading"
+                title={preparing ? c.preparingPhotos : c.uploadingPhotos}
+                description={preparing ? c.preparingPhotosHelp : c.uploadingPhotosHelp}
               />
             </div>
           )}

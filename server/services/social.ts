@@ -2,7 +2,6 @@ import { supabase, assertSupabaseConfig } from "../lib/supabase.js";
 import { SUPABASE_STORAGE_BUCKET } from "../config/env.js";
 import type {
   PostDetail,
-  PostComment,
   PostImage,
   PostSummary,
   SocialProfileSummary,
@@ -72,6 +71,28 @@ export async function profiles(ids: string[], viewer: string | null) {
   );
 }
 
+export async function searchProfiles(query: string, viewer: string | null) {
+  const term = query.trim().slice(0, 20);
+  if (!term) return { users: [] };
+  const literalTerm = term.replace(/[\\%_]/g, "\\$&");
+  const result = await socialDb()
+    .from("users")
+    .select("id")
+    .ilike("username", `${literalTerm}%`)
+    .order("username")
+    .limit(6);
+  check(result.error);
+  const people = await profiles(
+    (result.data || []).map((person) => String(person.id)),
+    viewer
+  );
+  return {
+    users: (result.data || []).flatMap(
+      (person) => people.get(String(person.id)) || []
+    ),
+  };
+}
+
 export async function readPosts(
   ids: string[],
   account: RegisteredRequestUser | null,
@@ -85,7 +106,7 @@ export async function readPosts(
     .in("post_id", ids)
     .order("position");
   if (!detail) imageQuery = imageQuery.eq("position", 0);
-  const [posts, images, stats, comments] = await Promise.all([
+  const [posts, images, stats] = await Promise.all([
     db
       .from("outfit_explorer_posts")
       .select("id,user_id,uploader_name,caption,created_at,updated_at")
@@ -93,18 +114,10 @@ export async function readPosts(
       .eq("status", "published"),
     imageQuery,
     db.rpc("social_post_stats", { ids, viewer: account?.id || null }),
-    detail
-      ? db
-          .from("outfit_explorer_comments")
-          .select("id,post_id,body,created_at")
-          .in("post_id", ids)
-          .order("created_at", { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
   ]);
   check(posts.error);
   check(images.error);
   check(stats.error);
-  check(comments.error);
   const imageRows = images.data || [];
   const [authors, tags, urls] = await Promise.all([
     profiles(
@@ -165,13 +178,6 @@ export async function readPosts(
   const statMap = new Map(
     ((stats.data || []) as Stats[]).map((s) => [s.post_id, s])
   );
-  const commentsByPost = new Map<string, PostComment[]>();
-  for (const comment of comments.data || []) {
-    commentsByPost.set(comment.post_id, [
-      ...(commentsByPost.get(comment.post_id) || []),
-      { id: comment.id, body: comment.body, createdAt: comment.created_at },
-    ]);
-  }
   const postMap = new Map((posts.data || []).map((p) => [p.id, p]));
   return ids.flatMap((id) => {
     const p = postMap.get(id);
@@ -201,33 +207,9 @@ export async function readPosts(
           !!account &&
           (account.id === p.user_id || account.appUsername === "Kevin_Han"),
         images: media,
-        comments: commentsByPost.get(id) || [],
       },
     ];
   });
-}
-export async function addComment(
-  postId: string,
-  body: string,
-  account: RegisteredRequestUser
-) {
-  await requirePost(postId, account);
-  const text = body.trim();
-  if (!text || text.length > 1000) throw new SocialError("invalid_input");
-  const result = await socialDb()
-    .from("outfit_explorer_comments")
-    .insert({ post_id: postId, body: text })
-    .select("id,body,created_at")
-    .single();
-  check(result.error);
-  if (!result.data) throw new SocialError("server_error", 500);
-  return {
-    comment: {
-      id: result.data.id,
-      body: result.data.body,
-      createdAt: result.data.created_at,
-    },
-  };
 }
 export async function feed(
   url: URL,
@@ -290,7 +272,30 @@ export async function publish(
   account: RegisteredRequestUser,
   editing: boolean
 ) {
-  const payload = validatePost(input);
+  // The default boundary is one photo. Existing albums may keep their photos,
+  // but editing cannot turn a single-photo post into a new album.
+  const payload = validatePost(input, editing ? 10 : 1);
+  const db = socialDb();
+  const existingIds = new Set<string>();
+  if (editing) {
+    const existing = await db.from("outfit_explorer_images")
+      .select("id").eq("post_id", payload.id);
+    check(existing.error);
+    existing.data?.forEach((image) => existingIds.add(image.id));
+    if (payload.images.length > Math.max(1, existing.data?.length ?? 0))
+      throw new SocialError("invalid_input");
+  }
+  const uploadIds = payload.images.flatMap((image) =>
+    image.replacementUploadId ? [image.replacementUploadId] : !existingIds.has(image.id) ? [image.id] : []
+  );
+  if (uploadIds.length) {
+    const uploads = await db.from("social_uploads")
+      .select("id,width,height").eq("user_id", account.id).in("id", uploadIds);
+    check(uploads.error);
+    if (uploads.data?.length !== uploadIds.length || uploads.data.some((image) =>
+      !image.width || !image.height || image.width * 4 !== image.height * 3
+    )) throw new SocialError("invalid_image");
+  }
   const result = await socialDb().rpc("social_publish_post", {
     actor: account.id,
     payload,
@@ -321,6 +326,32 @@ export async function requirePost(
   )
     throw new SocialError("forbidden", 403);
   return result.data;
+}
+export async function deletePost(id: string, account: RegisteredRequestUser) {
+  const db = socialDb();
+  await requirePost(id, account, true);
+  const images = await db
+    .from("outfit_explorer_images")
+    .select("image_path")
+    .eq("post_id", id);
+  check(images.error);
+  const paths = (images.data || []).map((image) => image.image_path);
+  const result = await db.from("outfit_explorer_posts").delete().eq("id", id);
+  check(result.error);
+
+  // The database trigger has already queued every path. Remove the objects now
+  // for immediate cleanup; leave queued failures for the scheduled retry.
+  if (!paths.length) return { deleted: true, storageCleanupPending: false };
+  try {
+    const removed = await db.storage.from(SOCIAL_BUCKET).remove(paths);
+    if (removed.error) throw removed.error;
+    const done = await db.from("social_file_cleanup").delete().in("path", paths);
+    if (done.error) throw done.error;
+    return { deleted: true, storageCleanupPending: false };
+  } catch (error) {
+    console.error("Post image cleanup will retry", error);
+    return { deleted: true, storageCleanupPending: true };
+  }
 }
 export async function relation(
   id: string,
