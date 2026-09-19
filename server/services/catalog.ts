@@ -35,6 +35,7 @@ const toCard = (product: Product): ProductCardData => ({
   url: product.url,
   image: product.image,
   thumbnailImage: product.thumbnailImage,
+  cardThumbnailImage: product.cardThumbnailImage,
   slug: product.slug,
   createdAt: product.createdAt,
   isInstagram: product.isInstagram,
@@ -92,7 +93,7 @@ const queryCatalogPage = async (offset: number, limit: number): Promise<CatalogP
   return { products, nextOffset: rows.length > limit ? offset + limit : null };
 };
 
-const getCachedCatalogPage = unstable_cache(queryCatalogPage, ["catalog-page-v2"], {
+const getCachedCatalogPage = unstable_cache(queryCatalogPage, ["catalog-page-v3"], {
   revalidate: 60,
   tags: ["catalog"],
 });
@@ -111,7 +112,7 @@ const queryCatalogSearch = async (query: string, limit: number): Promise<Product
     .filter((product): product is ProductCardData => Boolean(product));
 };
 
-const getCachedCatalogSearch = unstable_cache(queryCatalogSearch, ["catalog-search-v2"], {
+const getCachedCatalogSearch = unstable_cache(queryCatalogSearch, ["catalog-search-v3"], {
   revalidate: 300,
   tags: ["search"],
 });

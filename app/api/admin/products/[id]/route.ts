@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { prepareCardThumbnail } from "../../../../../server/services/stored-card-thumbnail";
 import { revalidateTag } from "next/cache";
 import { getErrorMessage, getErrorStatusCode } from "@/lib/api-error";
 import { verifyAdminRequest } from "../../../../../server/utils/admin-request.js";
@@ -235,6 +236,9 @@ export async function PATCH(
     didUpdateProduct = true;
 
     const currentImagePath = String(data.image_path || "").trim() || null;
+    if (hasImagePathInPayload && currentImagePath && previousImagePath !== currentImagePath) {
+      after(() => prepareCardThumbnail(productId));
+    }
     if (
       hasImagePathInPayload &&
       previousImagePath &&

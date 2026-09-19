@@ -18,6 +18,7 @@ export interface Product {
   url: string;
   image: string;
   thumbnailImage?: string;
+  cardThumbnailImage?: string;
   imagePath?: string | null;
   slug?: string | null;
   sizeTable?: SizeTable | null;
@@ -62,6 +63,7 @@ export type ProductCardData = Pick<
   | "url"
   | "image"
   | "thumbnailImage"
+  | "cardThumbnailImage"
   | "slug"
   | "createdAt"
   | "isInstagram"

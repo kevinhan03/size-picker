@@ -15,7 +15,6 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
-import { ProgressiveImage } from "./ProgressiveImage";
 import type {
   ClosetSizeSelection,
   DigboxSizeDecisionInput,
@@ -773,20 +772,17 @@ function ProductDetailModalContent({
                 <button
                   type="button"
                   onClick={onZoomImage}
-                  className={`relative isolate h-[15.5rem] w-full max-w-[22rem] self-center cursor-zoom-in overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(30,38,54,0.42),rgba(8,11,18,0.18))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:max-w-none ${hasStyleProfile ? "md:h-[22rem] md:w-[22rem] md:self-start" : "md:h-[19rem] md:w-[19rem] md:self-center"}`}
+                  className={`flex h-[15.5rem] w-full max-w-[22rem] shrink-0 items-center justify-center self-center cursor-zoom-in rounded-[20px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-4 focus-visible:ring-offset-[#1c1c1f] md:max-w-none ${hasStyleProfile ? "md:h-[22rem] md:w-[22rem] md:self-start" : "md:h-[19rem] md:w-[19rem] md:self-center"}`}
                 >
-                  <div className="pointer-events-none absolute inset-[-10%] rounded-[32px] bg-[radial-gradient(circle,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_36%,rgba(255,255,255,0.02)_52%,transparent_74%)] opacity-80 blur-xl" />
-                  <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015)_40%,transparent_100%)]" />
-                  <div className="absolute inset-2 z-[1]">
-                    <ProgressiveImage
+                  {/* Intrinsic image bounds make the radius follow the photo, not a letterboxed fill element. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Preserve unknown source ratios and native fallback handling. */}
+                    <img
                       src={product.image}
-                      thumbnailSrc={product.thumbnailImage}
                       alt={product.name}
-                      className="object-contain"
+                      className="block h-auto max-h-full w-auto max-w-full rounded-[20px]"
                       loading="eager"
                       onError={onImageError}
                     />
-                  </div>
                 </button>
                 <div className="flex-1">
                   <div className="mb-2 flex items-center gap-2 text-sm font-bold text-orange-500">

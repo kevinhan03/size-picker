@@ -676,6 +676,14 @@ button,
   transition-duration: var(--duration-layer-exit);
 }
 
+/* The secondary category rail unfolds from the selected parent category. */
+.dig-subcategory-reveal {
+  opacity: 1;
+  transform: translateY(0);
+  transform-origin: top;
+  transition: opacity var(--duration-popover) var(--ease-out), transform var(--duration-popover) var(--ease-out);
+}
+
 @starting-style {
   .digbox-sheet-backdrop {
     opacity: 0;
@@ -684,6 +692,11 @@ button,
   .digbox-sheet {
     opacity: 0;
     transform: translateY(100%);
+  }
+
+  .dig-subcategory-reveal {
+    opacity: 0;
+    transform: translateY(-8px);
   }
 }
 
@@ -698,7 +711,8 @@ button,
   }
 
   .digbox-sheet-backdrop,
-  .digbox-sheet {
+  .digbox-sheet,
+  .dig-subcategory-reveal {
     transition: opacity var(--duration-reduced) ease;
   }
 }

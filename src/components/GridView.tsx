@@ -22,6 +22,43 @@ const analysisStatus = (product: Product) => {
   return null;
 };
 
+function ProductCardMedia({
+  product,
+  isLcpCandidate,
+  onImageError,
+}: {
+  product: Product;
+  isLcpCandidate: boolean;
+  onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
+}) {
+  const source = product.image || product.thumbnailImage || "";
+  const [failedSource, setFailedSource] = useState<string | null>(null);
+  const [failedDirectUrl, setFailedDirectUrl] = useState<string | null>(null);
+  const useOriginal = failedSource === source;
+  const directUrl = product.cardThumbnailImage;
+  const useDirect = Boolean(directUrl && failedDirectUrl !== directUrl);
+  // Legacy/external images have no stored derivative; load their original directly.
+  const src = useOriginal || !directUrl ? source : useDirect ? directUrl : `/api/products/${encodeURIComponent(product.id)}/card-image`;
+
+  return (
+    <div className="relative aspect-[4/5] overflow-hidden bg-[#f5f5f5]">
+        <ProgressiveImage
+          key={src}
+          src={src}
+          alt={product.name}
+          className="object-contain"
+          loading={isLcpCandidate ? "eager" : "lazy"}
+          fetchPriority={isLcpCandidate ? "high" : "auto"}
+          onError={(event) => {
+            if (!useOriginal && useDirect) setFailedDirectUrl(directUrl!);
+            else if (!useOriginal) setFailedSource(source);
+            else onImageError(event);
+          }}
+        />
+    </div>
+  );
+}
+
 interface GridViewProps {
   allProducts: Product[];
   filteredGridProducts: Product[];
@@ -179,19 +216,11 @@ export function GridView({
                         : "cursor-pointer"
                     }`}
                   >
-                    <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48 sm:rounded-[18px]">
-                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
-                      <div className="absolute inset-3 z-[1] sm:inset-4">
-                        <ProgressiveImage
-                          src={product.thumbnailImage || product.image}
-                          alt={product.name}
-                          className="rounded-[10px] object-contain"
-                          loading={isLcpCandidate ? "eager" : "lazy"}
-                          fetchPriority={isLcpCandidate ? "high" : "auto"}
-                          onError={onImageError}
-                        />
-                      </div>
-                    </div>
+                    <ProductCardMedia
+                      product={product}
+                      isLcpCandidate={isLcpCandidate}
+                      onImageError={onImageError}
+                    />
                     <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
                       <div className="mb-1 flex min-w-0 items-center gap-2">
                         <div className="truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>

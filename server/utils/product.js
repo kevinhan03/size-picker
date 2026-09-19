@@ -12,6 +12,7 @@ import {
   removeStoredProductImage,
 } from "../services/product-image-storage.js";
 import { normalizeBrandName } from "./brand-rules.js";
+import { cardThumbnailLocation } from "./card-thumbnail-path.js";
 import {
   isSizeTableNormalizationCategory,
   normalizeSizeTableForCategory,
@@ -93,6 +94,7 @@ export const normalizeProductRow = (row) => {
       : "completed",
     url: String(row.url || "#"),
     image: toPublicImageUrl(image || imagePath),
+    cardThumbnailImage: cardThumbnailLocation(id, imagePath || image)?.url,
     thumbnailImage: toPublicImageUrl(imagePath || image, {
       width: 320,
       height: 320,

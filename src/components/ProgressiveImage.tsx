@@ -11,6 +11,7 @@ interface ProgressiveImageProps {
   className?: string;
   loading?: "lazy" | "eager";
   fetchPriority?: "high" | "low" | "auto";
+  onLoad?: (event: SyntheticEvent<HTMLImageElement>) => void;
   onError?: (event: SyntheticEvent<HTMLImageElement>) => void;
 }
 
@@ -20,6 +21,7 @@ export const ProgressiveImage = ({
   className,
   loading = "lazy",
   fetchPriority = "auto",
+  onLoad,
   onError,
 }: ProgressiveImageProps) => {
   if (!src) return null;
@@ -35,6 +37,7 @@ export const ProgressiveImage = ({
       fetchPriority={fetchPriority}
       placeholder="blur"
       blurDataURL={BLUR_DATA_URL}
+      onLoad={onLoad}
       onError={onError}
       sizes="(max-width: 640px) 50vw, 300px"
     />

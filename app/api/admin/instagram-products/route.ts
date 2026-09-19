@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { prepareCardThumbnail } from "../../../../server/services/stored-card-thumbnail";
 import { verifyAdminRequest } from "../../../../server/utils/admin-request.js";
 import { generateProductSlug, insertProductRow, normalizeProductRow, toProductWriteErrorResponse } from "../../../../server/utils/product.js";
 import { normalizeBrandName, refreshBrandRulesCache } from "../../../../server/utils/brand-rules.js";
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
     revalidateTag(DIG_MATCH_PRODUCTS_CACHE_TAG, "max");
     invalidatePublicProductCaches(String(row?.id || ""));
     const product = normalizeProductRow(row);
+    after(() => prepareCardThumbnail(String(row.id)));
     return NextResponse.json({ ok: true, data: { product } });
   } catch (error: unknown) {
     const { statusCode, message } = toProductWriteErrorResponse(error, "instagram product creation failed");

@@ -20,6 +20,7 @@ import { invalidatePublicProductCaches } from "../../../server/services/catalog-
 import { getRequestLocale } from "../../../server/utils/locale";
 import { isProductCategory } from "@/constants";
 import { analyzeStoredProductCategory } from "../../../server/services/stored-product-category-analysis";
+import { prepareCardThumbnail } from "../../../server/services/stored-card-thumbnail";
 
 interface RegisteredUser {
   id: string;
@@ -182,6 +183,7 @@ export async function POST(request: Request) {
       const productId = String(insertedRow?.id || "").trim();
       if (!productId) return;
       await Promise.all([
+        prepareCardThumbnail(productId),
         (async () => {
           const categoryResult = await analyzeStoredProductCategory(productId);
           if (!categoryResult.ok) {
