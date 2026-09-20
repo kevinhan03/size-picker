@@ -82,7 +82,7 @@ describe("profile avatar API", () => {
     expect(mocks.upload).not.toHaveBeenCalled();
     expect(mocks.change).not.toHaveBeenCalled();
   });
-  it("rejects spoofed MIME data and files over 3MB", async () => {
+  it("rejects spoofed MIME data and files over 10MB", async () => {
     expect(
       (
         await POST(
@@ -94,7 +94,7 @@ describe("profile avatar API", () => {
       (
         await POST(
           request(
-            new File([new Uint8Array(3 * 1024 * 1024 + 1)], "x.png", {
+            new File([new Uint8Array(10 * 1024 * 1024 + 1)], "x.png", {
               type: "image/png",
             })
           )

@@ -85,9 +85,9 @@
     --app-main-min-h: 100vh;
     --app-main-pt: calc(5rem + env(safe-area-inset-top, 0px));
     --app-header-height: calc(4rem + env(safe-area-inset-top, 0px));
-    --app-bottom-nav-height: 4.5rem;
-    --app-bottom-nav-clearance: 0.5rem;
-    --app-main-pb: calc(var(--app-bottom-nav-height) + 2rem + var(--app-safe-bottom) + var(--app-bottom-nav-clearance));
+    --app-bottom-nav-height: 3.75rem;
+    --app-bottom-nav-clearance: 0rem;
+    --app-main-pb: calc(var(--app-bottom-nav-height) + 1.25rem + var(--app-safe-bottom));
     --app-main-px: max(1.25rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px)); /* 20px — tablet and large mobile */
     --page-header-top: calc(5rem + env(safe-area-inset-top, 0px));
     --page-header-content-gap: 1.25rem;

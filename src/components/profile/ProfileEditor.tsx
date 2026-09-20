@@ -93,7 +93,7 @@ export function ProfileEditor({
                     onChange={(e) => {
                       const next = e.target.files?.[0];
                       setError("");
-                      if (next && (next.size > 3 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(next.type))) {
+                      if (next && (next.size > 10 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(next.type))) {
                         setError(c.photoHelp);
                         e.target.value = "";
                         return;

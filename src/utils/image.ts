@@ -1,12 +1,12 @@
 export const ALLOWED_UPLOAD_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-export const MAX_UPLOAD_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_UPLOAD_IMAGE_BYTES = 10 * 1024 * 1024;
 
 export const validateImageFile = (file: File) => {
   if (!ALLOWED_UPLOAD_IMAGE_TYPES.has(file.type)) {
     throw new Error('Unsupported image type. Use JPG, PNG, or WebP.');
   }
   if (file.size > MAX_UPLOAD_IMAGE_BYTES) {
-    throw new Error('Image is too large. Maximum size is 8MB.');
+    throw new Error('Image is too large. Maximum size is 10MB.');
   }
 };
 

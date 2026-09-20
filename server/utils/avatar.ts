@@ -1,4 +1,4 @@
-export const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
+export const AVATAR_MAX_BYTES = 10 * 1024 * 1024;
 
 export function avatarMime(bytes: Uint8Array): string | null {
   if (!bytes.length || bytes.length > AVATAR_MAX_BYTES) return null;

@@ -44,11 +44,11 @@ async function mutate(request: Request, remove: boolean) {
         Number(request.headers.get("content-length")) >
         AVATAR_MAX_BYTES + 65536
       )
-        return reply({ ok: false, error: "Image must be under 3 MB." }, 413);
+        return reply({ ok: false, error: "Image must be under 10 MB." }, 413);
       const form = await request.formData();
       const file = form.get("file");
       if (!(file instanceof File) || !file.size || file.size > AVATAR_MAX_BYTES)
-        return reply({ ok: false, error: "Image must be under 3 MB." }, 400);
+        return reply({ ok: false, error: "Image must be under 10 MB." }, 400);
       const bytes = new Uint8Array(await file.arrayBuffer());
       const mime = avatarMime(bytes);
       if (!mime || mime !== file.type)
