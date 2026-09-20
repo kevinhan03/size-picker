@@ -430,10 +430,6 @@
   font-size: .875rem;
   line-height: 1.6;
 }
-.profile-shell .closet-product-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  gap: 16px !important;
-}
 .profile-shell .profile-size {
   margin-top: 20px;
   border-bottom: 1px solid #29292e;
@@ -800,10 +796,6 @@
   outline-offset: 4px;
 }
 @media (max-width: 767px) {
-  .profile-shell .closet-product-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 10px !important;
-  }
   .profile-heading {
     gap: 18px;
     padding-bottom: 16px;

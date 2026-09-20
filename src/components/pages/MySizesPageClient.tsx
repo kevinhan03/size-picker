@@ -20,21 +20,18 @@ export function MySizesPageClient({
   const sizes = useMySizesContext();
 
   return (
-    <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
-      <div className="mx-auto w-full max-w-3xl">
-        <header className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
-          <div className="min-w-0">
-            <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#f2a56c]">MY FIT</p>
-            <h1 className="mt-1 text-xl font-extrabold leading-[1.15] tracking-[-0.035em] text-[#f5f5f6] sm:text-4xl">{c.size}</h1>
-          </div>
+    <main className="settings-page min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--settings-page-top)] text-white">
+      <div className="mx-auto w-full max-w-none lg:max-w-3xl">
+        <header className="flex items-center gap-0 border-b border-white/10 pb-2 lg:gap-2 lg:pb-6">
           <Link
             href={profileHref}
             aria-label={c.back}
             title={c.back}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transition-none"
+            className="relative inline-flex h-11 w-10 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-[color,transform] after:absolute after:-inset-x-0.5 after:inset-y-0 after:content-[''] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-[18px] w-[18px]" />
           </Link>
+          <h1 className="text-xl font-extrabold leading-tight tracking-[-0.015em] text-[#f5f5f6] lg:text-2xl">{c.size}</h1>
         </header>
         <section className="mt-8" aria-label={c.sizeFit}>
           <MySizesManager

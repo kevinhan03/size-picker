@@ -427,9 +427,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname === "/login" || pathname?.startsWith("/auth/");
   const usesMinimalChrome = isAuthPage || isOnboardingPage;
   const showFullChrome = !isAdminPage && !usesMinimalChrome;
-  const hideMobileGlobalHeader = showFullChrome && isFocusedMobileRoute(pathname || "");
+  const hideMobileGlobalHeader =
+    showFullChrome &&
+    (pathname === "/taste" || isFocusedMobileRoute(pathname || ""));
   const hideMobileBottomNav =
-    isAdminPage || usesMinimalChrome || isFocusedMobileRoute(pathname || "");
+    isAdminPage || usesMinimalChrome || pathname === "/taste" || isFocusedMobileRoute(pathname || "");
   const shellStyle = hideMobileBottomNav
     ? ({
         "--app-bottom-nav-height": "0rem",

@@ -275,7 +275,6 @@ export function MySizesManager({
           </span>
           <div>
             <h2 id="my-size-title" className="text-lg font-black tracking-[-0.02em] text-white">{t("mysize.workspaceTitle")}</h2>
-            <p className="mt-0.5 text-xs font-medium text-gray-500">{t("mysize.description")}</p>
           </div>
         </div>
         <button
@@ -443,7 +442,7 @@ export function MySizesManager({
         </div>
       )}
 
-      {mySizes.length > 0 ? (
+      {!isAdding && mySizes.length > 0 ? (
         <div className="divide-y divide-white/[0.08]">
           {groupedProfiles.map(([group, profiles]) => {
             const isOpen = openCategories.has(group);
@@ -690,7 +689,7 @@ export function MyPageView({
     <>
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 sm:gap-9">
       <section aria-labelledby="account-settings-title">
-        <h2 id="account-settings-title" className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gray-500">{t("mypage.account")}</h2>
+        <h2 id="account-settings-title" className="mb-2 text-sm font-black uppercase tracking-[0.14em] text-gray-500 lg:mb-3">{t("mypage.account")}</h2>
         <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#111114]">
           <button
             type="button"

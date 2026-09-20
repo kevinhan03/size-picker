@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import dynamic from "next/dynamic";
 import { GridView } from "../GridView";
@@ -44,7 +44,7 @@ export function GridPageClient() {
     return { ...detailedProduct, image, thumbnailImage };
   }, [detailedProduct]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!productModal.productId) {
       setSelectedProduct(null);
       setActiveRowIndex(null);

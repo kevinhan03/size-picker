@@ -14,7 +14,7 @@ import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { prefetchProductDetail, useProductDetail } from "../../hooks/useProductDetail";
 import { useProgressiveList } from "../../hooks/useProgressiveList";
 import { ProgressiveImage } from "../ProgressiveImage";
-import { FilterBar } from "../FilterBar";
+import { DigCategoryFilter } from "../DigCategoryFilter";
 import { PageState } from "../PageState";
 import { CollectionSearchField } from "../CollectionSearchField";
 import { CollectionEmptyState } from "../CollectionEmptyState";
@@ -48,7 +48,6 @@ function GridCard({
   selected,
   isEditing,
   onSelect,
-  onDelete,
   onOpen,
   onPrefetch,
   href,
@@ -57,15 +56,22 @@ function GridCard({
   selected: boolean;
   isEditing: boolean;
   onSelect: () => void;
-  onDelete: () => void;
   onOpen: () => void;
   onPrefetch: () => void;
   href: string;
 }) {
   const { t } = useLocaleContext();
-  const [imgOk, setImgOk] = useState(true);
-  const imageSrc = product.image || product.thumbnailImage || "";
-  const showInlineDelete = false;
+  const source = product.image || product.thumbnailImage || "";
+  const [failedSource, setFailedSource] = useState<string | null>(null);
+  const [failedDirectUrl, setFailedDirectUrl] = useState<string | null>(null);
+  const useOriginal = failedSource === source;
+  const directUrl = product.cardThumbnailImage;
+  const useDirect = Boolean(directUrl && failedDirectUrl !== directUrl);
+  const imageSrc = useOriginal || !directUrl
+    ? source
+    : useDirect
+      ? directUrl
+      : `/api/products/${encodeURIComponent(product.id)}/card-image`;
 
   return (
     <div
@@ -85,32 +91,31 @@ function GridCard({
         }}
         className="digbox-product-card-link relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[22px] text-inherit no-underline transition-transform duration-150 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none"
       >
-        <div className="relative mx-1.5 mb-0 mt-1.5 h-44 overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,rgba(17,24,39,0.62),rgba(0,0,0,0.38))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:m-3 sm:h-48">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.07),transparent_28%)]" />
-          <div className="absolute inset-3 z-[1] sm:inset-4">
-            {imgOk && imageSrc ? (
-              <ProgressiveImage
-                src={imageSrc}
-                thumbnailSrc={product.thumbnailImage}
-                alt={product.name}
-                className="rounded-[10px] object-contain"
-                onError={() => setImgOk(false)}
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase text-gray-700">
-                {product.brand}
-              </div>
-            )}
-          </div>
+        <div className="relative aspect-[4/5] overflow-hidden bg-[#f5f5f5]">
+          {imageSrc ? (
+            <ProgressiveImage
+              key={imageSrc}
+              src={imageSrc}
+              thumbnailSrc={product.thumbnailImage}
+              alt={product.name}
+              className="object-contain"
+              loading="lazy"
+              onError={() => {
+                if (!useOriginal && useDirect) setFailedDirectUrl(directUrl!);
+                else if (!useOriginal) setFailedSource(source);
+              }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase text-gray-500">
+              {product.brand}
+            </div>
+          )}
         </div>
         <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
-          <div className="mb-1 flex items-center gap-2">
-            <span className="truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</span>
-            {product.closetSelectedSizeLabel && (
-              <span className="flex-shrink-0 rounded-md border border-orange-500/40 bg-orange-500/12 px-1.5 py-0.5 text-[10px] font-black text-orange-400">
-                {product.closetSelectedSizeLabel}
-              </span>
-            )}
+          <div className="mb-1 flex min-w-0 items-center gap-2">
+            <div className="truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+            {product.isInstagram ? <span className="flex-shrink-0 rounded-md border border-orange-500/35 bg-orange-500/[0.12] px-1.5 py-0.5 text-[9px] font-black leading-none text-orange-300">PICK</span> : null}
+            {product.closetSelectedSizeLabel ? <span className="flex-shrink-0 rounded-md border border-orange-500/35 bg-orange-500/[0.12] px-1.5 py-0.5 text-[9px] font-black leading-none text-orange-300">{product.closetSelectedSizeLabel}</span> : null}
           </div>
           <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
           <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
@@ -127,21 +132,6 @@ function GridCard({
       )}
 
 
-      {showInlineDelete && (
-      <button
-        type="button"
-        aria-label={t("common.removeFromCloset")}
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-md bg-red-500/80 text-white opacity-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] backdrop-blur transition hover:bg-red-500 sm:opacity-0 sm:group-hover:opacity-100"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
-      )}
     </div>
   );
 }
@@ -344,119 +334,13 @@ function ListRow({
   );
 }
 
-function DeleteConfirmDialog({
-  onConfirm,
-  onCancel,
-}: {
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const { t } = useLocaleContext();
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 80,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-    >
-      <div
-        onClick={onCancel}
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(0,0,0,0.7)",
-          backdropFilter: "blur(4px)",
-        }}
-      />
-      <div
-        style={{
-          position: "relative",
-          background: "rgba(17,24,39,0.98)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: 20,
-          padding: 28,
-          maxWidth: 320,
-          width: "100%",
-          textAlign: "center",
-          boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
-        }}
-      >
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            background: "rgba(239,68,68,0.12)",
-            border: "1px solid rgba(239,68,68,0.2)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 16px",
-          }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2">
-            <polyline points="3,6 5,6 21,6" />
-            <path d="m19,6-.867,14.142A2,2 0 0,1 16.138,22H7.862a2,2 0 0,1-1.995-1.858L5,6m5,5v6m4-6v6" />
-            <path d="M9,6V4h6v2" />
-          </svg>
-        </div>
-        <h3 style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
-          {t("closet.deleteConfirmTitle")}
-        </h3>
-        <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
-          {t("closet.deleteConfirmDescription")}
-        </p>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={onCancel}
-            style={{
-              flex: 1,
-              padding: "11px",
-              borderRadius: 12,
-              background: "rgba(255,255,255,0.06)",
-              border: "none",
-              color: "#9ca3af",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            {t("common.cancel")}
-          </button>
-          <button
-            onClick={onConfirm}
-            style={{
-              flex: 1,
-              padding: "11px",
-              borderRadius: 12,
-              background: "rgba(239,68,68,0.85)",
-              border: "none",
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {t("common.delete")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function ClosetCollectionContent({ initialProducts, active = true }: { initialProducts?: Product[]; active?: boolean }) {
   const { t } = useLocaleContext();
   const router = useRouter();
   const auth = useAuthContext();
   const authUserId = auth.authUser?.id;
   const closet = useClosetContext();
-  const { closetProducts, removeFromCloset, ensureLoaded: ensureClosetLoaded } = closet;
+  const { closetProducts, addToCloset, removeFromCloset, ensureLoaded: ensureClosetLoaded, reload: reloadCloset } = closet;
   const hydrateCloset = closet.hydrate;
   const isClosetLoaded = closet.isLoaded;
   const digbox = useDigboxContext();
@@ -466,11 +350,17 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
   const [catFilter, setCatFilter] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Retained for the currently disabled list toolbar.
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [isUndoingRemoval, setIsUndoingRemoval] = useState(false);
+  const [removalUndoProducts, setRemovalUndoProducts] = useState<Product[] | null>(null);
+  const [removalError, setRemovalError] = useState<string | null>(null);
+  const removalUndoTimerRef = useRef<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const detailedProduct = useProductDetail(productModal.productId, selectedProduct);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
@@ -498,6 +388,10 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
   useEffect(() => {
     if (authUserId && productModal.productId) ensureDigboxLoaded();
   }, [authUserId, ensureDigboxLoaded, productModal.productId]);
+
+  useEffect(() => () => {
+    if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+  }, []);
 
   const closetItems = useMemo(
     () => isClosetLoaded ? closetProducts : (initialProducts ?? closetProducts),
@@ -605,17 +499,54 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
     });
   };
 
-  const removeOne = (id: string) => {
-    void removeFromCloset(id);
-    setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
-    setConfirmDeleteId(null);
+  const exitSelectionMode = () => {
+    setSelectedIds(new Set());
+    setRemovalError(null);
+    setIsEditing(false);
   };
 
-  const removeSelected = () => {
-    selectedIds.forEach((id) => void removeFromCloset(id));
-    setSelectedIds(new Set());
-    setIsEditing(false);
-    setConfirmBatchDelete(false);
+  const removeSelected = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length || isRemoving) return;
+
+    setIsRemoving(true);
+    setRemovalError(null);
+    const results = await Promise.allSettled(ids.map((id) => removeFromCloset(id)));
+    const succeededIds = new Set(ids.filter((_, index) => results[index]?.status === "fulfilled"));
+    const failedIds = ids.filter((id) => !succeededIds.has(id));
+    const removedProducts = closetItems.filter((product) => succeededIds.has(product.id));
+
+    if (removedProducts.length) {
+      if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+      setRemovalUndoProducts(removedProducts);
+      removalUndoTimerRef.current = window.setTimeout(() => setRemovalUndoProducts(null), 5000);
+    }
+
+    setSelectedIds(new Set(failedIds));
+    setIsEditing(failedIds.length > 0);
+    if (failedIds.length) setRemovalError(t("closet.removeFailed"));
+    setIsRemoving(false);
+  };
+
+  const undoRemoval = async () => {
+    if (!removalUndoProducts?.length || isUndoingRemoval) return;
+
+    setIsUndoingRemoval(true);
+    setRemovalError(null);
+    const results = await Promise.allSettled(removalUndoProducts.map((product) => addToCloset(product.id, {
+      label: product.closetSelectedSizeLabel ?? null,
+      rowIndex: product.closetSelectedSizeRowIndex ?? null,
+      snapshot: product.closetSelectedSizeSnapshot ?? null,
+    })));
+    if (results.some((result) => result.status === "fulfilled")) await reloadCloset();
+    const failedCount = results.filter((result) => result.status === "rejected").length;
+    if (failedCount) {
+      setRemovalError(t("closet.restoreFailed"));
+    } else {
+      if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+      setRemovalUndoProducts(null);
+    }
+    setIsUndoingRemoval(false);
   };
 
   return (
@@ -636,13 +567,13 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
         <div className="mt-3">
           <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("closet.search")} spacing="compact" />
         </div>
-        <FilterBar
-          categoryValue={catFilter}
+        <DigCategoryFilter
+          category={catFilter}
           onCategoryChange={(value) => {
             setCatFilter(value);
             setSubCategoryFilter("");
           }}
-          subCategoryValue={subCategoryFilter}
+          subCategory={subCategoryFilter}
           onSubCategoryChange={setSubCategoryFilter}
           disabled={isEditing}
           spacing="compact"
@@ -854,12 +785,35 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
           />
         )}
 
+        {removalError && <p role="alert" className="mb-4 text-xs font-semibold text-red-300">{removalError}</p>}
+        {removalUndoProducts?.length ? (
+          <div role="status" className="mx-auto mb-3 flex w-full max-w-[70rem] items-center justify-between gap-3 rounded-xl border border-white/[0.1] bg-white/[0.045] px-3.5 py-2.5 text-sm">
+            <p className="min-w-0 font-semibold text-white">{t("closet.removed", { count: removalUndoProducts.length })}</p>
+            <button type="button" disabled={isUndoingRemoval} onClick={() => void undoRemoval()} className="shrink-0 font-bold text-orange-300 transition-[color,transform] duration-150 active:scale-[0.97] hover:text-orange-200 disabled:cursor-wait disabled:text-orange-300/50">
+              {isUndoingRemoval ? t("common.undoing") : t("common.undo")}
+            </button>
+          </div>
+        ) : null}
+
         {filtered.length > 0 ? (
           <div className="mb-3 flex items-center justify-between gap-3">
-            <p aria-live="polite" className={`text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
+            <p aria-live="polite" className={`min-w-0 text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
               {isEditing ? (selectedIds.size ? t("closet.selected", { count: selectedIds.size }) : t("closet.selectToDelete")) : (searchQuery.trim() ? t("closet.searchResults", { count: filtered.length }) : t("closet.productCount", { count: filtered.length }))}
             </p>
-            {!isEditing ? <button type="button" onClick={() => setIsEditing(true)} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">{t("closet.delete")}</button> : <button type="button" onClick={() => { setSelectedIds(new Set()); setIsEditing(false); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">{t("common.cancel")}</button>}
+            {!isEditing ? (
+              <button type="button" onClick={() => { setRemovalError(null); setIsEditing(true); }} className="h-11 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                {t("closet.delete")}
+              </button>
+            ) : (
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button type="button" onClick={exitSelectionMode} className="h-11 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                  {t("common.cancel")}
+                </button>
+                <button type="button" disabled={selectedIds.size === 0 || isRemoving} onClick={() => void removeSelected()} className="h-11 rounded-lg bg-red-500 px-3 text-sm font-bold text-white transition-[background-color,transform,opacity] duration-150 active:scale-[0.97] hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
+                  {isRemoving ? t("closet.deleting") : t("common.delete")}
+                </button>
+              </div>
+            )}
           </div>
         ) : null}
 
@@ -876,7 +830,6 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
                 selected={selectedIds.has(p.id)}
                 isEditing={isEditing}
                 onSelect={() => toggleSelect(p.id)}
-                onDelete={() => setConfirmDeleteId(p.id)}
                 onOpen={() => handleProductOpen(p)}
                 onPrefetch={() => prefetchProductDetail(p.id)}
                 href={getClosetProductPageUrl(p)}
@@ -907,32 +860,6 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
           <div ref={sentinelRef} className="h-px w-full" aria-hidden="true" />
         ) : null}
       </div>
-
-      {isEditing && selectedIds.size > 0 ? (
-        <div className="digbox-removal-tray fixed inset-x-4 bottom-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-white/[0.12] bg-[#17171b]/95 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:bottom-6">
-          <p className="min-w-0 text-sm font-bold text-white">{t("closet.selected", { count: selectedIds.size })}</p>
-          <div className="flex shrink-0 items-center gap-2">
-            <button type="button" onClick={() => { setSelectedIds(new Set()); setIsEditing(false); }} className="h-10 rounded-xl px-3 text-sm font-bold text-gray-300 transition hover:bg-white/[0.06] hover:text-white">{t("common.cancel")}</button>
-            <button type="button" onClick={() => setConfirmBatchDelete(true)} className="h-10 rounded-xl bg-red-500 px-4 text-sm font-bold text-white transition hover:bg-red-400">{t("closet.removeSelected")}</button>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Delete single confirm */}
-      {confirmDeleteId && (
-        <DeleteConfirmDialog
-          onConfirm={() => removeOne(confirmDeleteId)}
-          onCancel={() => setConfirmDeleteId(null)}
-        />
-      )}
-
-      {/* Batch delete confirm */}
-      {confirmBatchDelete && (
-        <DeleteConfirmDialog
-          onConfirm={removeSelected}
-          onCancel={() => setConfirmBatchDelete(false)}
-        />
-      )}
 
       {active && normalizedProduct && (
         <ProductDetailModal

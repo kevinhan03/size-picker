@@ -22,6 +22,7 @@
   --app-main-min-h: 100vh;
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-bottom-nav-height: 0rem;
+  --app-bottom-nav-clearance: 0rem;
   --app-header-height: 4rem;
   --app-main-pt: 8rem;
   --app-main-pb: calc(5rem + var(--app-safe-bottom));
@@ -75,14 +76,19 @@
     --page-header-top: calc(1.5rem + env(safe-area-inset-top, 0px));
   }
 
+  .app-shell--hide-mobile-header .settings-page {
+    --settings-page-top: calc(1rem + env(safe-area-inset-top, 0px));
+  }
+
   :root {
     --app-page-min-h: 100vh;
     --app-main-min-h: 100vh;
     --app-main-pt: calc(5rem + env(safe-area-inset-top, 0px));
     --app-header-height: calc(4rem + env(safe-area-inset-top, 0px));
     --app-bottom-nav-height: 4.5rem;
-    --app-main-pb: calc(var(--app-bottom-nav-height) + 2rem + var(--app-safe-bottom));
-    --app-main-px: 1.25rem; /* 20px — tablet and large mobile */
+    --app-bottom-nav-clearance: 0.5rem;
+    --app-main-pb: calc(var(--app-bottom-nav-height) + 2rem + var(--app-safe-bottom) + var(--app-bottom-nav-clearance));
+    --app-main-px: max(1.25rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px)); /* 20px — tablet and large mobile */
     --page-header-top: calc(5rem + env(safe-area-inset-top, 0px));
     --page-header-content-gap: 1.25rem;
     --header-logo-size: 1.05rem;
@@ -336,19 +342,31 @@ body {
   }
 }
 
+.settings-page {
+  --settings-page-top: var(--page-header-top);
+}
+
 @media (max-width: 639px) {
   :root {
     --app-main-pt: calc(4.75rem + env(safe-area-inset-top, 0px));
-    --app-main-px: 1rem;
+    --app-main-px: max(1rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
     --page-header-top: calc(4.75rem + env(safe-area-inset-top, 0px));
     --page-header-content-gap: 1rem;
   }
 
+  .app-shell--hide-mobile-header {
+    --app-main-pt: calc(1.5rem + env(safe-area-inset-top, 0px));
+    --page-header-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+  }
+
+  .settings-page {
+    --settings-page-top: calc(1rem + env(safe-area-inset-top, 0px));
+  }
 }
 
 @media (max-width: 359px) {
   :root {
-    --app-main-px: 0.75rem;
+    --app-main-px: max(0.75rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   }
 }
 

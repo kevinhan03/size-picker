@@ -43,9 +43,9 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed inset-x-0 bottom-0 z-[60] h-[calc(var(--app-bottom-nav-height)+env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0b0b0d]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-[60] flex flex-col border-t border-white/10 bg-[#0b0b0d]/95 backdrop-blur-2xl lg:hidden"
     >
-      <div className="mx-auto grid h-[var(--app-bottom-nav-height)] max-w-md grid-cols-5 px-2">
+      <div className="mx-auto grid h-[var(--app-bottom-nav-height)] w-full max-w-md grid-cols-5 px-2">
         {mobilePrimaryNavigationItems.map(({ destination, labelKey, icon: Icon }) => {
           const active = activeDestination === destination;
           return (
@@ -80,6 +80,10 @@ export function MobileBottomNav() {
           );
         })}
       </div>
+      <div
+        className="h-[calc(env(safe-area-inset-bottom)+var(--app-bottom-nav-clearance))] shrink-0"
+        aria-hidden="true"
+      />
     </nav>
   );
 }

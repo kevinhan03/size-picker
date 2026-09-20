@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, Info } from "lucide-react";
-import { PageHeader } from "../PageHeader";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import type { Product, StyleTagName } from "../../types";
 import { buildBrandClusters } from "../../utils/brandClusters";
@@ -107,11 +105,13 @@ export function TasteReport({
   digboxProducts,
   onOpenMap,
   onOpenBrandMap,
+  onBack,
 }: {
   closetProducts: Product[];
   digboxProducts: Product[];
   onOpenMap: (target?: MapTarget) => void;
   onOpenBrandMap?: () => void;
+  onBack: () => void;
 }) {
   const { locale, t } = useLocaleContext();
   const isEnglish = locale === "en";
@@ -133,28 +133,24 @@ export function TasteReport({
   const preferredBrandTags = computeTasteSummary(brandProducts)
     .entries.slice(0, 2)
     .map((entry) => entry.tag);
-  const recordCount = closetProducts.length + digboxProducts.length;
   return (
-    <main className="taste-report" aria-labelledby="taste-report-title">
-      <PageHeader
-        eyebrow="MY TASTE"
-        title={t("tasteReport.title")}
-        titleId="taste-report-title"
-        description={t("tasteReport.description", { count: recordCount })}
-      />
-
+    <main className="taste-report" aria-label={t("tasteReport.title")}>
+      <button
+        type="button"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 transition-[color,transform] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
+        onClick={onBack}
+        aria-label={isEnglish ? "Back" : "뒤로"}
+        title={isEnglish ? "Back" : "뒤로"}
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      </button>
       {conclusion ? (
         <section
           className="taste-report-conclusion"
           aria-labelledby="taste-conclusion-title"
         >
-          <p>YOUR TASTE, NOW</p>
           <h2 id="taste-conclusion-title">{conclusion.title}</h2>
           <span>{conclusion.description}</span>
-          <Link href="/" className="taste-report-conclusion-link">
-            {isEnglish ? "Discover new products" : "새로운 상품 디깅하기"}{" "}
-            <ArrowRight aria-hidden="true" />
-          </Link>
         </section>
       ) : null}
 
@@ -172,22 +168,6 @@ export function TasteReport({
             <p>TASTE CHECK</p>
             <div className="taste-report-title-row">
               <h2 id="taste-evidence-title">{t("tasteReport.comparison")}</h2>
-              <details className="taste-report-method">
-                <summary
-                  aria-label={
-                    isEnglish
-                      ? "How taste shares are calculated"
-                      : "전체 스타일 무드 설명"
-                  }
-                >
-                  <Info aria-hidden="true" />
-                </summary>
-                <p>
-                  {isEnglish
-                    ? "These shares compare the overall style mood of analyzed products. They are not a count of products in each style."
-                    : "각 목록에 담긴 상품들의 스타일 성향을 합쳐 보여드립니다. 상품 개수 비율이 아니라, 목록 전체에서 느껴지는 스타일 무드입니다."}
-                </p>
-              </details>
             </div>
           </div>
         </div>
@@ -392,21 +372,14 @@ export function TasteReport({
           font-family: var(--font-sans);
         }
         .taste-report-conclusion {
-          margin-top: var(--page-header-content-gap);
+          margin-top: var(--taste-space-3);
           padding: var(--taste-space-4);
           border: 1px solid rgba(249, 115, 22, 0.28);
           border-radius: 0.875rem;
           background: #141519;
         }
-        .taste-report-conclusion > p {
-          margin: 0;
-          color: #fdba74;
-          font-size: 0.625rem;
-          font-weight: 850;
-          letter-spacing: 0.1em;
-        }
         .taste-report-conclusion h2 {
-          margin: 0.5rem 0 0;
+          margin: 0;
           color: #f8fafc;
           font-size: clamp(1.25rem, 2.5vw, 1.625rem);
           font-weight: 780;
@@ -421,31 +394,6 @@ export function TasteReport({
           font-size: 0.875rem;
           font-weight: 600;
           line-height: 1.6;
-        }
-        :global(a.taste-report-conclusion-link) {
-          display: inline-flex;
-          min-height: 2.75rem;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          margin-top: var(--taste-space-4);
-          padding: 0.5rem 1rem;
-          border-radius: 0.75rem;
-          background: #f97316;
-          color: #17120e;
-          font-size: 0.8125rem;
-          font-weight: 800;
-          line-height: 1;
-          text-decoration: none;
-        }
-        :global(a.taste-report-conclusion-link svg) {
-          flex: 0 0 auto;
-          width: 0.9rem;
-          height: 0.9rem;
-        }
-        :global(a.taste-report-conclusion-link:focus-visible) {
-          outline: 2px solid #fdba74;
-          outline-offset: 3px;
         }
         :global(.taste-shift) {
           margin-top: var(--taste-section-gap);
@@ -568,45 +516,6 @@ export function TasteReport({
           font-weight: 750;
           letter-spacing: -0.025em;
           line-height: 1.25;
-        }
-        .taste-report-method {
-          position: relative;
-          flex: 0 0 auto;
-        }
-        .taste-report-method summary {
-          display: grid;
-          width: 1.5rem;
-          height: 1.5rem;
-          place-items: center;
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          border-radius: 999px;
-          color: #aeb7c4;
-          cursor: pointer;
-          list-style: none;
-        }
-        .taste-report-method summary::-webkit-details-marker {
-          display: none;
-        }
-        .taste-report-method summary :global(svg) {
-          width: 0.8rem;
-          height: 0.8rem;
-        }
-        .taste-report-method p {
-          position: absolute;
-          top: calc(100% + 0.5rem);
-          left: 0;
-          z-index: 3;
-          width: min(18rem, calc(100vw - 3rem));
-          margin: 0;
-          padding: 0.7rem 0.75rem;
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          border-radius: 0.625rem;
-          background: #202228;
-          box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.25);
-          color: #c9d0da;
-          font-size: 0.75rem;
-          font-weight: 600;
-          line-height: 1.55;
         }
         .taste-report-graph-button,
         .taste-report-brands button {
@@ -841,13 +750,6 @@ export function TasteReport({
           border-radius: 999px;
         }
         @media (hover: hover) and (pointer: fine) {
-          :global(a.taste-report-conclusion-link:hover) {
-            background: #fb923c;
-          }
-          .taste-report-method summary:hover {
-            border-color: rgba(255, 255, 255, 0.34);
-            color: #f5f5f6;
-          }
           .taste-report-graph-button:hover,
           .taste-report-brands button:hover {
             background: rgba(255, 255, 255, 0.06);
@@ -855,7 +757,6 @@ export function TasteReport({
           }
         }
         @media (prefers-reduced-motion: no-preference) {
-          :global(a.taste-report-conclusion-link),
           .taste-report-graph-button,
           .taste-report-brands button {
             transition:
@@ -863,10 +764,48 @@ export function TasteReport({
               background-color var(--duration-press) var(--ease-out),
               color var(--duration-press) var(--ease-out);
           }
-          :global(a.taste-report-conclusion-link:active),
           .taste-report-graph-button:active,
           .taste-report-brands button:active {
             transform: scale(0.98);
+          }
+        }
+        @media (max-width: 1023px) {
+          .taste-report {
+            --taste-section-gap: 1.5rem;
+          }
+          .taste-report-conclusion {
+            margin-top: var(--taste-space-2);
+            padding: var(--taste-space-3);
+          }
+          :global(.taste-shift) {
+            padding-top: var(--taste-space-3);
+          }
+          :global(.taste-shift-cards) {
+            margin-top: var(--taste-space-3);
+          }
+          :global(.taste-shift-card) {
+            padding: var(--taste-space-3);
+          }
+          .taste-report-details-content {
+            padding-top: var(--taste-space-3);
+          }
+          .taste-report-sources {
+            gap: var(--taste-space-3);
+            margin-top: var(--taste-space-3);
+          }
+          .taste-report-categories {
+            gap: 1.25rem;
+            margin-top: var(--taste-space-4);
+            padding-top: var(--taste-space-3);
+          }
+          .taste-report-brands {
+            gap: var(--taste-space-3);
+            margin-top: var(--taste-space-4);
+            padding-top: var(--taste-space-3);
+          }
+          .taste-brand-list {
+            gap: var(--taste-space-2);
+            margin-top: var(--taste-space-2);
           }
         }
         @media (max-width: 700px) {
@@ -881,14 +820,9 @@ export function TasteReport({
             align-items: stretch;
             flex-direction: column;
           }
-          :global(a.taste-report-conclusion-link) {
-            display: flex;
-            width: 100%;
-          }
           .taste-report-graph-button {
             position: static;
             align-self: flex-start;
-            margin-top: var(--taste-space-4);
           }
           .taste-report-brands button {
             align-self: flex-start;

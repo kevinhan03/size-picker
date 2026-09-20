@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 type PageHeaderProps = {
-  eyebrow: ReactNode;
+  eyebrow?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
@@ -21,12 +21,14 @@ export function PageHeader({
   titleId,
   className,
 }: PageHeaderProps) {
+  const hasEyebrow = eyebrow !== undefined && eyebrow !== null;
+
   return (
     <header className={`border-b border-white/10 pb-6 ${className ?? ""}`}>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 max-w-2xl">
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#f2a56c]">{eyebrow}</p>
-          <div className="mt-2 flex min-w-0 items-center gap-3">
+          {hasEyebrow ? <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#f2a56c]">{eyebrow}</p> : null}
+          <div className={`${hasEyebrow ? "mt-2 " : ""}flex min-w-0 items-center gap-3`}>
             <h1 id={titleId} className="min-w-0 flex-1 text-[1.75rem] font-extrabold leading-[1.15] tracking-[-0.035em] text-[#f5f5f6] sm:text-4xl">
               {title}
             </h1>

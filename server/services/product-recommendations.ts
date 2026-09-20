@@ -14,12 +14,11 @@ const MIN_VISIBLE_PRODUCTS = 4;
 const MAX_VISIBLE_PRODUCTS = 24;
 const MIN_QUALITY_SCORE = 0.54;
 const NATURAL_SCORE_GAP = 0.075;
-const STYLE_TIE_BAND = 0.025;
 const STYLE_FALLBACK_MIN_TAG_SIMILARITY = 0.55;
 const STYLE_CATEGORIES = new Set(["top", "bottom", "outer", "dressskirt", "shoes"]);
 
 export type RecommendationDiagnostics = {
-  algorithmVersion: "recommendations-v9";
+  algorithmVersion: "recommendations-v10";
   score: number;
   reasonCodes: string[];
   components: Record<string, number | null>;
@@ -68,32 +67,6 @@ const compatibleGender = (source: Product, candidate: Product) => {
   return sourceGender === "unknown" || candidateGender === "unknown" || sourceGender === candidateGender || sourceGender === "unisex" || candidateGender === "unisex";
 };
 
-const diversifyCategories = (candidates: ScoredProduct[]) => {
-  const result: ScoredProduct[] = [];
-  let index = 0;
-  while (index < candidates.length) {
-    const bandStart = index;
-    const bandScore = candidates[index].similarity;
-    while (index < candidates.length && bandScore - candidates[index].similarity <= STYLE_TIE_BAND) index += 1;
-    const remaining = candidates.slice(bandStart, index);
-    const seen = new Set<string>();
-    while (remaining.length) {
-      const nextIndex = remaining.findIndex(({ product }) => !seen.has(normalizeCategory(product.category)));
-      const [next] = remaining.splice(nextIndex >= 0 ? nextIndex : 0, 1);
-      result.push(next);
-      seen.add(normalizeCategory(next.product.category));
-    }
-  }
-  const categoryCounts = new Map<string, number>();
-  return result.filter(({ product }) => {
-    const category = normalizeCategory(product.category);
-    const count = categoryCounts.get(category) || 0;
-    if (count >= 2) return false;
-    categoryCounts.set(category, count + 1);
-    return true;
-  });
-};
-
 export const buildProductRecommendations = (source: Product, products: Product[], visualScores = new Map<string, number>()) => {
   const sourceCategory = normalizeCategory(source.category);
   const similarCandidates = products
@@ -104,7 +77,7 @@ export const buildProductRecommendations = (source: Product, products: Product[]
       const similarity = getProductRecommendationSimilarity(source, candidate, visualScore);
       return !similarity || similarity.visualSimilarity === null ? null : {
         product: candidate, similarity: similarity.score,
-        diagnostics: { algorithmVersion: "recommendations-v9", score: similarity.score, reasonCodes: ["same_category", "visual_similarity", "style_profile"], components: { visual: similarity.visualSimilarity, style: similarity.styleSimilarity, silhouette: similarity.shapeSimilarity, expression: similarity.expressionSimilarity } },
+        diagnostics: { algorithmVersion: "recommendations-v10", score: similarity.score, reasonCodes: ["same_category", "visual_similarity", "style_profile"], components: { visual: similarity.visualSimilarity, style: similarity.styleSimilarity, silhouette: similarity.shapeSimilarity, expression: similarity.expressionSimilarity } },
       };
     })
     .filter((candidate): candidate is ScoredProduct => candidate !== null)
@@ -119,7 +92,7 @@ export const buildProductRecommendations = (source: Product, products: Product[]
       const similarity = getCrossCategoryStyleSimilarity(source, candidate, visualScores.get(candidate.id));
       if (!similarity) continue;
       const scored: ScoredProduct = { product: candidate, similarity: similarity.score,
-        diagnostics: { algorithmVersion: "recommendations-v9" as const, score: similarity.score, reasonCodes: ["outfit_category_pair", "style_profile", "outfit_harmony"], components: similarity.recommendationComponents || { style: similarity.styleSimilarity, silhouette: similarity.shapeSimilarity, visual: similarity.visualSimilarity } } };
+        diagnostics: { algorithmVersion: "recommendations-v10" as const, score: similarity.score, reasonCodes: ["outfit_category_pair", "style_profile", "outfit_harmony"], components: similarity.recommendationComponents || { style: similarity.styleSimilarity, silhouette: similarity.shapeSimilarity, visual: similarity.visualSimilarity } } };
       if ((similarity.styleSimilarity ?? 0) >= STYLE_FALLBACK_MIN_TAG_SIMILARITY) strict.push(scored);
       else fallback.push(scored);
     }
@@ -131,7 +104,7 @@ export const buildProductRecommendations = (source: Product, products: Product[]
 
   return {
     similarProducts: sourceCategory ? selectNatural(diversifySimilarProducts(similarCandidates)) : [],
-    styleProducts: selectNatural(diversifyCategories(styleCandidates)),
+    styleProducts: selectNatural(styleCandidates),
   };
 };
 
@@ -220,6 +193,6 @@ async function queryProductRecommendationData(productId: string) {
 
 export const getProductRecommendationData = (productId: string) => unstable_cache(
   () => queryProductRecommendationData(productId),
-  ["product-recommendations-v9", productId],
+  ["product-recommendations-v10", productId],
   { revalidate: 300, tags: ["recommendations", `recommendations:${productId}`] },
 )();

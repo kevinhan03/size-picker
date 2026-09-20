@@ -52,14 +52,14 @@ describe("product recommendation ranking", () => {
     expect(result.styleProducts.map((entry) => entry.product.id)).toContain("1");
   });
 
-  it("limits outfit results to two products per category", () => {
+  it("keeps all eligible outfit candidates regardless of category concentration", () => {
     const source = product("outer", "Outer");
     const products = [source, ...Array.from({ length: 4 }, (_, index) => product(`bottom-${index}`, "Bottom")), ...Array.from({ length: 3 }, (_, index) => product(`top-${index}`, "Top"))];
     const result = buildProductRecommendations(source, products);
     const bottomCount = result.styleProducts.filter((entry) => entry.product.category === "Bottom").length;
     const topCount = result.styleProducts.filter((entry) => entry.product.category === "Top").length;
-    expect(bottomCount).toBeLessThanOrEqual(2);
-    expect(topCount).toBeLessThanOrEqual(2);
+    expect(bottomCount).toBe(4);
+    expect(topCount).toBe(3);
   });
 
   it("does not place more than two consecutive candidates from one brand or detailed category", () => {

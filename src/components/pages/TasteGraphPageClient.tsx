@@ -329,7 +329,7 @@ export function TasteGraphPageClient({
 
   return (
     <>
-      {!isMapOpen ? <TasteReport closetProducts={closetProducts} digboxProducts={digboxProducts} onOpenMap={openMap} onOpenBrandMap={hasBrandClusters ? openBrandMap : undefined} /> : null}
+      {!isMapOpen ? <TasteReport closetProducts={closetProducts} digboxProducts={digboxProducts} onOpenMap={openMap} onOpenBrandMap={hasBrandClusters ? openBrandMap : undefined} onBack={() => router.back()} /> : null}
     <main className={`taste-graph-page taste-graph-layout ${!isMapOpen ? "taste-graph-layout--standby" : ""}`} aria-hidden={!isMapOpen}>
       <header className="taste-graph-toolbar">
         <button type="button" onClick={closeMap} className="taste-map-back">

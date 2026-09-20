@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 
 const PRODUCT_MODAL_HISTORY_KEY = "sizepickerProductModal";
 
@@ -21,7 +21,7 @@ function updateProductId(productId: string | null, replace: boolean, state = win
 export function useProductModalQuery() {
   const [productId, setProductId] = useState<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const syncProductId = () => setProductId(readProductId());
     syncProductId();
     window.addEventListener("popstate", syncProductId);

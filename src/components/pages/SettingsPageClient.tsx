@@ -61,26 +61,23 @@ export function SettingsPageClient({
   };
 
   return (
-    <main className="settings-page min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
-      <div className="mx-auto w-full max-w-3xl">
-        <header className="flex items-center justify-between gap-3 border-b border-white/10 pb-4 sm:pb-6">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#f2a56c]">DIGBOX</p>
-            <h1 className="mt-2 text-[1.75rem] font-extrabold leading-[1.15] tracking-[-0.02em] text-[#f5f5f6] sm:text-4xl">{c.settings}</h1>
-          </div>
+    <main className="settings-page min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--settings-page-top)] text-white">
+      <div className="mx-auto w-full max-w-none lg:max-w-3xl">
+        <header className="flex items-center gap-0 border-b border-white/10 pb-2 lg:gap-2 lg:pb-6">
           <Link
             href={`/${encodeURIComponent(username)}`}
             aria-label={c.back}
             title={c.back}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-[color,transform] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
+            className="relative inline-flex h-11 w-10 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-[color,transform] after:absolute after:-inset-x-0.5 after:inset-y-0 after:content-[''] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transform-none motion-reduce:transition-none"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-[18px] w-[18px]" />
           </Link>
+          <h1 className="text-xl font-extrabold leading-tight tracking-[-0.015em] text-[#f5f5f6] lg:text-2xl">{c.settings}</h1>
         </header>
 
-        <div className="mt-6 flex flex-col gap-8 sm:mt-8 sm:gap-10">
+        <div className="mt-2 flex flex-col gap-6 lg:mt-8 lg:gap-10">
           <section aria-labelledby="settings-profile-title">
-            <h2 id="settings-profile-title" className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gray-500">{c.profileInfo}</h2>
+            <h2 id="settings-profile-title" className="mb-2 text-sm font-black uppercase tracking-[0.14em] text-gray-500 lg:mb-3">{c.profileInfo}</h2>
             <ProfileEditor
               username={username}
               bio={bio}
@@ -94,7 +91,7 @@ export function SettingsPageClient({
             />
           </section>
           <section aria-labelledby="closet-visibility-title">
-            <h2 id="closet-visibility-title" className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gray-500">{c.closetVisibility}</h2>
+            <h2 id="closet-visibility-title" className="mb-2 text-sm font-black uppercase tracking-[0.14em] text-gray-500 lg:mb-3">{c.closetVisibility}</h2>
             <label className={`flex min-h-[4.75rem] items-center justify-between gap-4 rounded-2xl border border-white/[0.1] bg-white/[0.035] px-4 py-3.5 transition-[background-color,border-color,transform] duration-150 motion-reduce:transform-none ${isVisibilitySaving ? "cursor-wait opacity-70" : "cursor-pointer hover:border-white/[0.18] hover:bg-white/[0.055] active:scale-[0.99]"}`}>
               <span className="min-w-0"><span className="block text-[0.9375rem] font-bold tracking-[-0.01em] text-white">{c.closetVisibility}</span><span className={`mt-1 block text-xs font-semibold ${closetIsPublic ? "text-orange-300" : "text-gray-400"}`}>{closetIsPublic ? c.closetPublic : c.closetPrivate}</span></span>
               <input type="checkbox" checked={closetIsPublic} disabled={isVisibilitySaving} onChange={(event) => void updateClosetVisibility(event.target.checked)} className="peer sr-only" />
