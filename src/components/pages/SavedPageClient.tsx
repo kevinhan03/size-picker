@@ -34,11 +34,12 @@ export function SavedPageClient({
   }
 
   return (
-    <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
+    <main className="saved-page min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto w-full max-w-[70rem]">
         <SocialTabs
           label={t("saved.title")}
           value={tab}
+          className="saved-social-tabs"
           options={[
             { value: "products", label: c.savedProducts },
             { value: "posts", label: c.savedPosts },

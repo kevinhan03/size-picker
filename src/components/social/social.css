@@ -1233,6 +1233,23 @@
   }
 }
 
+@media (max-width: 1023px) {
+  .social-page.outfit-explorer-page {
+    padding-top: calc(var(--app-header-height, 64px) + 16px);
+  }
+
+  .outfit-explorer-page .social-explorer-controls,
+  .outfit-explorer-page .social-explorer-loading-controls {
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 639px) {
+  .social-page.outfit-explorer-page {
+    padding-top: calc(var(--app-header-height, 64px) + 12px);
+  }
+}
+
 /* Content-sized composer cards; other wide dialogs keep their existing layout. */
 .social-dialog-wide.social-post-composer {
   width: min(740px, calc(100vw - 24px));
@@ -1800,6 +1817,19 @@
 }
 .social-profile-content .social-grid {
   columns: 3;
+}
+@media (max-width: 1023px) {
+  .saved-social-tabs {
+    margin-bottom: 16px;
+  }
+
+  .saved-page {
+    padding-top: calc(4.5rem + env(safe-area-inset-top, 0px));
+  }
+
+  .saved-page .saved-social-tabs {
+    margin-bottom: 12px;
+  }
 }
 @media (max-width: 640px) {
   .social-page {

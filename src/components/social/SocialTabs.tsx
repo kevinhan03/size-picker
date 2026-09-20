@@ -4,15 +4,17 @@ export function SocialTabs<T extends string>({
   value,
   options,
   onChange,
+  className = "",
 }: {
   label: string;
   value: T;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
+  className?: string;
 }) {
   return (
     <div
-      className="social-tabs"
+      className={`social-tabs ${className}`}
       role="tablist"
       aria-label={label}
       onKeyDown={(e) => {

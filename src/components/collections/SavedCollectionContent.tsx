@@ -493,10 +493,10 @@ export function SavedCollectionContent({
 
   return (
     <section
+      className="saved-collection-content"
       style={{
         minHeight: 0,
         background: "#000",
-        padding: "16px 0",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -504,7 +504,7 @@ export function SavedCollectionContent({
     >
       <div style={{ width: "100%", maxWidth: 1280 }}>
         <div className="mx-auto w-full max-w-[70rem]">
-        <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("saved.search")} />
+        <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("saved.search")} spacing="compact" />
         {brandFilter && <button type="button" onClick={onClearBrand} className="my-3 rounded-full border border-orange-400/30 px-3 py-1 text-sm text-orange-300">{brandFilter} ×</button>}
         <DigCategoryFilter
           category={catFilter}
@@ -515,6 +515,7 @@ export function SavedCollectionContent({
           subCategory={subCategoryFilter}
           onSubCategoryChange={setSubCategoryFilter}
           disabled={isEditing}
+          spacing="compact"
         />
         </div>
 
@@ -626,15 +627,15 @@ export function SavedCollectionContent({
             {isOwner && (
               <div className="flex shrink-0 items-center gap-1.5">
                 {!isEditing ? (
-                  <button type="button" onClick={() => { setRemovalError(null); setIsEditing(true); }} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                  <button type="button" onClick={() => { setRemovalError(null); setIsEditing(true); }} className="h-11 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
                     {t("saved.delete")}
                   </button>
                 ) : (
                   <>
-                    <button type="button" onClick={exitSelectionMode} className="h-9 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
+                    <button type="button" onClick={exitSelectionMode} className="h-11 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
                       {t("common.cancel")}
                     </button>
-                    <button type="button" disabled={selectedIds.size === 0 || isRemoving} onClick={() => void removeSelected()} className="h-9 rounded-lg bg-red-500 px-3 text-sm font-bold text-white transition-[background-color,transform,opacity] duration-150 active:scale-[0.97] hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
+                    <button type="button" disabled={selectedIds.size === 0 || isRemoving} onClick={() => void removeSelected()} className="h-11 rounded-lg bg-red-500 px-3 text-sm font-bold text-white transition-[background-color,transform,opacity] duration-150 active:scale-[0.97] hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
                       {isRemoving ? t("saved.deleting") : t("saved.unsave")}
                     </button>
                   </>

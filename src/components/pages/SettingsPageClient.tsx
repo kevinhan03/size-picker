@@ -63,7 +63,7 @@ export function SettingsPageClient({
   return (
     <main className="settings-page min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto w-full max-w-3xl">
-        <header className="flex items-center justify-between gap-3 border-b border-white/10 pb-6">
+        <header className="flex items-center justify-between gap-3 border-b border-white/10 pb-4 sm:pb-6">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#f2a56c]">DIGBOX</p>
             <h1 className="mt-2 text-[1.75rem] font-extrabold leading-[1.15] tracking-[-0.02em] text-[#f5f5f6] sm:text-4xl">{c.settings}</h1>
@@ -78,7 +78,7 @@ export function SettingsPageClient({
           </Link>
         </header>
 
-        <div className="mt-8 flex flex-col gap-10">
+        <div className="mt-6 flex flex-col gap-8 sm:mt-8 sm:gap-10">
           <section aria-labelledby="settings-profile-title">
             <h2 id="settings-profile-title" className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gray-500">{c.profileInfo}</h2>
             <ProfileEditor

@@ -78,11 +78,13 @@
   :root {
     --app-page-min-h: 100vh;
     --app-main-min-h: 100vh;
-    --app-main-pt: calc(5.5rem + env(safe-area-inset-top, 0px));
+    --app-main-pt: calc(5rem + env(safe-area-inset-top, 0px));
     --app-header-height: calc(4rem + env(safe-area-inset-top, 0px));
     --app-bottom-nav-height: 4.5rem;
     --app-main-pb: calc(var(--app-bottom-nav-height) + 2rem + var(--app-safe-bottom));
-    --app-main-px: 1.5rem; /* 24px — 좌우 여백 */
+    --app-main-px: 1.25rem; /* 20px — tablet and large mobile */
+    --page-header-top: calc(5rem + env(safe-area-inset-top, 0px));
+    --page-header-content-gap: 1.25rem;
     --header-logo-size: 1.05rem;
     --hero-title-size: 2.375rem;
     --hero-subtitle-size: 0.9rem;
@@ -317,6 +319,36 @@ body {
   /* Keep centered floating controls anchored while providing press feedback. */
   button.guest-digbox-progress-button:not(:disabled):active {
     transform: translateX(-50%) scale(0.97);
+  }
+}
+
+.saved-collection-content {
+  padding: 1rem 0;
+}
+
+@media (max-width: 1023px) {
+  .saved-collection-content {
+    padding: 0 0 1rem;
+  }
+
+  .closet-collection-content {
+    padding: 0 0 1rem;
+  }
+}
+
+@media (max-width: 639px) {
+  :root {
+    --app-main-pt: calc(4.75rem + env(safe-area-inset-top, 0px));
+    --app-main-px: 1rem;
+    --page-header-top: calc(4.75rem + env(safe-area-inset-top, 0px));
+    --page-header-content-gap: 1rem;
+  }
+
+}
+
+@media (max-width: 359px) {
+  :root {
+    --app-main-px: 0.75rem;
   }
 }
 

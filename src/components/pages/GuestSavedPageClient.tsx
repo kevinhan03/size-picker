@@ -78,7 +78,7 @@ export function GuestSavedPageClient() {
     <main className="min-h-screen bg-black px-[var(--app-main-px)] pb-[var(--app-main-pb)] pt-[var(--page-header-top)] text-white">
       <div className="mx-auto w-full max-w-[70rem]">
         <PageHeader eyebrow="MY SAVED" title={title} description={description} />
-        <SocialTabs label={t("saved.title")} value={tab} options={[{value:"products",label:c.savedProducts},{value:"posts",label:c.savedPosts}]} onChange={setTab}/>
+        <SocialTabs className="saved-social-tabs" label={t("saved.title")} value={tab} options={[{value:"products",label:c.savedProducts},{value:"posts",label:c.savedPosts}]} onChange={setTab}/>
         {tab === "posts" && <div className="social-empty"><p>{c.emptySaved}</p><Link className="social-button social-primary" href={buildLoginHref("login", "/saved?tab=posts", "saved")}>{c.login}</Link></div>}
         <div hidden={tab !== "products"}>
         <section className="mt-[var(--page-header-content-gap)] rounded-2xl border border-white/[0.1] bg-[#141416] px-5 py-5 sm:px-6 lg:px-8" aria-label={t("guestSaved.progressAria")}>

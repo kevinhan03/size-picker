@@ -25,7 +25,7 @@ export function OutfitExplorerPageClient({
     );
   }
   return (
-    <main className="social-page">
+    <main className="social-page outfit-explorer-page">
       <div className="social-shell">
         <div className="social-explorer-controls">
           <UserSearch />

@@ -9,7 +9,7 @@ interface CategoryTabsProps {
   allLabel?: string;
   ariaLabel?: string;
   className?: string;
-  spacing?: "default" | "tight" | "result";
+  spacing?: "default" | "tight" | "result" | "compact";
   alignment?: "start" | "center" | "justify";
   disabled?: boolean;
 }
@@ -20,6 +20,15 @@ const parentTabClass = (active: boolean) =>
       ? "border-b-orange-300 text-orange-300"
       : "border-b-transparent text-gray-500 hover:text-white"
   }`;
+
+const spacingClass = (spacing: NonNullable<CategoryTabsProps["spacing"]>) =>
+  spacing === "tight"
+    ? "mb-2"
+    : spacing === "compact"
+      ? "mb-3"
+    : spacing === "result"
+      ? "mb-4 sm:mb-5 lg:mb-6"
+      : "mb-5";
 
 const getScrollBehavior = (): ScrollBehavior =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -51,11 +60,7 @@ export function CategoryTabs({
 
   return (
     <nav
-      className={`relative w-full ${className}`}
-      style={{
-        marginBottom:
-          spacing === "tight" ? "0.5rem" : spacing === "result" ? "1.5rem" : "1.25rem",
-      }}
+      className={`relative w-full ${spacingClass(spacing)} ${className}`}
       aria-label={ariaLabel}
     >
       <div

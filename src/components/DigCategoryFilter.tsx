@@ -9,6 +9,7 @@ interface DigCategoryFilterProps {
   onCategoryChange: (category: string) => void;
   onSubCategoryChange: (subcategory: string) => void;
   disabled?: boolean;
+  spacing?: "default" | "compact";
 }
 
 const shortLabels: Record<string, string> = {
@@ -114,7 +115,7 @@ function DigSubcategoryTabs({
 }
 
 export function DigCategoryFilter({
-  category, subCategory, onCategoryChange, onSubCategoryChange, disabled = false,
+  category, subCategory, onCategoryChange, onSubCategoryChange, disabled = false, spacing = "default",
 }: DigCategoryFilterProps) {
   const railRef = useRef<HTMLDivElement>(null);
   const railDrag = useHorizontalRailDrag();
@@ -131,7 +132,7 @@ export function DigCategoryFilter({
   }, [category]);
 
   return (
-    <div className="mx-auto mb-6 w-full max-w-7xl" data-dig-category-filter>
+    <div className={`mx-auto w-full max-w-7xl ${spacing === "compact" ? "mb-3" : "mb-4 sm:mb-5 lg:mb-6"}`} data-dig-category-filter>
       <div className="flex items-center border-b border-white/[0.14]">
         <div ref={railRef} role="group" aria-label="상위 카테고리"
           className={`min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${railDrag.isDragging ? "cursor-grabbing select-none" : "cursor-grab"}`}

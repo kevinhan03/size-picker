@@ -620,10 +620,10 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
 
   return (
     <section
+      className="closet-collection-content"
       style={{
         minHeight: 0,
         background: "#000",
-        padding: "16px 0",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -633,8 +633,8 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
         <div className="mx-auto w-full max-w-[70rem]">
         
 
-        <div className="mt-[var(--page-header-content-gap)]">
-          <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("closet.search")} />
+        <div className="mt-3">
+          <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("closet.search")} spacing="compact" />
         </div>
         <FilterBar
           categoryValue={catFilter}
@@ -645,6 +645,7 @@ export function ClosetCollectionContent({ initialProducts, active = true }: { in
           subCategoryValue={subCategoryFilter}
           onSubCategoryChange={setSubCategoryFilter}
           disabled={isEditing}
+          spacing="compact"
         />
         </div>
 

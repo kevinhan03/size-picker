@@ -12,6 +12,7 @@ interface FilterBarProps {
   onSubCategoryChange?: (value: string) => void;
   disabled?: boolean;
   className?: string;
+  spacing?: "default" | "compact";
 }
 
 const getAnchorRect = (element: HTMLElement): TutorialAnchorRect => {
@@ -33,12 +34,13 @@ export function FilterBar({
   onSubCategoryChange,
   disabled = false,
   className = "",
+  spacing = "default",
 }: FilterBarProps) {
   const { t } = useLocaleContext();
   const showsSubcategories = Boolean(categoryValue && onSubCategoryChange);
 
   return (
-    <div className={`w-full ${showsSubcategories ? "mb-6" : ""} ${className}`}>
+    <div className={`w-full ${showsSubcategories ? spacing === "compact" ? "mb-3" : "mb-6" : ""} ${className}`}>
       <CategoryTabs
         category={categoryValue}
         onCategoryChange={(value, trigger) =>
@@ -46,7 +48,7 @@ export function FilterBar({
         }
         allLabel={t("filter.all")}
         className="dig-filterbar"
-        spacing={showsSubcategories ? "tight" : "result"}
+        spacing={showsSubcategories ? "tight" : spacing === "compact" ? "compact" : "result"}
         disabled={disabled}
       />
 
