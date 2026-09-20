@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  ArrowLeft,
-  ImagePlus,
-  LogIn,
-  Plus,
-  ShoppingBag,
-} from "lucide-react";
+import { ArrowLeft, ImagePlus, LogIn, Plus, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -109,8 +103,16 @@ export function AppHeader({
     : "h-[var(--app-header-height)] w-full max-w-[calc(70rem+var(--app-main-px)+var(--app-main-px))] px-[var(--app-main-px)]";
 
   function navigate(destination: PrimaryNavigationDestination) {
-    if (activeDestination === destination && !(destination === "profile" && isPublicProfilePath(pathname))) return;
+    if (
+      activeDestination === destination &&
+      !(destination === "profile" && isPublicProfilePath(pathname))
+    )
+      return;
     startNavigation();
+    if (destination === "agent") {
+      router.push("/fashion-agent");
+      return;
+    }
     if (destination === "digging") {
       router.push("/");
       return;
@@ -139,7 +141,9 @@ export function AppHeader({
       router.push("/login");
       return;
     }
-    router.push(auth.dbUsername ? `/${encodeURIComponent(auth.dbUsername)}` : "/mypage");
+    router.push(
+      auth.dbUsername ? `/${encodeURIComponent(auth.dbUsername)}` : "/mypage"
+    );
   }
 
   function openProductForm() {
@@ -270,7 +274,6 @@ export function AppHeader({
                 </button>
               )
             )}
-
           </nav>
         )}
 
@@ -278,54 +281,56 @@ export function AppHeader({
           <div
             className={`flex items-center justify-end ${compactActions ? "gap-0" : "gap-1"}`}
           >
-            {auth.authUser && <div ref={createMenuRef} className="group relative">
-              <button
-                type="button"
-                onClick={() => setIsCreateMenuOpen((open) => !open)}
-                aria-label={t("header.create")}
-                aria-expanded={isCreateMenuOpen}
-                aria-haspopup="menu"
-                className={`flex shrink-0 items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-              <div className={tooltipClass}>
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
-                {t("header.create")}
-              </div>
-              {isCreateMenuOpen && (
-                <div
-                  role="menu"
+            {auth.authUser && (
+              <div ref={createMenuRef} className="group relative">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateMenuOpen((open) => !open)}
                   aria-label={t("header.create")}
-                  className="ui-floating-surface absolute right-0 top-[calc(100%+0.5rem)] z-20 w-44 overflow-hidden rounded-xl border border-white/[0.1] bg-[#111114]/95 p-1 shadow-[0_14px_36px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+                  aria-expanded={isCreateMenuOpen}
+                  aria-haspopup="menu"
+                  className={`flex shrink-0 items-center justify-center rounded-lg text-gray-400 transition-[background-color,color] duration-150 ease-out hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setIsCreateMenuOpen(false);
-                      openProductForm();
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-gray-200 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400"
-                  >
-                    <ShoppingBag className="h-4 w-4 text-orange-400" />
-                    {t("header.addProduct")}
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setIsCreateMenuOpen(false);
-                      openPostComposer();
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-gray-200 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400"
-                  >
-                    <ImagePlus className="h-4 w-4 text-orange-400" />
-                    {t("header.createPost")}
-                  </button>
+                  <Plus className="h-4 w-4" />
+                </button>
+                <div className={tooltipClass}>
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[#111114]" />
+                  {t("header.create")}
                 </div>
-              )}
-            </div>}
+                {isCreateMenuOpen && (
+                  <div
+                    role="menu"
+                    aria-label={t("header.create")}
+                    className="ui-floating-surface absolute right-0 top-[calc(100%+0.5rem)] z-20 w-44 overflow-hidden rounded-xl border border-white/[0.1] bg-[#111114]/95 p-1 shadow-[0_14px_36px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        openProductForm();
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-gray-200 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400"
+                    >
+                      <ShoppingBag className="h-4 w-4 text-orange-400" />
+                      {t("header.addProduct")}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        openPostComposer();
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-gray-200 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400"
+                    >
+                      <ImagePlus className="h-4 w-4 text-orange-400" />
+                      {t("header.createPost")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             {auth.isAuthLoading ? (
               <span
                 aria-label={t("header.checkingAccount")}
@@ -355,11 +360,21 @@ export function AppHeader({
                 <button
                   type="button"
                   onClick={changeGuestLocale}
-                  aria-label={t("header.changeLanguage", { language: alternateLocaleLabel })}
-                  title={t("header.changeLanguage", { language: alternateLocaleLabel })}
+                  aria-label={t("header.changeLanguage", {
+                    language: alternateLocaleLabel,
+                  })}
+                  title={t("header.changeLanguage", {
+                    language: alternateLocaleLabel,
+                  })}
                   className={`flex shrink-0 items-center justify-center rounded-lg text-gray-400 transition-[background-color,color,transform] duration-150 ease-out hover:bg-white/[0.06] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80 motion-reduce:transform-none ${compactActions ? "h-11 w-11" : "h-10 w-10"}`}
                 >
-                  <Image src="/icons/language-globe-white.png" alt="" width={20} height={20} className="h-5 w-5 object-contain" />
+                  <Image
+                    src="/icons/language-globe-white.png"
+                    alt=""
+                    width={20}
+                    height={20}
+                    className="h-5 w-5 object-contain"
+                  />
                 </button>
               </>
             ) : null}

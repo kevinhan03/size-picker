@@ -3,6 +3,7 @@ import type { Locale } from "./locale";
 export const messages = {
   ko: {
     "nav.profile": "프로필",
+    "nav.agent": "에이전트",
     "time.justNow": "방금 전",
     "time.minutesAgo": "{count}분 전",
     "time.hoursAgo": "{count}시간 전",
@@ -179,8 +180,10 @@ export const messages = {
     "closet.delete": "옷장에서 삭제",
     "closet.deleting": "옷장에서 삭제 중…",
     "closet.removed": "상품 {count}개를 옷장에서 삭제했어요.",
-    "closet.removeFailed": "일부 상품을 옷장에서 삭제하지 못했어요. 다시 시도해주세요.",
-    "closet.restoreFailed": "일부 상품을 옷장에 다시 추가하지 못했어요. 다시 시도해주세요.",
+    "closet.removeFailed":
+      "일부 상품을 옷장에서 삭제하지 못했어요. 다시 시도해주세요.",
+    "closet.restoreFailed":
+      "일부 상품을 옷장에 다시 추가하지 못했어요. 다시 시도해주세요.",
     "saved.loading": "저장 목록을 불러오고 있어요",
     "saved.loadingDescription": "저장한 상품을 정리하는 중입니다.",
     "saved.loadError": "저장 목록을 불러오지 못했어요",
@@ -255,7 +258,8 @@ export const messages = {
     "discoveries.viewAll": "발굴한 상품 전체보기",
     "discoveries.loading": "불러오는 중",
     "discoveries.performance": "디깅 성과",
-    "discoveries.pageDescription": "내가 먼저 발견한 아이템들이 다른 사람의 옷장에 담겼어요.",
+    "discoveries.pageDescription":
+      "내가 먼저 발견한 아이템들이 다른 사람의 옷장에 담겼어요.",
     "discoveries.itemsHeading": "내가 발굴한 아이템",
     "discoveries.backToProfile": "프로필로 돌아가기",
     "discoveries.loadingItems": "발굴한 아이템을 불러오는 중입니다.",
@@ -1022,6 +1026,7 @@ export const messages = {
   },
   en: {
     "nav.profile": "My profile",
+    "nav.agent": "Agent",
     "time.justNow": "Just now",
     "time.minutesAgo": "{count}m ago",
     "time.hoursAgo": "{count}h ago",
@@ -1203,8 +1208,10 @@ export const messages = {
     "closet.delete": "Remove from closet",
     "closet.deleting": "Removing from closet…",
     "closet.removed": "Removed {count} products from your closet.",
-    "closet.removeFailed": "We couldn't remove some products from your closet. Please try again.",
-    "closet.restoreFailed": "We couldn't restore some products to your closet. Please try again.",
+    "closet.removeFailed":
+      "We couldn't remove some products from your closet. Please try again.",
+    "closet.restoreFailed":
+      "We couldn't restore some products to your closet. Please try again.",
     "saved.loading": "Loading saved products",
     "saved.loadingDescription": "Organizing your saved products.",
     "saved.loadError": "We couldn't load saved products",
@@ -1282,7 +1289,8 @@ export const messages = {
     "discoveries.viewAll": "View all discovered products",
     "discoveries.loading": "Loading",
     "discoveries.performance": "Discovery performance",
-    "discoveries.pageDescription": "Items you discovered first have made their way into other people's collections.",
+    "discoveries.pageDescription":
+      "Items you discovered first have made their way into other people's collections.",
     "discoveries.itemsHeading": "My discovered items",
     "discoveries.backToProfile": "Back to profile",
     "discoveries.loadingItems": "Loading your discovered products.",
@@ -1360,8 +1368,7 @@ export const messages = {
     "outfits.new.minimumProgress":
       "Please enter at least 20 characters. ({count}/20)",
     "outfits.new.focusItems": "Items to use",
-    "outfits.new.focusItemsHelp":
-      "Choose up to 3 items to use in this outfit.",
+    "outfits.new.focusItemsHelp": "Choose up to 3 items to use in this outfit.",
     "outfits.new.selectedCount": "{count} selected",
     "outfits.new.emptyCategory": "There are no items in this category.",
     "outfits.new.viewAll": "View all",

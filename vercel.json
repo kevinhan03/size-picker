@@ -3,6 +3,10 @@
   "regions": ["icn1"],
   "crons": [
     {
+      "path": "/api/cron/taste-clusters",
+      "schedule": "47 3 * * *"
+    },
+    {
       "path": "/api/cron/cleanup-social",
       "schedule": "37 3 * * *"
     },

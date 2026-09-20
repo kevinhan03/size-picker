@@ -45,6 +45,16 @@ export interface Product {
   styleAxesReviewedBy?: string | null;
   humanStyleAttributes?: StyleAttributes | null;
   humanStyleAxes?: StyleAxes | null;
+  styleAttributeConflicts?: Array<{
+    field: string;
+    expected: string;
+    actual: string;
+    source: string;
+    confidence: string;
+    message: string;
+  }>;
+  styleAttributeConflictsDetectedAt?: string | null;
+  styleAttributeConflictsReviewedAt?: string | null;
   imageEmbedding?: string | number[] | null;
   targetGender?: ProductTargetGender | null;
   humanTargetGender?: ProductTargetGender | null;

@@ -315,11 +315,16 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: Props) {
     );
   };
   const canSave = Boolean(product.styleAxes);
+  const unresolvedConflicts = (product.styleAttributeConflicts || []).filter(
+    () => !product.styleAttributeConflictsReviewedAt
+  );
   return (
     <div className="mt-4 rounded-xl border border-gray-800 bg-black/30 p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-bold tracking-wide text-gray-300">AI 분석 검수</p>
+          <p className="text-xs font-bold tracking-wide text-gray-300">
+            AI 분석 검수
+          </p>
           <p className="mt-1 text-xs text-gray-500">
             수정 사항은 저장하고, 사실값과 스타일 축은 각각 승인하세요.
           </p>
@@ -363,45 +368,64 @@ export function ProductStyleReviewPanel({ isSaving, onSave, product }: Props) {
           </select>
         </div>
       </section>
+      {unresolvedConflicts.length > 0 && (
+        <section className="mt-4 rounded-lg border border-amber-700/60 bg-amber-950/30 p-3">
+          <p className="text-xs font-semibold text-amber-100">
+            상품명과 AI 사실값이 달라요
+          </p>
+          {unresolvedConflicts.map((conflict, index) => (
+            <p
+              key={`${conflict.field}-${index}`}
+              className="mt-1 text-xs leading-5 text-amber-200"
+            >
+              {conflict.message}
+            </p>
+          ))}
+          <p className="mt-2 text-[11px] leading-5 text-amber-200/80">
+            실제 상품 이미지와 판매 페이지를 확인한 뒤 사실값을 수정하고
+            승인하세요.
+          </p>
+        </section>
+      )}
       {detailed ? (
         <section className="mt-4 border-b border-gray-800 pb-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-200">
-                  상품 사실값 검수
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  공통값과 {categoryLabels[category]}별 값을 구분해 검수합니다.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => save("facts")}
-                disabled={isSaving || !canSave}
-                className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-800"
-              >
-                <Check className="h-3.5 w-3.5" />
-                {product.factsReviewedAt ? "사실값 재승인" : "사실값 승인"}
-              </button>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-gray-200">
+                상품 사실값 검수
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                공통값과 {categoryLabels[category]}별 값을 구분해 검수합니다.
+              </p>
             </div>
-            <div className="mt-3 space-y-4">
-              <div className="rounded-lg border border-gray-800 bg-black/20 p-3">
-                <p className="mb-3 text-xs font-semibold text-gray-300">
-                  공통 사실값
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {common.map(renderFact)}
-                </div>
-              </div>
-              <div className="rounded-lg border border-gray-800 bg-black/20 p-3">
-                <p className="mb-3 text-xs font-semibold text-gray-300">
-                  {categoryLabels[category]} 사실값
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {specific.map(renderFact)}
-                </div>
+            <button
+              type="button"
+              onClick={() => save("facts")}
+              disabled={isSaving || !canSave}
+              className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:bg-gray-800"
+            >
+              <Check className="h-3.5 w-3.5" />
+              {product.factsReviewedAt ? "사실값 재승인" : "사실값 승인"}
+            </button>
+          </div>
+          <div className="mt-3 space-y-4">
+            <div className="rounded-lg border border-gray-800 bg-black/20 p-3">
+              <p className="mb-3 text-xs font-semibold text-gray-300">
+                공통 사실값
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {common.map(renderFact)}
               </div>
             </div>
+            <div className="rounded-lg border border-gray-800 bg-black/20 p-3">
+              <p className="mb-3 text-xs font-semibold text-gray-300">
+                {categoryLabels[category]} 사실값
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {specific.map(renderFact)}
+              </div>
+            </div>
+          </div>
         </section>
       ) : (
         <section className="mt-4 border-b border-gray-800 pb-4">

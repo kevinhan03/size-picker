@@ -30,7 +30,12 @@ type TableEditingCell =
   | null;
 
 type AiTagFilter = "all" | "tagged" | "untagged" | "failed";
-type ReviewFilter = "all" | "facts_pending" | "axis_pending" | "fully_reviewed";
+type ReviewFilter =
+  | "all"
+  | "facts_pending"
+  | "axis_pending"
+  | "conflicts_pending"
+  | "fully_reviewed";
 
 const hasAiStyleAxes = (product: Product) =>
   Boolean(product.styleAxes && typeof product.styleAxes === "object");
@@ -40,12 +45,16 @@ const isStyleAxesReviewed = (product: Product) =>
 const isFactsReviewPending = (product: Product) =>
   hasAiStyleAxes(product) && !isFactsReviewed(product);
 const isAxisReviewPending = (product: Product) =>
-  hasAiStyleAxes(product) &&
-  !isStyleAxesReviewed(product);
+  hasAiStyleAxes(product) && !isStyleAxesReviewed(product);
 const isFullyReviewed = (product: Product) =>
   hasAiStyleAxes(product) &&
   isFactsReviewed(product) &&
   isStyleAxesReviewed(product);
+const hasUnresolvedAttributeConflict = (product: Product) =>
+  Boolean(
+    product.styleAttributeConflicts?.length &&
+    !product.styleAttributeConflictsReviewedAt
+  );
 const getCategoryAnalysisLabel = (product: Product) => {
   if (product.categoryAnalysisStatus === "pending") return "분류 중";
   if (product.categoryAnalysisStatus === "failed") return "미분류 — 확인 필요";
@@ -114,7 +123,8 @@ export function AdminProductsList({
 
   const aiTaggedCount = allProducts.filter(hasAiStyleAxes).length;
   const aiUntaggedCount = allProducts.filter(
-    (product) => !hasAiStyleAxes(product) && product.styleAxisAnalysisStatus !== "failed"
+    (product) =>
+      !hasAiStyleAxes(product) && product.styleAxisAnalysisStatus !== "failed"
   ).length;
   const failedTaggingCount = allProducts.filter(
     (product) => product.styleAxisAnalysisStatus === "failed"
@@ -123,6 +133,9 @@ export function AdminProductsList({
     allProducts.filter(isFactsReviewPending).length;
   const axisReviewPendingCount = allProducts.filter(isAxisReviewPending).length;
   const fullyReviewedCount = allProducts.filter(isFullyReviewed).length;
+  const unresolvedConflictCount = allProducts.filter(
+    hasUnresolvedAttributeConflict
+  ).length;
   const categoryCounts = new Map<string, number>();
   for (const product of allProducts) {
     categoryCounts.set(
@@ -135,6 +148,11 @@ export function AdminProductsList({
     .filter((p) => {
       const productHasAiTags = hasAiStyleAxes(p);
       if (aiTagFilter === "tagged" && !productHasAiTags) return false;
+      if (
+        reviewFilter === "conflicts_pending" &&
+        !hasUnresolvedAttributeConflict(p)
+      )
+        return false;
       if (
         aiTagFilter === "untagged" &&
         (productHasAiTags || p.styleAxisAnalysisStatus === "failed")
@@ -283,6 +301,14 @@ export function AdminProductsList({
               ],
               [
                 "tagged",
+                "사실값 충돌 확인",
+                unresolvedConflictCount,
+                AlertTriangle,
+                "text-amber-200",
+                "conflicts_pending",
+              ],
+              [
+                "tagged",
                 "최종 검수 완료",
                 fullyReviewedCount,
                 CheckCircle2,
@@ -346,6 +372,11 @@ export function AdminProductsList({
                 "axis_pending",
                 `스타일 축 검수 대기 ${axisReviewPendingCount}`,
                 Clock3,
+              ],
+              [
+                "conflicts_pending",
+                `사실값 충돌 확인 ${unresolvedConflictCount}`,
+                AlertTriangle,
               ],
               [
                 "fully_reviewed",
@@ -440,7 +471,7 @@ export function AdminProductsList({
             ? ` · ${aiTagFilter === "tagged" ? "AI 태그 있음" : aiTagFilter === "untagged" ? "AI 태그 없음" : "태깅 실패"} 필터`
             : ""}
           {aiTagFilter === "tagged" && reviewFilter !== "all"
-            ? ` · ${reviewFilter === "facts_pending" ? "사실값 검수 대기" : reviewFilter === "axis_pending" ? "스타일 축 검수 대기" : reviewFilter === "fully_reviewed" ? "최종 완료" : "반려"} 검수 필터`
+            ? ` · ${reviewFilter === "facts_pending" ? "사실값 검수 대기" : reviewFilter === "axis_pending" ? "스타일 축 검수 대기" : reviewFilter === "conflicts_pending" ? "사실값 충돌 확인" : reviewFilter === "fully_reviewed" ? "최종 완료" : "반려"} 검수 필터`
             : ""}
           {categoryFilter
             ? ` · ${getCategoryLabel(categoryFilter)}${subCategoryFilter === "__unclassified__" ? " / 하위 분류 필요" : subCategoryFilter ? ` / ${subCategoryFilter}` : ""}`
@@ -527,8 +558,13 @@ export function AdminProductsList({
                           {isFullyReviewed(product)
                             ? "최종 검수 완료"
                             : !isFactsReviewed(product)
-                                ? "사실값 검수 대기"
-                                : "스타일 축 검수 대기"}
+                              ? "사실값 검수 대기"
+                              : "스타일 축 검수 대기"}
+                        </span>
+                      ) : null}
+                      {hasUnresolvedAttributeConflict(product) ? (
+                        <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-200">
+                          사실값 충돌 확인
                         </span>
                       ) : null}
                     </div>

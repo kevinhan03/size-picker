@@ -180,7 +180,7 @@ export async function GET(
     const { data, error } = await supabase!
       .from(SUPABASE_PRODUCTS_TABLE)
       .select(
-        "id,brand,name,category,sub_category,style_attributes,style_axes,style_axis_analysis_status,style_axis_analysis_error,style_axis_analyzed_at,style_axis_review_required,facts_reviewed_at,facts_reviewed_by,style_axes_reviewed_at,style_axes_reviewed_by,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_attributes,human_style_axes"
+        "id,brand,name,category,sub_category,style_attributes,style_axes,style_axis_analysis_status,style_axis_analysis_error,style_axis_analyzed_at,style_axis_review_required,facts_reviewed_at,facts_reviewed_by,style_axes_reviewed_at,style_axes_reviewed_by,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_attributes,human_style_axes,style_attribute_conflicts,style_attribute_conflicts_detected_at,style_attribute_conflicts_reviewed_at"
       )
       .eq("id", productId)
       .maybeSingle();
@@ -274,6 +274,7 @@ export async function PATCH(
     if (approveFacts) {
       payload.facts_reviewed_at = new Date().toISOString();
       payload.facts_reviewed_by = "admin";
+      payload.style_attribute_conflicts_reviewed_at = new Date().toISOString();
     }
     if (approveStyleAxes) {
       payload.style_axes_reviewed_at = new Date().toISOString();
@@ -307,7 +308,7 @@ export async function PATCH(
       .update(payload)
       .eq("id", productId)
       .select(
-        "id,brand,name,category,sub_category,category_reviewed,category_analysis_status,style_attributes,style_axes,style_axis_analysis_status,style_axis_analysis_error,style_axis_analyzed_at,style_axis_review_required,facts_reviewed_at,facts_reviewed_by,style_axes_reviewed_at,style_axes_reviewed_by,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_attributes,human_style_axes"
+        "id,brand,name,category,sub_category,category_reviewed,category_analysis_status,style_attributes,style_axes,style_axis_analysis_status,style_axis_analysis_error,style_axis_analyzed_at,style_axis_review_required,facts_reviewed_at,facts_reviewed_by,style_axes_reviewed_at,style_axes_reviewed_by,target_gender,human_target_gender,target_gender_reviewed_by,target_gender_reviewed_at,human_style_attributes,human_style_axes,style_attribute_conflicts,style_attribute_conflicts_detected_at,style_attribute_conflicts_reviewed_at"
       )
       .maybeSingle();
 

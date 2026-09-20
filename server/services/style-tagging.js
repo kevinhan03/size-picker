@@ -6,7 +6,13 @@ import {
 } from "../config/env.js";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { assertGeminiKey, callGemini } from "../bootstrap/gemini.js";
-import { STYLE_AXIS_FIELDS, STYLE_PROTOTYPE_CENTERS, fieldsForCategory, isCoreTasteCategory } from "../../src/constants/styleAnalysis.js";
+import { detectStyleAttributeConflicts } from "./style-attribute-conflicts.js";
+import {
+  STYLE_AXIS_FIELDS,
+  STYLE_PROTOTYPE_CENTERS,
+  fieldsForCategory,
+  isCoreTasteCategory,
+} from "../../src/constants/styleAnalysis.js";
 
 const MODEL_NAME = "gemini-3.1-flash-lite";
 const REQUEST_TIMEOUT_MS = 18000;
@@ -16,53 +22,95 @@ const STYLE_AXES = STYLE_AXIS_FIELDS.map((field) => field.key);
 
 const STYLE_AXIS_SCHEMA = {
   type: "object",
-  properties: Object.fromEntries(STYLE_AXES.map((axis) => [axis, {
-    type: "object",
-    properties: {
-      score: { type: "integer", minimum: 1, maximum: 7 },
-      reason: { type: "string" },
-    },
-    required: ["score", "reason"],
-  }])),
+  properties: Object.fromEntries(
+    STYLE_AXES.map((axis) => [
+      axis,
+      {
+        type: "object",
+        properties: {
+          score: { type: "integer", minimum: 1, maximum: 7 },
+          reason: { type: "string" },
+        },
+        required: ["score", "reason"],
+      },
+    ])
+  ),
   required: STYLE_AXES,
 };
 
 function styleAnalysisSchema(category) {
   const fields = fieldsForCategory(category);
   const includeAxes = fields.length > 0;
-  const properties = Object.fromEntries(fields.map((field) => [
-    field.key,
-    field.multiple
-      ? { type: "array", items: { type: "string", enum: field.options.map((entry) => entry.value) }, maxItems: field.max }
-      : { type: "string", enum: field.options.map((entry) => entry.value), nullable: true },
-  ]));
+  const properties = Object.fromEntries(
+    fields.map((field) => [
+      field.key,
+      field.multiple
+        ? {
+            type: "array",
+            items: {
+              type: "string",
+              enum: field.options.map((entry) => entry.value),
+            },
+            maxItems: field.max,
+          }
+        : {
+            type: "string",
+            enum: field.options.map((entry) => entry.value),
+            nullable: true,
+          },
+    ])
+  );
   return {
-  type: "object",
-  properties: {
-    style_attributes: {
-      type: "object",
-      properties,
-      required: fields.map((field) => field.key),
+    type: "object",
+    properties: {
+      style_attributes: {
+        type: "object",
+        properties,
+        required: fields.map((field) => field.key),
+      },
+      ...(includeAxes ? { style_axes: STYLE_AXIS_SCHEMA } : {}),
+      target_gender: {
+        type: "string",
+        enum: ["menswear", "womenswear", "unisex", "unknown"],
+      },
     },
-    ...(includeAxes ? { style_axes: STYLE_AXIS_SCHEMA } : {}),
-    target_gender: { type: "string", enum: ["menswear", "womenswear", "unisex", "unknown"] },
-  },
-  required: ["style_attributes", ...(includeAxes ? ["style_axes"] : []), "target_gender"],
+    required: [
+      "style_attributes",
+      ...(includeAxes ? ["style_axes"] : []),
+      "target_gender",
+    ],
   };
 }
 
 function styleAttributesSchema(category) {
   const fields = fieldsForCategory(category);
-  const properties = Object.fromEntries(fields.map((field) => [
-    field.key,
-    field.multiple
-      ? { type: "array", items: { type: "string", enum: field.options.map((entry) => entry.value) }, maxItems: field.max }
-      : { type: "string", enum: field.options.map((entry) => entry.value), nullable: true },
-  ]));
+  const properties = Object.fromEntries(
+    fields.map((field) => [
+      field.key,
+      field.multiple
+        ? {
+            type: "array",
+            items: {
+              type: "string",
+              enum: field.options.map((entry) => entry.value),
+            },
+            maxItems: field.max,
+          }
+        : {
+            type: "string",
+            enum: field.options.map((entry) => entry.value),
+            nullable: true,
+          },
+    ])
+  );
   return {
     type: "object",
     properties: {
-      style_attributes: { type: "object", properties, required: fields.map((field) => field.key) },
+      style_attributes: {
+        type: "object",
+        properties,
+        required: fields.map((field) => field.key),
+      },
       style_axes: STYLE_AXIS_SCHEMA,
     },
     required: ["style_attributes", "style_axes"],
@@ -76,67 +124,113 @@ const styleAxesSchema = {
 };
 
 const ATTRIBUTE_INTERPRETATION = {
-  primary_color: "상품에서 면적 또는 시각적 존재감이 가장 큰 색 하나입니다. 공식 색상 텍스트가 이미지와 충돌하지 않으면 공식 표기를 우선합니다.",
-  accent_colors: "주 색상 외에 분명한 배색·프린트·부자재 색만 최대 2개 선택합니다. 미세한 그림자나 모델/배경 색은 넣지 않습니다.",
-  color_saturation: "muted는 탁하고 낮은 채도, balanced는 일반적인 채도, vivid는 선명하고 강한 채도입니다. 검정·흰색·회색·베이지 계열은 보통 muted입니다.",
-  primary_material: "상품의 주 소재 하나입니다. 이미지와 공식 소재 텍스트를 함께 보며, 안감·부자재가 아닌 겉감 기준입니다.",
-  surface_finish: "matte는 광택이 거의 없고, normal은 일반적인 표면, glossy는 광택이 제품에서 분명히 보이는 경우입니다.",
-  surface_character: "smooth는 두드러진 조직이 없는 매끈한 표면, textured는 조직감, quilted는 누빔, brushed는 기모·브러시드, sheer는 비침이 분명한 표면입니다.",
-  surface_treatment: "clean은 워싱·페이딩·손상 가공이 없는 표면, washed는 워싱, faded는 색바램, distressed는 의도적 헤짐·손상 가공입니다.",
-  pattern: "plain은 눈에 띄는 반복 패턴·그래픽·로고가 없는 무지입니다. logo는 브랜드 로고 자체가 주된 시각 요소일 때만, graphic은 그림·문구·일러스트가 주된 경우입니다.",
-  formality: "casual은 일상/편안함, smart는 정돈된 외출·오피스 캐주얼, formal은 테일러링·드레스업·격식 중심입니다.",
-  structure: "soft는 흐르거나 부드러운 형태, balanced는 보통의 형태 유지, structured는 각·테일러링·단단한 구조가 뚜렷한 경우입니다.",
-  decoration: "minimal은 장식이 거의 없음, moderate는 한두 가지 절제된 장식, statement는 프릴·레이스·광택·강한 그래픽처럼 장식성이 제품 인상을 주도하는 경우입니다.",
-  utility: "none은 기능 디테일이 거의 없음, light는 작은 포켓/가벼운 기능 요소, strong은 카고 포켓·스트랩·테크니컬 소재처럼 실용성이 핵심 인상인 경우입니다.",
-  fit_volume: "slim은 몸에 가깝고 좁은 핏, regular는 표준 여유, relaxed는 편안한 여유, oversized는 의도적으로 큰 비율, boxy는 짧고 네모난 폭의 비율입니다.",
-  silhouette: "카테고리에 맞는 전체 윤곽 하나를 고릅니다. 하의의 wide/flare/bootcut 등은 다리 라인, 원피스·스커트의 a_line/fit_and_flare/slip 등은 몸통부터 밑단까지의 윤곽 기준입니다.",
-  length: "카테고리에 맞는 전체 기장 하나를 고릅니다. 모델 체형이나 촬영 구도 대신 상품의 실제 밑단 위치와 상세 텍스트를 함께 판단합니다.",
-  profile: "신발의 전체 인상입니다. sleek은 얇고 날렵함, classic은 균형 잡힌 전통적 형태, chunky는 두껍고 볼륨감 있는 형태입니다.",
-  height: "신발의 발목 기준 높이입니다. low는 발목 아래, mid는 발목 부근, high는 발목을 명확히 덮는 높이입니다.",
-  sole_heel: "flat은 거의 굽이 없음, low_profile은 낮고 얇은 밑창, platform은 전체적으로 높은 평평한 밑창, lugged는 깊은 러그 밑창, heeled는 굽이 뚜렷한 형태입니다.",
-  details: "응답 스키마에 있는 디테일 중 이미지나 신뢰 가능한 상세 텍스트에서 명확히 확인되는 것만 선택합니다. 일반적인 버튼·지퍼·봉제선은 선택하지 않습니다.",
+  primary_color:
+    "상품에서 면적 또는 시각적 존재감이 가장 큰 색 하나입니다. 공식 색상 텍스트가 이미지와 충돌하지 않으면 공식 표기를 우선합니다.",
+  accent_colors:
+    "주 색상 외에 분명한 배색·프린트·부자재 색만 최대 2개 선택합니다. 미세한 그림자나 모델/배경 색은 넣지 않습니다.",
+  color_saturation:
+    "muted는 탁하고 낮은 채도, balanced는 일반적인 채도, vivid는 선명하고 강한 채도입니다. 검정·흰색·회색·베이지 계열은 보통 muted입니다.",
+  primary_material:
+    "상품의 주 소재 하나입니다. 이미지와 공식 소재 텍스트를 함께 보며, 안감·부자재가 아닌 겉감 기준입니다.",
+  surface_finish:
+    "matte는 광택이 거의 없고, normal은 일반적인 표면, glossy는 광택이 제품에서 분명히 보이는 경우입니다.",
+  surface_character:
+    "smooth는 두드러진 조직이 없는 매끈한 표면, textured는 조직감, quilted는 누빔, brushed는 기모·브러시드, sheer는 비침이 분명한 표면입니다.",
+  surface_treatment:
+    "clean은 워싱·페이딩·손상 가공이 없는 표면, washed는 워싱, faded는 색바램, distressed는 의도적 헤짐·손상 가공입니다.",
+  pattern:
+    "plain은 눈에 띄는 반복 패턴·그래픽·로고가 없는 무지입니다. logo는 브랜드 로고 자체가 주된 시각 요소일 때만, graphic은 그림·문구·일러스트가 주된 경우입니다.",
+  formality:
+    "casual은 일상/편안함, smart는 정돈된 외출·오피스 캐주얼, formal은 테일러링·드레스업·격식 중심입니다.",
+  structure:
+    "soft는 흐르거나 부드러운 형태, balanced는 보통의 형태 유지, structured는 각·테일러링·단단한 구조가 뚜렷한 경우입니다.",
+  decoration:
+    "minimal은 장식이 거의 없음, moderate는 한두 가지 절제된 장식, statement는 프릴·레이스·광택·강한 그래픽처럼 장식성이 제품 인상을 주도하는 경우입니다.",
+  utility:
+    "none은 기능 디테일이 거의 없음, light는 작은 포켓/가벼운 기능 요소, strong은 카고 포켓·스트랩·테크니컬 소재처럼 실용성이 핵심 인상인 경우입니다.",
+  fit_volume:
+    "slim은 몸에 가깝고 좁은 핏, regular는 표준 여유, relaxed는 편안한 여유, oversized는 의도적으로 큰 비율, boxy는 짧고 네모난 폭의 비율입니다.",
+  silhouette:
+    "카테고리에 맞는 전체 윤곽 하나를 고릅니다. 하의의 wide/flare/bootcut 등은 다리 라인, 원피스·스커트의 a_line/fit_and_flare/slip 등은 몸통부터 밑단까지의 윤곽 기준입니다.",
+  length:
+    "카테고리에 맞는 전체 기장 하나를 고릅니다. 모델 체형이나 촬영 구도 대신 상품의 실제 밑단 위치와 상세 텍스트를 함께 판단합니다.",
+  profile:
+    "신발의 전체 인상입니다. sleek은 얇고 날렵함, classic은 균형 잡힌 전통적 형태, chunky는 두껍고 볼륨감 있는 형태입니다.",
+  height:
+    "신발의 발목 기준 높이입니다. low는 발목 아래, mid는 발목 부근, high는 발목을 명확히 덮는 높이입니다.",
+  sole_heel:
+    "flat은 거의 굽이 없음, low_profile은 낮고 얇은 밑창, platform은 전체적으로 높은 평평한 밑창, lugged는 깊은 러그 밑창, heeled는 굽이 뚜렷한 형태입니다.",
+  details:
+    "응답 스키마에 있는 디테일 중 이미지나 신뢰 가능한 상세 텍스트에서 명확히 확인되는 것만 선택합니다. 일반적인 버튼·지퍼·봉제선은 선택하지 않습니다.",
 };
 
 const AXIS_INTERPRETATION = {
-  formality: "격식성입니다. 1 매우 일상적, 4 캐주얼과 포멀 어느 쪽도 지배적이지 않은 중립, 7 매우 격식 있음입니다. 카테고리만으로 판단하지 말고 전체 디자인이 차려입은 상황을 얼마나 연상시키는지 봅니다.",
-  refinement: "정제성입니다. 1 매우 러프하고 날것 같은 인상, 4 러프함과 정제됨의 중립, 7 매우 polished하고 통제된 인상입니다. 표면의 매끄러움·워싱·무지 여부 하나로 결정하지 않습니다.",
-  technicality: "기능 지향성입니다. 1 표현 중심, 4 패션성과 기능성이 비슷한 중립, 7 장비·퍼포먼스 제품에 가까운 기능 중심입니다. 포켓 수나 나일론 소재 하나만으로 결정하지 않습니다.",
-  historical_orientation: "시대 지향성입니다. 1 매우 현재적, 4 특정 시대가 떠오르지 않는 중립, 7 특정 역사적 복식·시대가 즉각 연상됩니다. 낡아 보임이나 가죽 같은 단일 사실값으로 판단하지 않습니다.",
-  visual_boldness: "시각적 존재감입니다. 1 매우 조용함, 4 보통 수준의 중립, 7 즉각적 주목을 요구하는 강한 focal point입니다. 화려함이나 색 하나와 같은 개념이 아닙니다.",
-  affective_softness: "인상 부드러움입니다. 1 강하고 날카로움, 4 강함과 부드러움의 중립, 7 매우 부드럽고 섬세함입니다. 소재의 실제 촉감이나 니트·가죽만으로 판단하지 않습니다.",
-  unconventionality: "비관습성입니다. 1 같은 상품군 안에서 매우 전형적, 4 전형성과 실험성의 중립, 7 상품군 형태를 새롭게 재해석한 수준입니다. 반드시 같은 카테고리의 일반 제품과 비교합니다.",
-  sensuality: "관능성입니다. 1 신체중립적, 4 신체 강조와 비강조의 중립, 7 신체 강조가 핵심 디자인 언어입니다. 짧은 기장·슬림핏·높은 굽 하나로 결정하지 않습니다.",
+  formality:
+    "격식성입니다. 1 매우 일상적, 4 캐주얼과 포멀 어느 쪽도 지배적이지 않은 중립, 7 매우 격식 있음입니다. 카테고리만으로 판단하지 말고 전체 디자인이 차려입은 상황을 얼마나 연상시키는지 봅니다.",
+  refinement:
+    "정제성입니다. 1 매우 러프하고 날것 같은 인상, 4 러프함과 정제됨의 중립, 7 매우 polished하고 통제된 인상입니다. 표면의 매끄러움·워싱·무지 여부 하나로 결정하지 않습니다.",
+  technicality:
+    "기능 지향성입니다. 1 표현 중심, 4 패션성과 기능성이 비슷한 중립, 7 장비·퍼포먼스 제품에 가까운 기능 중심입니다. 포켓 수나 나일론 소재 하나만으로 결정하지 않습니다.",
+  historical_orientation:
+    "시대 지향성입니다. 1 매우 현재적, 4 특정 시대가 떠오르지 않는 중립, 7 특정 역사적 복식·시대가 즉각 연상됩니다. 낡아 보임이나 가죽 같은 단일 사실값으로 판단하지 않습니다.",
+  visual_boldness:
+    "시각적 존재감입니다. 1 매우 조용함, 4 보통 수준의 중립, 7 즉각적 주목을 요구하는 강한 focal point입니다. 화려함이나 색 하나와 같은 개념이 아닙니다.",
+  affective_softness:
+    "인상 부드러움입니다. 1 강하고 날카로움, 4 강함과 부드러움의 중립, 7 매우 부드럽고 섬세함입니다. 소재의 실제 촉감이나 니트·가죽만으로 판단하지 않습니다.",
+  unconventionality:
+    "비관습성입니다. 1 같은 상품군 안에서 매우 전형적, 4 전형성과 실험성의 중립, 7 상품군 형태를 새롭게 재해석한 수준입니다. 반드시 같은 카테고리의 일반 제품과 비교합니다.",
+  sensuality:
+    "관능성입니다. 1 신체중립적, 4 신체 강조와 비강조의 중립, 7 신체 강조가 핵심 디자인 언어입니다. 짧은 기장·슬림핏·높은 굽 하나로 결정하지 않습니다.",
 };
 
 const STYLE_PROTOTYPE_CHARACTERISTICS = {
-  minimal: "정돈되고 현대적인 베이식입니다. 기능을 과시하지 않고 시각적 존재감이 낮으며, 부드럽지만 몸선을 강하게 드러내지 않는 차분한 인상이 핵심입니다. 무지·검정·미니멀 브랜드라는 이유만으로 판단하지 마세요.",
-  street: "편안한 차림 위에 강한 시각적 존재감과 비관습적 표현을 더한 인상입니다. 정제도·기능성·시대감은 중간 이하일 수 있고, 차갑고 강한 에너지가 읽힙니다. 로고·그래픽 하나만으로 이 중심점에 맞추지 마세요.",
-  classic: "격식, 정제, 헤리티지, 전형적인 구성이 함께 강한 차림입니다. 조용하고 균형 잡힌 존재감을 가지며 실험성은 낮습니다. 셔츠·로퍼·재킷이라는 카테고리만으로 높은 점수를 주지 마세요.",
-  vintage: "과거 시대·헤리티지의 인상이 가장 뚜렷하고, 다소 러프하거나 자연스러운 착용감이 공존합니다. 기능성이나 전형성은 워크웨어보다 낮을 수 있습니다. 워싱·가죽·브라운 색 하나만으로 시대감을 높이지 마세요.",
-  lovely: "부드럽고 섬세하며 로맨틱한 정서가 핵심인 패션 중심 인상입니다. 정돈됨과 약한 시대감, 적당한 존재감이 함께할 수 있습니다. 니트·핑크·프릴 하나만으로 부드러움을 최고점으로 두지 마세요.",
-  sporty: "편안함과 퍼포먼스·활동성을 우선하는 기능적 인상입니다. 시대감·존재감·부드러움은 대체로 중립이며, 고프코어보다 덜 실험적이고 덜 장비적인 경우가 많습니다. 스니커즈·저지라는 카테고리만으로 판단하지 마세요.",
-  workwear: "러프함, 실용성, 헤리티지, 전형적 구성이 결합된 작업복 기반 인상입니다. 편안하고 몸선 강조는 매우 낮습니다. 빈티지보다 기능성이 높고, 고프코어보다 현대성·실험성은 낮은 편입니다.",
-  gorpcore: "아웃도어 장비에서 온 매우 기능적이고 현재적인 인상입니다. 편안하지만 시각적 존재감과 비관습성이 있으며 차갑고 단단하게 읽힙니다. 나일론·포켓 하나만으로 극단적 기능성을 주지 마세요.",
-  chic_modern: "높은 정제도와 격식 위에 현재적·차가운 긴장감, 독특함, 몸선 의식이 더해진 인상입니다. 미니멀보다 더 격식 있고 관능적이며, 글램섹시보다 시각 강도는 절제됩니다.",
-  glam_sexy: "패션 표현성과 강한 시각적 존재감, 비관습성, 몸선 강조가 핵심인 인상입니다. 기능성은 낮고 차갑고 강한 에너지가 두드러집니다. 짧은 기장·슬림핏·광택 하나만으로 최고점에 두지 마세요.",
+  minimal:
+    "정돈되고 현대적인 베이식입니다. 기능을 과시하지 않고 시각적 존재감이 낮으며, 부드럽지만 몸선을 강하게 드러내지 않는 차분한 인상이 핵심입니다. 무지·검정·미니멀 브랜드라는 이유만으로 판단하지 마세요.",
+  street:
+    "편안한 차림 위에 강한 시각적 존재감과 비관습적 표현을 더한 인상입니다. 정제도·기능성·시대감은 중간 이하일 수 있고, 차갑고 강한 에너지가 읽힙니다. 로고·그래픽 하나만으로 이 중심점에 맞추지 마세요.",
+  classic:
+    "격식, 정제, 헤리티지, 전형적인 구성이 함께 강한 차림입니다. 조용하고 균형 잡힌 존재감을 가지며 실험성은 낮습니다. 셔츠·로퍼·재킷이라는 카테고리만으로 높은 점수를 주지 마세요.",
+  vintage:
+    "과거 시대·헤리티지의 인상이 가장 뚜렷하고, 다소 러프하거나 자연스러운 착용감이 공존합니다. 기능성이나 전형성은 워크웨어보다 낮을 수 있습니다. 워싱·가죽·브라운 색 하나만으로 시대감을 높이지 마세요.",
+  lovely:
+    "부드럽고 섬세하며 로맨틱한 정서가 핵심인 패션 중심 인상입니다. 정돈됨과 약한 시대감, 적당한 존재감이 함께할 수 있습니다. 니트·핑크·프릴 하나만으로 부드러움을 최고점으로 두지 마세요.",
+  sporty:
+    "편안함과 퍼포먼스·활동성을 우선하는 기능적 인상입니다. 시대감·존재감·부드러움은 대체로 중립이며, 고프코어보다 덜 실험적이고 덜 장비적인 경우가 많습니다. 스니커즈·저지라는 카테고리만으로 판단하지 마세요.",
+  workwear:
+    "러프함, 실용성, 헤리티지, 전형적 구성이 결합된 작업복 기반 인상입니다. 편안하고 몸선 강조는 매우 낮습니다. 빈티지보다 기능성이 높고, 고프코어보다 현대성·실험성은 낮은 편입니다.",
+  gorpcore:
+    "아웃도어 장비에서 온 매우 기능적이고 현재적인 인상입니다. 편안하지만 시각적 존재감과 비관습성이 있으며 차갑고 단단하게 읽힙니다. 나일론·포켓 하나만으로 극단적 기능성을 주지 마세요.",
+  chic_modern:
+    "높은 정제도와 격식 위에 현재적·차가운 긴장감, 독특함, 몸선 의식이 더해진 인상입니다. 미니멀보다 더 격식 있고 관능적이며, 글램섹시보다 시각 강도는 절제됩니다.",
+  glam_sexy:
+    "패션 표현성과 강한 시각적 존재감, 비관습성, 몸선 강조가 핵심인 인상입니다. 기능성은 낮고 차갑고 강한 에너지가 두드러집니다. 짧은 기장·슬림핏·광택 하나만으로 최고점에 두지 마세요.",
 };
 
 function activeAttributeGuide(category) {
   const fields = fieldsForCategory(category);
-  if (!fields.length) return "이 카테고리는 상세 취향 속성을 분석하지 않습니다. style_attributes는 빈 객체를 반환하세요.";
-  return fields.map((field) => {
-    const values = field.options.map((entry) => `${entry.value}(${entry.label})`).join(", ");
-    return `- ${field.key}: ${ATTRIBUTE_INTERPRETATION[field.key] || "스키마의 값 의미를 따르세요."}\n  허용값: ${values}${field.multiple ? ` · 최대 ${field.max}개` : " · 하나 또는 null"}`;
-  }).join("\n");
+  if (!fields.length)
+    return "이 카테고리는 상세 취향 속성을 분석하지 않습니다. style_attributes는 빈 객체를 반환하세요.";
+  return fields
+    .map((field) => {
+      const values = field.options
+        .map((entry) => `${entry.value}(${entry.label})`)
+        .join(", ");
+      return `- ${field.key}: ${ATTRIBUTE_INTERPRETATION[field.key] || "스키마의 값 의미를 따르세요."}\n  허용값: ${values}${field.multiple ? ` · 최대 ${field.max}개` : " · 하나 또는 null"}`;
+    })
+    .join("\n");
 }
 
 function activeAxisGuide() {
-  return STYLE_AXES.map((axis) => `- ${axis}: ${AXIS_INTERPRETATION[axis]}`).join("\n");
+  return STYLE_AXES.map(
+    (axis) => `- ${axis}: ${AXIS_INTERPRETATION[axis]}`
+  ).join("\n");
 }
 
 function stylePrototypeGuide() {
   return STYLE_PROTOTYPE_CENTERS.map((prototype) => {
-    const coordinates = STYLE_AXES.map((axis) => `${axis}=${prototype.axes[axis]}`).join(", ");
+    const coordinates = STYLE_AXES.map(
+      (axis) => `${axis}=${prototype.axes[axis]}`
+    ).join(", ");
     return `- ${prototype.label} 대표 중심점: ${coordinates}\n  특징: ${STYLE_PROTOTYPE_CHARACTERISTICS[prototype.key]}`;
   }).join("\n");
 }
@@ -205,7 +299,12 @@ const STRUCTURED_METADATA_FIELDS = [
 ];
 
 function productMetadataText(productMetadata) {
-  if (!productMetadata || typeof productMetadata !== "object" || Array.isArray(productMetadata)) return [];
+  if (
+    !productMetadata ||
+    typeof productMetadata !== "object" ||
+    Array.isArray(productMetadata)
+  )
+    return [];
   if (
     productMetadata.metadata_source !== "product_page" ||
     typeof productMetadata.product_summary !== "string" ||
@@ -217,15 +316,27 @@ function productMetadataText(productMetadata) {
   return STRUCTURED_METADATA_FIELDS.flatMap(([label, key]) => {
     const rawValue = productMetadata[key];
     const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-    const normalized = values.map((value) => String(value || "").trim()).filter(Boolean).slice(0, 8);
+    const normalized = values
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+      .slice(0, 8);
     return normalized.length ? [`${label}: ${normalized.join(" / ")}`] : [];
   }).concat(
-    productMetadata.category_details && typeof productMetadata.category_details === "object" && !Array.isArray(productMetadata.category_details)
-      ? Object.entries(productMetadata.category_details.attributes || {}).flatMap(([key, values]) => {
+    productMetadata.category_details &&
+      typeof productMetadata.category_details === "object" &&
+      !Array.isArray(productMetadata.category_details)
+      ? Object.entries(
+          productMetadata.category_details.attributes || {}
+        ).flatMap(([key, values]) => {
           const normalized = Array.isArray(values)
-            ? values.map((value) => String(value || "").trim()).filter(Boolean).slice(0, 8)
+            ? values
+                .map((value) => String(value || "").trim())
+                .filter(Boolean)
+                .slice(0, 8)
             : [];
-          return normalized.length ? [`카테고리 상세 — ${key}: ${normalized.join(" / ")}`] : [];
+          return normalized.length
+            ? [`카테고리 상세 — ${key}: ${normalized.join(" / ")}`]
+            : [];
         })
       : []
   );
@@ -239,7 +350,9 @@ function imageCandidates(product) {
 async function fetchImageInlineData(imagePath) {
   const url = productImageUrl(imagePath);
   if (!url) throw new Error("image url is empty");
-  const resizedUrl = isHttpUrl(imagePath) ? "" : productImageUrl(imagePath, { resized: true });
+  const resizedUrl = isHttpUrl(imagePath)
+    ? ""
+    : productImageUrl(imagePath, { resized: true });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -250,15 +363,22 @@ async function fetchImageInlineData(imagePath) {
         const response = await fetch(candidateUrl, {
           signal: controller.signal,
           headers: {
-            Accept: "image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8",
+            Accept:
+              "image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8",
             "User-Agent": "digbox-style-tagging/1.0",
           },
         });
-        if (!response.ok) throw new Error(`image download failed ${response.status}`);
-        const contentType = String(response.headers.get("content-type") || "image/jpeg").split(";")[0] || "image/jpeg";
+        if (!response.ok)
+          throw new Error(`image download failed ${response.status}`);
+        const contentType =
+          String(response.headers.get("content-type") || "image/jpeg").split(
+            ";"
+          )[0] || "image/jpeg";
         const arrayBuffer = await response.arrayBuffer();
-        if (!arrayBuffer.byteLength) throw new Error("image download returned empty body");
-        if (arrayBuffer.byteLength > MAX_IMAGE_BYTES) throw new Error("image is too large for tagging");
+        if (!arrayBuffer.byteLength)
+          throw new Error("image download returned empty body");
+        if (arrayBuffer.byteLength > MAX_IMAGE_BYTES)
+          throw new Error("image is too large for tagging");
         return {
           inlineData: {
             mimeType: contentType,
@@ -276,30 +396,50 @@ async function fetchImageInlineData(imagePath) {
 }
 
 function extractResponseText(payload) {
-  const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
-  return candidates[0]?.content?.parts?.find((part) => typeof part?.text === "string")?.text || "";
+  const candidates = Array.isArray(payload?.candidates)
+    ? payload.candidates
+    : [];
+  return (
+    candidates[0]?.content?.parts?.find(
+      (part) => typeof part?.text === "string"
+    )?.text || ""
+  );
 }
 
 function normalizeStyleAxes(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("style_axes must be an object");
-  return Object.fromEntries(STYLE_AXES.map((axis) => {
-    const item = value[axis];
-    const numeric = Number(item && typeof item === "object" && !Array.isArray(item) ? item.score : item);
-    if (!Number.isInteger(numeric) || numeric < 1 || numeric > 7) throw new Error(`style_axes.${axis}.score must be an integer between 1 and 7`);
-    return [axis, numeric];
-  }));
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("style_axes must be an object");
+  return Object.fromEntries(
+    STYLE_AXES.map((axis) => {
+      const item = value[axis];
+      const numeric = Number(
+        item && typeof item === "object" && !Array.isArray(item)
+          ? item.score
+          : item
+      );
+      if (!Number.isInteger(numeric) || numeric < 1 || numeric > 7)
+        throw new Error(
+          `style_axes.${axis}.score must be an integer between 1 and 7`
+        );
+      return [axis, numeric];
+    })
+  );
 }
 
 function normalizeStyleAnalysis(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("style analysis must be an object");
   }
-  const targetGender = ["menswear", "womenswear", "unisex", "unknown"].includes(value.target_gender)
+  const targetGender = ["menswear", "womenswear", "unisex", "unknown"].includes(
+    value.target_gender
+  )
     ? value.target_gender
     : "unknown";
   return {
     style_attributes:
-      value.style_attributes && typeof value.style_attributes === "object" && !Array.isArray(value.style_attributes)
+      value.style_attributes &&
+      typeof value.style_attributes === "object" &&
+      !Array.isArray(value.style_attributes)
         ? value.style_attributes
         : {},
     style_axes: value.style_axes ? normalizeStyleAxes(value.style_axes) : null,
@@ -313,7 +453,9 @@ function normalizeStyleAttributesAnalysis(value) {
   }
   return {
     style_attributes:
-      value.style_attributes && typeof value.style_attributes === "object" && !Array.isArray(value.style_attributes)
+      value.style_attributes &&
+      typeof value.style_attributes === "object" &&
+      !Array.isArray(value.style_attributes)
         ? value.style_attributes
         : {},
     style_axes: normalizeStyleAxes(value.style_axes),
@@ -321,11 +463,15 @@ function normalizeStyleAttributesAnalysis(value) {
 }
 
 function normalizeStyleAxesAnalysis(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("style axes analysis must be an object");
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("style axes analysis must be an object");
   return { style_axes: normalizeStyleAxes(value.style_axes) };
 }
 
-async function analyzeProductStyle(product, { attributesOnly = false, axesOnly = false } = {}) {
+async function analyzeProductStyle(
+  product,
+  { attributesOnly = false, axesOnly = false } = {}
+) {
   assertGeminiKey();
   const images = [];
   const failures = [];
@@ -333,13 +479,19 @@ async function analyzeProductStyle(product, { attributesOnly = false, axesOnly =
     try {
       images.push(await fetchImageInlineData(imagePath));
     } catch (error) {
-      failures.push(`${imagePath}: ${error instanceof Error ? error.message : String(error)}`);
+      failures.push(
+        `${imagePath}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
     if (images.length >= 1) break;
   }
-  if (!images.length) throw new Error(failures.join("; ") || "no usable product image");
+  if (!images.length)
+    throw new Error(failures.join("; ") || "no usable product image");
 
-  const metadataText = productMetadataText(product.product_metadata).map((text) => `- ${text}`).join("\n") || "없음";
+  const metadataText =
+    productMetadataText(product.product_metadata)
+      .map((text) => `- ${text}`)
+      .join("\n") || "없음";
   const isCoreCategory = isCoreTasteCategory(product.category);
   const schemaCategory = isCoreCategory ? product.category : "";
   const prompt = `${axesOnly ? AXES_ONLY_PROMPT : attributesOnly ? ATTRIBUTE_ONLY_PROMPT : PROMPT}
@@ -375,20 +527,32 @@ ${stylePrototypeGuide()}
     contents: [{ parts: [{ text: fullPrompt }, ...images] }],
     generationConfig: {
       responseMimeType: "application/json",
-      responseSchema: axesOnly ? styleAxesSchema : attributesOnly ? styleAttributesSchema(schemaCategory) : styleAnalysisSchema(schemaCategory),
+      responseSchema: axesOnly
+        ? styleAxesSchema
+        : attributesOnly
+          ? styleAttributesSchema(schemaCategory)
+          : styleAnalysisSchema(schemaCategory),
     },
   });
-  if (!response.ok) throw new Error((await response.text()).slice(0, 1000) || "Gemini style tagging failed");
+  if (!response.ok)
+    throw new Error(
+      (await response.text()).slice(0, 1000) || "Gemini style tagging failed"
+    );
   const payload = await response.json();
   const text = extractResponseText(payload);
   if (!text) throw new Error("Gemini returned empty style tagging response");
   const parsed = JSON.parse(text);
   if (axesOnly) return normalizeStyleAxesAnalysis(parsed);
-  return attributesOnly ? normalizeStyleAttributesAnalysis(parsed) : normalizeStyleAnalysis(parsed);
+  return attributesOnly
+    ? normalizeStyleAttributesAnalysis(parsed)
+    : normalizeStyleAnalysis(parsed);
 }
 
 // The regular registration flow still creates its complete initial review draft.
-export async function tagProductStyleById(productId, { force = false, attributesOnly = false, axesOnly = false } = {}) {
+export async function tagProductStyleById(
+  productId,
+  { force = false, attributesOnly = false, axesOnly = false } = {}
+) {
   assertSupabaseConfig();
   const id = String(productId || "").trim();
   if (!id) throw new Error("product id is required");
@@ -397,32 +561,56 @@ export async function tagProductStyleById(productId, { force = false, attributes
     const message = "GEMINI_API_KEY is missing in the server environment";
     await supabase
       .from(SUPABASE_PRODUCTS_TABLE)
-      .update({ style_axis_analysis_status: "failed", style_axis_analysis_error: message })
+      .update({
+        style_axis_analysis_status: "failed",
+        style_axis_analysis_error: message,
+      })
       .eq("id", id);
     throw new Error(message);
   }
 
   const { data: product, error } = await supabase
     .from(SUPABASE_PRODUCTS_TABLE)
-    .select("id,brand,name,category,sub_category,image_path,style_attributes,style_axes,target_gender,product_metadata")
+    .select(
+      "id,brand,name,category,sub_category,image_path,style_attributes,style_axes,target_gender,product_metadata"
+    )
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  if (!product) return { ok: false, skipped: true, reason: "product not found" };
+  if (!product)
+    return { ok: false, skipped: true, reason: "product not found" };
   if (attributesOnly) {
-    if (product.style_attributes && product.style_axes && !force) return { ok: true, skipped: true, reason: "style facts and axes already tagged" };
+    if (product.style_attributes && product.style_axes && !force)
+      return {
+        ok: true,
+        skipped: true,
+        reason: "style facts and axes already tagged",
+      };
   } else if (axesOnly) {
-    if (product.style_axes && !force) return { ok: true, skipped: true, reason: "style axes already tagged" };
-  } else if (product.style_attributes && product.style_axes && product.target_gender && product.target_gender !== "unknown" && !force) {
+    if (product.style_axes && !force)
+      return { ok: true, skipped: true, reason: "style axes already tagged" };
+  } else if (
+    product.style_attributes &&
+    product.style_axes &&
+    product.target_gender &&
+    product.target_gender !== "unknown" &&
+    !force
+  ) {
     return { ok: true, skipped: true, reason: "already tagged" };
   }
 
   try {
     await supabase
       .from(SUPABASE_PRODUCTS_TABLE)
-      .update({ style_axis_analysis_status: "tagging", style_axis_analysis_error: null })
+      .update({
+        style_axis_analysis_status: "tagging",
+        style_axis_analysis_error: null,
+      })
       .eq("id", id);
-    const analysis = await analyzeProductStyle(product, { attributesOnly, axesOnly });
+    const analysis = await analyzeProductStyle(product, {
+      attributesOnly,
+      axesOnly,
+    });
     const analysisUpdate = axesOnly
       ? {
           style_axes: analysis.style_axes,
@@ -431,23 +619,37 @@ export async function tagProductStyleById(productId, { force = false, attributes
           style_axis_analyzed_at: new Date().toISOString(),
         }
       : attributesOnly
-      ? {
-          style_attributes: analysis.style_attributes,
-          style_axes: analysis.style_axes,
-          style_axis_analysis_status: "tagged",
-          style_axis_analysis_error: null,
-          style_axis_analyzed_at: new Date().toISOString(),
-        }
-      : {
-          style_attributes: analysis.style_attributes,
-          target_gender: analysis.target_gender,
-          ...(analysis.style_axes ? {
+        ? {
+            style_attributes: analysis.style_attributes,
             style_axes: analysis.style_axes,
+            style_attribute_conflicts: detectStyleAttributeConflicts(
+              product,
+              analysis.style_attributes
+            ),
+            style_attribute_conflicts_detected_at: new Date().toISOString(),
+            style_attribute_conflicts_reviewed_at: null,
             style_axis_analysis_status: "tagged",
             style_axis_analysis_error: null,
             style_axis_analyzed_at: new Date().toISOString(),
-          } : {}),
-        };
+          }
+        : {
+            style_attributes: analysis.style_attributes,
+            style_attribute_conflicts: detectStyleAttributeConflicts(
+              product,
+              analysis.style_attributes
+            ),
+            style_attribute_conflicts_detected_at: new Date().toISOString(),
+            style_attribute_conflicts_reviewed_at: null,
+            target_gender: analysis.target_gender,
+            ...(analysis.style_axes
+              ? {
+                  style_axes: analysis.style_axes,
+                  style_axis_analysis_status: "tagged",
+                  style_axis_analysis_error: null,
+                  style_axis_analyzed_at: new Date().toISOString(),
+                }
+              : {}),
+          };
     const { error: updateError } = await supabase
       .from(SUPABASE_PRODUCTS_TABLE)
       .update(analysisUpdate)
@@ -459,7 +661,10 @@ export async function tagProductStyleById(productId, { force = false, attributes
       .from(SUPABASE_PRODUCTS_TABLE)
       .update({
         style_axis_analysis_status: "failed",
-        style_axis_analysis_error: taggingError instanceof Error ? taggingError.message.slice(0, 1000) : String(taggingError).slice(0, 1000),
+        style_axis_analysis_error:
+          taggingError instanceof Error
+            ? taggingError.message.slice(0, 1000)
+            : String(taggingError).slice(0, 1000),
       })
       .eq("id", id);
     throw taggingError;

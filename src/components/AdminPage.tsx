@@ -7,9 +7,14 @@ import { BrandRulesPanel } from "./admin/BrandRulesPanel";
 import { BrandUnifyPanel } from "./admin/BrandUnifyPanel";
 import { AdminProductsList } from "./admin/AdminProductsList";
 import { InstagramProductsPanel } from "./admin/InstagramProductsPanel";
-import type { AdminEditForm, BrandBackfillResult, BrandRule, Product, ProductStyleReviewInput, SizeTable } from "../types";
-
-
+import type {
+  AdminEditForm,
+  BrandBackfillResult,
+  BrandRule,
+  Product,
+  ProductStyleReviewInput,
+  SizeTable,
+} from "../types";
 
 type TableEditingCell =
   | { kind: "header"; colIdx: number }
@@ -50,7 +55,10 @@ interface AdminPageProps {
   onBrandRulesChange: (updater: (prev: BrandRule[]) => BrandRule[]) => void;
   onPasswordChange: (value: string) => void;
   onPasswordKeyDown: (key: string) => void;
-  onFileUpload: (event: ChangeEvent<HTMLInputElement>, type: "product" | "chart") => void;
+  onFileUpload: (
+    event: ChangeEvent<HTMLInputElement>,
+    type: "product" | "chart"
+  ) => void;
   onUpdateProduct: (id: string) => void;
   onApproveProductCategory: (id: string) => void;
   onDeleteProduct: (id: string) => void;
@@ -125,10 +133,14 @@ export const AdminPage = ({
   onImageLoadError,
   onSaveStyleReview,
 }: AdminPageProps) => {
-  const [tableEditingCell, setTableEditingCell] = useState<TableEditingCell>(null);
+  const [tableEditingCell, setTableEditingCell] =
+    useState<TableEditingCell>(null);
   const [activeSection, setActiveSection] = useState<AdminSection>(null);
   const [dbBrands, setDbBrands] = useState<string[]>([]);
-  const handleBrandsLoaded = useCallback((brands: string[]) => setDbBrands(brands), []);
+  const handleBrandsLoaded = useCallback(
+    (brands: string[]) => setDbBrands(brands),
+    []
+  );
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -139,7 +151,10 @@ export const AdminPage = ({
             <h1 className="text-lg font-bold">관리자 상품 관리</h1>
           </div>
           {isAdminAuthenticated ? (
-            <button onClick={onLogout} className="rounded-lg px-4 py-2 text-sm hover:bg-gray-800">
+            <button
+              onClick={onLogout}
+              className="rounded-lg px-4 py-2 text-sm hover:bg-gray-800"
+            >
               로그아웃
             </button>
           ) : null}
@@ -147,7 +162,9 @@ export const AdminPage = ({
       </header>
 
       <main className="mx-auto max-w-5xl space-y-4 px-4 py-8">
-        {isAdminCheckingSession ? <div className="text-gray-400">관리자 세션 확인 중...</div> : null}
+        {isAdminCheckingSession ? (
+          <div className="text-gray-400">관리자 세션 확인 중...</div>
+        ) : null}
 
         {!isAdminCheckingSession && !isAdminAuthenticated ? (
           <AdminLoginPanel
@@ -165,34 +182,50 @@ export const AdminPage = ({
             {/* 홈 — 메뉴 선택 */}
             {activeSection === null && (
               <div className="flex flex-col items-center justify-center gap-5 py-24">
-                <p className="mb-4 text-sm font-medium uppercase tracking-widest text-gray-500">관리 메뉴</p>
+                <p className="mb-4 text-sm font-medium uppercase tracking-widest text-gray-500">
+                  관리 메뉴
+                </p>
                 <button
                   onClick={() => setActiveSection("brand-rules")}
                   className="flex w-72 items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.06] px-8 py-7 text-left shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.1] hover:shadow-[0_12px_40px_rgba(0,0,0,0.36)] active:scale-[0.98]"
                 >
                   <Tag className="h-7 w-7 flex-shrink-0 text-orange-400" />
-                  <span className="text-lg font-bold text-white">브랜드 대표명 설정</span>
+                  <span className="text-lg font-bold text-white">
+                    브랜드 대표명 설정
+                  </span>
                 </button>
                 <button
                   onClick={() => setActiveSection("products")}
                   className="flex w-72 items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.06] px-8 py-7 text-left shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.1] hover:shadow-[0_12px_40px_rgba(0,0,0,0.36)] active:scale-[0.98]"
                 >
                   <Package className="h-7 w-7 flex-shrink-0 text-orange-400" />
-                  <span className="text-lg font-bold text-white">상품 수정</span>
+                  <span className="text-lg font-bold text-white">
+                    상품 수정
+                  </span>
                 </button>
                 <button
                   onClick={() => setActiveSection("instagram")}
                   className="flex w-72 items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.06] px-8 py-7 text-left shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.1] hover:shadow-[0_12px_40px_rgba(0,0,0,0.36)] active:scale-[0.98]"
                 >
                   <Camera className="h-7 w-7 flex-shrink-0 text-orange-400" />
-                  <span className="text-lg font-bold text-white">인스타 상품 등록</span>
+                  <span className="text-lg font-bold text-white">
+                    인스타 상품 등록
+                  </span>
                 </button>
                 <Link
                   href="/admin/style-centers"
                   className="flex w-72 items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.06] px-8 py-7 text-left shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.1]"
                 >
                   <Tag className="h-7 w-7 flex-shrink-0 text-orange-400" />
-                  <span className="text-lg font-bold text-white">스타일 중심점</span>
+                  <span className="text-lg font-bold text-white">
+                    스타일 중심점
+                  </span>
+                </Link>
+                <Link
+                  href="/admin/agent"
+                  className="flex w-72 items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.06] px-8 py-7 text-lg font-bold text-white hover:bg-white/10"
+                >
+                  에이전트 운영
                 </Link>
               </div>
             )}
@@ -221,7 +254,8 @@ export const AdminPage = ({
                           !prev.some(
                             (r) =>
                               r.matchType === nr.matchType &&
-                              r.matchValue.toLowerCase() === nr.matchValue.toLowerCase()
+                              r.matchValue.toLowerCase() ===
+                                nr.matchValue.toLowerCase()
                           )
                       );
                       return [...prev, ...dedupedNew];

@@ -146,6 +146,13 @@ export const normalizeProductRow = (row) => {
       : null,
     humanStyleAttributes: row.human_style_attributes ?? null,
     humanStyleAxes: row.human_style_axes ?? null,
+    styleAttributeConflicts: Array.isArray(row.style_attribute_conflicts)
+      ? row.style_attribute_conflicts
+      : [],
+    styleAttributeConflictsDetectedAt:
+      row.style_attribute_conflicts_detected_at || null,
+    styleAttributeConflictsReviewedAt:
+      row.style_attribute_conflicts_reviewed_at || null,
     imageEmbedding: row.image_embedding ?? null,
     targetGender: row.target_gender ? String(row.target_gender) : null,
     humanTargetGender: row.human_target_gender
