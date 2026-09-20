@@ -6,3 +6,4 @@ tmp
 .vercel
 .env
 .env.local
+.venv*/
