@@ -17,6 +17,78 @@ const authorized = (request: Request) =>
     getAdminTokenFromCookieHeader(request.headers.get("cookie") || "")
   );
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+type TraceEvent = { stage?: unknown; data?: unknown };
+type FeedbackShadow = {
+  eligible?: boolean;
+  ineligibleReason?: string | null;
+  optionA?: "baseline" | "challenger";
+  baselineVersion?: string;
+  challengerVersion?: string;
+  baselineProducts?: unknown[];
+  challengerProducts?: unknown[];
+  changedPositions?: number;
+  feedback?: unknown;
+};
+function feedbackComparison(execution: unknown, review: unknown) {
+  const events =
+    execution &&
+    typeof execution === "object" &&
+    Array.isArray((execution as { events?: unknown }).events)
+      ? (execution as { events: TraceEvent[] }).events || []
+      : [];
+  const shadow = events.find((event) => event.stage === "feedback_shadow")
+    ?.data as FeedbackShadow | undefined;
+  if (!shadow) return null;
+  const challengerIsA = shadow.optionA === "challenger";
+  const reviewed = Boolean(review);
+  return {
+    eligible: Boolean(shadow.eligible),
+    ineligibleReason: shadow.ineligibleReason || null,
+    changedPositions: Number(shadow.changedPositions || 0),
+    feedback: shadow.feedback || null,
+    optionA: challengerIsA
+      ? shadow.challengerProducts || []
+      : shadow.baselineProducts || [],
+    optionB: challengerIsA
+      ? shadow.baselineProducts || []
+      : shadow.challengerProducts || [],
+    review: review || null,
+    reveal: reviewed
+      ? {
+          optionA: challengerIsA ? "feedback" : "baseline",
+          optionB: challengerIsA ? "baseline" : "feedback",
+          baselineVersion: shadow.baselineVersion,
+          challengerVersion: shadow.challengerVersion,
+        }
+      : null,
+  };
+}
+function blindedExecution(execution: unknown, reviewed: boolean) {
+  if (
+    reviewed ||
+    !execution ||
+    typeof execution !== "object" ||
+    !Array.isArray((execution as { events?: unknown }).events)
+  )
+    return execution;
+  return {
+    ...(execution as Record<string, unknown>),
+    events: (execution as { events: TraceEvent[] }).events.map((event) => {
+      if (event.stage !== "feedback_shadow") return event;
+      const shadow = (event.data || {}) as FeedbackShadow;
+      return {
+        stage: event.stage,
+        data: {
+          eligible: Boolean(shadow.eligible),
+          ineligibleReason: shadow.ineligibleReason || null,
+          changedPositions: Number(shadow.changedPositions || 0),
+          feedback: shadow.feedback || null,
+          blinded: true,
+        },
+      };
+    }),
+  };
+}
 export async function GET(request: Request) {
   if (!authorized(request))
     return send({ error: "관리자 로그인이 필요합니다." }, 401);
@@ -29,7 +101,7 @@ export async function GET(request: Request) {
       const result = await supabase
         .from("fashion_agent_requests")
         .select(
-          "id,created_at,status,question,locale,response,duration_ms,error_code,execution,review,conversation_id"
+          "id,created_at,status,question,locale,response,duration_ms,error_code,execution,review,comparison_review,conversation_id"
         )
         .eq("id", id)
         .maybeSingle();
@@ -43,7 +115,15 @@ export async function GET(request: Request) {
       return send({
         data: redactValue({
           ...result.data,
+          execution: blindedExecution(
+            result.data.execution,
+            Boolean(result.data.comparison_review)
+          ),
           feedback: feedback.error ? null : feedback.data,
+          comparison: feedbackComparison(
+            result.data.execution,
+            result.data.comparison_review
+          ),
         }),
       });
     }
@@ -82,7 +162,64 @@ export async function GET(request: Request) {
         model: row.execution?.model || null,
       };
     });
-    return send({ data: redactValue({ items, total: result.count, page }) });
+    const [feedbackResult, comparisonResult] = await Promise.all([
+      supabase
+        .from("fashion_agent_feedback")
+        .select("sentiment,reason")
+        .order("created_at", { ascending: false })
+        .limit(2000),
+      supabase
+        .from("fashion_agent_requests")
+        .select("execution,comparison_review")
+        .not("execution", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(500),
+    ]);
+    const feedbackRows = feedbackResult.error ? [] : feedbackResult.data || [];
+    const reasons: Record<string, number> = {};
+    let positive = 0,
+      negative = 0;
+    for (const row of feedbackRows) {
+      if (row.sentiment === "positive") positive += 1;
+      else negative += 1;
+      if (row.reason) reasons[row.reason] = (reasons[row.reason] || 0) + 1;
+    }
+    const comparisonRows = comparisonResult.error
+      ? []
+      : (comparisonResult.data || [])
+          .map((row) =>
+            feedbackComparison(row.execution, row.comparison_review)
+          )
+          .filter((value) => value?.eligible);
+    const reviewedComparisons = comparisonRows.filter((value) => value?.review);
+    const wins = { baseline: 0, feedback: 0, tie: 0 };
+    for (const comparison of reviewedComparisons) {
+      const review = comparison!.review as { preferredOption?: string };
+      if (review.preferredOption === "tie") wins.tie += 1;
+      else if (comparison!.reveal) {
+        const selected =
+          review.preferredOption === "a"
+            ? comparison!.reveal.optionA
+            : comparison!.reveal.optionB;
+        if (selected === "feedback") wins.feedback += 1;
+        else wins.baseline += 1;
+      }
+    }
+    return send({
+      data: redactValue({
+        items,
+        total: result.count,
+        page,
+        insights: {
+          feedback: { total: feedbackRows.length, positive, negative, reasons },
+          comparisons: {
+            eligible: comparisonRows.length,
+            reviewed: reviewedComparisons.length,
+            wins,
+          },
+        },
+      }),
+    });
   } catch {
     return send({ error: "운영 기록을 불러오지 못했습니다." }, 503);
   }
@@ -96,6 +233,52 @@ export async function PUT(request: Request) {
     const raw = await request.text();
     if (raw.length > 4000) return send({ error: "입력이 너무 깁니다." }, 400);
     const body = JSON.parse(raw);
+    if (body.action === "comparison_review") {
+      const scoreKeys = [
+        "tasteA",
+        "tasteB",
+        "conditionsA",
+        "conditionsB",
+        "diversityA",
+        "diversityB",
+        "explanationA",
+        "explanationB",
+      ];
+      if (
+        !uuid.test(body.id || "") ||
+        !["a", "b", "tie"].includes(body.preferredOption) ||
+        !scoreKeys.every(
+          (key) =>
+            Number.isInteger(body[key]) && body[key] >= 1 && body[key] <= 5
+        ) ||
+        typeof body.note !== "string" ||
+        body.note.length > 1000
+      )
+        return send({ error: "비교 평가 내용을 확인해 주세요." }, 400);
+      if (!supabase) throw new Error("database_unavailable");
+      const comparisonReview = {
+        preferredOption: body.preferredOption,
+        tasteA: body.tasteA,
+        tasteB: body.tasteB,
+        conditionsA: body.conditionsA,
+        conditionsB: body.conditionsB,
+        diversityA: body.diversityA,
+        diversityB: body.diversityB,
+        explanationA: body.explanationA,
+        explanationB: body.explanationB,
+        note: body.note.trim(),
+        reviewedAt: new Date().toISOString(),
+      };
+      const result = await supabase
+        .from("fashion_agent_requests")
+        .update({ comparison_review: comparisonReview })
+        .eq("id", body.id)
+        .select("id")
+        .maybeSingle();
+      if (result.error) throw result.error;
+      if (!result.data) return send({ error: "기록이 없습니다." }, 404);
+      return send({ saved: true });
+    }
     if (
       !uuid.test(body.id || "") ||
       ![body.taste, body.explanation, body.conditions].every(

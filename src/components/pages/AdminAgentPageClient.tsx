@@ -22,6 +22,51 @@ type Review = {
   issue: string;
   note: string;
 };
+type ComparisonReview = {
+  preferredOption: "a" | "b" | "tie";
+  tasteA: number;
+  tasteB: number;
+  conditionsA: number;
+  conditionsB: number;
+  diversityA: number;
+  diversityB: number;
+  explanationA: number;
+  explanationB: number;
+  note: string;
+};
+type Comparison = {
+  eligible: boolean;
+  ineligibleReason: string | null;
+  changedPositions: number;
+  feedback: {
+    total?: number;
+    actionableTotal?: number;
+    strength?: number;
+    reasons?: Record<string, number>;
+  } | null;
+  optionA: AgentMessage["products"];
+  optionB: AgentMessage["products"];
+  review: ComparisonReview | null;
+  reveal: {
+    optionA: "baseline" | "feedback";
+    optionB: "baseline" | "feedback";
+    baselineVersion: string;
+    challengerVersion: string;
+  } | null;
+};
+type Insights = {
+  feedback: {
+    total: number;
+    positive: number;
+    negative: number;
+    reasons: Record<string, number>;
+  };
+  comparisons: {
+    eligible: number;
+    reviewed: number;
+    wins: { baseline: number; feedback: number; tie: number };
+  };
+};
 type Detail = Item & {
   response: { messages: AgentMessage[] } | null;
   execution: {
@@ -32,6 +77,7 @@ type Detail = Item & {
   error_code: string | null;
   review: Review | null;
   feedback: unknown;
+  comparison: Comparison | null;
 };
 type TraceEvent = { stage: string; data: unknown };
 const eventData = (events: TraceEvent[], stage: string) =>
@@ -46,10 +92,36 @@ const initialReview: Review = {
   issue: "none",
   note: "",
 };
+const initialComparisonReview: ComparisonReview = {
+  preferredOption: "tie",
+  tasteA: 3,
+  tasteB: 3,
+  conditionsA: 3,
+  conditionsB: 3,
+  diversityA: 3,
+  diversityB: 3,
+  explanationA: 3,
+  explanationB: 3,
+  note: "",
+};
 const statusLabel: Record<string, string> = {
   completed: "응답 완료",
   pending: "처리 중 / 중단 여부 확인",
   failed: "실패",
+};
+const feedbackReasonLabel: Record<string, string> = {
+  not_my_taste: "취향과 다름",
+  too_similar: "이미 비슷함",
+  too_plain: "너무 평범함",
+  too_bold: "너무 튐",
+  wrong_condition: "조건 불일치",
+};
+const comparisonWaitLabel = (comparison: Comparison) => {
+  if (comparison.ineligibleReason === "ranking_unchanged")
+    return "피드백 보정 후에도 상위 순서가 같아 비교 대상에서 제외했습니다.";
+  if (comparison.ineligibleReason === "insufficient_candidates")
+    return "비교할 추천 후보가 부족합니다.";
+  return `피드백 비교 대기 중 · 유효 피드백 ${comparison.feedback?.actionableTotal ?? 0}/3건`;
 };
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -68,8 +140,12 @@ export function AdminAgentPageClient() {
   const [status, setStatus] = useState(""),
     [unreviewed, setUnreviewed] = useState(false),
     [revision, setRevision] = useState(0);
+  const [insights, setInsights] = useState<Insights | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null),
-    [review, setReview] = useState<Review>(initialReview);
+    [review, setReview] = useState<Review>(initialReview),
+    [comparisonReview, setComparisonReview] = useState<ComparisonReview>(
+      initialComparisonReview
+    );
   const [loading, setLoading] = useState(false),
     [saving, setSaving] = useState(false),
     [error, setError] = useState(""),
@@ -79,13 +155,14 @@ export function AdminAgentPageClient() {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    api<{ data: { items: Item[]; total: number } }>(
+    api<{ data: { items: Item[]; total: number; insights: Insights } }>(
       `/api/admin/agent?page=${page}&status=${status}&unreviewed=${unreviewed}`,
       { signal: controller.signal }
     )
       .then(({ data }) => {
         setItems(data.items);
         setTotal(data.total);
+        setInsights(data.insights);
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
@@ -108,6 +185,9 @@ export function AdminAgentPageClient() {
       if (token !== selection.current) return;
       setDetail(data);
       setReview(data.review || { ...initialReview });
+      setComparisonReview(
+        data.comparison?.review || { ...initialComparisonReview }
+      );
     } catch (err) {
       if (token === selection.current) setError((err as Error).message);
     }
@@ -123,6 +203,29 @@ export function AdminAgentPageClient() {
         body: JSON.stringify({ id: detail.id, ...review }),
       });
       setNotice("검수를 저장했습니다.");
+      setRevision((value) => value + 1);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function saveComparison() {
+    if (!detail?.comparison?.eligible) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api("/api/admin/agent", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "comparison_review",
+          id: detail.id,
+          ...comparisonReview,
+        }),
+      });
+      await open(detail.id);
+      setNotice("블라인드 비교 평가를 저장했습니다.");
       setRevision((value) => value + 1);
     } catch (err) {
       setError((err as Error).message);
@@ -168,6 +271,47 @@ export function AdminAgentPageClient() {
           ? `${Math.round(elapsed.reduce((sum, item) => sum + item.duration_ms!, 0) / elapsed.length)}ms`
           : "미기록"}
       </div>
+      {insights && (
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-white/10 p-4">
+            <p className="text-xs text-gray-500">수집 피드백</p>
+            <p className="mt-1 text-lg font-semibold">
+              {insights.feedback.total}건
+            </p>
+            <p className="text-xs text-gray-400">
+              긍정 {insights.feedback.positive} · 부정{" "}
+              {insights.feedback.negative}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/10 p-4">
+            <p className="text-xs text-gray-500">주요 부정 이유</p>
+            <p className="mt-1 text-sm">
+              {Object.entries(insights.feedback.reasons)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 2)
+                .map(
+                  ([reason, count]) =>
+                    `${feedbackReasonLabel[reason] || reason} ${count}`
+                )
+                .join(" · ") || "아직 없음"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/10 p-4">
+            <p className="text-xs text-gray-500">비교 평가</p>
+            <p className="mt-1 text-lg font-semibold">
+              {insights.comparisons.reviewed}/{insights.comparisons.eligible}건
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/10 p-4">
+            <p className="text-xs text-gray-500">블라인드 선호</p>
+            <p className="mt-1 text-sm">
+              평균 {insights.comparisons.wins.baseline} · 피드백{" "}
+              {insights.comparisons.wins.feedback} · 동률{" "}
+              {insights.comparisons.wins.tie}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="mb-5 flex gap-4">
         <label>
           상태{" "}
@@ -317,6 +461,164 @@ export function AdminAgentPageClient() {
                 ))}
               {!messages.length && (
                 <p className="my-4 text-gray-400">저장된 응답이 없습니다.</p>
+              )}
+              {detail.comparison?.eligible && (
+                <section className="my-6 border-t border-white/10 pt-5">
+                  <h3 className="font-semibold">추천 방식 블라인드 비교</h3>
+                  <p className="mt-2 text-xs leading-5 text-gray-400">
+                    동일한 질문·후보·필수 조건에서 순위만 다르게 계산했습니다.
+                    저장 전에는 어느 쪽이 평균 방식인지 공개하지 않습니다. 상위
+                    5개 중 {detail.comparison.changedPositions}개 위치가
+                    달라졌습니다.
+                  </p>
+                  <div className="mt-4 grid gap-5 xl:grid-cols-2">
+                    {(["A", "B"] as const).map((label) => {
+                      const key = label === "A" ? "optionA" : "optionB";
+                      const products = detail.comparison?.[key] || [];
+                      return (
+                        <div
+                          key={label}
+                          className="rounded-xl border border-white/10 p-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold">결과 {label}</h4>
+                            {detail.comparison?.reveal && (
+                              <span className="text-xs text-orange-300">
+                                {detail.comparison.reveal[key] === "feedback"
+                                  ? "피드백 보정 방식"
+                                  : "평균 취향 방식"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2">
+                            {products.map((product, index) => (
+                              <Link
+                                key={product.id}
+                                target="_blank"
+                                href={getProductPageUrl(product)}
+                                className="rounded-lg bg-white/5 p-2"
+                              >
+                                <div className="relative aspect-square">
+                                  <ProgressiveImage
+                                    src={product.image}
+                                    alt={product.name}
+                                    className="object-contain"
+                                  />
+                                </div>
+                                <p className="mt-2 line-clamp-2 text-xs">
+                                  {index + 1}. {product.brand} {product.name}
+                                </p>
+                                <p className="mt-1 line-clamp-3 text-[11px] leading-4 text-gray-500">
+                                  {product.reasons.join(" ")}
+                                </p>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <form
+                    className="mt-4 space-y-4 rounded-xl bg-white/5 p-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void saveComparison();
+                    }}
+                  >
+                    <label className="block text-sm">
+                      더 나은 결과{" "}
+                      <select
+                        className="rounded bg-gray-900 p-2"
+                        value={comparisonReview.preferredOption}
+                        onChange={(event) =>
+                          setComparisonReview({
+                            ...comparisonReview,
+                            preferredOption: event.target.value as
+                              "a" | "b" | "tie",
+                          })
+                        }
+                      >
+                        <option value="a">A</option>
+                        <option value="b">B</option>
+                        <option value="tie">비슷함</option>
+                      </select>
+                    </label>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[560px] text-sm">
+                        <thead className="text-left text-xs text-gray-500">
+                          <tr>
+                            <th className="p-2">평가 항목</th>
+                            <th className="p-2">A</th>
+                            <th className="p-2">B</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(
+                            [
+                              ["taste", "취향 적합성"],
+                              ["conditions", "조건 준수"],
+                              ["diversity", "다양성·새로움"],
+                              ["explanation", "설명 납득도"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <tr key={key} className="border-t border-white/5">
+                              <td className="p-2">{label}</td>
+                              {(["A", "B"] as const).map((option) => {
+                                const field =
+                                  `${key}${option}` as keyof ComparisonReview;
+                                return (
+                                  <td className="p-2" key={option}>
+                                    <select
+                                      aria-label={`${label} ${option}`}
+                                      className="rounded bg-gray-900 p-2"
+                                      value={comparisonReview[field] as number}
+                                      onChange={(event) =>
+                                        setComparisonReview({
+                                          ...comparisonReview,
+                                          [field]: Number(event.target.value),
+                                        })
+                                      }
+                                    >
+                                      {[1, 2, 3, 4, 5].map((score) => (
+                                        <option value={score} key={score}>
+                                          {score}점
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <textarea
+                      aria-label="블라인드 비교 메모"
+                      maxLength={1000}
+                      placeholder="두 결과에서 눈에 띈 차이"
+                      className="min-h-20 w-full rounded-lg bg-gray-900 p-3 text-sm"
+                      value={comparisonReview.note}
+                      onChange={(event) =>
+                        setComparisonReview({
+                          ...comparisonReview,
+                          note: event.target.value,
+                        })
+                      }
+                    />
+                    <button
+                      disabled={saving}
+                      className="rounded-lg bg-orange-500 px-4 py-3 font-semibold text-black disabled:opacity-40"
+                    >
+                      {saving ? "저장 중…" : "블라인드 평가 저장"}
+                    </button>
+                  </form>
+                </section>
+              )}
+              {detail.comparison && !detail.comparison.eligible && (
+                <p className="my-5 rounded-lg border border-white/10 p-3 text-xs text-gray-400">
+                  {comparisonWaitLabel(detail.comparison)}
+                </p>
               )}
               {detail.execution && (
                 <section className="my-6 border-t border-white/10 pt-5">

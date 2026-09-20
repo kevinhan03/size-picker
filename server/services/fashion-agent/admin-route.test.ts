@@ -66,3 +66,23 @@ it("rejects invalid review scores", async () => {
   ).toBe(400);
   expect(mocks.from).not.toHaveBeenCalled();
 });
+it("rejects invalid blind comparison scores", async () => {
+  mocks.authorized.mockReturnValue(true);
+  expect(
+    (
+      await PUT(
+        new Request("http://localhost/api/admin/agent", {
+          method: "PUT",
+          body: JSON.stringify({
+            action: "comparison_review",
+            id: "00000000-0000-4000-8000-000000000001",
+            preferredOption: "a",
+            tasteA: 8,
+            tasteB: 3,
+          }),
+        })
+      )
+    ).status
+  ).toBe(400);
+  expect(mocks.from).not.toHaveBeenCalled();
+});

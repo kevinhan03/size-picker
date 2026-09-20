@@ -187,7 +187,13 @@ export async function runEngine(
       ])
     : [
         { products: [] as Product[] },
-        { positiveAxes: {}, negativeAxes: {}, total: 0, reasons: {} },
+        {
+          positiveAxes: {},
+          negativeAxes: {},
+          total: 0,
+          actionableTotal: 0,
+          reasons: {},
+        },
       ];
   const tasteAxes = meanAxes(collection.products);
   const tasteConfidence = computeTasteConfidence(collection.products);
@@ -236,13 +242,6 @@ export async function runEngine(
                 `스타일 분석이 있는 상품이 ${tasteConfidence.analyzedCount}개라 취향 점수는 참고 수준으로 반영했어요.`,
                 `Only ${tasteConfidence.analyzedCount} analyzed products are available, so taste is a light signal.`
               )
-      );
-    if (feedbackProfile.total)
-      notes.push(
-        say(
-          "이전 추천 피드백도 순위에 가볍게 반영했어요.",
-          "Previous recommendation feedback lightly informs ranking."
-        )
       );
   }
   if (plan.intent === "taste") {
@@ -525,20 +524,19 @@ export async function runEngine(
             (needsTaste ? (taste ?? 0) : styleScore),
           session: sessionScore,
           novelty,
-          feedback: feedbackAdjustment(product, feedbackProfile),
+          feedbackShadow: feedbackAdjustment(product, feedbackProfile, novelty),
         },
-        score:
-          rankingScore({
-            base:
-              engineScores.get(product.id) ??
-              (needsTaste ? (taste ?? 0) : styleScore),
-            session: sessionScore,
-            tasteConfidence: needsTaste ? tasteConfidence.confidence : 1,
-            novelty,
-            noveltyLevel: plan.exploration
-              ? plan.session?.novelty || "medium"
-              : "none",
-          }) + feedbackAdjustment(product, feedbackProfile),
+        score: rankingScore({
+          base:
+            engineScores.get(product.id) ??
+            (needsTaste ? (taste ?? 0) : styleScore),
+          session: sessionScore,
+          tasteConfidence: needsTaste ? tasteConfidence.confidence : 1,
+          novelty,
+          noveltyLevel: plan.exploration
+            ? plan.session?.novelty || "medium"
+            : "none",
+        }),
       };
     })
     .filter(
@@ -548,6 +546,21 @@ export async function runEngine(
     scored.sort(
       (a, b) => b.score - a.score || a.product.id.localeCompare(b.product.id)
     );
+  const feedbackEligible =
+    plan.personalized &&
+    ["recommend", "search"].includes(plan.intent) &&
+    feedbackProfile.total >= 3 &&
+    feedbackProfile.actionableTotal >= 3 &&
+    scored.length >= 2;
+  const feedbackScored = feedbackEligible
+    ? [...scored].sort(
+        (a, b) =>
+          b.score +
+            b.components.feedbackShadow -
+            (a.score + a.components.feedbackShadow) ||
+          a.product.id.localeCompare(b.product.id)
+      )
+    : [];
   if (needsTaste && (plan.intent === "recommend" || plan.intent === "search")) {
     await recordShadow(
       userId,
@@ -574,41 +587,86 @@ export async function runEngine(
       reasons: item.reasons,
     })),
   });
-  const cards: AgentProduct[] = scored.slice(0, 8).flatMap((item) => {
+  const toCard = (
+    item: (typeof scored)[number],
+    feedbackAware = false
+  ): AgentProduct | null => {
     const card = normalizeProductCard(rowsById.get(item.product.id));
-    return card
-      ? [
-          {
-            ...card,
-            reasons: item.reasons,
-            evidence: {
-              source: needsTaste ? plan.source : "query",
-              analyzedCount: tasteConfidence.analyzedCount,
-              confidence: tasteConfidence.level,
-              sessionMatch: item.components.session,
-              caveats: [
+    if (!card) return null;
+    const reasons = [...item.reasons];
+    if (feedbackAware && Math.abs(item.components.feedbackShadow) >= 0.001)
+      reasons.push(
+        say(
+          "반복해서 남긴 추천 피드백과 비슷한 스타일 신호를 실험적으로 반영했어요.",
+          "Experimentally reflects style signals repeated in your recommendation feedback."
+        )
+      );
+    return {
+      ...card,
+      reasons,
+      evidence: {
+        source: needsTaste ? plan.source : "query",
+        analyzedCount: tasteConfidence.analyzedCount,
+        confidence: tasteConfidence.level,
+        sessionMatch: item.components.session,
+        caveats: [
+          say(
+            "색상·소재·핏은 등록된 시각 분석이며 실제 사양과 다를 수 있어요.",
+            "Color, material and fit come from visual analysis and may differ from actual specifications."
+          ),
+          ...(plan.exploration
+            ? [
                 say(
-                  "색상·소재·핏은 등록된 시각 분석이며 실제 사양과 다를 수 있어요.",
-                  "Color, material and fit come from visual analysis and may differ from actual specifications."
+                  "새로움은 선택한 컬렉션과의 스타일 차이이며, 실제 보유 여부 전체를 확인한 것은 아니에요.",
+                  "Novelty reflects style distance from the selected collection, not a complete ownership check."
                 ),
-                ...(plan.exploration
-                  ? [
-                      say(
-                        "새로움은 선택한 컬렉션과의 스타일 차이이며, 실제 보유 여부 전체를 확인한 것은 아니에요.",
-                        "Novelty reflects style distance from the selected collection, not a complete ownership check."
-                      ),
-                    ]
-                  : []),
-              ],
-            },
-            tasteScore:
-              needsTaste && item.taste !== null
-                ? Math.round(item.taste * 100)
-                : null,
-          },
-        ]
-      : [];
-  });
+              ]
+            : []),
+        ],
+      },
+      tasteScore:
+        needsTaste && item.taste !== null ? Math.round(item.taste * 100) : null,
+    };
+  };
+  const cards: AgentProduct[] = scored
+    .slice(0, 8)
+    .flatMap((item) => toCard(item) || []);
+  const feedbackCards: AgentProduct[] = feedbackScored
+    .slice(0, 8)
+    .flatMap((item) => toCard(item, true) || []);
+  const changedPositions = feedbackEligible
+    ? cards
+        .slice(0, 5)
+        .filter((card, index) => feedbackCards[index]?.id !== card.id).length
+    : 0;
+  const comparisonEligible = feedbackEligible && changedPositions > 0;
+  if (plan.personalized && ["recommend", "search"].includes(plan.intent))
+    traceEvent("feedback_shadow", {
+      baselineVersion: FASHION_AGENT_ALGORITHM.ranking,
+      challengerVersion: FASHION_AGENT_ALGORITHM.feedbackShadow,
+      eligible: comparisonEligible,
+      ineligibleReason: comparisonEligible
+        ? null
+        : feedbackProfile.total < 3
+          ? "fewer_than_3_feedback_events"
+          : feedbackProfile.actionableTotal < 3
+            ? "fewer_than_3_actionable_feedback_events"
+            : scored.length < 2
+              ? "insufficient_candidates"
+              : changedPositions === 0
+                ? "ranking_unchanged"
+                : "not_a_personalized_ranking",
+      feedback: {
+        total: feedbackProfile.total,
+        actionableTotal: feedbackProfile.actionableTotal,
+        reasons: feedbackProfile.reasons,
+        strength: Math.min(1, feedbackProfile.actionableTotal / 10),
+      },
+      optionA: Math.random() < 0.5 ? "challenger" : "baseline",
+      baselineProducts: cards.slice(0, 5),
+      challengerProducts: feedbackCards.slice(0, 5),
+      changedPositions,
+    });
   let text = cards.length
     ? say("이 상품들을 찾아봤어요.", "Here are the matching products.")
     : say(
