@@ -18,7 +18,7 @@ import { SocialDialog } from "./SocialDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { socialError, useSocialMessages } from "./messages";
 import { changed, socialFetch, useSocialResource } from "./client";
-import { preparePhoto, renderPhotoEdit, uploadPhoto } from "./image-upload";
+import { getPhotoDimensions, preparePhoto, renderPhotoEdit, uploadPhoto } from "./image-upload";
 import { useProductFormContext } from "../../contexts/ProductFormContext";
 import { getCategoryLabel } from "../../constants";
 import { FilterDropdown } from "../FilterDropdown";
@@ -330,9 +330,7 @@ export function PostComposer({
       for (const file of Array.from(files)) {
         const blob = await preparePhoto(file);
         const url = URL.createObjectURL(blob);
-        const bitmap = await createImageBitmap(blob);
-        const { width, height } = bitmap;
-        bitmap.close();
+        const { width, height } = await getPhotoDimensions(blob);
         urls.current.push(url);
         additions.push({
           key: crypto.randomUUID(),
@@ -807,7 +805,7 @@ export function PostComposer({
             ref={input}
             id={fileInputId}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             className="social-file-input"
             onChange={(e) => {
               filePickerCancelling.current = false;

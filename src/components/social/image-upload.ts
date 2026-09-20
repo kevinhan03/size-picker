@@ -1,30 +1,106 @@
-export async function preparePhoto(file: File): Promise<Blob> {
-  if (
-    !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-    !file.size ||
-    file.size > 10 * 1024 * 1024
-  )
-    throw new Error("invalid_image");
-  const bitmap = await createImageBitmap(file, {
-    imageOrientation: "from-image",
-  });
+export const MAX_SOURCE_PHOTO_BYTES = 20 * 1024 * 1024;
+
+const SUPPORTED_PHOTO_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
+
+export const isSupportedPhoto = (file: Pick<File, "name" | "type">) =>
+  SUPPORTED_PHOTO_TYPES.has(file.type) || /\.hei[cf]$/i.test(file.name);
+
+type DecodedPhoto = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  dispose: () => void;
+};
+
+async function decodePhoto(file: Blob): Promise<DecodedPhoto> {
   try {
-    const canvas = document.createElement("canvas");
-    const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("invalid_image");
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    for (const quality of [0.88, 0.75, 0.6, 0.45]) {
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/webp", quality)
-      );
-      if (blob && blob.size <= 3 * 1024 * 1024) return blob;
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    return {
+      source: bitmap,
+      width: bitmap.width,
+      height: bitmap.height,
+      dispose: () => bitmap.close(),
+    };
+  } catch {
+    // Safari can render HEIC in an <img> even where createImageBitmap cannot decode it.
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("invalid_image"));
+        image.src = url;
+      });
+      if (!image.naturalWidth || !image.naturalHeight)
+        throw new Error("invalid_image");
+      return {
+        source: image,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        dispose: () => URL.revokeObjectURL(url),
+      };
+    } catch (error) {
+      URL.revokeObjectURL(url);
+      throw error;
     }
+  }
+}
+
+async function preparePhotoOnServer(file: File): Promise<Blob> {
+  const form = new FormData();
+  form.set("image", file);
+  const response = await fetch("/api/outfit-explorer/prepare-image", {
+    method: "POST",
+    body: form,
+    credentials: "same-origin",
+  });
+  if (!response.ok) throw new Error("invalid_image");
+  const blob = await response.blob();
+  if (!blob.size || blob.type !== "image/webp")
     throw new Error("invalid_image");
+  return blob;
+}
+
+export async function getPhotoDimensions(blob: Blob) {
+  const decoded = await decodePhoto(blob);
+  try {
+    return { width: decoded.width, height: decoded.height };
   } finally {
-    bitmap.close();
+    decoded.dispose();
+  }
+}
+
+export async function preparePhoto(file: File): Promise<Blob> {
+  if (!isSupportedPhoto(file) || !file.size || file.size > MAX_SOURCE_PHOTO_BYTES)
+    throw new Error("invalid_image");
+  try {
+    const decoded = await decodePhoto(file);
+    try {
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(1, 2400 / Math.max(decoded.width, decoded.height));
+      canvas.width = Math.round(decoded.width * scale);
+      canvas.height = Math.round(decoded.height * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("invalid_image");
+      ctx.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.88, 0.75, 0.6, 0.45]) {
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/webp", quality)
+        );
+        if (blob && blob.size <= 3 * 1024 * 1024) return blob;
+      }
+      throw new Error("invalid_image");
+    } finally {
+      decoded.dispose();
+    }
+  } catch {
+    return preparePhotoOnServer(file);
   }
 }
 export type PhotoEdit = {
@@ -36,14 +112,14 @@ export type PhotoEdit = {
 export async function renderPhotoEdit(blob: Blob, edit: PhotoEdit): Promise<Blob> {
   if (edit.aspect === null && edit.zoom === 1 && !edit.offsetX && !edit.offsetY)
     return blob;
-  const bitmap = await createImageBitmap(blob);
+  const decoded = await decodePhoto(blob);
   try {
-    const aspect = edit.aspect || bitmap.width / bitmap.height;
+    const aspect = edit.aspect || decoded.width / decoded.height;
     const width = aspect >= 1 ? 2000 : Math.round(2000 * aspect);
     const height = aspect >= 1 ? Math.round(2000 / aspect) : 2000;
-    const scale = Math.max(width / bitmap.width, height / bitmap.height) * edit.zoom;
-    const renderedWidth = bitmap.width * scale;
-    const renderedHeight = bitmap.height * scale;
+    const scale = Math.max(width / decoded.width, height / decoded.height) * edit.zoom;
+    const renderedWidth = decoded.width * scale;
+    const renderedHeight = decoded.height * scale;
     const maxX = Math.max(0, (renderedWidth - width) / 2);
     const maxY = Math.max(0, (renderedHeight - height) / 2);
     const canvas = document.createElement("canvas");
@@ -52,7 +128,7 @@ export async function renderPhotoEdit(blob: Blob, edit: PhotoEdit): Promise<Blob
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("invalid_image");
     ctx.drawImage(
-      bitmap,
+      decoded.source,
       (width - renderedWidth) / 2 + edit.offsetX * maxX,
       (height - renderedHeight) / 2 + edit.offsetY * maxY,
       renderedWidth,
@@ -66,7 +142,7 @@ export async function renderPhotoEdit(blob: Blob, edit: PhotoEdit): Promise<Blob
     }
     throw new Error("invalid_image");
   } finally {
-    bitmap.close();
+    decoded.dispose();
   }
 }
 export function uploadPhoto(
