@@ -30,7 +30,7 @@ describe("social post deletion", () => {
   it("removes post media from Storage immediately and clears its retry queue", async () => {
     const account = { id: randomUUID(), appUsername: "test" };
     const postId = randomUUID();
-    const paths = ["test/one.webp", "test/two.webp"];
+    const paths = ["test/one.webp", "test/two.display.webp"];
     const cleanup = query(null);
     database.from
       .mockReturnValueOnce(query({ id: postId, user_id: account.id }))
@@ -44,7 +44,7 @@ describe("social post deletion", () => {
       deleted: true,
       storageCleanupPending: false,
     });
-    expect(remove).toHaveBeenCalledWith(paths);
+    expect(remove).toHaveBeenCalledWith([...paths, "test/two.thumb.webp"]);
     expect(cleanup.in).toHaveBeenCalledWith("path", paths);
   });
 });

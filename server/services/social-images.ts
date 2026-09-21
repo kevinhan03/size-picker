@@ -3,6 +3,13 @@ import { SocialError } from "./social-validation";
 export const MAX_SOCIAL_UPLOAD_IMAGE_BYTES = 3 * 1024 * 1024;
 export const MAX_SOCIAL_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024;
 
+export async function createSocialThumbnail(bytes: Buffer) {
+  return sharp(bytes)
+    .resize({ width: 600, height: 800, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toBuffer();
+}
+
 export async function normalizeSocialImage(
   bytes: Buffer,
   maxInputBytes = MAX_SOCIAL_UPLOAD_IMAGE_BYTES

@@ -1,4 +1,5 @@
-import { normalizeSocialImage } from "../../../../server/services/social-images";
+import { createSocialThumbnail, normalizeSocialImage } from "../../../../server/services/social-images";
+import { socialThumbnailPath } from "../../../../server/services/social-image-paths";
 import {
   check,
   SOCIAL_BUCKET,
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     );
     const db = socialDb();
     const id = crypto.randomUUID();
-    const path = `${account.id}/${id}.webp`;
+    const path = `${account.id}/${id}.display.webp`;
     const count = await db
       .from("social_uploads")
       .select("id", { count: "exact", head: true })
@@ -54,6 +55,11 @@ export async function POST(request: Request) {
         upsert: false,
       });
     check(upload.error);
+    const thumbnail = await createSocialThumbnail(normalized.bytes);
+    const thumbnailUpload = await db.storage.from(SOCIAL_BUCKET).upload(
+      socialThumbnailPath(path), thumbnail, { contentType: "image/webp", upsert: false },
+    );
+    check(thumbnailUpload.error);
     return { id, width: normalized.width, height: normalized.height };
   }, 201);
 }

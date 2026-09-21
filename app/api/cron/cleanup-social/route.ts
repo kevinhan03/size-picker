@@ -5,6 +5,7 @@ import {
 } from "../../../../server/services/social";
 import { socialResponse } from "../../../../server/services/social-http";
 import { SocialError } from "../../../../server/services/social-validation";
+import { socialImageCleanupPaths } from "../../../../server/services/social-image-paths";
 export async function GET(request: Request) {
   return socialResponse(async () => {
     if (
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
     check(pending.error);
     const paths = (pending.data || []).map((p) => p.path);
     if (paths.length) {
-      const removed = await db.storage.from(SOCIAL_BUCKET).remove(paths);
+      const removed = await db.storage.from(SOCIAL_BUCKET).remove(socialImageCleanupPaths(paths));
       check(removed.error);
       const done = await db
         .from("social_file_cleanup")

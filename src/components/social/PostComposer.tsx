@@ -337,8 +337,8 @@ export function PostComposer({
       const additions: DraftPhoto[] = [];
       for (const file of Array.from(files)) {
         const blob = await preparePhoto(file);
-        const url = URL.createObjectURL(blob);
         const { width, height } = await getPhotoDimensions(blob);
+        const url = URL.createObjectURL(blob);
         urls.current.push(url);
         additions.push({
           key: createDraftId(),
@@ -839,6 +839,7 @@ export function PostComposer({
               >
               <ImagePlus size={36} strokeWidth={1} />
               <h3>{c.dropPhotos}</h3>
+              <p>{c.photoHelp}</p>
               <label
                 htmlFor={fileInputId}
                 className="social-button social-primary social-file-picker"

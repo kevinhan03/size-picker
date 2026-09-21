@@ -14,6 +14,7 @@ import {
 } from "./social-validation";
 import type { RegisteredRequestUser } from "../auth/request-user";
 
+import { socialImageCleanupPaths, socialThumbnailPath } from "./social-image-paths";
 export const SOCIAL_BUCKET = "outfit-explorer";
 export function socialDb() {
   assertSupabaseConfig();
@@ -137,7 +138,7 @@ export async function readPosts(
       : Promise.resolve({ data: [], error: null }),
     imageRows.length
       ? db.storage.from(SOCIAL_BUCKET).createSignedUrls(
-          imageRows.map((i) => i.image_path),
+          imageRows.map((i) => detail ? i.image_path : socialThumbnailPath(i.image_path)),
           3600
         )
       : Promise.resolve({ data: [], error: null }),
@@ -149,7 +150,7 @@ export async function readPosts(
   for (const i of imageRows) {
     const value: PostImage = {
       id: i.id,
-      url: signed.get(i.image_path) || "",
+      url: signed.get(detail ? i.image_path : socialThumbnailPath(i.image_path)) || "",
       width: i.width,
       height: i.height,
       tags: (tags.data || [])
@@ -343,7 +344,7 @@ export async function deletePost(id: string, account: RegisteredRequestUser) {
   // for immediate cleanup; leave queued failures for the scheduled retry.
   if (!paths.length) return { deleted: true, storageCleanupPending: false };
   try {
-    const removed = await db.storage.from(SOCIAL_BUCKET).remove(paths);
+    const removed = await db.storage.from(SOCIAL_BUCKET).remove(socialImageCleanupPaths(paths));
     if (removed.error) throw removed.error;
     const done = await db.from("social_file_cleanup").delete().in("path", paths);
     if (done.error) throw done.error;

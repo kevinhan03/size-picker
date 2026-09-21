@@ -17,6 +17,8 @@ const csp = [
   "img-src 'self' data: blob: https:",
   `connect-src 'self' https://${supabaseHostname} https://accounts.google.com https://oauth2.googleapis.com https://us.i.posthog.com https://us-assets.i.posthog.com https://vitals.vercel-insights.com`,
   "font-src 'self'",
+  // HEIC fallback uses a same-origin module worker and a local codec worker.
+  "worker-src 'self' blob:",
   "frame-src 'none'",
   "base-uri 'self'",
   "form-action 'self' https://accounts.google.com",
