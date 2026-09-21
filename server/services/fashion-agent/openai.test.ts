@@ -64,6 +64,52 @@ describe("OpenAI Responses boundary", () => {
       structuredResponse("example", schema, "rules", {})
     ).rejects.toThrow();
   });
+  it("retries one malformed structured response, then returns the valid retry", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test");
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          status: "completed",
+          output: [
+            {
+              type: "message",
+              content: [{ type: "output_text", text: "not json" }],
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          status: "completed",
+          output: [
+            {
+              type: "message",
+              content: [{ type: "output_text", text: '{"text":"retried"}' }],
+            },
+          ],
+        })
+      );
+    vi.stubGlobal("fetch", fetcher);
+    await expect(
+      structuredResponse("example", schema, "rules", {})
+    ).resolves.toEqual({ text: "retried" });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+  it("does not retry refusals or provider failures", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test");
+    const fetcher = vi.fn().mockResolvedValue(
+      Response.json({
+        status: "completed",
+        output: [{ type: "message", content: [{ type: "refusal" }] }],
+      })
+    );
+    vi.stubGlobal("fetch", fetcher);
+    await expect(
+      structuredResponse("example", schema, "rules", {})
+    ).rejects.toThrow("model_refused");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
   it("does not leak provider errors or call an unconfigured provider", async () => {
     vi.stubEnv("OPENAI_API_KEY", "");
     const fetcher = vi.fn();

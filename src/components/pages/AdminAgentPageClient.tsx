@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { AgentMessage } from "../../types/fashion-agent";
 import { ProgressiveImage } from "../ProgressiveImage";
+import { AgentResultInsight } from "../AgentResultInsight";
 import { getProductPageUrl } from "../../utils/product";
 
 type Item = {
@@ -418,9 +419,7 @@ export function AdminAgentPageClient() {
                 .filter((message) => message.role === "assistant")
                 .map((message) => (
                   <article key={message.id}>
-                    <p className="whitespace-pre-wrap text-sm leading-7">
-                      {message.text}
-                    </p>
+                    <AgentResultInsight message={message} />
                     <div className="my-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                       {message.products?.map((product, index) => (
                         <div
@@ -452,11 +451,18 @@ export function AdminAgentPageClient() {
                         </div>
                       ))}
                     </div>
-                    {message.notes?.map((note, index) => (
-                      <p className="text-xs text-gray-400" key={index}>
-                        {note}
-                      </p>
-                    ))}
+                    {!!message.notes?.length && (
+                      <details className="my-4 text-xs text-gray-400">
+                        <summary className="cursor-pointer py-2">
+                          분석 기준 보기
+                        </summary>
+                        {message.notes.map((note, index) => (
+                          <p className="text-xs text-gray-400" key={index}>
+                            {note}
+                          </p>
+                        ))}
+                      </details>
+                    )}
                   </article>
                 ))}
               {!messages.length && (

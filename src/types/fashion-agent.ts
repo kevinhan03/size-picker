@@ -42,6 +42,7 @@ export type AgentPlan = {
   question: string | null;
 };
 export type AgentProduct = ProductCardData & {
+  relationship?: "new" | "saved" | "owned";
   evidence?: {
     source: "digbox" | "closet" | "query";
     analyzedCount: number;
@@ -54,11 +55,13 @@ export type AgentProduct = ProductCardData & {
   recommendationGroup?: "primary" | "compatible";
 };
 export type AgentReply = {
+  presentation?: AgentPresentation;
   text: string;
   products: AgentProduct[];
   notes: string[];
 };
 export type AgentMessage = {
+  presentation?: AgentPresentation;
   id: string;
   role: "user" | "assistant";
   text: string;
@@ -66,6 +69,20 @@ export type AgentMessage = {
   notes?: string[];
 };
 export type AgentState = { plan: AgentPlan | null; resultIds: string[] };
+export type AgentPresentation = {
+  kind: "taste" | "recommend" | "compatible" | "compare" | "knowledge";
+  title: string;
+  distribution?: Array<{ label: string; percent: number }>;
+  confidence?: string;
+  representatives?: Array<{ label: string; products: ProductCardData[] }>;
+  comparedProducts?: ProductCardData[];
+  reference?: ProductCardData;
+  axes?: Array<{
+    label: string;
+    explanation?: string;
+    values: Array<{ name: string; value: number }>;
+  }>;
+};
 export type AgentConversation = {
   id: string;
   title: string;

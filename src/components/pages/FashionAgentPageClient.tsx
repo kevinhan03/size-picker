@@ -16,6 +16,8 @@ import { useLocaleContext } from "../../contexts/LocaleContext";
 import { authenticatedFetch } from "../../api/shared";
 import { getProductPageUrl } from "../../utils/product";
 import { ProgressiveImage } from "../ProgressiveImage";
+import { AgentResultInsight } from "../AgentResultInsight";
+import { agentPalette } from "../../utils/agent-palette";
 import type {
   AgentConversation,
   AgentMessage,
@@ -54,6 +56,14 @@ const errors: Record<string, [string, string]> = {
     "질문이 몰리고 있어요. 잠시 후 다시 시도해 주세요.",
     "The agent is busy. Please try again shortly.",
   ],
+  invalid_model_response: [
+    "답변 형식을 다시 확인하고 있어요. 잠시 후 다시 시도해 주세요.",
+    "The response format needs another try. Please try again shortly.",
+  ],
+  model_unavailable: [
+    "에이전트 응답을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.",
+    "The agent could not prepare a response. Please try again shortly.",
+  ],
 };
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await authenticatedFetch(url, init);
@@ -88,6 +98,13 @@ export function FashionAgentPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Record<string, FeedbackValue>>({});
+  const [feedbackStatus, setFeedbackStatus] = useState<
+    Record<string, "pending" | "saved" | "error">
+  >({});
+  const [reasonPanel, setReasonPanel] = useState<Record<string, boolean>>({});
+  const [feedbackLoadError, setFeedbackLoadError] = useState(false);
+  const feedbackLocks = useRef(new Set<string>());
+  const feedbackUser = useRef(auth.authUser?.id);
   const controller = useRef<AbortController | null>(null);
   const inFlight = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
@@ -100,6 +117,11 @@ export function FashionAgentPageClient() {
   const userId = auth.authUser?.id;
 
   useEffect(() => {
+    feedbackUser.current = userId;
+    setFeedback({});
+    setFeedbackStatus({});
+    setReasonPanel({});
+    feedbackLocks.current.clear();
     controller.current?.abort();
     inFlight.current = false;
     retry.current = null;
@@ -132,6 +154,35 @@ export function FashionAgentPageClient() {
       controller.current?.abort();
     };
   }, [userId]);
+  useEffect(() => {
+    setFeedbackLoadError(false);
+    if (!conversationId || !userId) return;
+    const abort = new AbortController();
+    api<
+      Array<{
+        assistant_message_id: string;
+        product_id: number;
+        sentiment: string;
+        reason: FeedbackValue;
+      }>
+    >(`/api/fashion-agent/feedback?conversationId=${conversationId}`, {
+      signal: abort.signal,
+    })
+      .then((rows) => {
+        if (abort.signal.aborted) return;
+        const restored = Object.fromEntries(
+          rows.map((row) => [
+            `${row.assistant_message_id}:${row.product_id}`,
+            row.sentiment === "positive" ? ("positive" as const) : row.reason,
+          ])
+        );
+        setFeedback((current) => ({ ...restored, ...current }));
+      })
+      .catch(() => {
+        if (!abort.signal.aborted) setFeedbackLoadError(true);
+      });
+    return () => abort.abort();
+  }, [conversationId, userId]);
   useEffect(() => {
     if (userId) ensureLoaded();
   }, [userId, ensureLoaded]);
@@ -258,8 +309,10 @@ export function FashionAgentPageClient() {
   ) {
     if (!conversationId) return;
     const key = `${messageId}:${productId}`;
-    const previous = feedback[key];
-    setFeedback((current) => ({ ...current, [key]: value }));
+    if (feedbackLocks.current.has(key)) return;
+    feedbackLocks.current.add(key);
+    const actor = userId;
+    setFeedbackStatus((current) => ({ ...current, [key]: "pending" }));
     try {
       await api("/api/fashion-agent/feedback", {
         method: "POST",
@@ -272,13 +325,15 @@ export function FashionAgentPageClient() {
           reason: value === "positive" ? null : value,
         }),
       });
+      if (feedbackUser.current !== actor) return;
+      setFeedback((current) => ({ ...current, [key]: value }));
+      setFeedbackStatus((current) => ({ ...current, [key]: "saved" }));
+      setReasonPanel((current) => ({ ...current, [key]: false }));
     } catch {
-      setFeedback((current) => {
-        const next = { ...current };
-        if (previous) next[key] = previous;
-        else delete next[key];
-        return next;
-      });
+      if (feedbackUser.current === actor)
+        setFeedbackStatus((current) => ({ ...current, [key]: "error" }));
+    } finally {
+      feedbackLocks.current.delete(key);
     }
   }
   if (auth.isAuthLoading)
@@ -429,149 +484,251 @@ export function FashionAgentPageClient() {
                     DIGBOX
                   </p>
                 )}
-                <p className="whitespace-pre-wrap break-words text-sm leading-7">
-                  {message.text}
-                </p>
-                {!!message.products?.length && (
-                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {message.products.map((product, index) => {
-                      const feedbackKey = `${message.id}:${product.id}`;
-                      const previous = message.products![index - 1];
-                      const beginsPairing =
-                        product.recommendationGroup === "compatible" &&
-                        previous?.recommendationGroup !== "compatible";
-                      return (
-                        <Fragment key={product.id}>
-                          {beginsPairing && (
-                            <p className="col-span-full mt-3 border-t border-white/10 pt-5 text-sm font-semibold text-orange-200">
-                              {say(
-                                "첫 번째 추천 상품과 어울리는 상품",
-                                "Pairs for the first recommendation"
-                              )}
-                            </p>
-                          )}
-                          <div
-                            key={product.id}
-                            className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]"
-                          >
-                            <Link
-                              href={getProductPageUrl(product)}
-                              className="block"
-                            >
-                              <div className="relative aspect-[4/5] bg-white/[0.04]">
-                                <ProgressiveImage
-                                  src={product.image}
-                                  alt={product.name}
-                                  className="object-contain"
-                                />
-                                <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-xs">
-                                  {index + 1}
-                                </span>
-                              </div>
-                              <div className="p-3">
-                                <p className="text-xs text-gray-400">
-                                  {product.brand}
-                                </p>
-                                <p className="mt-1 line-clamp-2 text-sm font-semibold">
-                                  {product.name}
-                                </p>
-                              </div>
-                            </Link>
-                            <div className="px-3 pb-3">
-                              {product.tasteScore !== null && (
-                                <p className="mb-2 text-xs font-medium text-orange-300">
-                                  {say(
-                                    "저장 스타일 유사도",
-                                    "Collection style similarity"
-                                  )}{" "}
-                                  {product.tasteScore}/100
-                                </p>
-                              )}
-                              <p className="text-xs leading-5 text-gray-400">
-                                {product.reasons[0]}
+                {message.role === "assistant" ? (
+                  <AgentResultInsight message={message} english={en} />
+                ) : (
+                  <p className="whitespace-pre-wrap break-words text-sm leading-7">
+                    {message.text}
+                  </p>
+                )}
+                {!!message.products?.length &&
+                  message.presentation?.kind !== "compare" && (
+                    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {message.products.map((product, index) => {
+                        const feedbackKey = `${message.id}:${product.id}`;
+                        const previous = message.products![index - 1];
+                        const beginsPairing =
+                          product.recommendationGroup === "compatible" &&
+                          previous?.recommendationGroup !== "compatible";
+                        return (
+                          <Fragment key={product.id}>
+                            {beginsPairing && (
+                              <p className="col-span-full mt-3 border-t border-white/10 pt-5 text-sm font-semibold text-orange-200">
+                                {say(
+                                  "첫 번째 추천 상품과 어울리는 상품",
+                                  "Pairs for the first recommendation"
+                                )}
                               </p>
-                              <details className="mt-2 text-xs leading-5 text-gray-400">
-                                <summary className="cursor-pointer py-2 text-orange-200">
-                                  {say(
-                                    "추천 근거와 확인할 점",
-                                    "Why this result"
+                            )}
+                            <div
+                              key={product.id}
+                              style={{
+                                borderColor: `${agentPalette(message.id).accent}40`,
+                              }}
+                              className="overflow-hidden rounded-3xl border border-[#354050] bg-[#181d26]"
+                            >
+                              <Link
+                                href={getProductPageUrl(product)}
+                                className="block"
+                              >
+                                <div className="relative aspect-[4/5] bg-white/[0.04]">
+                                  <ProgressiveImage
+                                    src={product.image}
+                                    alt={product.name}
+                                    className="object-contain"
+                                  />
+                                  <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-xs">
+                                    {index + 1}
+                                  </span>
+                                  {product.relationship && (
+                                    <span
+                                      style={{
+                                        background: agentPalette(message.id)
+                                          .accent,
+                                        color: "#181d26",
+                                      }}
+                                      className="absolute bottom-2 left-2 rounded-lg px-2 py-1 text-[10px] font-medium"
+                                    >
+                                      {product.relationship === "owned"
+                                        ? say("보유한 상품", "In wardrobe")
+                                        : product.relationship === "saved"
+                                          ? say("저장한 상품", "Saved")
+                                          : say("새로운 상품", "New to you")}
+                                    </span>
                                   )}
-                                </summary>
-                                {product.reasons.slice(1).map((reason, i) => (
-                                  <p key={i} className="mt-2">
-                                    {reason}
+                                </div>
+                                <div className="p-3">
+                                  <p className="text-xs text-gray-400">
+                                    {product.brand}
                                   </p>
-                                ))}
-                                {product.evidence && (
-                                  <>
-                                    <p className="mt-2">
-                                      {product.evidence.source === "query"
-                                        ? say(
-                                            "이번 질문의 조건 기준",
-                                            "Based on this request"
-                                          )
-                                        : say(
-                                            `분석된 ${product.evidence.source === "closet" ? "옷장" : "저장"} 상품 ${product.evidence.analyzedCount}개 기준`,
-                                            `Based on ${product.evidence.analyzedCount} analyzed collection items`
-                                          )}
+                                  <p className="mt-1 line-clamp-2 text-sm font-normal leading-6">
+                                    {product.name}
+                                  </p>
+                                </div>
+                              </Link>
+                              <div className="px-3 pb-3">
+                                {product.tasteScore !== null && (
+                                  <p className="mb-2 text-xs font-medium text-orange-300">
+                                    {say(
+                                      "저장 스타일 유사도",
+                                      "Collection style similarity"
+                                    )}{" "}
+                                    {product.tasteScore}/100
+                                  </p>
+                                )}
+                                <p className="text-xs leading-5 text-gray-400">
+                                  {product.reasons[0]}
+                                </p>
+                                <details className="mt-2 text-xs leading-5 text-gray-400">
+                                  <summary className="cursor-pointer py-2 text-orange-200">
+                                    {say(
+                                      "추천 근거와 확인할 점",
+                                      "Why this result"
+                                    )}
+                                  </summary>
+                                  {product.reasons.slice(1).map((reason, i) => (
+                                    <p key={i} className="mt-2">
+                                      {reason}
                                     </p>
-                                    {product.evidence.source !== "query" && (
+                                  ))}
+                                  {product.evidence && (
+                                    <>
                                       <p className="mt-2">
-                                        {product.evidence.confidence === "high"
+                                        {product.evidence.source === "query"
                                           ? say(
-                                              "저장 데이터에서 반복된 특징을 반영했어요.",
-                                              "Reflects recurring features in your collection."
+                                              "이번 질문의 조건 기준",
+                                              "Based on this request"
                                             )
                                           : say(
-                                              "취향 근거가 제한적이므로 유사도는 참고해 주세요.",
-                                              "Taste evidence is limited; use similarity as a guide."
+                                              `분석된 ${product.evidence.source === "closet" ? "옷장" : "저장"} 상품 ${product.evidence.analyzedCount}개 기준`,
+                                              `Based on ${product.evidence.analyzedCount} analyzed collection items`
                                             )}
                                       </p>
+                                      {product.evidence.source !== "query" && (
+                                        <p className="mt-2">
+                                          {product.evidence.confidence ===
+                                          "high"
+                                            ? say(
+                                                "저장 데이터에서 반복된 특징을 반영했어요.",
+                                                "Reflects recurring features in your collection."
+                                              )
+                                            : say(
+                                                "취향 근거가 제한적이므로 유사도는 참고해 주세요.",
+                                                "Taste evidence is limited; use similarity as a guide."
+                                              )}
+                                        </p>
+                                      )}
+                                      {product.evidence.caveats.map(
+                                        (note, i) => (
+                                          <p key={i} className="mt-2">
+                                            {note}
+                                          </p>
+                                        )
+                                      )}
+                                    </>
+                                  )}
+                                </details>
+                                <div className="mt-3 flex gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      feedbackStatus[feedbackKey] === "pending"
+                                    }
+                                    aria-pressed={
+                                      feedback[feedbackKey] === "positive"
+                                    }
+                                    style={
+                                      feedback[feedbackKey] === "positive"
+                                        ? {
+                                            background: agentPalette(message.id)
+                                              .accent,
+                                            color: "#181d26",
+                                          }
+                                        : undefined
+                                    }
+                                    onClick={() =>
+                                      void submitFeedback(
+                                        message.id,
+                                        product.id,
+                                        "positive"
+                                      )
+                                    }
+                                    className={`flex min-h-11 flex-1 items-center justify-center gap-1 rounded-xl border text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-300 motion-safe:active:scale-[0.97] disabled:opacity-50 ${feedback[feedbackKey] === "positive" ? "border-orange-400 bg-orange-400/10 text-orange-200" : "border-white/10 text-gray-300 hover:bg-white/5"}`}
+                                  >
+                                    {feedback[feedbackKey] === "positive" ? (
+                                      <Check className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <ThumbsUp className="h-3.5 w-3.5" />
                                     )}
-                                    {product.evidence.caveats.map((note, i) => (
-                                      <p key={i} className="mt-2">
-                                        {note}
-                                      </p>
-                                    ))}
-                                  </>
-                                )}
-                              </details>
-                              <div className="mt-3 flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void submitFeedback(
-                                      message.id,
-                                      product.id,
-                                      "positive"
-                                    )
-                                  }
-                                  className={`flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border text-xs ${feedback[feedbackKey] === "positive" ? "border-orange-400 bg-orange-400/10 text-orange-200" : "border-white/10 text-gray-300 hover:bg-white/5"}`}
+                                    {say("좋아요", "Useful")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      feedbackStatus[feedbackKey] === "pending"
+                                    }
+                                    aria-expanded={Boolean(
+                                      reasonPanel[feedbackKey]
+                                    )}
+                                    aria-pressed={Boolean(
+                                      feedback[feedbackKey] &&
+                                      feedback[feedbackKey] !== "positive"
+                                    )}
+                                    style={
+                                      feedback[feedbackKey] &&
+                                      feedback[feedbackKey] !== "positive"
+                                        ? {
+                                            background: agentPalette(message.id)
+                                              .accent,
+                                            color: "#181d26",
+                                          }
+                                        : undefined
+                                    }
+                                    onClick={() =>
+                                      setReasonPanel((current) => ({
+                                        ...current,
+                                        [feedbackKey]: !current[feedbackKey],
+                                      }))
+                                    }
+                                    className={`min-h-11 flex-1 rounded-xl border text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-300 motion-safe:active:scale-[0.97] disabled:opacity-50 ${feedback[feedbackKey] && feedback[feedbackKey] !== "positive" ? "border-orange-400 bg-orange-400/10 text-orange-200" : "border-white/10 text-gray-300 hover:bg-white/5"}`}
+                                  >
+                                    {feedback[feedbackKey] &&
+                                    feedback[feedbackKey] !== "positive"
+                                      ? say("✓ 별로예요", "✓ Not for me")
+                                      : say("별로예요", "Not for me")}
+                                  </button>
+                                </div>
+                                <p
+                                  role="status"
+                                  aria-live="polite"
+                                  className={`mt-2 min-h-4 text-[11px] ${feedbackStatus[feedbackKey] === "error" ? "text-red-300" : "text-emerald-200"}`}
                                 >
-                                  <ThumbsUp className="h-3.5 w-3.5" />
-                                  {say("좋아요", "Useful")}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void submitFeedback(
-                                      message.id,
-                                      product.id,
-                                      "not_my_taste"
-                                    )
-                                  }
-                                  className={`min-h-9 flex-1 rounded-lg border text-xs ${feedback[feedbackKey] && feedback[feedbackKey] !== "positive" ? "border-orange-400 bg-orange-400/10 text-orange-200" : "border-white/10 text-gray-300 hover:bg-white/5"}`}
-                                >
-                                  {say("별로예요", "Not for me")}
-                                </button>
-                              </div>
-                              {feedback[feedbackKey] &&
-                                feedback[feedbackKey] !== "positive" && (
+                                  {feedbackStatus[feedbackKey] === "pending"
+                                    ? say("의견 저장 중…", "Saving feedback…")
+                                    : feedbackStatus[feedbackKey] === "error"
+                                      ? say(
+                                          "저장하지 못했어요. 다시 눌러 주세요.",
+                                          "Could not save. Please try again."
+                                        )
+                                      : feedback[feedbackKey]
+                                        ? feedback[feedbackKey] === "positive"
+                                          ? say(
+                                              "의견을 저장했어요.",
+                                              "Feedback saved."
+                                            )
+                                          : say("저장됨 · ", "Saved · ") +
+                                            (negativeReasons.find(
+                                              ([value]) =>
+                                                value === feedback[feedbackKey]
+                                            )?.[en ? 2 : 1] || "")
+                                        : ""}
+                                </p>
+                                {reasonPanel[feedbackKey] && (
                                   <div className="mt-2 grid gap-1">
+                                    <p className="mb-1 text-xs text-gray-300">
+                                      {say(
+                                        "어떤 점이 아쉬웠나요?",
+                                        "What could be better?"
+                                      )}
+                                    </p>
                                     {negativeReasons.map(([value, ko, en]) => (
                                       <button
                                         key={value}
                                         type="button"
+                                        disabled={
+                                          feedbackStatus[feedbackKey] ===
+                                          "pending"
+                                        }
                                         onClick={() =>
                                           void submitFeedback(
                                             message.id,
@@ -586,49 +743,56 @@ export function FashionAgentPageClient() {
                                     ))}
                                   </div>
                                 )}
-                              <button
-                                type="button"
-                                disabled={
-                                  saving === product.id ||
-                                  isInDigbox(product.id)
-                                }
-                                onClick={async () => {
-                                  setSaving(product.id);
-                                  try {
-                                    await toggleDigbox(
-                                      product.id,
-                                      "fashion_agent"
-                                    );
-                                  } finally {
-                                    setSaving(null);
+                                <button
+                                  type="button"
+                                  disabled={
+                                    saving === product.id ||
+                                    isInDigbox(product.id)
                                   }
-                                }}
-                                className="mt-3 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-50"
-                              >
-                                {isInDigbox(product.id) ? (
-                                  <Check className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Bookmark className="h-3.5 w-3.5" />
-                                )}
-                                {isInDigbox(product.id)
-                                  ? say("저장됨", "Saved")
-                                  : say("저장", "Save")}
-                              </button>
+                                  onClick={async () => {
+                                    setSaving(product.id);
+                                    try {
+                                      await toggleDigbox(
+                                        product.id,
+                                        "fashion_agent"
+                                      );
+                                    } finally {
+                                      setSaving(null);
+                                    }
+                                  }}
+                                  className="mt-3 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-50"
+                                >
+                                  {isInDigbox(product.id) ? (
+                                    <Check className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Bookmark className="h-3.5 w-3.5" />
+                                  )}
+                                  {isInDigbox(product.id)
+                                    ? say("저장됨", "Saved")
+                                    : say("저장", "Save")}
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        </Fragment>
-                      );
-                    })}
-                  </div>
+                          </Fragment>
+                        );
+                      })}
+                    </div>
+                  )}
+                {!!message.notes?.length && (
+                  <details className="mt-4 text-xs text-slate-400">
+                    <summary className="cursor-pointer py-2">
+                      {say("분석 기준 보기", "About this analysis")}
+                    </summary>
+                    {message.notes.map((note, index) => (
+                      <p
+                        key={index}
+                        className="mt-3 text-xs leading-5 text-gray-500"
+                      >
+                        {note}
+                      </p>
+                    ))}
+                  </details>
                 )}
-                {message.notes?.map((note, index) => (
-                  <p
-                    key={index}
-                    className="mt-3 text-xs leading-5 text-gray-500"
-                  >
-                    {note}
-                  </p>
-                ))}
               </article>
             ))}
             {pending && (
@@ -655,6 +819,14 @@ export function FashionAgentPageClient() {
             {error && (
               <p role="alert" className="mb-3 text-sm text-orange-300">
                 {(errors[error] || errors.agent_unavailable)[en ? 1 : 0]}
+              </p>
+            )}
+            {feedbackLoadError && (
+              <p role="status" className="mb-3 text-xs text-amber-200">
+                {say(
+                  "이전에 남긴 의견을 불러오지 못했어요. 대화를 다시 열어 주세요.",
+                  "Previous feedback could not be loaded. Reopen this conversation."
+                )}
               </p>
             )}
             <div className="flex items-end gap-3 rounded-2xl border border-white/15 bg-[#151517] p-3 focus-within:border-orange-400/50">

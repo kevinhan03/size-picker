@@ -240,6 +240,56 @@ describe("bounded agent orchestration", () => {
     expect(result.state.resultIds).toEqual(["56"]);
     expect(structuredResponse).toHaveBeenCalledTimes(1);
   });
+  it("adds only engine-matched knowledge examples and preserves their displayed ordinals", async () => {
+    vi.mocked(structuredResponse)
+      .mockResolvedValueOnce({
+        ...plan(),
+        intent: "knowledge",
+        filters: { ...emptyFilters(), preferredStyles: ["workwear"] },
+      })
+      .mockResolvedValueOnce({ text: "작업복에서 비롯된 스타일이에요." });
+    const products = Array.from({ length: 6 }, (_, index) => ({
+      id: String(index + 1),
+      brand: "B",
+      name: "Jacket",
+      category: "Outer",
+      image: "",
+      url: "",
+      tasteScore: null,
+      reasons: [],
+    }));
+    vi.mocked(runEngine).mockResolvedValue({
+      text: "Found",
+      products,
+      notes: [],
+    });
+    const result = await runAgent("actor", "워크웨어가 뭐야?", state, [], "ko");
+    expect(result.reply.presentation?.kind).toBe("knowledge");
+    expect(result.reply.products).toHaveLength(4);
+    expect(result.state.resultIds).toEqual(["1", "2", "3", "4"]);
+    expect(runEngine).toHaveBeenCalledWith(
+      "actor",
+      expect.objectContaining({
+        personalized: false,
+        filters: expect.objectContaining({ preferredStyles: ["workwear"] }),
+      }),
+      [],
+      "ko"
+    );
+  });
+  it("still answers a knowledge question when optional catalog search fails", async () => {
+    vi.mocked(structuredResponse)
+      .mockResolvedValueOnce({
+        ...plan(),
+        intent: "knowledge",
+        filters: { ...emptyFilters(), preferredStyles: ["minimal"] },
+      })
+      .mockResolvedValueOnce({ text: "간결한 디자인을 중심으로 해요." });
+    vi.mocked(runEngine).mockRejectedValue(new Error("catalog unavailable"));
+    const result = await runAgent("actor", "미니멀이 뭐야?", state, [], "ko");
+    expect(result.reply.text).toBe("간결한 디자인을 중심으로 해요.");
+    expect(result.reply.products).toEqual([]);
+  });
   it("asks for two identified products before comparing", async () => {
     vi.mocked(structuredResponse).mockResolvedValue({
       ...plan(),

@@ -37,6 +37,12 @@ import { traceEvent } from "./trace";
 import { recordQueryTasteObservation } from "./query-taste-observation";
 import { computeTasteConfidence } from "./taste-confidence";
 import { FASHION_AGENT_ALGORITHM } from "./version";
+import {
+  candidateRelationships,
+  compactCard,
+  discoveryMix,
+  tasteRepresentatives,
+} from "./presentation";
 
 const AXES = STYLE_AXIS_FIELDS.map((f) => f.key) as Array<keyof StyleAxes>;
 const axisLabels: Record<string, [string, string]> = {
@@ -48,6 +54,25 @@ const axisLabels: Record<string, [string, string]> = {
   affective_softness: ["부드러운 분위기", "soft mood"],
   unconventionality: ["독특함", "unconventionality"],
   sensuality: ["몸선 강조", "body emphasis"],
+};
+const axisImpressions: Record<string, [string, string]> = {
+  formality: ["격식 있는 느낌", "a more formal mood"],
+  refinement: ["깔끔하게 정돈된 인상", "a more polished impression"],
+  technicality: [
+    "아웃도어·장비를 떠올리게 하는 인상",
+    "a more outdoors- or gear-inspired appearance",
+  ],
+  historical_orientation: [
+    "클래식·빈티지를 떠올리게 하는 인상",
+    "a more heritage-inspired appearance",
+  ],
+  visual_boldness: ["눈에 띄는 존재감", "a more visually striking appearance"],
+  affective_softness: ["부드럽고 편안한 느낌", "a softer mood"],
+  unconventionality: [
+    "익숙한 디자인에서 벗어난 독특함",
+    "a more unconventional design impression",
+  ],
+  sensuality: ["몸선을 강조하는 인상", "more emphasis on the body line"],
 };
 export function effectiveFacts(product: Product): Record<string, unknown> {
   return (
@@ -249,16 +274,39 @@ export async function runEngine(
       .slice(0, 3)
       .map((entry) =>
         say(
-          `${styleProfileLabels(entry.tag)} 성향이 ${entry.percent}%로 나타나요.`,
-          `${styleProfileLabels(entry.tag, "en")} accounts for ${entry.percent}% of the style summary.`
+          `${styleProfileLabels(entry.tag)} ${entry.percent.toFixed(1)}%`,
+          `${styleProfileLabels(entry.tag, "en")} ${entry.percent.toFixed(1)}%`
         )
       );
     const shift = computeTasteShift(collection.products, plan.source);
     return {
+      presentation: {
+        kind: "taste",
+        title: say(
+          `${sourceLabel}에서 발견한 취향`,
+          "Your collection, in style"
+        ),
+        confidence: tasteConfidence.level,
+        representatives: tasteRepresentatives(
+          collection.products,
+          summary.entries.slice(0, 3).map((entry) => entry.tag),
+          locale
+        ),
+        distribution: summary.entries.map((entry) => ({
+          label: styleProfileLabels(entry.tag, en ? "en" : "ko"),
+          percent: Number(entry.percent.toFixed(1)),
+        })),
+      },
       text: lines.length
         ? say(
-            `${sourceLabel} ${summary.totalCount}개 중 스타일 분석이 있는 ${summary.taggedCount}개를 보면,\n${lines.join("\n")}`,
-            `Of ${summary.totalCount} ${sourceLabel}, ${summary.taggedCount} have style analysis:\n${lines.join("\n")}`
+            `${summary.entries
+              .slice(0, 3)
+              .map((entry) => styleProfileLabels(entry.tag))
+              .join(" · ")} 감각이 함께 나타나요.`,
+            `Your collection blends ${summary.entries
+              .slice(0, 3)
+              .map((entry) => styleProfileLabels(entry.tag, "en"))
+              .join(", ")}.`
           )
         : say(
             "아직 저장된 스타일 분석이 충분하지 않아요.",
@@ -422,6 +470,10 @@ export async function runEngine(
     intent: plan.intent,
   });
   const savedIds = new Set(collection.products.map((p) => p.id));
+  const relationships = await candidateRelationships(
+    userId,
+    products.map((product) => product.id)
+  );
   if (
     plan.session?.candidateScope === "collection" &&
     plan.intent !== "compare"
@@ -430,7 +482,8 @@ export async function runEngine(
   if (plan.intent !== "compare")
     products = products.filter(
       (p) =>
-        matchesFilters(p, plan) && (!plan.exploration || !savedIds.has(p.id))
+        matchesFilters(p, plan) &&
+        (!plan.exploration || relationships.get(p.id) === "new")
     );
   traceEvent("candidate_funnel", {
     stage: "after_hard_filters",
@@ -603,6 +656,7 @@ export async function runEngine(
       );
     return {
       ...card,
+      relationship: relationships.get(card.id),
       reasons,
       evidence: {
         source: needsTaste ? plan.source : "query",
@@ -617,8 +671,8 @@ export async function runEngine(
           ...(plan.exploration
             ? [
                 say(
-                  "새로움은 선택한 컬렉션과의 스타일 차이이며, 실제 보유 여부 전체를 확인한 것은 아니에요.",
-                  "Novelty reflects style distance from the selected collection, not a complete ownership check."
+                  "저장·옷장에 등록된 상품은 제외했어요. 등록하지 않은 보유 상품은 알 수 없어요.",
+                  "Items in your saved list and wardrobe are excluded; unregistered ownership is unknown."
                 ),
               ]
             : []),
@@ -628,10 +682,17 @@ export async function runEngine(
         needsTaste && item.taste !== null ? Math.round(item.taste * 100) : null,
     };
   };
-  const cards: AgentProduct[] = scored
+  const usesDiscoveryMix =
+    plan.session?.candidateScope !== "collection" &&
+    ["recommend", "search", "compatible"].includes(plan.intent);
+  const select = (items: typeof scored) =>
+    usesDiscoveryMix
+      ? discoveryMix(items, (item) => relationships.get(item.product.id))
+      : items.slice(0, 8);
+  const cards: AgentProduct[] = select(scored)
     .slice(0, 8)
     .flatMap((item) => toCard(item) || []);
-  const feedbackCards: AgentProduct[] = feedbackScored
+  const feedbackCards: AgentProduct[] = select(feedbackScored)
     .slice(0, 8)
     .flatMap((item) => toCard(item, true) || []);
   const changedPositions = feedbackEligible
@@ -640,6 +701,16 @@ export async function runEngine(
         .filter((card, index) => feedbackCards[index]?.id !== card.id).length
     : 0;
   const comparisonEligible = feedbackEligible && changedPositions > 0;
+  traceEvent("display_selection", {
+    policy: usesDiscoveryMix ? "catalog-max-two-familiar" : "relevance-order",
+    productIds: cards.map((card) => card.id),
+    composition: Object.fromEntries(
+      ["new", "saved", "owned"].map((relationship) => [
+        relationship,
+        cards.filter((card) => card.relationship === relationship).length,
+      ])
+    ),
+  });
   if (plan.personalized && ["recommend", "search"].includes(plan.intent))
     traceEvent("feedback_shadow", {
       baselineVersion: FASHION_AGENT_ALGORITHM.ranking,
@@ -688,8 +759,8 @@ export async function runEngine(
       ? differences
           .map((key) =>
             say(
-              `${a![key] > b![key] ? left.name : right.name}의 ${axisLabels[key][0]} 점수가 더 높아요 (${a![key]} / ${b![key]}, 7점 척도).`,
-              `${a![key] > b![key] ? left.name : right.name} scores higher on ${axisLabels[key][1]} (${a![key]} / ${b![key]}, on a 7-point scale).`
+              `${a![key] > b![key] ? left.name : right.name}에서 ${axisImpressions[key][0]}이 더 느껴져요.`,
+              `${a![key] > b![key] ? left.name : right.name} has ${axisImpressions[key][1]}.`
             )
           )
           .join("\n")
@@ -712,5 +783,70 @@ export async function runEngine(
       )
     );
   }
-  return { text, products: cards, notes };
+  return {
+    text,
+    products: cards,
+    notes,
+    presentation: {
+      kind:
+        plan.intent === "compare"
+          ? "compare"
+          : plan.intent === "compatible"
+            ? "compatible"
+            : "recommend",
+      title: say(
+        plan.intent === "compare"
+          ? "두 상품의 스타일 비교"
+          : plan.intent === "compatible"
+            ? "함께 입기 좋은 조합"
+            : "이번 요청에 맞는 발견",
+        plan.intent === "compare"
+          ? "Style comparison"
+          : plan.intent === "compatible"
+            ? "Made to pair"
+            : "Your edit"
+      ),
+      reference:
+        plan.intent === "compatible"
+          ? normalizeProductCard(rowsById.get(ids[0])) || undefined
+          : undefined,
+      comparedProducts:
+        plan.intent === "compare"
+          ? ids.flatMap((id) => {
+              const product = referenced.find((product) => product.id === id);
+              return product ? [compactCard(product)] : [];
+            })
+          : undefined,
+      axes:
+        plan.intent === "compare"
+          ? AXES.flatMap((key) => {
+              const values = ids.flatMap((id) => {
+                const product = referenced.find(
+                  (product) => product.id === id
+                )!;
+                const axes = getEffectiveStyleAxes(product)?.axes;
+                return axes ? [{ name: product.name, value: axes[key] }] : [];
+              });
+              return values.length === 2
+                ? [
+                    {
+                      label: axisLabels[key][en ? 1 : 0],
+                      values,
+                      explanation:
+                        Math.abs(values[0].value - values[1].value) <= 0.5
+                          ? say(
+                              "두 상품의 디자인 인상이 비슷해요.",
+                              "Both products have a similar impression here."
+                            )
+                          : say(
+                              `${values[0].value > values[1].value ? "첫 번째" : "두 번째"} 상품에서 ${axisImpressions[key][0]}이 ${Math.abs(values[0].value - values[1].value) < 1.5 ? "조금 더" : Math.abs(values[0].value - values[1].value) < 2.5 ? "더 뚜렷하게" : "훨씬 더"} 느껴져요.`,
+                              `The ${values[0].value > values[1].value ? "first" : "second"} product has ${axisImpressions[key][1]}.`
+                            ),
+                    },
+                  ]
+                : [];
+            })
+          : undefined,
+    },
+  };
 }

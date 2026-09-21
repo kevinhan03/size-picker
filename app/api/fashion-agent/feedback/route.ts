@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       !body ||
       !uuid.test(body.conversationId) ||
       typeof body.assistantMessageId !== "string" ||
-      !/^\\d+$/.test(String(body.productId)) ||
+      !/^\d+$/.test(String(body.productId)) ||
       !["positive", "negative"].includes(body.sentiment) ||
       (body.sentiment === "negative" && !reasons.has(body.reason)) ||
       (body.sentiment === "positive" && body.reason !== null)
@@ -87,6 +87,41 @@ export async function POST(request: Request) {
     if (error) throw error;
     return NextResponse.json(
       { ok: true },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "feedback_unavailable" },
+      { status: 503 }
+    );
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const user = await getRegisteredRequestUser(request);
+    if (!user)
+      return NextResponse.json(
+        { ok: false, error: "login_required" },
+        { status: 401 }
+      );
+    const conversationId = new URL(request.url).searchParams.get(
+      "conversationId"
+    );
+    if (!conversationId || !uuid.test(conversationId))
+      return NextResponse.json(
+        { ok: false, error: "invalid_request" },
+        { status: 400 }
+      );
+    assertSupabaseConfig();
+    const { data, error } = await supabase!
+      .from("fashion_agent_feedback")
+      .select("assistant_message_id,product_id,sentiment,reason")
+      .eq("user_id", user.id)
+      .eq("conversation_id", conversationId);
+    if (error) throw error;
+    return NextResponse.json(
+      { ok: true, data: data || [] },
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch {
