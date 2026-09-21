@@ -23,6 +23,14 @@ import { useProductFormContext } from "../../contexts/ProductFormContext";
 import { getCategoryLabel } from "../../constants";
 import { FilterDropdown } from "../FilterDropdown";
 import { PageState } from "../PageState";
+
+// crypto.randomUUID is unavailable on insecure HTTP origins, which is common
+// when opening a local development site from an Android phone over Wi-Fi.
+function createDraftId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+    return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
 import type { Product } from "../../types";
 import type { PostDetail, PostProductTag } from "../../types/social";
 
@@ -96,7 +104,7 @@ export function PostComposer({
   );
   const input = useRef<HTMLInputElement>(null);
   const replaceKey = useRef<string | null>(null);
-  const postId = useRef(post?.id || crypto.randomUUID());
+  const postId = useRef(post?.id || createDraftId());
   const urls = useRef<string[]>([]);
   const uploads = useRef(new Set<string>());
   const published = useRef(false);
@@ -333,7 +341,7 @@ export function PostComposer({
         const { width, height } = await getPhotoDimensions(blob);
         urls.current.push(url);
         additions.push({
-          key: crypto.randomUUID(),
+          key: createDraftId(),
           url,
           blob,
           width,
@@ -654,7 +662,7 @@ export function PostComposer({
       tags: [
         ...p.tags,
         {
-          id: `new-${crypto.randomUUID()}`,
+          id: `new-${createDraftId()}`,
           productId: String(product.id),
           x: point.x,
           y: point.y,
