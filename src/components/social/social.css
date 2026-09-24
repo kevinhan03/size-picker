@@ -1574,6 +1574,13 @@
   border: 1px solid #ffffff2a;
   background: #ffffff08;
 }
+.social-tag-empty-hint {
+  margin: 0;
+  padding: 10px 0 4px;
+  color: #ffffffa8;
+  font-size: 13px;
+  text-align: center;
+}
 .social-compose-layout--tags > div:last-child {
   height: min(54dvh, 440px);
   min-height: 0;
@@ -1699,15 +1706,6 @@
   align-content: start;
   margin: 12px 0 0;
   overscroll-behavior: contain;
-}
-@media (max-width: 640px) {
-  .social-post-composer .social-compose-layout--tags .social-compose-photo-stage {
-    height: min(22dvh, 160px);
-    min-height: 0;
-  }
-  .social-compose-layout--tags > div:last-child {
-    height: min(390px, 46dvh);
-  }
 }
 .social-tag-product-picker {
   grid-template-columns: 1fr;
@@ -1964,4 +1962,138 @@
   .social-loading-shimmer {
     animation: none;
   }
+}
+
+@media (max-width: 640px) {
+  .social-dialog-wide.social-post-composer--tagging {
+    inset: 0;
+    width: 100vw;
+    min-width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .social-post-composer--tagging > fieldset { overflow: hidden; }
+  .social-post-composer--tagging .social-compose-body {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+  }
+  .social-post-composer--tagging .social-compose-layout--tags {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    gap: 0;
+  }
+  .social-post-composer--tagging .social-compose-layout--tags > div:first-child {
+    display: flex;
+    min-height: 0;
+  }
+  .social-post-composer--tagging .social-compose-photo-stage {
+    flex: 1;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    background: #050505;
+  }
+  .social-post-composer--tagging .social-compose-photo-stage .social-editor-image {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-radius: 0;
+  }
+  .social-post-composer--tagging .social-compose-layout--tags > div:last-child {
+    height: auto;
+    min-height: 0;
+  }
+  .social-post-composer--tagging .social-tag-summary-panel {
+    height: auto;
+    max-height: min(31dvh, 250px);
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid #ffffff16;
+    background: #111114;
+  }
+  .social-post-composer--tagging .social-tag-add-button {
+    flex: none;
+    margin: 0 0 12px;
+  }
+  .social-post-composer--tagging .social-tag-list {
+    min-height: 0;
+    max-height: min(18dvh, 150px);
+    margin: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .social-post-composer--tagging .social-tag-empty-hint {
+    padding: 12px 0 4px;
+  }
+  .social-tag-picker-overlay {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    display: block;
+    pointer-events: auto;
+  }
+  .social-tag-picker-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    border: 0;
+    background: rgb(0 0 0 / 56%);
+    cursor: default;
+  }
+  .social-tag-picker-sheet {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    height: min(78dvh, 680px);
+    min-height: min(56dvh, 460px);
+    max-height: calc(100dvh - env(safe-area-inset-top));
+    padding: 10px 16px max(16px, env(safe-area-inset-bottom));
+    border-radius: 24px 24px 0 0;
+    background: #17171b;
+    box-shadow: 0 -20px 48px #0008;
+    animation: social-tag-picker-rise 180ms var(--ease-out, ease-out);
+  }
+  .social-tag-picker-sheet .social-tag-picker-filters { flex: none; }
+  .social-tag-picker-sheet .social-tag-product-picker {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    align-content: start;
+    overscroll-behavior: contain;
+  }
+  .social-tag-picker-handle {
+    display: block;
+    flex: none;
+    width: 36px;
+    height: 4px;
+    margin: 0 auto 12px;
+    border-radius: 999px;
+    background: #ffffff42;
+  }
+  .social-tag-picker-sheet .social-picker-list { margin-bottom: 0; }
+}
+
+@keyframes social-tag-picker-rise {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .social-tag-picker-sheet { animation: none; }
 }

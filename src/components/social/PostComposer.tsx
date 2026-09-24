@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Local previews and signed images. */
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -20,7 +20,7 @@ import { socialError, useSocialMessages } from "./messages";
 import { changed, socialFetch, useSocialResource } from "./client";
 import { getPhotoDimensions, preparePhoto, renderPhotoEdit, uploadPhoto } from "./image-upload";
 import { useProductFormContext } from "../../contexts/ProductFormContext";
-import { getCategoryLabel } from "../../constants";
+import { CATEGORY_OPTIONS, getCategoryLabel } from "../../constants";
 import { FilterDropdown } from "../FilterDropdown";
 import { PageState } from "../PageState";
 
@@ -98,11 +98,15 @@ export function PostComposer({
   const [showZoomControl, setShowZoomControl] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [confirmExit, setConfirmExit] = useState<"close" | "register" | "discard-photos" | null>(
     null
   );
   const input = useRef<HTMLInputElement>(null);
+  const tagAddButton = useRef<HTMLButtonElement>(null);
+  const tagSearchInput = useRef<HTMLInputElement>(null);
+  const tagPickerSheet = useRef<HTMLElement>(null);
   const replaceKey = useRef<string | null>(null);
   const postId = useRef(post?.id || createDraftId());
   const urls = useRef<string[]>([]);
@@ -165,6 +169,13 @@ export function PostComposer({
     []
   );
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsMobileViewport(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
     photosRef.current = photos;
     activeKeyRef.current = photos[active]?.key ?? null;
   }, [photos, active]);
@@ -194,6 +205,34 @@ export function PostComposer({
     },
     []
   );
+  useEffect(() => {
+    if (!point) return;
+    const timer = window.setTimeout(() => tagSearchInput.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [point]);
+  function closeTagPicker() {
+    setPoint(null);
+    setMoving(null);
+    window.requestAnimationFrame(() => tagAddButton.current?.focus());
+  }
+  function trapTagPickerFocus(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(
+      tagPickerSheet.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) ?? []
+    ).filter((element) => element.getClientRects().length > 0);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
   function close() {
     if (busy || preparing) return;
     if (dirty) setConfirmExit("close");
@@ -221,6 +260,10 @@ export function PostComposer({
   }
   function goBack() {
     if (busy || preparing) return;
+    if (step === 2 && point) {
+      closeTagPicker();
+      return;
+    }
     if (step === 1 && photos.length) {
       setConfirmExit("discard-photos");
       return;
@@ -674,7 +717,7 @@ export function PostComposer({
         },
       ],
     }));
-    setPoint(null);
+    closeTagPicker();
   }
   async function submit() {
     if (lock.current || !photos.length) return;
@@ -752,6 +795,13 @@ export function PostComposer({
   );
   const productsLoading = closet.loading || saved.loading;
   const productsError = closet.error || saved.error;
+  const availableTagCategories = new Set(products.map((product) => product.category));
+  const tagCategories = [
+    ...CATEGORY_OPTIONS.filter((category) => availableTagCategories.has(category)),
+    ...[...availableTagCategories].filter(
+      (category) => !CATEGORY_OPTIONS.includes(category as (typeof CATEGORY_OPTIONS)[number])
+    ),
+  ];
   const filtered = products.filter(
     (p) =>
       (!category || p.category === category) &&
@@ -761,13 +811,80 @@ export function PostComposer({
     step === 0 ? (post ? c.editPost : c.newPost) : step === 1 ? c.editPhoto : step === 2 ? c.tags : c.compose;
   const isFinalStep = step === 3;
   const headerActionLabel = isFinalStep ? (post ? c.saveChanges : c.publish) : c.next;
+  const tagPickerContents = (
+    <>
+      <div className="social-tag-picker-filters">
+        <div className="social-toolbar">
+          <strong>{c.closet} · {c.savedProducts}</strong>
+          <button className="social-button" onClick={closeTagPicker}>{c.cancel}</button>
+        </div>
+        <input
+          ref={tagSearchInput}
+          className="social-input"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={c.search}
+          aria-label={c.search}
+        />
+        <div className="social-tag-category-filter" onKeyDown={(event) => {
+          if (event.key === "Escape" && event.currentTarget.querySelector('[aria-expanded="true"]')) event.preventDefault();
+        }}>
+          <FilterDropdown
+            value={category}
+            onChange={setCategory}
+            variant="tag-picker"
+            options={[
+              { value: "", label: c.all },
+              ...tagCategories.map((category) => ({ value: category, label: getCategoryLabel(category) })),
+            ]}
+          />
+        </div>
+      </div>
+      {productsLoading ? (
+        <p className="social-muted">{c.loading}</p>
+      ) : productsError ? (
+        <div className="social-error">
+          {socialError(productsError, c)}
+          <button onClick={() => { void closet.reload(); void saved.reload(); }}>{c.retry}</button>
+        </div>
+      ) : products.length === 0 ? (
+        <p className="social-muted">
+          {c.noItems}
+          <button
+            className="social-button"
+            onClick={() => {
+              if (dirty) setConfirmExit("register");
+              else { onClose(); productForm.openModal(); }
+            }}
+          >
+            {c.register}
+          </button>
+        </p>
+      ) : (
+        <div className="social-picker-list social-tag-product-picker">
+          {filtered.map((p) => (
+            <button key={p.id} className="social-picker-product" onClick={() => selectProduct(p)}>
+              <img src={p.thumbnailImage || p.image || "/images/default-product.svg"} alt="" />
+              <span>{p.brand}</span>
+              <span>{p.name}</span>
+            </button>
+          ))}
+          {!filtered.length && <p>{c.noResults}</p>}
+        </div>
+      )}
+    </>
+  );
   return (
     <SocialDialog
       wide
-      className={`social-post-composer social-post-composer--${step === 0 ? "upload" : step === 1 ? "editing" : "details"}${post && post.images.length > 1 ? " social-post-composer--album" : " social-post-composer--single"}`}
+      className={`social-post-composer social-post-composer--${step === 0 ? "upload" : step === 1 ? "editing" : "details"}${step === 2 ? " social-post-composer--tagging" : ""}${post && post.images.length > 1 ? " social-post-composer--album" : " social-post-composer--single"}`}
       title={composerTitle}
       onClose={close}
       onEscape={() => {
+        if (point) {
+          closeTagPicker();
+          return true;
+        }
         if (!filePickerCancelling.current) return false;
         filePickerCancelling.current = false;
         return true;
@@ -839,7 +956,6 @@ export function PostComposer({
               >
               <ImagePlus size={36} strokeWidth={1} />
               <h3>{c.dropPhotos}</h3>
-              <p>{c.photoHelp}</p>
               <label
                 htmlFor={fileInputId}
                 className="social-button social-primary social-file-picker"
@@ -1023,7 +1139,7 @@ export function PostComposer({
                   </aside>}
                 </div>
               ) : (
-              <div className={`social-compose-layout${step === 2 ? " social-compose-layout--tags" : ""}${step === 2 && point ? " is-picking-product" : ""}`}>
+              <div className={`social-compose-layout${step === 2 ? " social-compose-layout--tags" : ""}`}>
                 <div>
                   <div className="social-compose-photo-stage">
                     <div
@@ -1124,8 +1240,10 @@ export function PostComposer({
                     )}
                     {step === 2 && (
                       <>
-                    {!point && <div className="social-tag-summary-panel">
+                    {(!point || isMobileViewport) && (
+                    <div className="social-tag-summary-panel">
                     <button
+                      ref={tagAddButton}
                       type="button"
                       className="social-button social-tag-add-button"
                       disabled={photo.tags.length >= 10}
@@ -1158,93 +1276,15 @@ export function PostComposer({
                           </div>
                         ))}
                     </div>
-                    </div>}
-                    {point && (
-                        <section className="social-tag-picker-panel" aria-label={`${c.closet} · ${c.savedProducts}`}>
-                          <div className="social-tag-picker-filters">
-                          <div className="social-toolbar">
-                            <strong>{c.closet} · {c.savedProducts}</strong>
-                            <button
-                              className="social-button"
-                              onClick={() => setPoint(null)}
-                            >
-                              {c.cancel}
-                            </button>
-                          </div>
-                          <input
-                            className="social-input"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder={c.search}
-                            aria-label={c.search}
-                          />
-                          <div className="social-tag-category-filter" onKeyDown={(event) => {
-                            // Let the dropdown handle Escape without dismissing the dialog.
-                            if (event.key === "Escape" && event.currentTarget.querySelector('[aria-expanded="true"]')) event.preventDefault();
-                          }}>
-                            <FilterDropdown
-                              value={category}
-                              onChange={setCategory}
-                              variant="tag-picker"
-                              options={[
-                                { value: "", label: c.all },
-                                ...[...new Set(products.map((p) => p.category))].map((cat) => ({ value: cat, label: getCategoryLabel(cat) })),
-                              ]}
-                            />
-                          </div>
-                          </div>
-                          {productsLoading ? (
-                            <p className="social-muted">{c.loading}</p>
-                          ) : productsError ? (
-                            <div className="social-error">
-                              {socialError(productsError, c)}
-                              <button onClick={() => {
-                                void closet.reload();
-                                void saved.reload();
-                              }}>
-                                {c.retry}
-                              </button>
-                            </div>
-                          ) : products.length === 0 ? (
-                            <p className="social-muted">
-                              {c.noItems}
-                              <button
-                                className="social-button"
-                                onClick={() => {
-                                  if (dirty) setConfirmExit("register");
-                                  else {
-                                    onClose();
-                                    productForm.openModal();
-                                  }
-                                }}
-                              >
-                                {c.register}
-                              </button>
-                            </p>
-                          ) : (
-                            <div className="social-picker-list social-tag-product-picker">
-                              {filtered.map((p) => (
-                                <button
-                                  key={p.id}
-                                  className="social-picker-product"
-                                  onClick={() => selectProduct(p)}
-                                >
-                                  <img
-                                    src={
-                                      p.thumbnailImage ||
-                                      p.image ||
-                                      "/images/default-product.svg"
-                                    }
-                                    alt=""
-                                  />
-                                  <span>{p.brand}</span>
-                                  <span>{p.name}</span>
-                                </button>
-                              ))}
-                              {!filtered.length && <p>{c.noResults}</p>}
-                            </div>
-                          )}
-                        </section>
+                    {!photo.tags.length && (
+                      <p className="social-tag-empty-hint">옷 태그를 추가해 보세요</p>
+                    )}
+                    </div>
+                    )}
+                    {point && !isMobileViewport && (
+                      <section className="social-tag-picker-panel" aria-label={`${c.closet} · ${c.savedProducts}`}>
+                        {tagPickerContents}
+                      </section>
                     )}
                       </>
                     )}
@@ -1270,6 +1310,27 @@ export function PostComposer({
           )}
         </div>
       </fieldset>
+      {point && isMobileViewport && (
+        <div className="social-tag-picker-overlay" role="presentation">
+          <button
+            type="button"
+            className="social-tag-picker-backdrop"
+            aria-label={c.cancel}
+            onClick={closeTagPicker}
+          />
+          <section
+            ref={tagPickerSheet}
+            className="social-tag-picker-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${c.closet} · ${c.savedProducts}`}
+            onKeyDown={trapTagPickerFocus}
+          >
+            <div className="social-tag-picker-handle" aria-hidden="true" />
+            {tagPickerContents}
+          </section>
+        </div>
+      )}
       {confirmExit && (
         <ConfirmDialog
           message={c.leave}
