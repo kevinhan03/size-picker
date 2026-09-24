@@ -14,7 +14,6 @@ import {
   ZoomIn,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { SocialDialog } from "./SocialDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { socialError, useSocialMessages } from "./messages";
 import { changed, socialFetch, useSocialResource } from "./client";
@@ -87,7 +86,7 @@ export function PostComposer({
   const [draggingPhoto, setDraggingPhoto] = useState<string | null>(null);
   const [pressingPhoto, setPressingPhoto] = useState<string | null>(null);
   const [thumbnailOverlay, setThumbnailOverlay] = useState<{
-    host: HTMLDialogElement;
+    host: HTMLElement;
     key: string;
     url: string;
     left: number;
@@ -98,7 +97,9 @@ export function PostComposer({
   const [showZoomControl, setShowZoomControl] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches
+  );
   const [dirty, setDirty] = useState(false);
   const [confirmExit, setConfirmExit] = useState<"close" | "register" | "discard-photos" | null>(
     null
@@ -106,6 +107,7 @@ export function PostComposer({
   const input = useRef<HTMLInputElement>(null);
   const tagAddButton = useRef<HTMLButtonElement>(null);
   const tagSearchInput = useRef<HTMLInputElement>(null);
+  const tagPickerDialog = useRef<HTMLDialogElement>(null);
   const tagPickerSheet = useRef<HTMLElement>(null);
   const replaceKey = useRef<string | null>(null);
   const postId = useRef(post?.id || createDraftId());
@@ -169,7 +171,7 @@ export function PostComposer({
     []
   );
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 640px)");
+    const media = window.matchMedia("(max-width: 1023px)");
     const update = () => setIsMobileViewport(media.matches);
     update();
     media.addEventListener("change", update);
@@ -210,6 +212,15 @@ export function PostComposer({
     const timer = window.setTimeout(() => tagSearchInput.current?.focus(), 0);
     return () => window.clearTimeout(timer);
   }, [point]);
+  useEffect(() => {
+    if (!point || !isMobileViewport) return;
+    const dialog = tagPickerDialog.current;
+    if (!dialog) return;
+    dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, [point, isMobileViewport]);
   function closeTagPicker() {
     setPoint(null);
     setMoving(null);
@@ -267,12 +278,6 @@ export function PostComposer({
     if (step === 1 && photos.length) {
       setConfirmExit("discard-photos");
       return;
-    }
-    if (step === 2 && photo) {
-      updatePhoto(photo.key, (current) => ({
-        ...current,
-        edit: { ...current.edit, aspect: "portrait" },
-      }));
     }
     setStep((current) => Math.max(0, current - 1));
   }
@@ -605,7 +610,7 @@ export function PostComposer({
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
     if (!drag.moved) {
-      const host = event.currentTarget.closest("dialog");
+      const host = event.currentTarget.closest<HTMLElement>(".social-post-composer");
       if (!host) return;
       drag.moved = true;
       event.preventDefault();
@@ -777,8 +782,10 @@ export function PostComposer({
       published.current = true;
       changed();
       if (onPublished) onPublished(result.id);
-      else router.push(`/outfit-explorer/${result.id}`);
-      onClose();
+      else {
+        router.push(`/outfit-explorer/${result.id}`);
+        onClose();
+      }
     } catch (e) {
       setError(socialError(e, c));
     } finally {
@@ -875,36 +882,39 @@ export function PostComposer({
     </>
   );
   return (
-    <SocialDialog
-      wide
-      className={`social-post-composer social-post-composer--${step === 0 ? "upload" : step === 1 ? "editing" : "details"}${step === 2 ? " social-post-composer--tagging" : ""}${post && post.images.length > 1 ? " social-post-composer--album" : " social-post-composer--single"}`}
-      title={composerTitle}
-      onClose={close}
-      onEscape={() => {
+    <main
+      className={`social-post-composer social-post-composer--screen social-post-composer--${step === 0 ? "upload" : step === 1 ? "editing" : "details"}${step === 2 ? " social-post-composer--tagging" : ""}${post && post.images.length > 1 ? " social-post-composer--album" : " social-post-composer--single"}`}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
         if (point) {
+          event.preventDefault();
           closeTagPicker();
-          return true;
+        } else if (filePickerCancelling.current) {
+          event.preventDefault();
+          filePickerCancelling.current = false;
+        } else {
+          event.preventDefault();
+          if (step > 0) goBack();
+          else close();
         }
-        if (!filePickerCancelling.current) return false;
-        filePickerCancelling.current = false;
-        return true;
       }}
-      headerStart={
-        step > 0 ? (
+    >
+      <header className="social-composer-screen-header">
+        <div className="social-composer-screen-header-side social-composer-screen-header-start">
           <button
             type="button"
             className="social-composer-header-back"
             aria-label={c.back}
             title={c.back}
             disabled={busy || preparing}
-            onClick={goBack}
+            onClick={step > 0 ? goBack : close}
           >
             <ArrowLeft size={20} />
           </button>
-        ) : undefined
-      }
-      headerEnd={
-        step > 0 ? (
+        </div>
+        <h1>{composerTitle}</h1>
+        <div className="social-composer-screen-header-side social-composer-screen-header-end">
+          {step > 0 && (
           <button
             type="button"
             className={`social-composer-header-next${isFinalStep ? " is-final" : ""}`}
@@ -921,9 +931,9 @@ export function PostComposer({
             <span>{headerActionLabel}</span>
             {!isFinalStep && <ArrowRight size={17} aria-hidden="true" />}
           </button>
-        ) : undefined
-      }
-    >
+          )}
+        </div>
+      </header>
       <fieldset disabled={busy || preparing} style={{ minWidth: 0 }}>
         <div className="social-compose-body">
           <input
@@ -1144,6 +1154,7 @@ export function PostComposer({
                   <div className="social-compose-photo-stage">
                     <div
                     className="social-editor-image"
+                    style={{ aspectRatio: String(editAspectRatio(photo)) }}
                     >
                       <img src={photo.previewUrl ?? photo.url} alt={`${c.photo} ${active + 1}`} />
                     {photo.tags.map((tag) => (
@@ -1254,6 +1265,8 @@ export function PostComposer({
                     >
                       옷 태그 추가
                     </button>
+                    <div className="social-tag-summary-content">
+                    {photo.tags.length ? (
                     <div className="social-tag-list">
                         {photo.tags.map((tag) => (
                           <div className="social-tag-row" key={tag.id}>
@@ -1276,9 +1289,10 @@ export function PostComposer({
                           </div>
                         ))}
                     </div>
-                    {!photo.tags.length && (
+                    ) : (
                       <p className="social-tag-empty-hint">옷 태그를 추가해 보세요</p>
                     )}
+                    </div>
                     </div>
                     )}
                     {point && !isMobileViewport && (
@@ -1311,25 +1325,28 @@ export function PostComposer({
         </div>
       </fieldset>
       {point && isMobileViewport && (
-        <div className="social-tag-picker-overlay" role="presentation">
-          <button
-            type="button"
-            className="social-tag-picker-backdrop"
-            aria-label={c.cancel}
-            onClick={closeTagPicker}
-          />
+        <dialog
+          ref={tagPickerDialog}
+          className="social-tag-picker-dialog"
+          aria-label={`${c.closet} · ${c.savedProducts}`}
+          onCancel={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            closeTagPicker();
+          }}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeTagPicker();
+          }}
+        >
           <section
             ref={tagPickerSheet}
             className="social-tag-picker-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${c.closet} · ${c.savedProducts}`}
             onKeyDown={trapTagPickerFocus}
           >
             <div className="social-tag-picker-handle" aria-hidden="true" />
             {tagPickerContents}
           </section>
-        </div>
+        </dialog>
       )}
       {confirmExit && (
         <ConfirmDialog
@@ -1347,6 +1364,6 @@ export function PostComposer({
           }}
         />
       )}
-    </SocialDialog>
+    </main>
   );
 }

@@ -3,7 +3,6 @@
 import { ArrowLeft, ImagePlus, LogIn, Plus, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "../contexts/AuthContext";
@@ -17,11 +16,6 @@ import {
   primaryNavigationItems,
   type PrimaryNavigationDestination,
 } from "./primaryNavigation";
-
-const PostComposer = dynamic(
-  () => import("./social/PostComposer").then((mod) => mod.PostComposer),
-  { ssr: false }
-);
 
 export function AppHeader({
   variant = "full",
@@ -38,7 +32,6 @@ export function AppHeader({
   const [isIconOnlyActions, setIsIconOnlyActions] = useState(false);
   const [hiddenOnCompact, setHiddenOnCompact] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
-  const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -159,7 +152,8 @@ export function AppHeader({
       router.push("/login");
       return;
     }
-    setIsPostComposerOpen(true);
+    const returnTo = pathname || "/outfit-explorer";
+    router.push(`/outfit-explorer/new?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
   const alternateLocale = getAlternateLocale(locale);
@@ -381,9 +375,6 @@ export function AppHeader({
           </div>
         )}
       </div>
-      {isPostComposerOpen && (
-        <PostComposer onClose={() => setIsPostComposerOpen(false)} />
-      )}
     </header>
   );
 }

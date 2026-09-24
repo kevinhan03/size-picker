@@ -2,7 +2,6 @@
 /* eslint-disable @next/next/no-img-element -- Signed post images and tag snapshots. */
 import { Suspense, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -31,10 +30,6 @@ import { FollowButton } from "./FollowButton";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SocialDialog } from "./SocialDialog";
 import "./social.css";
-const PostComposer = dynamic(
-  () => import("./PostComposer").then((m) => m.PostComposer),
-  { ssr: false }
-);
 export function PostDetailClient({ postId }: { postId: string }) {
   const c = useSocialMessages();
   const { locale } = useLocaleContext();
@@ -47,7 +42,6 @@ export function PostDetailClient({ postId }: { postId: string }) {
   const [index, setIndex] = useState(0);
   const [showTags, setShowTags] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareMenu, setShareMenu] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -259,8 +253,8 @@ export function PostDetailClient({ postId }: { postId: string }) {
                   className="social-button"
                   disabled={!!busy}
                   onClick={() => {
-                    setEditing(true);
                     setMenu(false);
+                    router.push(`/outfit-explorer/${post.id}/edit?returnTo=${encodeURIComponent(`/outfit-explorer/${post.id}`)}`);
                   }}
                 >
                   {c.edit}
@@ -556,16 +550,6 @@ export function PostDetailClient({ postId }: { postId: string }) {
                   ))}
                 </div>
               </>
-            )}
-            {editing && (
-              <PostComposer
-                post={post}
-                onClose={() => setEditing(false)}
-                onPublished={() => {
-                  selectPhoto(0);
-                  void resource.reload();
-                }}
-              />
             )}
           </>
         )}

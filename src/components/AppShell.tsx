@@ -70,6 +70,10 @@ function isFocusedMobileRoute(pathname: string) {
   );
 }
 
+function isPostComposerRoute(pathname: string) {
+  return pathname === "/outfit-explorer/new" || /^\/outfit-explorer\/[^/]+\/edit$/.test(pathname);
+}
+
 function ClosetToast() {
   const { toast, clearToast } = useClosetContext();
   const { t } = useLocaleContext();
@@ -425,13 +429,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAdminPage = pathname?.startsWith("/admin");
   const isOnboardingPage = pathname?.startsWith("/onboarding");
   const isAuthPage = pathname === "/login" || pathname?.startsWith("/auth/");
+  const isComposerRoute = isPostComposerRoute(pathname || "");
   const usesMinimalChrome = isAuthPage || isOnboardingPage;
-  const showFullChrome = !isAdminPage && !usesMinimalChrome;
+  const showFullChrome = !isAdminPage && !usesMinimalChrome && !isComposerRoute;
   const hideMobileGlobalHeader =
     showFullChrome &&
     (pathname === "/taste" || isFocusedMobileRoute(pathname || ""));
   const hideMobileBottomNav =
-    isAdminPage || usesMinimalChrome || pathname === "/taste" || isFocusedMobileRoute(pathname || "");
+    isAdminPage || usesMinimalChrome || isComposerRoute || pathname === "/taste" || isFocusedMobileRoute(pathname || "");
   const shellStyle = hideMobileBottomNav
     ? ({
         "--app-bottom-nav-height": "0rem",

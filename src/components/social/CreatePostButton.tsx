@@ -1,29 +1,25 @@
 "use client";
-import { useState } from "react";
-import dynamic from "next/dynamic";
+import { usePathname, useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { useSocialAuth } from "./client";
 import { useSocialMessages } from "./messages";
-const PostComposer = dynamic(
-  () => import("./PostComposer").then((m) => m.PostComposer),
-  { ssr: false }
-);
 export function CreatePostButton({ label }: { label?: string }) {
-  const [open, setOpen] = useState(false);
   const auth = useSocialAuth();
   const c = useSocialMessages();
+  const pathname = usePathname();
+  const router = useRouter();
   return (
     <>
       <button
         className="social-button social-primary"
         onClick={() => {
-          if (auth.ensure()) setOpen(true);
+          if (!auth.ensure()) return;
+          router.push(`/outfit-explorer/new?returnTo=${encodeURIComponent(pathname || "/outfit-explorer")}`);
         }}
       >
         <Plus size={17} />
         {label || c.create}
       </button>
-      {open && <PostComposer onClose={() => setOpen(false)} />}
     </>
   );
 }
