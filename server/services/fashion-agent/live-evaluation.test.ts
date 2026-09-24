@@ -58,6 +58,29 @@ describe.skipIf(!enabled)("live intent evaluation", () => {
   }, 120000);
   const cases = [
     {
+      question:
+        "내 옷장에 있는 옷을 중심으로 상의, 하의, 겉옷, 신발 코디 한 벌 추천해줘",
+      check: (p: Awaited<ReturnType<typeof interpretAgentPlan>>) => {
+        expect(p.intent).toBe("wardrobe");
+        expect(p.unsupported).toEqual([]);
+      },
+    },
+    {
+      question:
+        "내 옷장은 사용하지 말고 DIGBOX 카탈로그에서 상의, 하의, 겉옷, 신발 코디 한 벌 만들어줘",
+      check: (p: Awaited<ReturnType<typeof interpretAgentPlan>>) => {
+        expect(p.intent).toBe("outfit");
+        expect(p.unsupported).toEqual([]);
+      },
+    },
+    {
+      question: "내 옷장 활용해서 입을 수 있는 조합과 부족한 품목을 알려줘",
+      check: (p: Awaited<ReturnType<typeof interpretAgentPlan>>) => {
+        expect(p.intent).toBe("wardrobe");
+        expect(p.unsupported).toEqual([]);
+      },
+    },
+    {
       question: "옷장에 저장한 아우터 중에서 골라줘",
       check: (p: Awaited<ReturnType<typeof interpretAgentPlan>>) => {
         expect(p.source).toBe("closet");

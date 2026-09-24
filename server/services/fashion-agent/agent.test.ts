@@ -341,6 +341,40 @@ describe("bounded agent orchestration", () => {
       "ko"
     );
   });
+  it("binds an explicit result ordinal before attempting a collection lookup", async () => {
+    vi.mocked(structuredResponse).mockResolvedValue({
+      ...plan(),
+      intent: "recommend",
+      filters: { ...emptyFilters(), category: "Top" },
+      reference: {
+        source: "digbox",
+        filters: {
+          ...emptyFilters(),
+          category: "Bottom",
+          facts: [{ key: "primary_color", value: "black" }],
+        },
+      },
+    });
+    vi.mocked(runEngine).mockResolvedValue({
+      text: "Found",
+      products: [],
+      notes: [],
+    });
+    await runAgent(
+      "actor",
+      "두 번째 상품과 어울리는 상의 추천해줘",
+      state,
+      [],
+      "ko"
+    );
+    expect(getDigboxProducts).not.toHaveBeenCalled();
+    expect(runEngine).toHaveBeenCalledWith(
+      "actor",
+      expect.any(Object),
+      ["34"],
+      "ko"
+    );
+  });
   it("treats a saved-product category as taste context, not a missing reference", async () => {
     vi.mocked(structuredResponse).mockResolvedValue({
       ...plan(),

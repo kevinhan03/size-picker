@@ -7,8 +7,17 @@ export type AgentIntent =
   | "compatible"
   | "compare"
   | "taste"
+  | "outfit"
+  | "wardrobe"
   | "knowledge"
   | "clarify";
+export type OutfitSlot = "top" | "bottom" | "outer" | "shoes";
+export type AgentOutfitSlot = {
+  slot: OutfitSlot;
+  productId: string | null;
+  source: "closet" | "catalog" | null;
+  reason: string;
+};
 export type AgentFilters = {
   category: string | null;
   subCategory: string | null;
@@ -55,12 +64,14 @@ export type AgentProduct = ProductCardData & {
   recommendationGroup?: "primary" | "compatible";
 };
 export type AgentReply = {
+  outfit?: { mode: "wardrobe" | "catalog"; slots: AgentOutfitSlot[] };
   presentation?: AgentPresentation;
   text: string;
   products: AgentProduct[];
   notes: string[];
 };
 export type AgentMessage = {
+  outfit?: AgentReply["outfit"];
   presentation?: AgentPresentation;
   id: string;
   role: "user" | "assistant";

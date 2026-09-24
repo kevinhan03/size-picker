@@ -85,6 +85,26 @@ export async function GET(request: Request) {
     return failure(error);
   }
 }
+export async function DELETE(request: Request) {
+  if (!hasValidMutationOrigin(request))
+    return send({ ok: false, error: "invalid_origin" }, 403);
+  try {
+    const user = await getRegisteredRequestUser(request);
+    if (!user) return send({ ok: false, error: "login_required" }, 401);
+    const id = new URL(request.url).searchParams.get("conversationId");
+    if (!id || !uuid.test(id)) throw new AgentError("invalid_request");
+    assertSupabaseConfig();
+    const { data, error } = await supabase!.rpc("fashion_agent_delete", {
+      actor: user.id,
+      conversation: id,
+    });
+    if (error) throw error;
+    if (!data) throw new AgentError("conversation_not_found", 404);
+    return send({ ok: true, data: { deleted: true } });
+  } catch (error) {
+    return failure(error);
+  }
+}
 export async function POST(request: Request) {
   const startedAt = Date.now();
   const trace: ExecutionTrace = {

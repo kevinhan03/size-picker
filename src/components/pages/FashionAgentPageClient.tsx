@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Plus,
   ThumbsUp,
+  Trash2,
 } from "lucide-react";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
@@ -18,6 +19,7 @@ import { getProductPageUrl } from "../../utils/product";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { AgentResultInsight } from "../AgentResultInsight";
 import { agentPalette } from "../../utils/agent-palette";
+import { captureEvent } from "../../utils/analytics";
 import type {
   AgentConversation,
   AgentMessage,
@@ -84,7 +86,7 @@ type FeedbackValue = "positive" | (typeof negativeReasons)[number][0];
 export function FashionAgentPageClient() {
   const auth = useAuthContext(),
     { locale } = useLocaleContext();
-  const { isInDigbox, toggleDigbox, ensureLoaded } = useDigboxContext();
+  const { isInDigbox, addToDigbox, ensureLoaded } = useDigboxContext();
   const en = locale === "en",
     say = (ko: string, english: string) => (en ? english : ko);
   const [draft, setDraft] = useState("");
@@ -97,6 +99,7 @@ export function FashionAgentPageClient() {
     [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [feedback, setFeedback] = useState<Record<string, FeedbackValue>>({});
   const [feedbackStatus, setFeedbackStatus] = useState<
     Record<string, "pending" | "saved" | "error">
@@ -104,6 +107,7 @@ export function FashionAgentPageClient() {
   const [reasonPanel, setReasonPanel] = useState<Record<string, boolean>>({});
   const [feedbackLoadError, setFeedbackLoadError] = useState(false);
   const feedbackLocks = useRef(new Set<string>());
+  const initialConversation = useRef<string | null>(null);
   const feedbackUser = useRef(auth.authUser?.id);
   const controller = useRef<AbortController | null>(null);
   const inFlight = useRef(false);
@@ -155,6 +159,15 @@ export function FashionAgentPageClient() {
     };
   }, [userId]);
   useEffect(() => {
+    if (!userId) return;
+    const id = new URLSearchParams(window.location.search).get(
+      "conversationId"
+    );
+    if (!id || initialConversation.current === id) return;
+    initialConversation.current = id;
+    void openConversation(id);
+  }, [userId]);
+  useEffect(() => {
     setFeedbackLoadError(false);
     if (!conversationId || !userId) return;
     const abort = new AbortController();
@@ -189,6 +202,82 @@ export function FashionAgentPageClient() {
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "instant", block: "end" });
   }, [messages, pending]);
+  useEffect(() => {
+    if (!conversationId || !userId) return;
+    for (const message of messages) {
+      if (message.role !== "assistant") continue;
+      message.products?.forEach((product, index) => {
+        void recordCardEvent(
+          conversationId,
+          message.id,
+          product.id,
+          index + 1,
+          "impression"
+        );
+      });
+    }
+  }, [conversationId, messages, userId]);
+
+  async function recordCardEvent(
+    conversation: string,
+    messageId: string,
+    productId: string,
+    rank: number,
+    eventType: "impression" | "click" | "save"
+  ) {
+    try {
+      const result = await api<{ recorded: boolean }>(
+        "/api/fashion-agent/events",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          keepalive: eventType === "click",
+          body: JSON.stringify({
+            conversationId: conversation,
+            assistantMessageId: messageId,
+            productId,
+            eventType,
+          }),
+        }
+      );
+      if (result.recorded)
+        captureEvent("fashion_agent_card", {
+          eventType,
+          requestId: messageId.replace(/:assistant$/, ""),
+          productId,
+          rank,
+        });
+    } catch {
+      // Telemetry is best effort.
+    }
+  }
+
+  async function deleteConversation() {
+    if (!conversationId || pending || deleting) return;
+    if (
+      !window.confirm(
+        say(
+          "이 대화를 삭제할까요? 복구할 수 없어요.",
+          "Delete this conversation? This cannot be undone."
+        )
+      )
+    )
+      return;
+    const id = conversationId;
+    setDeleting(true);
+    setError(null);
+    try {
+      await api(`/api/fashion-agent?conversationId=${id}`, {
+        method: "DELETE",
+      });
+      setConversations((current) => current.filter((item) => item.id !== id));
+      newConversation();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "agent_unavailable");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   function newConversation() {
     if (inFlight.current) return;
@@ -356,6 +445,23 @@ export function FashionAgentPageClient() {
         </div>
         {userId && (
           <div className="flex items-center gap-2">
+            {conversationId && (
+              <button
+                type="button"
+                onClick={() => void deleteConversation()}
+                disabled={pending || loading || deleting}
+                aria-label={say(
+                  "현재 대화 삭제",
+                  "Delete current conversation"
+                )}
+                className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 px-3 text-sm text-gray-300 hover:bg-white/5 disabled:opacity-40"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {say("삭제", "Delete")}
+                </span>
+              </button>
+            )}
             <button
               type="button"
               onClick={newConversation}
@@ -491,11 +597,36 @@ export function FashionAgentPageClient() {
                     {message.text}
                   </p>
                 )}
+                {message.outfit && (
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {message.outfit.slots.map((slot) => (
+                      <div
+                        key={slot.slot}
+                        className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs"
+                      >
+                        <p className="font-semibold text-orange-200">
+                          {
+                            {
+                              top: say("상의", "Top"),
+                              bottom: say("하의", "Bottom"),
+                              outer: say("겉옷", "Outer"),
+                              shoes: say("신발", "Shoes"),
+                            }[slot.slot]
+                          }
+                        </p>
+                        <p className="mt-1 text-gray-400">{slot.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {!!message.products?.length &&
                   message.presentation?.kind !== "compare" && (
                     <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                       {message.products.map((product, index) => {
                         const feedbackKey = `${message.id}:${product.id}`;
+                        const outfitSlot = message.outfit?.slots.find(
+                          (slot) => slot.productId === product.id
+                        );
                         const previous = message.products![index - 1];
                         const beginsPairing =
                           product.recommendationGroup === "compatible" &&
@@ -519,6 +650,16 @@ export function FashionAgentPageClient() {
                             >
                               <Link
                                 href={getProductPageUrl(product)}
+                                onClick={() => {
+                                  if (conversationId)
+                                    void recordCardEvent(
+                                      conversationId,
+                                      message.id,
+                                      product.id,
+                                      index + 1,
+                                      "click"
+                                    );
+                                }}
                                 className="block"
                               >
                                 <div className="relative aspect-[4/5] bg-white/[0.04]">
@@ -528,7 +669,14 @@ export function FashionAgentPageClient() {
                                     className="object-contain"
                                   />
                                   <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-xs">
-                                    {index + 1}
+                                    {outfitSlot
+                                      ? {
+                                          top: say("상의", "Top"),
+                                          bottom: say("하의", "Bottom"),
+                                          outer: say("겉옷", "Outer"),
+                                          shoes: say("신발", "Shoes"),
+                                        }[outfitSlot.slot]
+                                      : index + 1}
                                   </span>
                                   {product.relationship && (
                                     <span
@@ -752,10 +900,18 @@ export function FashionAgentPageClient() {
                                   onClick={async () => {
                                     setSaving(product.id);
                                     try {
-                                      await toggleDigbox(
+                                      await addToDigbox(
                                         product.id,
                                         "fashion_agent"
                                       );
+                                      if (conversationId)
+                                        void recordCardEvent(
+                                          conversationId,
+                                          message.id,
+                                          product.id,
+                                          index + 1,
+                                          "save"
+                                        );
                                     } finally {
                                       setSaving(null);
                                     }

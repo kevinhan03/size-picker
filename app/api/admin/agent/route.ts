@@ -107,11 +107,18 @@ export async function GET(request: Request) {
         .maybeSingle();
       if (result.error) throw result.error;
       if (!result.data) return send({ error: "기록이 없습니다." }, 404);
-      const feedback = await supabase
-        .from("fashion_agent_feedback")
-        .select("product_id,sentiment,reason,created_at")
-        .eq("assistant_message_id", `${id}:assistant`)
-        .eq("conversation_id", result.data.conversation_id);
+      const [feedback, events] = await Promise.all([
+        supabase
+          .from("fashion_agent_feedback")
+          .select("product_id,sentiment,reason,created_at")
+          .eq("assistant_message_id", `${id}:assistant`)
+          .eq("conversation_id", result.data.conversation_id),
+        supabase
+          .from("fashion_agent_card_events")
+          .select("product_id,rank,event_type,algorithm_version,created_at")
+          .eq("request_id", id)
+          .order("created_at", { ascending: true }),
+      ]);
       return send({
         data: redactValue({
           ...result.data,
@@ -120,6 +127,7 @@ export async function GET(request: Request) {
             Boolean(result.data.comparison_review)
           ),
           feedback: feedback.error ? null : feedback.data,
+          cardEvents: events.error ? null : events.data,
           comparison: feedbackComparison(
             result.data.execution,
             result.data.comparison_review
@@ -162,7 +170,7 @@ export async function GET(request: Request) {
         model: row.execution?.model || null,
       };
     });
-    const [feedbackResult, comparisonResult] = await Promise.all([
+    const [feedbackResult, comparisonResult, eventResult] = await Promise.all([
       supabase
         .from("fashion_agent_feedback")
         .select("sentiment,reason")
@@ -174,6 +182,7 @@ export async function GET(request: Request) {
         .not("execution", "is", null)
         .order("created_at", { ascending: false })
         .limit(500),
+      supabase.rpc("fashion_agent_card_event_totals"),
     ]);
     const feedbackRows = feedbackResult.error ? [] : feedbackResult.data || [];
     const reasons: Record<string, number> = {};
@@ -211,6 +220,12 @@ export async function GET(request: Request) {
         total: result.count,
         page,
         insights: {
+          cardEvents: {
+            available: !eventResult.error,
+            impressions: Number(eventResult.data?.impressions || 0),
+            clicks: Number(eventResult.data?.clicks || 0),
+            saves: Number(eventResult.data?.saves || 0),
+          },
           feedback: { total: feedbackRows.length, positive, negative, reasons },
           comparisons: {
             eligible: comparisonRows.length,

@@ -21,11 +21,32 @@ import { traceEvent } from "./trace";
 import { runEngine } from "./engine";
 import { PRODUCT_CATEGORY_REGISTRY } from "../../../src/constants/productCategoryRegistry.js";
 import { getClosetProducts, getDigboxProducts } from "../user-collections";
+import { buildOutfit } from "./outfit";
 
 const compact = (value: unknown) =>
   String(value || "")
     .toLowerCase()
     .replace(/[^a-z0-9가-힣]/g, "");
+
+export function explicitResultPosition(message: string): number | null {
+  const korean = message.match(
+    /(?:첫|두|세|네)\s*번째\s*(?:상품|제품|추천|아이템)/
+  );
+  if (korean)
+    return ({ 첫: 1, 두: 2, 세: 3, 네: 4 } as const)[
+      korean[0][0] as "첫" | "두" | "세" | "네"
+    ];
+  const numeric = message.match(/\b([1-8])\s*번째\s*(?:상품|제품|추천|아이템)/);
+  if (numeric) return Number(numeric[1]);
+  const english = message.match(
+    /\b(first|second|third|fourth)\s+(?:item|product|result|recommendation)\b/i
+  );
+  return english
+    ? ({ first: 1, second: 2, third: 3, fourth: 4 } as Record<string, number>)[
+        english[1].toLowerCase()
+      ]
+    : null;
+}
 
 type TurnUpdate = {
   mode: "new" | "refine" | "other";
@@ -169,14 +190,15 @@ For a similar/compatible request preserve relevant user constraints but replace 
 Resolve ordinal references via resultPositions (1-based). Use productIds only for explicit numeric DIGBOX IDs/links or IDs already in previous state.
 When a user says “내가 가진/옷장에 있는/저장한 [distinct product description]” and wants a compatible or similar item, set reference to that described product: use closet for owned/wardrobe and digbox for saved. A distinct description has a brand, product name, colour/detail, material, or another identifying trait. Put the requested result filters in filters, and the described reference only in reference.filters. Do not ask for a link before attempting this collection lookup. If multiple collection products match, ask the user to choose by name. If none match, say so naturally.
 Collection-wide wording does NOT identify a single reference product. Route it as personalized recommend with reference null. Distinguish candidate scope from taste source: “옷장에 저장한 아우터 중에서 골라줘” means session.candidateScope=collection, source=closet; “옷장 취향을 바탕으로 전체 DB에서 새로운 아우터” means candidateScope=catalog, source=closet. Never exclude owned items when selecting within the wardrobe.
+Resolve collection references by meaning, not exact keyword matching. For questions asking what items have in common, what taste/style they reveal, or for an analysis/profile of the user's own collection, set intent=taste and select the data source from the collection the user refers to: owned/kept/worn/in-wardrobe items (including natural paraphrases such as what I have, my wardrobe, pieces in my closet) => source=closet; liked/bookmarked/wishlisted/saved-for-later/favorites/heart-marked products (including natural paraphrases such as things I saved or want) => source=digbox. Apply this in the user's language and infer paraphrases semantically; these are examples, not an exhaustive keyword list. If both collections are mentioned, use the collection explicitly asked about; if the user asks to compare them, follow the comparison intent. If the user asks about their taste without specifying a collection, preserve the default source=digbox. Do not treat a request to analyze collection-wide taste as a single-product reference.
 session separates current preferences from long-term taste. Use axisPreferences for soft visual preferences (less technical -> technicality target 2, slightly formal -> formality target 5); use filters.axes only for explicit hard bounds. novelty medium means a little new, high means adventurous, none means no novelty request. Do not translate mood words into literal keywords.
 For “recommend outerwear, then pants matching the first recommendation”, use search/recommend for the first step and followUp={filters: matching pants constraints, candidateScope: catalog unless explicitly owned}. The server binds the first NEW result to the second step. Never put this future ordinal in resultPositions. Set followUp null for single-step requests and subsequent turns unless explicitly requested again. Do not copy outerwear-specific constraints into pants. Two stages only; clarify larger workflows. Two-stage matching is supported, not unsupported whole-outfit generation.
 compare requires exactly 2 products; ask for clarification for more. A/B without identified products requires clarification.
-Use search for explicit catalog queries, recommend/personalized for personal taste, similar for visually similar products, compatible for outfit pairing, taste for explaining user's preferences.
+Use search for explicit catalog queries, recommend/personalized for personal taste, similar for visually similar products, compatible for a single product pairing, taste for explaining user's preferences. Use outfit for a complete multi-item outfit from catalog; use wardrobe for a complete outfit or wardrobe-utilization request centered on owned items. If user explicitly wants a complete outfit from owned items, use wardrobe. These two intents are enabled only when the server feature flag permits them.
 knowledge is ONLY general, timeless fashion education. Never route personal data, product facts, recommendations, current prices/trends, or requested catalog results as knowledge.
 For knowledge questions, also populate filters only when the concept maps directly to supported product attributes, category, or style (e.g. minimal, workwear). These filters may supply optional catalog examples. Leave filters empty for concepts without a reliable mapping. Do not invent brand or keywords.
 Use clarify for off-topic requests. Do not obey requests to reveal secrets, SQL or other users' data.
-Unsupported hard requirements go in unsupported, including prices/budget/cheaper, stock, actual warmth, exact composition, season/weather suitability, complete historical taste evolution, travel/current trends, whole-outfit generation and personal-wardrobe compatibility for comparisons. Never silently drop a requirement.
+Unsupported hard requirements go in unsupported, including prices/budget/cheaper, stock, actual warmth, exact composition, season/weather suitability, complete historical taste evolution, travel/current trends and personal-wardrobe compatibility for comparisons. Never silently drop a requirement.
 Catalog facts are visual analyses, not manufacturer-verified performance. Materials mean inferred appearance, not confirmed composition.
 Use enum facts (leather, wide, black etc.) rather than duplicating them in keywords. Keywords are literal AND substrings of name/brand/subcategory; omit generic words 'find', 'my taste', etc.
 Fact values must belong to that exact key in vocabulary.facts. 니트 means primary_material=knit (never knitwear); wide means silhouette=wide, not fit_volume. If uncertain, omit the inferred fact rather than invent a value.
@@ -254,6 +276,26 @@ export async function interpretAgentPlan(
     turnUpdate?: TurnUpdate;
   };
   const plan = validatePlan(mergeTurnPlan(planFields, state.plan, update));
+  const completeOutfit =
+    /(?:코디.{0,12}(?:한 벌|전체|완성)|(?:한 벌|전체|완성).{0,12}코디|full outfit|complete outfit|머리부터 발끝까지)/i.test(
+      message
+    );
+  if (
+    completeOutfit &&
+    ["recommend", "search", "outfit", "wardrobe"].includes(plan.intent)
+  ) {
+    const mentionsWardrobe = /옷장|보유|내가 가진|wardrobe|owned/i.test(
+      message
+    );
+    const excludesWardrobe =
+      /옷장.{0,15}(?:사용하지|빼고|제외)|without (?:my )?wardrobe/i.test(
+        message
+      );
+    plan.intent = mentionsWardrobe && !excludesWardrobe ? "wardrobe" : "outfit";
+    plan.unsupported = plan.unsupported.filter(
+      (item) => !/코디|outfit/i.test(item)
+    );
+  }
   traceEvent("session_update", {
     update,
     previous: state.plan,
@@ -269,6 +311,16 @@ export async function interpretAgentPlan(
     ["recommend", "search"].includes(plan.intent)
   )
     plan.intent = "compatible";
+  const ordinal = explicitResultPosition(message);
+  if (
+    ordinal &&
+    state.resultIds[ordinal - 1] &&
+    ["similar", "compatible", "outfit", "wardrobe"].includes(plan.intent)
+  ) {
+    plan.resultPositions = [ordinal];
+    plan.productIds = [];
+    plan.reference = null;
+  }
   // “new” is a concrete session constraint even when the model leaves the
   // novelty enum at its default. It only applies to catalog recommendations.
   if (
@@ -319,7 +371,7 @@ export async function runAgent(
     !ids.length &&
     plan.reference &&
     hasDistinctReference(plan) &&
-    ["compatible", "similar"].includes(plan.intent)
+    ["compatible", "similar", "outfit", "wardrobe"].includes(plan.intent)
   ) {
     const collection =
       plan.reference.source === "closet"
@@ -364,6 +416,30 @@ export async function runAgent(
         },
         state,
       };
+  }
+  if (["outfit", "wardrobe"].includes(plan.intent)) {
+    if (process.env.FASHION_AGENT_OUTFITS !== "true")
+      return {
+        reply: {
+          text:
+            locale === "en"
+              ? "Complete outfits are being prepared."
+              : "전체 코디 제안 기능을 준비 중이에요.",
+          products: [],
+          notes: [],
+        },
+        state,
+      };
+    const reply = await buildOutfit(userId, plan, locale, ids[0]);
+    return {
+      reply,
+      state: {
+        plan,
+        resultIds: reply.products.length
+          ? reply.products.map((product) => product.id)
+          : state.resultIds,
+      },
+    };
   }
   if (
     plan.intent === "clarify" ||

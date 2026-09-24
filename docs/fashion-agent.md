@@ -30,8 +30,18 @@ Tables and RPCs are inaccessible to `anon` and `authenticated`; the server suppl
 - Saved/wardrobe summaries reuse existing shared taste functions and up to 500 collection products. Empty profiles are disclosed. The graph itself is not serialized into the prompt.
 - Similar products reuse the existing image/style recommendation service. Compatible products use existing category-pair and style-harmony functions; this is an estimated pairing, not a full outfit generator.
 - Compare returns actual axis differences and available taste scores for two identified products.
-- Price, stock, exact material composition, actual warmth, current trends, full historical evolution, complete outfits and wardrobe-utilization comparisons are unavailable. Requests requiring them produce a limitation message rather than silently loosening constraints. Future price support needs currency, source and observation timestamp, not a fabricated card field.
-- Conversations are stored in DIGBOX until account deletion; the MVP does not yet include per-conversation deletion or automated retention cleanup.
+- Price, stock, exact material composition, actual warmth, current trends, full historical evolution and wardrobe-utilization comparisons are unavailable. Complete outfits require the rollout flag below. Unsupported requirements produce a limitation message rather than silently loosening constraints. Future price support needs currency, source and observation timestamp, not a fabricated card field.
+- Conversations are stored in DIGBOX until the user deletes an individual conversation or their account. Automated retention cleanup is not configured.
+
+## Conversation lifecycle and outfit rollout
+
+Apply `supabase/migrations/20260924140000_fashion_agent_lifecycle_events.sql` before deploying these API changes. Users can delete one owned conversation from the agent page. Active 90-second leases block deletion; dependent requests, feedback, and card events cascade. A separate per-user rate event keeps deleted conversations from resetting the hourly request limit; the daily cron removes entries older than one hour. Conversations have no automatic expiration.
+
+Card impression, click, and successful DIGBOX save events are validated against the owned, completed response and stored once per request/product/action. The admin operations page shows per-request events and overall action counts. The browser forwards only event type, request ID, product ID, and rank to PostHog after server acceptance; analytics delivery cannot block the user action. No question text or user ID is included in that event payload.
+
+Set server-only `FASHION_AGENT_OUTFITS=true` to enable the new `outfit` and `wardrobe` intents. The default is off. Each request proposes one top/bottom/outer/shoes combination. Wardrobe requests prefer owned products and fill missing slots from catalog; catalog outfit requests use catalog products. Slot selection and explanations are server-owned. The UI marks unavailable slots explicitly. The feature does not verify price, stock, weather, or material composition.
+
+Local verification on 2026-09-24 used an authenticated browser session against the linked database: search cards, product navigation, DIGBOX save, conversation resume, and a numbered compatible-product follow-up succeeded after a server-side ordinal fix. The outfit-enabled local server returned one four-slot wardrobe combination and one four-slot catalog combination. One catalog attempt required a user retry after `invalid_model_response`; structured model output remains a reliability limit to monitor. The new migration was verified with PGlite tests but must be applied to the linked database before live delete and card-event verification.
 
 ## Verification
 

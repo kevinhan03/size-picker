@@ -56,6 +56,12 @@ type Comparison = {
   } | null;
 };
 type Insights = {
+  cardEvents: {
+    available: boolean;
+    impressions: number;
+    clicks: number;
+    saves: number;
+  };
   feedback: {
     total: number;
     positive: number;
@@ -78,6 +84,12 @@ type Detail = Item & {
   error_code: string | null;
   review: Review | null;
   feedback: unknown;
+  cardEvents: Array<{
+    product_id: number;
+    rank: number;
+    event_type: string;
+    created_at: string;
+  }> | null;
   comparison: Comparison | null;
 };
 type TraceEvent = { stage: string; data: unknown };
@@ -274,6 +286,14 @@ export function AdminAgentPageClient() {
       </div>
       {insights && (
         <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-white/10 p-4">
+            <p className="text-xs text-gray-500">추천 카드 행동 · 전체</p>
+            <p className="mt-1 text-sm">
+              {insights.cardEvents.available
+                ? `노출 ${insights.cardEvents.impressions} · 클릭 ${insights.cardEvents.clicks} · 저장 ${insights.cardEvents.saves}`
+                : "이벤트 집계를 불러오지 못했습니다."}
+            </p>
+          </div>
           <div className="rounded-xl border border-white/10 p-4">
             <p className="text-xs text-gray-500">수집 피드백</p>
             <p className="mt-1 text-lg font-semibold">
@@ -707,6 +727,18 @@ export function AdminAgentPageClient() {
                 <pre className="mt-2 whitespace-pre-wrap text-xs">
                   {JSON.stringify(
                     detail.feedback ?? "피드백 조회 불가",
+                    null,
+                    2
+                  )}
+                </pre>
+              </details>
+              <details className="my-5">
+                <summary className="cursor-pointer text-sm">
+                  추천 카드 노출·클릭·저장
+                </summary>
+                <pre className="mt-2 whitespace-pre-wrap text-xs">
+                  {JSON.stringify(
+                    detail.cardEvents ?? "이벤트 조회 불가",
                     null,
                     2
                   )}

@@ -27,6 +27,12 @@ beforeAll(async () => {
       "utf8"
     )
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/20260924145244_fashion_agent_lifecycle_events.sql",
+      "utf8"
+    )
+  );
   await db.exec(`insert into products(id,brand,name,category,style_attributes,style_axes) values
     (1,'Brand','Black wide trousers','Bottom','{"primary_color":"black","silhouette":"wide"}','{"formality":4}'),
     (2,'Brand','Unanalysed trousers','Bottom',null,null),
@@ -38,6 +44,57 @@ afterAll(async () => {
   await db.close();
 });
 describe("fashion agent persistence and search", () => {
+  it("deletes only an owned idle conversation and cascades its card events", async () => {
+    const conversationId = randomUUID(),
+      requestId = randomUUID();
+    await begin(alice, conversationId, requestId);
+    await expect(
+      db.query("select fashion_agent_delete($1,$2)", [alice, conversationId])
+    ).rejects.toThrow("conversation_busy");
+    await db.query(
+      "update fashion_agent_requests set status='completed' where id=$1",
+      [requestId]
+    );
+    await db.query(
+      "insert into fashion_agent_card_events(user_id,conversation_id,request_id,assistant_message_id,product_id,rank,event_type,algorithm_version) values($1,$2,$3,$4,1,1,'click','test')",
+      [alice, conversationId, requestId, `${requestId}:assistant`]
+    );
+    expect(
+      (
+        await db.query<{ fashion_agent_delete: boolean }>(
+          "select fashion_agent_delete($1,$2)",
+          [bob, conversationId]
+        )
+      ).rows[0].fashion_agent_delete
+    ).toBe(false);
+    expect(
+      (
+        await db.query<{ fashion_agent_delete: boolean }>(
+          "select fashion_agent_delete($1,$2)",
+          [alice, conversationId]
+        )
+      ).rows[0].fashion_agent_delete
+    ).toBe(true);
+    expect(
+      (
+        await db.query(
+          "select * from fashion_agent_card_events where request_id=$1",
+          [requestId]
+        )
+      ).rows
+    ).toHaveLength(0);
+    expect(
+      (
+        await db.query(
+          "select * from fashion_agent_rate_events where request_id=$1",
+          [requestId]
+        )
+      ).rows
+    ).toHaveLength(1);
+    await expect(begin(alice, conversationId, requestId)).rejects.toThrow(
+      "request_expired"
+    );
+  });
   it("denies client table access and RPC invocation", async () => {
     for (const role of ["anon", "authenticated"]) {
       await db.exec(`set role ${role}`);
@@ -46,6 +103,15 @@ describe("fashion agent persistence and search", () => {
           db.query("select * from fashion_agent_conversations")
         ).rejects.toThrow(/permission denied/);
         await expect(begin(alice)).rejects.toThrow(/permission denied/);
+        await expect(
+          db.query("select fashion_agent_delete($1,$2)", [alice, randomUUID()])
+        ).rejects.toThrow(/permission denied/);
+        await expect(
+          db.query("select fashion_agent_card_event_totals()")
+        ).rejects.toThrow(/permission denied/);
+        await expect(
+          db.query("select * from fashion_agent_card_events")
+        ).rejects.toThrow(/permission denied/);
         await expect(
           db.query("select fashion_agent_search('{}')")
         ).rejects.toThrow(/permission denied/);

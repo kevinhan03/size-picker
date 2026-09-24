@@ -75,6 +75,8 @@ export const planSchema = objectSchema({
       "compatible",
       "compare",
       "taste",
+      "outfit",
+      "wardrobe",
       "knowledge",
       "clarify",
     ],
