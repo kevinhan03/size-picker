@@ -2203,6 +2203,10 @@
 .social-post-composer--screen .social-compose-layout:not(.social-compose-layout--tags) .social-compose-photo-stage {
   height: min(72dvh, 720px);
   min-height: 0;
+  /* The legacy single-photo composer aligns its preview to the start of the
+     column. In the full-screen caption workspace that leaves the preview
+     visibly stranded at the left edge of a wide column. */
+  justify-content: center;
 }
 .social-post-composer--screen .social-compose-layout--tags {
   display: grid;
@@ -2312,6 +2316,11 @@
     height: 100%;
     padding-inline: 3.5rem;
   }
+  /* A new post accepts one photo. Its crop frame does not need the multi-photo
+     navigation gutters, so use that width for the image rather than empty space. */
+  .social-post-composer--screen.social-post-composer--single .social-edit-workspace {
+    padding: .75rem 1rem 4.75rem;
+  }
   .social-post-composer--screen .social-edit-layout { min-height: 0; }
   .social-post-composer--screen .social-compose-layout:not(.social-compose-layout--tags) {
     grid-template-columns: minmax(0, 1fr);
@@ -2325,7 +2334,24 @@
   .social-post-composer--screen .social-compose-layout--tags {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(8rem, 31dvh);
+    /* A grid's default `align-items: start` leaves this row's height
+       indefinite in Safari. The child image's percentage height then
+       resolves to zero on physical phones, even though Chrome emulation
+       happens to paint it. Make the photo row explicitly stretch instead. */
+    align-items: stretch;
     width: 100%;
+  }
+  .social-post-composer--screen .social-compose-layout--tags > div:first-child {
+    align-self: stretch;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .social-post-composer--screen .social-compose-layout--tags .social-compose-photo-stage {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
   .social-post-composer--screen .social-compose-layout--tags > div:last-child {
     display: flex;
