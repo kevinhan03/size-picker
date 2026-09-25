@@ -1,11 +1,4 @@
-import {
-  Bookmark,
-  Compass,
-  Search,
-  Shirt,
-  UserRound,
-  MessageCircle,
-} from "lucide-react";
+import { Bookmark, Compass, Search, Shirt, UserRound } from "lucide-react";
 import type { ComponentType } from "react";
 import type { MessageKey } from "../i18n/messages";
 import {
@@ -35,7 +28,6 @@ export const primaryNavigationItems: PrimaryNavigationItem[] = [
   { destination: "outfit-explorer", labelKey: "nav.explore", icon: Search },
   { destination: "digbox", labelKey: "nav.saved", icon: Bookmark },
   { destination: "profile", labelKey: "nav.profile", icon: UserRound },
-  { destination: "agent", labelKey: "nav.agent", icon: MessageCircle },
 ];
 
 export const mobilePrimaryNavigationItems = primaryNavigationItems;

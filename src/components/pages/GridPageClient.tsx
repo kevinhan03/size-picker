@@ -8,26 +8,45 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useProductsContext } from "../../contexts/ProductsContext";
 import { useGridState } from "../../hooks/useGridState";
-import { prefetchProductDetail, useProductDetail } from "../../hooks/useProductDetail";
+import {
+  prefetchProductDetail,
+  useProductDetail,
+} from "../../hooks/useProductDetail";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
 import { toPublicUrl } from "../../utils/product";
 import type { Product } from "../../types";
 import { loadProductDetailModal } from "../productDetailModalLoader";
 
 const ProductDetailModal = dynamic(loadProductDetailModal, { ssr: false });
-const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
+const ImageViewerOverlay = dynamic(
+  () =>
+    import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay),
+  { ssr: false }
+);
 
 export function GridPageClient() {
   const { products, isProductsLoading } = useProductsContext();
-  const { closetProducts, toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
-  const { toggleDigbox, isInDigbox, ensureLoaded: ensureDigboxLoaded } = useDigboxContext();
+  const {
+    closetProducts,
+    toggleCloset,
+    isInCloset,
+    ensureLoaded: ensureClosetLoaded,
+  } = useClosetContext();
+  const {
+    toggleDigbox,
+    isInDigbox,
+    ensureLoaded: ensureDigboxLoaded,
+  } = useDigboxContext();
   const grid = useGridState(products);
   const productModal = useProductModalQuery();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const detailedProduct = useProductDetail(productModal.productId, selectedProduct);
+  const detailedProduct = useProductDetail(
+    productModal.productId,
+    selectedProduct
+  );
 
   useEffect(() => {
     ensureClosetLoaded();
@@ -93,6 +112,8 @@ export function GridPageClient() {
         gridSearchQuery={grid.gridSearchQuery}
         setGridSearchQuery={grid.setGridSearchQuery}
         onProductClick={handleProductClick}
+        onSaveProduct={(product) => toggleDigbox(product.id, "grid_card")}
+        isSaved={isInDigbox}
         onProductPrefetch={(product) => prefetchProductDetail(product.id)}
         onImageError={handleImageLoadError}
         isLoading={isProductsLoading}
@@ -101,7 +122,10 @@ export function GridPageClient() {
       {normalizedProduct && (
         <ProductDetailModal
           product={normalizedProduct}
-          closetProduct={closetProducts.find((item) => item.id === normalizedProduct.id) || null}
+          closetProduct={
+            closetProducts.find((item) => item.id === normalizedProduct.id) ||
+            null
+          }
           activeRowIndex={activeRowIndex}
           onClose={handleClose}
           onRowClick={(rowIndex) => setActiveRowIndex(rowIndex)}
@@ -109,14 +133,23 @@ export function GridPageClient() {
           onZoomImage={() => setIsDetailImageZoomed(true)}
           onImageError={handleImageLoadError}
           modalRef={modalRef}
-          onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
+          onToggleCloset={(selection) =>
+            toggleCloset(normalizedProduct.id, selection)
+          }
           isInCloset={isInCloset(normalizedProduct.id)}
           onToggleDigbox={() => toggleDigbox(normalizedProduct.id)}
           isInDigbox={isInDigbox(normalizedProduct.id)}
         />
       )}
 
-      {normalizedProduct && <ImageViewerOverlay open={isDetailImageZoomed} src={normalizedProduct.image} alt={normalizedProduct.name} onClose={() => setIsDetailImageZoomed(false)} />}
+      {normalizedProduct && (
+        <ImageViewerOverlay
+          open={isDetailImageZoomed}
+          src={normalizedProduct.image}
+          alt={normalizedProduct.name}
+          onClose={() => setIsDetailImageZoomed(false)}
+        />
+      )}
     </main>
   );
 }

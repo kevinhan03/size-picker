@@ -1,23 +1,51 @@
 import { unstable_cache } from "next/cache";
-import type { CatalogPage, Product, ProductCardData, ProductDetailData } from "../../src/types";
+import type {
+  CatalogPage,
+  Product,
+  ProductCardData,
+  ProductDetailData,
+} from "../../src/types";
 import { SUPABASE_PRODUCTS_TABLE } from "../config/env.js";
 import { assertSupabaseConfig, supabase } from "../lib/supabase.js";
 import { normalizeProductRow } from "../utils/product.js";
 
 export const PRODUCT_CARD_COLUMNS = [
-  "id", "brand", "name", "category", "sub_category", "category_analysis_status", "url", "image_path", "slug", "created_at",
-  "is_instagram", "instagram_order", "target_gender",
+  "id",
+  "brand",
+  "name",
+  "category",
+  "sub_category",
+  "category_analysis_status",
+  "url",
+  "image_path",
+  "slug",
+  "created_at",
+  "is_instagram",
+  "instagram_order",
+  "target_gender",
+  "human_target_gender",
+  "style_axes",
+  "human_style_axes",
+  "style_axes_reviewed_at",
 ].join(",");
 
 export const PRODUCT_DETAIL_COLUMNS = [
   PRODUCT_CARD_COLUMNS,
-  "size_table", "normalized_size_table", "registered_by",
-  "style_attributes", "style_axes", "human_style_attributes", "human_style_axes", "style_axis_review_required", "facts_reviewed_at", "style_axes_reviewed_at", "style_axis_analysis_status",
+  "size_table",
+  "normalized_size_table",
+  "registered_by",
+  "style_attributes",
+  "human_style_attributes",
+  "style_axis_review_required",
+  "facts_reviewed_at",
+  "style_axis_analysis_status",
 ].join(",");
 
 export const RECOMMENDATION_COLUMNS = [
-  PRODUCT_CARD_COLUMNS, "style_attributes", "style_axes", "human_style_attributes", "human_style_axes", "style_axis_review_required", "style_axes_reviewed_at",
-  "human_target_gender",
+  PRODUCT_CARD_COLUMNS,
+  "style_attributes",
+  "human_style_attributes",
+  "style_axis_review_required",
 ].join(",");
 
 // Backward-compatible aliases for server-only callers while their response contracts
@@ -41,6 +69,10 @@ const toCard = (product: Product): ProductCardData => ({
   isInstagram: product.isInstagram,
   instagramOrder: product.instagramOrder,
   targetGender: product.targetGender,
+  humanTargetGender: product.humanTargetGender,
+  styleAxes: product.styleAxes,
+  humanStyleAxes: product.humanStyleAxes,
+  styleAxesReviewedAt: product.styleAxesReviewedAt,
 });
 
 export const normalizeProductCard = (row: unknown): ProductCardData | null => {
@@ -48,7 +80,9 @@ export const normalizeProductCard = (row: unknown): ProductCardData | null => {
   return product ? toCard(product) : null;
 };
 
-export const normalizeProductDetail = (row: unknown): ProductDetailData | null => {
+export const normalizeProductDetail = (
+  row: unknown
+): ProductDetailData | null => {
   const product = normalizeProductRow(row) as Product | null;
   if (!product) return null;
   return {
@@ -79,7 +113,10 @@ export const normalizeClientProduct = (row: unknown): Product | null => {
 export const normalizeAnalysisProduct = (row: unknown): Product | null =>
   normalizeProductRow(row) as Product | null;
 
-const queryCatalogPage = async (offset: number, limit: number): Promise<CatalogPage> => {
+const queryCatalogPage = async (
+  offset: number,
+  limit: number
+): Promise<CatalogPage> => {
   assertSupabaseConfig();
   const { data, error } = await supabase!
     .from(SUPABASE_PRODUCTS_TABLE)
@@ -89,23 +126,34 @@ const queryCatalogPage = async (offset: number, limit: number): Promise<CatalogP
   if (error) throw error;
 
   const rows = Array.isArray(data) ? data : [];
-  const products = rows.slice(0, limit).map(normalizeProductCard).filter((product): product is ProductCardData => Boolean(product));
+  const products = rows
+    .slice(0, limit)
+    .map(normalizeProductCard)
+    .filter((product): product is ProductCardData => Boolean(product));
   return { products, nextOffset: rows.length > limit ? offset + limit : null };
 };
 
-const getCachedCatalogPage = unstable_cache(queryCatalogPage, ["catalog-page-v3"], {
-  revalidate: 60,
-  tags: ["catalog"],
-});
+const getCachedCatalogPage = unstable_cache(
+  queryCatalogPage,
+  ["catalog-page-v4"],
+  {
+    revalidate: 60,
+    tags: ["catalog"],
+  }
+);
 
-export const getCatalogPage = (offset = 0, limit = 24) => getCachedCatalogPage(offset, limit);
+export const getCatalogPage = (offset = 0, limit = 24) =>
+  getCachedCatalogPage(offset, limit);
 
 export type CatalogSearchBrand = {
   brand: string;
   count: number;
 };
 
-const queryCatalogSearchProducts = async (query: string, limit: number): Promise<ProductCardData[]> => {
+const queryCatalogSearchProducts = async (
+  query: string,
+  limit: number
+): Promise<ProductCardData[]> => {
   assertSupabaseConfig();
   const { data, error } = await supabase!.rpc("search_catalog", {
     search_query: query,
@@ -117,7 +165,10 @@ const queryCatalogSearchProducts = async (query: string, limit: number): Promise
     .filter((product): product is ProductCardData => Boolean(product));
 };
 
-const queryCatalogSearchBrands = async (query: string, limit: number): Promise<CatalogSearchBrand[]> => {
+const queryCatalogSearchBrands = async (
+  query: string,
+  limit: number
+): Promise<CatalogSearchBrand[]> => {
   assertSupabaseConfig();
   const { data, error } = await supabase!.rpc("search_catalog_brands", {
     search_query: query,
@@ -129,22 +180,37 @@ const queryCatalogSearchBrands = async (query: string, limit: number): Promise<C
       brand: String(row?.brand || "").trim(),
       count: Number(row?.item_count) || 0,
     }))
-    .filter((brand): brand is CatalogSearchBrand => Boolean(brand.brand) && brand.count > 0);
+    .filter(
+      (brand): brand is CatalogSearchBrand =>
+        Boolean(brand.brand) && brand.count > 0
+    );
 };
 
-const getCachedCatalogProductSearch = unstable_cache(queryCatalogSearchProducts, ["catalog-product-search-v4"], {
-  revalidate: 300,
-  tags: ["search"],
-});
-const getCachedCatalogBrandSearch = unstable_cache(queryCatalogSearchBrands, ["catalog-brand-search-v1"], {
-  revalidate: 300,
-  tags: ["search"],
-});
+const getCachedCatalogProductSearch = unstable_cache(
+  queryCatalogSearchProducts,
+  ["catalog-product-search-v4"],
+  {
+    revalidate: 300,
+    tags: ["search"],
+  }
+);
+const getCachedCatalogBrandSearch = unstable_cache(
+  queryCatalogSearchBrands,
+  ["catalog-brand-search-v1"],
+  {
+    revalidate: 300,
+    tags: ["search"],
+  }
+);
 
-export const searchCatalog = (query: string, limit = 8) => getCachedCatalogProductSearch(query, limit);
-export const searchCatalogBrands = (query: string, limit = 8) => getCachedCatalogBrandSearch(query, limit);
+export const searchCatalog = (query: string, limit = 8) =>
+  getCachedCatalogProductSearch(query, limit);
+export const searchCatalogBrands = (query: string, limit = 8) =>
+  getCachedCatalogBrandSearch(query, limit);
 
-const queryProductDetail = async (id: string): Promise<ProductDetailData | null> => {
+const queryProductDetail = async (
+  id: string
+): Promise<ProductDetailData | null> => {
   assertSupabaseConfig();
   const { data, error } = await supabase!
     .from(SUPABASE_PRODUCTS_TABLE)
@@ -157,13 +223,19 @@ const queryProductDetail = async (id: string): Promise<ProductDetailData | null>
 
 export const getProductDetailFresh = (id: string) => queryProductDetail(id);
 
-export const getProductDetail = (id: string) => unstable_cache(
-  () => queryProductDetail(id),
-  ["product-detail-v2", id],
-  { revalidate: 300, tags: [`product:${id}`] },
-)();
+export const getProductDetail = (id: string) =>
+  unstable_cache(() => queryProductDetail(id), ["product-detail-v2", id], {
+    revalidate: 300,
+    tags: [`product:${id}`],
+  })();
 
-export const requestLog = (route: string, request: Request, startedAt: number, status: number, cache?: string) => {
+export const requestLog = (
+  route: string,
+  request: Request,
+  startedAt: number,
+  status: number,
+  cache?: string
+) => {
   const payload = {
     route,
     requestId: request.headers.get("x-vercel-id"),

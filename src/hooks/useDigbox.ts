@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchCatalogProductsByIds, fetchDigboxData, addToDigbox as apiAdd, removeFromDigbox as apiRemove, updateDigboxSizeDecision as apiUpdateSizeDecision } from "../api";
+import {
+  fetchCatalogProductsByIds,
+  fetchDigboxData,
+  addToDigbox as apiAdd,
+  removeFromDigbox as apiRemove,
+  updateDigboxSizeDecision as apiUpdateSizeDecision,
+} from "../api";
 import { useCollectionBootstrap } from "../contexts/CollectionBootstrapContext";
 import type { DigboxSizeDecisionInput, Product } from "../types";
 import { captureEvent } from "../utils/analytics";
@@ -12,14 +18,20 @@ import {
   writeGuestDigbox,
 } from "../utils/guestDigbox";
 
-export type DigboxToast = { message: string; type: "success" | "info" | "error" } | null;
+export type DigboxToast = {
+  message: string;
+  type: "success" | "info" | "error";
+} | null;
 export type GuestSyncStatus = "idle" | "syncing" | "success" | "partial";
 
 export function useDigbox(
   isLoggedIn: boolean,
   initialProducts?: Product[],
   initialCounts: Record<string, number> = {},
-  options: { initialAnalysisLoaded?: boolean; refreshAnalysisAfterMutation?: boolean } = {}
+  options: {
+    initialAnalysisLoaded?: boolean;
+    refreshAnalysisAfterMutation?: boolean;
+  } = {}
 ) {
   const bootstrap = useCollectionBootstrap();
   const { t } = useLocaleContext();
@@ -27,14 +39,18 @@ export function useDigbox(
   tRef.current = t;
   const initialItems = initialProducts ?? [];
   const [digboxProducts, setDigboxProducts] = useState<Product[]>(initialItems);
-  const [digboxIds, setDigboxIds] = useState<Set<string>>(new Set(initialItems.map((product) => product.id)));
-  const [discoveredDigboxCounts, setDiscoveredDigboxCounts] = useState<Record<string, number>>(initialCounts);
+  const [digboxIds, setDigboxIds] = useState<Set<string>>(
+    new Set(initialItems.map((product) => product.id))
+  );
+  const [discoveredDigboxCounts, setDiscoveredDigboxCounts] =
+    useState<Record<string, number>>(initialCounts);
   const [guestIds, setGuestIds] = useState<string[]>([]);
   const [guestProducts, setGuestProducts] = useState<Product[]>([]);
   const [isGuestHydrated, setIsGuestHydrated] = useState(false);
   const [isGuestPanelOpen, setIsGuestPanelOpen] = useState(false);
   const [isGuestPromptOpen, setIsGuestPromptOpen] = useState(false);
-  const [guestSyncStatus, setGuestSyncStatus] = useState<GuestSyncStatus>("idle");
+  const [guestSyncStatus, setGuestSyncStatus] =
+    useState<GuestSyncStatus>("idle");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoaded, setIsLoaded] = useState(initialProducts !== undefined);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +58,8 @@ export function useDigbox(
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(initialProducts !== undefined);
   const hasAnalysisLoadedRef = useRef(Boolean(options.initialAnalysisLoaded));
-  const refreshAnalysisAfterMutation = options.refreshAnalysisAfterMutation === true;
+  const refreshAnalysisAfterMutation =
+    options.refreshAnalysisAfterMutation === true;
   const analysisRequestedRef = useRef(false);
   const isLoadingRef = useRef(false);
   const reloadRequestedRef = useRef(false);
@@ -51,7 +68,8 @@ export function useDigbox(
   const showToast = useCallback((nextToast: DigboxToast) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(nextToast);
-    if (nextToast) toastTimerRef.current = setTimeout(() => setToast(null), 3200);
+    if (nextToast)
+      toastTimerRef.current = setTimeout(() => setToast(null), 3200);
   }, []);
 
   const clearToast = useCallback(() => {
@@ -81,59 +99,73 @@ export function useDigbox(
         setGuestProducts(loaded);
       })
       .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === "AbortError")) setGuestProducts([]);
+        if (!(error instanceof DOMException && error.name === "AbortError"))
+          setGuestProducts([]);
       });
     return () => controller.abort();
   }, [guestIds, isGuestHydrated, isLoggedIn]);
 
-  const load = useCallback(async (includeAnalysis = false) => {
-    if (includeAnalysis) analysisRequestedRef.current = true;
-    if (!isLoggedIn) {
-      setDigboxProducts([]);
-      setDigboxIds(new Set());
-      setDiscoveredDigboxCounts({});
-      hasLoadedRef.current = false;
-      setIsLoaded(false);
-      setError(null);
-      hasAnalysisLoadedRef.current = false;
-      analysisRequestedRef.current = false;
-      return;
-    }
-    if (isLoadingRef.current) {
-      reloadRequestedRef.current = true;
-      return;
-    }
-    isLoadingRef.current = true;
-    setIsLoading(true);
-    let requestedAnalysis = false;
-    try {
-      requestedAnalysis = includeAnalysis || hasAnalysisLoadedRef.current;
-      const { products: loadedProducts, discoveredDigboxCounts: loadedCounts } = requestedAnalysis
-        ? await fetchDigboxData(true)
-        : (await bootstrap.ensure()).digbox;
-      setDigboxProducts(loadedProducts);
-      setDigboxIds(new Set(loadedProducts.map((product) => product.id)));
-      setDiscoveredDigboxCounts(loadedCounts);
-      hasLoadedRef.current = true;
-      setIsLoaded(true);
-      setError(null);
-      if (requestedAnalysis) {
-        hasAnalysisLoadedRef.current = true;
+  const load = useCallback(
+    async (includeAnalysis = false) => {
+      if (includeAnalysis) analysisRequestedRef.current = true;
+      if (!isLoggedIn) {
+        setDigboxProducts([]);
+        setDigboxIds(new Set());
+        setDiscoveredDigboxCounts({});
+        hasLoadedRef.current = false;
+        setIsLoaded(false);
+        setError(null);
+        hasAnalysisLoadedRef.current = false;
         analysisRequestedRef.current = false;
+        return;
       }
-    } catch (loadError: unknown) {
-      // Keep the previous collection when a background refresh fails.
-      setError(loadError instanceof Error ? loadError.message : tRef.current("saved.loadError"));
-    } finally {
-      isLoadingRef.current = false;
-      setIsLoading(false);
-      if (reloadRequestedRef.current || (analysisRequestedRef.current && !requestedAnalysis)) {
-        reloadRequestedRef.current = false;
-        const includeQueuedAnalysis = analysisRequestedRef.current;
-        window.setTimeout(() => void load(includeQueuedAnalysis), 0);
+      if (isLoadingRef.current) {
+        reloadRequestedRef.current = true;
+        return;
       }
-    }
-  }, [bootstrap, isLoggedIn]);
+      isLoadingRef.current = true;
+      setIsLoading(true);
+      let requestedAnalysis = false;
+      try {
+        requestedAnalysis = includeAnalysis || hasAnalysisLoadedRef.current;
+        const {
+          products: loadedProducts,
+          discoveredDigboxCounts: loadedCounts,
+        } = requestedAnalysis
+          ? await fetchDigboxData(true)
+          : (await bootstrap.ensure()).digbox;
+        setDigboxProducts(loadedProducts);
+        setDigboxIds(new Set(loadedProducts.map((product) => product.id)));
+        setDiscoveredDigboxCounts(loadedCounts);
+        hasLoadedRef.current = true;
+        setIsLoaded(true);
+        setError(null);
+        if (requestedAnalysis) {
+          hasAnalysisLoadedRef.current = true;
+          analysisRequestedRef.current = false;
+        }
+      } catch (loadError: unknown) {
+        // Keep the previous collection when a background refresh fails.
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : tRef.current("saved.loadError")
+        );
+      } finally {
+        isLoadingRef.current = false;
+        setIsLoading(false);
+        if (
+          reloadRequestedRef.current ||
+          (analysisRequestedRef.current && !requestedAnalysis)
+        ) {
+          reloadRequestedRef.current = false;
+          const includeQueuedAnalysis = analysisRequestedRef.current;
+          window.setTimeout(() => void load(includeQueuedAnalysis), 0);
+        }
+      }
+    },
+    [bootstrap, isLoggedIn]
+  );
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -143,28 +175,48 @@ export function useDigbox(
     }
   }, [isLoggedIn, load]);
 
-  const ensureLoaded = useCallback((includeAnalysis = false) => {
-    if (!isLoggedIn || (hasLoadedRef.current && (!includeAnalysis || hasAnalysisLoadedRef.current))) return;
-    void load(includeAnalysis);
-  }, [isLoggedIn, load]);
+  const ensureLoaded = useCallback(
+    (includeAnalysis = false) => {
+      if (
+        !isLoggedIn ||
+        (hasLoadedRef.current &&
+          (!includeAnalysis || hasAnalysisLoadedRef.current))
+      )
+        return;
+      void load(includeAnalysis);
+    },
+    [isLoggedIn, load]
+  );
 
-  const hydrate = useCallback((products: Product[], counts: Record<string, number> = {}) => {
-    setDigboxProducts(products);
-    setDigboxIds(new Set(products.map((product) => product.id)));
-    setDiscoveredDigboxCounts(counts);
-    hasLoadedRef.current = true;
-    setIsLoaded(true);
-    setError(null);
-  }, []);
+  const hydrate = useCallback(
+    (products: Product[], counts: Record<string, number> = {}) => {
+      setDigboxProducts(products);
+      setDigboxIds(new Set(products.map((product) => product.id)));
+      setDiscoveredDigboxCounts(counts);
+      hasLoadedRef.current = true;
+      setIsLoaded(true);
+      setError(null);
+    },
+    []
+  );
 
-  const addServerItem = useCallback(async (productId: string) => {
-    await apiAdd(productId);
-    bootstrap.invalidate();
-    setDigboxIds((current) => new Set([...current, productId]));
-  }, [bootstrap]);
+  const addServerItem = useCallback(
+    async (productId: string) => {
+      await apiAdd(productId);
+      bootstrap.invalidate();
+      setDigboxIds((current) => new Set([...current, productId]));
+    },
+    [bootstrap]
+  );
 
   const syncGuestItems = useCallback(async () => {
-    if (!isLoggedIn || !guestIds.length || syncAttemptedRef.current || !isGuestDigboxImportRequested()) return;
+    if (
+      !isLoggedIn ||
+      !guestIds.length ||
+      syncAttemptedRef.current ||
+      !isGuestDigboxImportRequested()
+    )
+      return;
     syncAttemptedRef.current = true;
     setGuestSyncStatus("syncing");
 
@@ -201,7 +253,13 @@ export function useDigbox(
   }, [guestIds, isLoggedIn, load, showToast]);
 
   useEffect(() => {
-    if (isLoggedIn && isGuestHydrated && guestIds.length && !syncAttemptedRef.current && isGuestDigboxImportRequested()) {
+    if (
+      isLoggedIn &&
+      isGuestHydrated &&
+      guestIds.length &&
+      !syncAttemptedRef.current &&
+      isGuestDigboxImportRequested()
+    ) {
       void syncGuestItems();
     }
   }, [guestIds.length, isGuestHydrated, isLoggedIn, syncGuestItems]);
@@ -212,42 +270,57 @@ export function useDigbox(
     void syncGuestItems();
   }, [syncGuestItems]);
 
-  const addToDigbox = useCallback(async (productId: string, source = "unknown") => {
-    if (!isLoggedIn || digboxIds.has(productId)) return;
-    await addServerItem(productId);
-    // Profile summaries and recent activity need the saved row (including added_at),
-    // not only its ID. Reuse the collection fetch after a successful addition.
-    await load(refreshAnalysisAfterMutation);
-    const properties = { product_id: productId, source, logged_in: true };
-    captureEvent("server_digbox_save_completed", properties);
-    captureEvent("save_succeeded", properties);
-  }, [addServerItem, digboxIds, isLoggedIn, load, refreshAnalysisAfterMutation]);
+  const addToDigbox = useCallback(
+    async (productId: string, source = "unknown") => {
+      if (!isLoggedIn || digboxIds.has(productId)) return;
+      await addServerItem(productId);
+      // Profile summaries and recent activity need the saved row (including added_at),
+      // not only its ID. Reuse the collection fetch after a successful addition.
+      await load(refreshAnalysisAfterMutation);
+      const properties = { product_id: productId, source, logged_in: true };
+      captureEvent("server_digbox_save_completed", properties);
+      captureEvent("save_succeeded", properties);
+    },
+    [addServerItem, digboxIds, isLoggedIn, load, refreshAnalysisAfterMutation]
+  );
 
-  const removeFromDigbox = useCallback(async (productId: string) => {
-    await apiRemove(productId);
-    bootstrap.invalidate();
-    setDigboxIds((current) => {
-      const next = new Set(current);
-      next.delete(productId);
-      return next;
-    });
-    setDigboxProducts((current) => current.filter((product) => product.id !== productId));
-    setDiscoveredDigboxCounts((current) => {
-      if (!(productId in current)) return current;
-      const next = { ...current };
-      delete next[productId];
-      return next;
-    });
-    if (refreshAnalysisAfterMutation) await load(true);
-  }, [bootstrap, load, refreshAnalysisAfterMutation]);
+  const removeFromDigbox = useCallback(
+    async (productId: string) => {
+      await apiRemove(productId);
+      bootstrap.invalidate();
+      setDigboxIds((current) => {
+        const next = new Set(current);
+        next.delete(productId);
+        return next;
+      });
+      setDigboxProducts((current) =>
+        current.filter((product) => product.id !== productId)
+      );
+      setDiscoveredDigboxCounts((current) => {
+        if (!(productId in current)) return current;
+        const next = { ...current };
+        delete next[productId];
+        return next;
+      });
+      if (refreshAnalysisAfterMutation) await load(true);
+    },
+    [bootstrap, load, refreshAnalysisAfterMutation]
+  );
 
-  const updateSizeDecision = useCallback(async (productId: string, decision: DigboxSizeDecisionInput | null) => {
-    await apiUpdateSizeDecision(productId, decision);
-    bootstrap.invalidate();
-    setDigboxProducts((current) => current.map((product) => (
-      product.id === productId ? { ...product, digboxSizeDecision: decision } : product
-    )));
-  }, [bootstrap]);
+  const updateSizeDecision = useCallback(
+    async (productId: string, decision: DigboxSizeDecisionInput | null) => {
+      await apiUpdateSizeDecision(productId, decision);
+      bootstrap.invalidate();
+      setDigboxProducts((current) =>
+        current.map((product) =>
+          product.id === productId
+            ? { ...product, digboxSizeDecision: decision }
+            : product
+        )
+      );
+    },
+    [bootstrap]
+  );
 
   const removeGuestItem = useCallback((productId: string) => {
     setIsGuestPromptOpen(false);
@@ -259,64 +332,107 @@ export function useDigbox(
   }, []);
 
   const isInDigbox = useCallback(
-    (productId: string) => (isLoggedIn ? digboxIds.has(productId) : guestIds.includes(productId)),
+    (productId: string) =>
+      isLoggedIn ? digboxIds.has(productId) : guestIds.includes(productId),
     [digboxIds, guestIds, isLoggedIn]
   );
 
-  const toggleDigbox = useCallback(async (productId: string, source = "unknown") => {
-    captureEvent("save_clicked", {
-      product_id: productId,
-      source,
-      logged_in: isLoggedIn,
-      already_saved: isLoggedIn ? digboxIds.has(productId) : guestIds.includes(productId),
-      guest_count: guestIds.length,
-    });
-    captureEvent("digbox_save_attempted", {
-      product_id: productId,
-      source,
-      logged_in: isLoggedIn,
-      guest_count: guestIds.length,
-    });
+  const toggleDigbox = useCallback(
+    async (productId: string, source = "unknown") => {
+      captureEvent("save_clicked", {
+        product_id: productId,
+        source,
+        logged_in: isLoggedIn,
+        already_saved: isLoggedIn
+          ? digboxIds.has(productId)
+          : guestIds.includes(productId),
+        guest_count: guestIds.length,
+      });
+      captureEvent("digbox_save_attempted", {
+        product_id: productId,
+        source,
+        logged_in: isLoggedIn,
+        guest_count: guestIds.length,
+      });
 
-    if (!isLoggedIn) {
-      if (guestIds.includes(productId)) {
-        captureEvent("save_blocked", { product_id: productId, ui_surface: source, failure_reason: "already_saved", logged_in: false });
-        showToast({ message: "already_added", type: "info" });
+      if (!isLoggedIn) {
+        if (guestIds.includes(productId)) {
+          const next = guestIds.filter((id) => id !== productId);
+          setGuestIds(next);
+          writeGuestDigbox(next);
+          setIsGuestPromptOpen(false);
+          captureEvent("save_removed", {
+            product_id: productId,
+            source,
+            logged_in: false,
+          });
+          showToast({ message: "removed", type: "info" });
+          return;
+        }
+        if (guestIds.length >= GUEST_DIGBOX_LIMIT) {
+          captureEvent("guest_digbox_limit_reached", {
+            product_id: productId,
+            guest_count: guestIds.length,
+            source,
+          });
+          captureEvent("save_blocked", {
+            product_id: productId,
+            ui_surface: source,
+            failure_reason: "guest_limit",
+            logged_in: false,
+          });
+          setIsGuestPromptOpen(true);
+          return;
+        }
+        const next = [...guestIds, productId];
+        setGuestIds(next);
+        writeGuestDigbox(next);
+        const properties = {
+          product_id: productId,
+          guest_count: next.length,
+          source,
+          logged_in: false,
+        };
+        captureEvent("guest_digbox_saved", properties);
+        captureEvent("save_succeeded", properties);
+        showToast({ message: "guest_added", type: "success" });
+        if (next.length === GUEST_DIGBOX_LIMIT) {
+          setIsGuestPromptOpen(true);
+        }
         return;
       }
-      if (guestIds.length >= GUEST_DIGBOX_LIMIT) {
-        captureEvent("guest_digbox_limit_reached", { product_id: productId, guest_count: guestIds.length, source });
-        captureEvent("save_blocked", { product_id: productId, ui_surface: source, failure_reason: "guest_limit", logged_in: false });
-        setIsGuestPromptOpen(true);
+
+      if (digboxIds.has(productId)) {
+        try {
+          await removeFromDigbox(productId);
+          captureEvent("save_removed", {
+            product_id: productId,
+            source,
+            logged_in: true,
+          });
+          showToast({ message: "removed", type: "info" });
+        } catch (error) {
+          console.error("[digbox] remove failed", error);
+          showToast({ message: "remove_failed", type: "error" });
+        }
         return;
       }
-      const next = [...guestIds, productId];
-      setGuestIds(next);
-      writeGuestDigbox(next);
-      const properties = { product_id: productId, guest_count: next.length, source, logged_in: false };
-      captureEvent("guest_digbox_saved", properties);
-      captureEvent("save_succeeded", properties);
-      showToast({ message: "guest_added", type: "success" });
-      if (next.length === GUEST_DIGBOX_LIMIT) {
-        setIsGuestPromptOpen(true);
+      try {
+        await addToDigbox(productId, source);
+        showToast({ message: "added", type: "success" });
+      } catch (error) {
+        console.error("[digbox] add failed", error);
+        captureEvent("save_failed", {
+          product_id: productId,
+          ui_surface: source,
+          failure_reason: "request_failed",
+          logged_in: true,
+        });
+        showToast({ message: "add_failed", type: "error" });
       }
-      return;
-    }
-
-    if (digboxIds.has(productId)) {
-      captureEvent("save_blocked", { product_id: productId, ui_surface: source, failure_reason: "already_saved", logged_in: true });
-      showToast({ message: "already_added", type: "info" });
-      return;
-    }
-    try {
-      await addToDigbox(productId, source);
-      showToast({ message: "added", type: "success" });
-    } catch (error) {
-      console.error("[digbox] add failed", error);
-      captureEvent("save_failed", { product_id: productId, ui_surface: source, failure_reason: "request_failed", logged_in: true });
-      showToast({ message: "add_failed", type: "error" });
-    }
-  }, [addToDigbox, digboxIds, guestIds, isLoggedIn, showToast]);
+    },
+    [addToDigbox, digboxIds, guestIds, isLoggedIn, removeFromDigbox, showToast]
+  );
 
   return {
     digboxProducts,

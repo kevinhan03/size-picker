@@ -52,7 +52,7 @@ export function MobileBottomNav() {
       aria-label="Primary navigation"
       className="fixed inset-x-0 bottom-0 z-[60] flex flex-col border-t border-white/10 bg-[#0b0b0d]/95 backdrop-blur-2xl lg:hidden"
     >
-      <div className="mx-auto grid h-[var(--app-bottom-nav-height)] w-full max-w-md grid-cols-6 px-2">
+      <div className="mx-auto grid h-[var(--app-bottom-nav-height)] w-full max-w-md grid-cols-5 px-2">
         {mobilePrimaryNavigationItems.map(
           ({ destination, labelKey, icon: Icon }) => {
             const active = activeDestination === destination;

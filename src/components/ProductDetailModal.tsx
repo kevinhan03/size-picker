@@ -49,6 +49,7 @@ import { isNonApparelSizeCategory, isShoeCategory } from "../utils/shoeSize";
 import { getProductPageUrl } from "../utils/product";
 import { DigboxSizeDecisionCard } from "./DigboxSizeDecisionCard";
 import { getProductStyleProfile } from "../utils/styleProfile";
+import { USERNAME_PATTERN } from "../utils/username";
 
 export interface ProductDetailModalProps {
   product: Product;
@@ -605,12 +606,19 @@ function ProductDetailModalContent({
     onCollectionActionStart?.(getAnchorRect(event));
     if (isInCloset) {
       onToggleCloset(null);
-      captureEvent("closet_removed", { product_id: product.id, source: analyticsSource });
+      captureEvent("closet_removed", {
+        product_id: product.id,
+        source: analyticsSource,
+      });
       return;
     }
     if (isNonApparelSize && !isShoe) {
       onToggleCloset(null);
-      captureEvent("closet_save_succeeded", { product_id: product.id, source: analyticsSource, size_selected: false });
+      captureEvent("closet_save_succeeded", {
+        product_id: product.id,
+        source: analyticsSource,
+        size_selected: false,
+      });
       return;
     }
     setIsSizeSheetOpen(true);
@@ -619,7 +627,11 @@ function ProductDetailModalContent({
   const handleConfirmClosetSize = (selection: ClosetSizeSelection | null) => {
     setIsSizeSheetOpen(false);
     onToggleCloset?.(selection);
-    captureEvent("closet_save_succeeded", { product_id: product.id, source: analyticsSource, size_selected: Boolean(selection) });
+    captureEvent("closet_save_succeeded", {
+      product_id: product.id,
+      source: analyticsSource,
+      size_selected: Boolean(selection),
+    });
   };
 
   const handleMissingMySizeAction = () => {
@@ -671,11 +683,7 @@ function ProductDetailModalContent({
                   <button
                     type="button"
                     aria-label={
-                      isInDigbox
-                        ? t("product.saved")
-                        : !authUser
-                          ? t("product.guestSave")
-                          : t("product.save")
+                      isInDigbox ? t("product.unsave") : t("product.save")
                     }
                     aria-pressed={isInDigbox}
                     data-active={isInDigbox}
@@ -699,11 +707,7 @@ function ProductDetailModalContent({
                       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                     </svg>
                     <span>
-                      {isInDigbox
-                        ? t("product.saved")
-                        : !authUser
-                          ? t("product.guestSave")
-                          : t("product.save")}
+                      {isInDigbox ? t("product.saved") : t("product.save")}
                     </span>
                   </button>
                   {showGuestDigboxHint && !isInDigbox ? (
@@ -768,7 +772,9 @@ function ProductDetailModalContent({
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
           >
             <div className="relative z-[1] p-6 md:p-8">
-              <div className={`flex flex-col gap-6 md:flex-row ${hasStyleProfile ? "md:items-start" : "md:items-center"}`}>
+              <div
+                className={`flex flex-col gap-6 md:flex-row ${hasStyleProfile ? "md:items-start" : "md:items-center"}`}
+              >
                 <button
                   type="button"
                   onClick={onZoomImage}
@@ -776,13 +782,13 @@ function ProductDetailModalContent({
                 >
                   {/* Intrinsic image bounds make the radius follow the photo, not a letterboxed fill element. */}
                   {/* eslint-disable-next-line @next/next/no-img-element -- Preserve unknown source ratios and native fallback handling. */}
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="block h-auto max-h-full w-auto max-w-full rounded-[20px]"
-                      loading="eager"
-                      onError={onImageError}
-                    />
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="block h-auto max-h-full w-auto max-w-full rounded-[20px]"
+                    loading="eager"
+                    onError={onImageError}
+                  />
                 </button>
                 <div className="flex-1">
                   <div className="mb-2 flex items-center gap-2 text-sm font-bold text-orange-500">
@@ -823,9 +829,18 @@ function ProductDetailModalContent({
                       {product.registeredBy && (
                         <span>
                           {t("product.discoveredBy")}{" "}
-                          <span className="text-gray-200">
-                            {product.registeredBy}
-                          </span>
+                          {USERNAME_PATTERN.test(product.registeredBy) ? (
+                            <a
+                              href={`/${encodeURIComponent(product.registeredBy)}/discoveries`}
+                              className="text-gray-200 underline decoration-gray-600 underline-offset-2 transition-colors hover:text-orange-300 hover:decoration-orange-300"
+                            >
+                              {product.registeredBy}
+                            </a>
+                          ) : (
+                            <span className="text-gray-200">
+                              {product.registeredBy}
+                            </span>
+                          )}
                         </span>
                       )}
                       {otherDigboxCount > 0 && (

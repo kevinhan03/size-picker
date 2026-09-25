@@ -1,24 +1,74 @@
 "use client";
 
-import { type SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type SyntheticEvent,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { ProgressiveImage } from "./ProgressiveImage";
+import { Bookmark } from "lucide-react";
 import { loadProductDetailModal } from "./productDetailModalLoader";
 import type { TutorialAnchorRect } from "./OnboardingTutorial";
 import type { Product } from "../types";
 import { useLocaleContext } from "../contexts/LocaleContext";
+import { PRODUCT_CATEGORY_REGISTRY } from "../constants/productCategoryRegistry.js";
+import {
+  getProductStyleProfile,
+  styleProfileLabels,
+} from "../utils/styleProfile";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
 import { CATEGORY_OPTIONS } from "../constants";
 
 // Initial estimate — virtualizer corrects with actual measurements via measureElement
 const ROW_HEIGHT_ESTIMATE = 360;
 
+const categoryLabels = new Map(
+  PRODUCT_CATEGORY_REGISTRY.map(({ code, label }) => [code, label])
+);
+
+function cardDescription(product: Product, locale: string) {
+  const category =
+    product.subCategory?.split("·")[0]?.trim() ||
+    categoryLabels.get(product.category) ||
+    "";
+  const primaryMood = getProductStyleProfile(product)?.displayEntries[0];
+  const mood = primaryMood ? styleProfileLabels(primaryMood.key, locale) : "";
+  return [category, mood].filter(Boolean).join(" · ");
+}
+
 const analysisStatus = (product: Product) => {
-  if (product.categoryAnalysisStatus === "pending") return { label: "카테고리 분석 중", className: "border-sky-400/25 bg-sky-400/10 text-sky-200" };
-  if (product.categoryAnalysisStatus === "failed") return { label: "분류 확인 필요", className: "border-amber-400/25 bg-amber-400/10 text-amber-200" };
-  if (product.styleAxisAnalysisStatus === "pending" || product.styleAxisAnalysisStatus === "tagging") return { label: "스타일 축 분석 중", className: "border-violet-400/25 bg-violet-400/10 text-violet-200" };
-  if (product.styleAxisAnalysisStatus === "failed") return { label: "스타일 축 확인 필요", className: "border-red-400/25 bg-red-400/10 text-red-200" };
-  if (product.styleAxisAnalysisStatus === "tagged") return { label: "스타일 축 분석 완료", className: "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200" };
+  if (product.categoryAnalysisStatus === "pending")
+    return {
+      label: "카테고리 분석 중",
+      className: "border-sky-400/25 bg-sky-400/10 text-sky-200",
+    };
+  if (product.categoryAnalysisStatus === "failed")
+    return {
+      label: "분류 확인 필요",
+      className: "border-amber-400/25 bg-amber-400/10 text-amber-200",
+    };
+  if (
+    product.styleAxisAnalysisStatus === "pending" ||
+    product.styleAxisAnalysisStatus === "tagging"
+  )
+    return {
+      label: "스타일 축 분석 중",
+      className: "border-violet-400/25 bg-violet-400/10 text-violet-200",
+    };
+  if (product.styleAxisAnalysisStatus === "failed")
+    return {
+      label: "스타일 축 확인 필요",
+      className: "border-red-400/25 bg-red-400/10 text-red-200",
+    };
+  if (product.styleAxisAnalysisStatus === "tagged")
+    return {
+      label: "스타일 축 분석 완료",
+      className: "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200",
+    };
   return null;
 };
 
@@ -38,23 +88,28 @@ function ProductCardMedia({
   const directUrl = product.cardThumbnailImage;
   const useDirect = Boolean(directUrl && failedDirectUrl !== directUrl);
   // Legacy/external images have no stored derivative; load their original directly.
-  const src = useOriginal || !directUrl ? source : useDirect ? directUrl : `/api/products/${encodeURIComponent(product.id)}/card-image`;
+  const src =
+    useOriginal || !directUrl
+      ? source
+      : useDirect
+        ? directUrl
+        : `/api/products/${encodeURIComponent(product.id)}/card-image`;
 
   return (
     <div className="relative aspect-[4/5] overflow-hidden bg-[#f5f5f5]">
-        <ProgressiveImage
-          key={src}
-          src={src}
-          alt={product.name}
-          className="object-contain"
-          loading={isLcpCandidate ? "eager" : "lazy"}
-          fetchPriority={isLcpCandidate ? "high" : "auto"}
-          onError={(event) => {
-            if (!useOriginal && useDirect) setFailedDirectUrl(directUrl!);
-            else if (!useOriginal) setFailedSource(source);
-            else onImageError(event);
-          }}
-        />
+      <ProgressiveImage
+        key={src}
+        src={src}
+        alt={product.name}
+        className="object-contain"
+        loading={isLcpCandidate ? "eager" : "lazy"}
+        fetchPriority={isLcpCandidate ? "high" : "auto"}
+        onError={(event) => {
+          if (!useOriginal && useDirect) setFailedDirectUrl(directUrl!);
+          else if (!useOriginal) setFailedSource(source);
+          else onImageError(event);
+        }}
+      />
     </div>
   );
 }
@@ -68,6 +123,8 @@ interface GridViewProps {
   gridSearchQuery: string;
   setGridSearchQuery: (value: string) => void;
   onProductClick: (product: Product, anchorRect?: TutorialAnchorRect) => void;
+  onSaveProduct: (product: Product) => Promise<void> | void;
+  isSaved: (productId: string) => boolean;
   onProductPrefetch?: (product: Product) => void;
   onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
   isInteractionDisabled?: boolean;
@@ -91,6 +148,8 @@ export function GridView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing component contract.
   setGridSearchQuery,
   onProductClick,
+  onSaveProduct,
+  isSaved,
   onProductPrefetch,
   onImageError,
   isInteractionDisabled = false,
@@ -99,11 +158,26 @@ export function GridView({
   isLoadingMoreProducts = false,
   onLoadMoreProducts,
 }: GridViewProps) {
-  const { t } = useLocaleContext();
+  const { t, locale } = useLocaleContext();
   const gridRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const [colCount, setColCount] = useState(2);
   const [scrollMargin, setScrollMargin] = useState(0);
+  const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set());
+
+  const toggleSavedProduct = async (product: Product) => {
+    if (isInteractionDisabled || savingIds.has(product.id)) return;
+    setSavingIds((current) => new Set(current).add(product.id));
+    try {
+      await onSaveProduct(product);
+    } finally {
+      setSavingIds((current) => {
+        const next = new Set(current);
+        next.delete(product.id);
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     const check = () => setColCount(window.innerWidth >= 1024 ? 4 : 2);
@@ -122,7 +196,8 @@ export function GridView({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting && !isLoadingMoreProducts) onLoadMoreProducts();
+        if (entry?.isIntersecting && !isLoadingMoreProducts)
+          onLoadMoreProducts();
       },
       { rootMargin: "400px 0px", threshold: 0 }
     );
@@ -158,18 +233,26 @@ export function GridView({
   };
 
   return (
-    <div className={`w-full max-w-7xl ${isInteractionDisabled ? "pointer-events-none" : ""}`}>
-
+    <div
+      className={`w-full max-w-7xl ${isInteractionDisabled ? "pointer-events-none" : ""}`}
+    >
       {isLoading && allProducts.length === 0 ? (
-        <div className="py-20 text-center text-gray-500">{t("grid.loading")}</div>
+        <div className="py-20 text-center text-gray-500">
+          {t("grid.loading")}
+        </div>
       ) : allProducts.length === 0 ? (
         <div className="py-20 text-center text-gray-500">{t("grid.empty")}</div>
       ) : filteredGridProducts.length === 0 ? (
-        <div className="py-20 text-center text-gray-500">{t("grid.noResults")}</div>
+        <div className="py-20 text-center text-gray-500">
+          {t("grid.noResults")}
+        </div>
       ) : (
         <div
           ref={gridRef}
-          style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            position: "relative",
+          }}
         >
           {virtualizer.getVirtualItems().map((vRow) => (
             <div
@@ -190,49 +273,92 @@ export function GridView({
                 // desktop card as high priority makes their image requests compete.
                 const isLcpCandidate = vRow.index === 0 && productIndex === 0;
                 const productAnalysisStatus = analysisStatus(product);
+                const description = cardDescription(product, locale);
+                const saved = isSaved(product.id);
+                const saving = savingIds.has(product.id);
 
                 return (
                   <div
                     key={product.id}
-                    onClick={(event) => {
-                      if (isInteractionDisabled) return;
-                      onProductClick(product, getAnchorRect(event.currentTarget));
-                    }}
-                    onPointerEnter={() => { void loadProductDetailModal(); onProductPrefetch?.(product); }}
-                    onPointerDown={() => { void loadProductDetailModal(); onProductPrefetch?.(product); }}
-                    onFocus={() => { void loadProductDetailModal(); onProductPrefetch?.(product); }}
-                    onKeyDown={(event) => {
-                      if (isInteractionDisabled) return;
-                      if (event.key !== "Enter" && event.key !== " ") return;
-                      event.preventDefault();
-                      onProductClick(product, getAnchorRect(event.currentTarget));
-                    }}
-                    role="button"
-                    tabIndex={isInteractionDisabled ? -1 : 0}
-                    aria-disabled={isInteractionDisabled || undefined}
                     className={`ui-product-card ui-card-lift relative flex h-full flex-col overflow-hidden rounded-[22px] border border-white/[0.09] bg-[linear-gradient(180deg,rgba(25,25,29,0.98),rgba(15,15,18,0.98))] shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-transform duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.98] ${
                       isInteractionDisabled
                         ? "cursor-default"
                         : "cursor-pointer"
                     }`}
                   >
-                    <ProductCardMedia
-                      product={product}
-                      isLcpCandidate={isLcpCandidate}
-                      onImageError={onImageError}
+                    <button
+                      type="button"
+                      disabled={isInteractionDisabled}
+                      aria-label={`${product.brand} ${product.name} · ${t("product.detail")}`}
+                      onClick={(event) =>
+                        onProductClick(
+                          product,
+                          getAnchorRect(event.currentTarget.parentElement!)
+                        )
+                      }
+                      onPointerEnter={() => {
+                        void loadProductDetailModal();
+                        onProductPrefetch?.(product);
+                      }}
+                      onPointerDown={() => {
+                        void loadProductDetailModal();
+                        onProductPrefetch?.(product);
+                      }}
+                      onFocus={() => {
+                        void loadProductDetailModal();
+                        onProductPrefetch?.(product);
+                      }}
+                      className="absolute inset-0 z-10 rounded-[22px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400 disabled:cursor-default"
                     />
+                    <div className="relative">
+                      <ProductCardMedia
+                        product={product}
+                        isLcpCandidate={isLcpCandidate}
+                        onImageError={onImageError}
+                      />
+                    </div>
                     <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
                       <div className="mb-1 flex min-w-0 items-center gap-2">
-                        <div className="truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
+                        <div className="truncate text-xs font-bold tracking-wide text-orange-500">
+                          {product.brand}
+                        </div>
                         {product.isInstagram && (
                           <span className="flex-shrink-0 rounded-md border border-orange-500/35 bg-orange-500/[0.12] px-1.5 py-0.5 text-[9px] font-black leading-none text-orange-300">
                             PICK
                           </span>
                         )}
                       </div>
-                      <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
-                      <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
-                      {productAnalysisStatus ? <span className={`mx-auto mt-2 inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold ${productAnalysisStatus.className}`}>{productAnalysisStatus.label}</span> : null}
+                      <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">
+                        {product.name}
+                      </h3>
+                      <div className="relative mt-auto flex min-h-7 items-center justify-center pt-2">
+                        {description && (
+                          <div className="px-10 text-center text-sm text-gray-300">
+                            {description}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          disabled={isInteractionDisabled || saving}
+                          aria-label={`${product.brand} ${product.name} · ${t(saved ? "product.unsave" : "product.save")}`}
+                          aria-pressed={saved}
+                          aria-busy={saving}
+                          onClick={() => void toggleSavedProduct(product)}
+                          className={`absolute bottom-0 right-0 top-2 z-20 flex w-9 items-center justify-center bg-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${saved ? "text-orange-400" : "text-gray-300 hover:text-orange-300"} disabled:cursor-default`}
+                        >
+                          <Bookmark
+                            className={`h-[18px] w-[18px] ${saved ? "fill-current" : ""}`}
+                            strokeWidth={2.5}
+                          />
+                        </button>
+                      </div>
+                      {productAnalysisStatus ? (
+                        <span
+                          className={`mx-auto mt-2 inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold ${productAnalysisStatus.className}`}
+                        >
+                          {productAnalysisStatus.label}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -242,8 +368,16 @@ export function GridView({
         </div>
       )}
       {hasMoreProducts ? (
-        <div ref={loadMoreSentinelRef} className="flex min-h-16 items-center justify-center pt-5" aria-live="polite">
-          {isLoadingMoreProducts ? <span className="text-sm font-medium text-gray-400">{t("grid.loadingMore")}</span> : null}
+        <div
+          ref={loadMoreSentinelRef}
+          className="flex min-h-16 items-center justify-center pt-5"
+          aria-live="polite"
+        >
+          {isLoadingMoreProducts ? (
+            <span className="text-sm font-medium text-gray-400">
+              {t("grid.loadingMore")}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </div>

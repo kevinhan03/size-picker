@@ -79,6 +79,10 @@ export type ProductCardData = Pick<
   | "isInstagram"
   | "instagramOrder"
   | "targetGender"
+  | "humanTargetGender"
+  | "styleAxes"
+  | "humanStyleAxes"
+  | "styleAxesReviewedAt"
 >;
 
 export type ProductDetailData = Pick<

@@ -6,8 +6,15 @@ import {
 } from "../../src/utils/profile";
 import { normalizeClientProduct } from "./catalog";
 import type { Product } from "../../src/types";
-import { createTasteSignature, type TasteSignature } from "../../src/utils/tasteSignature";
-import { getClosetProducts, getDigboxProducts } from "./user-collections";
+import {
+  createTasteSignature,
+  type TasteSignature,
+} from "../../src/utils/tasteSignature";
+import {
+  getClosetProducts,
+  getDigboxProducts,
+  getUserDiscoveries,
+} from "./user-collections";
 
 export type ProfileIdentity = {
   id: string;
@@ -17,7 +24,9 @@ export type ProfileIdentity = {
   closetIsPublic: boolean;
 };
 
-export async function getProfileIdentity(userId: string): Promise<ProfileIdentity> {
+export async function getProfileIdentity(
+  userId: string
+): Promise<ProfileIdentity> {
   assertSupabaseConfig();
   const { data, error } = await supabase!
     .from("users")
@@ -76,7 +85,9 @@ export async function getProfileIdentityByUsername(
 }
 
 /** Loads only fields that are safe and necessary to render a public profile. */
-export async function getPublicProfileProducts(userId: string): Promise<Product[]> {
+export async function getPublicProfileProducts(
+  userId: string
+): Promise<Product[]> {
   assertSupabaseConfig();
   const { data, error } = await supabase!.rpc("get_public_profile_products", {
     target_user_id: userId,
@@ -87,15 +98,63 @@ export async function getPublicProfileProducts(userId: string): Promise<Product[
     .filter((product): product is Product => Boolean(product));
 }
 
-export async function getPublicClosetProducts(userId: string): Promise<Product[]> {
+export async function getPublicClosetProducts(
+  userId: string
+): Promise<Product[]> {
   assertSupabaseConfig();
-  const { data, error } = await supabase!.rpc("get_public_closet_products", { target_user_id: userId });
+  const { data, error } = await supabase!.rpc("get_public_closet_products", {
+    target_user_id: userId,
+  });
   if (error) throw error;
-  return (Array.isArray(data) ? data : []).map(normalizeClientProduct).filter((product): product is Product => Boolean(product));
+  return (Array.isArray(data) ? data : [])
+    .map(normalizeClientProduct)
+    .filter((product): product is Product => Boolean(product));
+}
+
+/** Public catalog discoveries plus the style fields needed for a discovery summary. */
+export async function getPublicUserDiscoveries(
+  userId: string
+): Promise<Product[]> {
+  const { products } = await getUserDiscoveries(userId);
+  if (!products.length) return [];
+  const chunks: string[][] = [];
+  for (let index = 0; index < products.length; index += 100)
+    chunks.push(
+      products.slice(index, index + 100).map((product) => product.id)
+    );
+  const results = await Promise.all(
+    chunks.map((ids) =>
+      supabase!
+        .from("products")
+        .select(
+          "id,sub_category,style_axes,human_style_axes,style_axes_reviewed_at,target_gender,human_target_gender"
+        )
+        .in("id", ids)
+    )
+  );
+  const details = new Map<string, Partial<Product>>();
+  for (const result of results) {
+    if (result.error) throw result.error;
+    for (const row of result.data || [])
+      details.set(String(row.id), {
+        subCategory: row.sub_category,
+        styleAxes: row.style_axes,
+        humanStyleAxes: row.human_style_axes,
+        styleAxesReviewedAt: row.style_axes_reviewed_at,
+        targetGender: row.target_gender,
+        humanTargetGender: row.human_target_gender,
+      } as Partial<Product>);
+  }
+  return products.map((product) => ({
+    ...product,
+    ...details.get(product.id),
+  }));
 }
 
 /** Reads private collections only on the server and returns a safe aggregate. */
-export async function getProfileTasteSignature(userId: string): Promise<TasteSignature | null> {
+export async function getProfileTasteSignature(
+  userId: string
+): Promise<TasteSignature | null> {
   const [saved, closet] = await Promise.all([
     getDigboxProducts(userId),
     getClosetProducts(userId),
@@ -110,7 +169,14 @@ export async function getPublicProfile(
   if (!identity) return null;
   const [tasteSignature, closetProducts] = await Promise.all([
     getProfileTasteSignature(identity.id),
-    identity.closetIsPublic ? getPublicClosetProducts(identity.id) : Promise.resolve([]),
+    identity.closetIsPublic
+      ? getPublicClosetProducts(identity.id)
+      : Promise.resolve([]),
   ]);
-  return { ...identity, products: [], tasteSignature, closetProducts: closetProducts.map(publicProfileProduct) };
+  return {
+    ...identity,
+    products: [],
+    tasteSignature,
+    closetProducts: closetProducts.map(publicProfileProduct),
+  };
 }
