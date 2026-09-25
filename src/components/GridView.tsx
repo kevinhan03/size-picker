@@ -37,7 +37,7 @@ function cardDescription(product: Product, locale: string) {
     "";
   const primaryMood = getProductStyleProfile(product)?.displayEntries[0];
   const mood = primaryMood ? styleProfileLabels(primaryMood.key, locale) : "";
-  return [category, mood].filter(Boolean).join(" · ");
+  return { category, mood };
 }
 
 const analysisStatus = (product: Product) => {
@@ -332,9 +332,15 @@ export function GridView({
                         {product.name}
                       </h3>
                       <div className="relative mt-auto flex min-h-7 items-center justify-center pt-2">
-                        {description && (
-                          <div className="px-10 text-center text-sm text-gray-300">
-                            {description}
+                        {description.category && (
+                          <div className="w-full truncate px-10 text-center text-sm text-gray-300 sm:whitespace-normal sm:overflow-visible">
+                            {description.category}
+                            {description.mood && (
+                              <span className="hidden sm:inline">
+                                {" · "}
+                                {description.mood}
+                              </span>
+                            )}
                           </div>
                         )}
                         <button

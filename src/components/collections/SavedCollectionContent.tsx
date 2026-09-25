@@ -10,7 +10,10 @@ import { useClosetContext } from "../../contexts/ClosetContext";
 import { useDigboxContext } from "../../contexts/DigboxContext";
 import { useLocaleContext } from "../../contexts/LocaleContext";
 import { useProductModalQuery } from "../../hooks/useProductModalQuery";
-import { prefetchProductDetail, useProductDetail } from "../../hooks/useProductDetail";
+import {
+  prefetchProductDetail,
+  useProductDetail,
+} from "../../hooks/useProductDetail";
 import { useProgressiveList } from "../../hooks/useProgressiveList";
 import { ProgressiveImage } from "../ProgressiveImage";
 import { DigCategoryFilter } from "../DigCategoryFilter";
@@ -21,16 +24,22 @@ import { PageState } from "../PageState";
 import { captureEvent } from "../../utils/analytics";
 import type { Product } from "../../types";
 import { loadProductDetailModal } from "../productDetailModalLoader";
+import { getCategoryLabel } from "../../constants";
 
 const ProductDetailModal = dynamic(loadProductDetailModal, { ssr: false });
-const ImageViewerOverlay = dynamic(() => import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay), { ssr: false });
+const ImageViewerOverlay = dynamic(
+  () =>
+    import("../ImageViewerOverlay").then((module) => module.ImageViewerOverlay),
+  { ssr: false }
+);
 
 const cardStyle: React.CSSProperties = {
   background: "#111114",
   border: "1px solid rgba(255,255,255,0.09)",
   borderRadius: "1.25rem",
   overflow: "hidden",
-  boxShadow: "0 1px 0 rgba(255,255,255,0.08) inset, 0 12px 40px rgba(0,0,0,0.55)",
+  boxShadow:
+    "0 1px 0 rgba(255,255,255,0.08) inset, 0 12px 40px rgba(0,0,0,0.55)",
 };
 
 function GridCard({
@@ -55,11 +64,12 @@ function GridCard({
   const useOriginal = failedSource === source;
   const directUrl = product.cardThumbnailImage;
   const useDirect = Boolean(directUrl && failedDirectUrl !== directUrl);
-  const imageSrc = useOriginal || !directUrl
-    ? source
-    : useDirect
-      ? directUrl
-      : `/api/products/${encodeURIComponent(product.id)}/card-image`;
+  const imageSrc =
+    useOriginal || !directUrl
+      ? source
+      : useDirect
+        ? directUrl
+        : `/api/products/${encodeURIComponent(product.id)}/card-image`;
 
   return (
     <div
@@ -73,9 +83,18 @@ function GridCard({
     >
       <Link
         href={`?product=${encodeURIComponent(product.id)}`}
-        onMouseEnter={() => { void loadProductDetailModal(); onPrefetch(); }}
-        onFocus={() => { void loadProductDetailModal(); onPrefetch(); }}
-        onTouchStart={() => { void loadProductDetailModal(); onPrefetch(); }}
+        onMouseEnter={() => {
+          void loadProductDetailModal();
+          onPrefetch();
+        }}
+        onFocus={() => {
+          void loadProductDetailModal();
+          onPrefetch();
+        }}
+        onTouchStart={() => {
+          void loadProductDetailModal();
+          onPrefetch();
+        }}
         onClick={(event) => {
           if (isEditing) return;
           event.preventDefault();
@@ -105,24 +124,35 @@ function GridCard({
         </div>
         <div className="flex flex-1 flex-col bg-black/[0.06] px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
           <div className="mb-1 flex items-center gap-2">
-            <div className="min-w-0 truncate text-xs font-bold tracking-wide text-orange-500">{product.brand}</div>
-            {product.isInstagram ? <span className="flex-shrink-0 rounded-md border border-orange-500/35 bg-orange-500/[0.12] px-1.5 py-0.5 text-[9px] font-black leading-none text-orange-300">PICK</span> : null}
+            <div className="min-w-0 truncate text-xs font-bold tracking-wide text-orange-500">
+              {product.brand}
+            </div>
+            {product.isInstagram ? (
+              <span className="flex-shrink-0 rounded-md border border-orange-500/35 bg-orange-500/[0.12] px-1.5 py-0.5 text-[9px] font-black leading-none text-orange-300">
+                PICK
+              </span>
+            ) : null}
           </div>
-          <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">{product.name}</h3>
-          <div className="mt-auto pt-2 text-center text-sm text-gray-300">{product.category}</div>
+          <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">
+            {product.name}
+          </h3>
+          <div className="mt-auto pt-2 text-center text-sm text-gray-300">
+            {product.subCategory || getCategoryLabel(product.category)}
+          </div>
         </div>
       </Link>
 
       {isEditing && (
         <button
           type="button"
-          aria-label={selected ? t("common.deselectProduct") : t("common.selectProduct")}
+          aria-label={
+            selected ? t("common.deselectProduct") : t("common.selectProduct")
+          }
           aria-pressed={selected}
           onClick={onSelect}
           className="absolute inset-0 z-10 rounded-[22px] bg-transparent"
         />
       )}
-
     </div>
   );
 }
@@ -154,8 +184,12 @@ function ListRow({
         alignItems: "center",
         gap: 14,
         padding: "12px 16px",
-        transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
-        borderColor: isEditing && selected ? "rgba(251,146,60,0.8)" : "rgba(255,255,255,0.09)",
+        transition:
+          "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
+        borderColor:
+          isEditing && selected
+            ? "rgba(251,146,60,0.8)"
+            : "rgba(255,255,255,0.09)",
         background: isEditing && selected ? "rgba(249,115,22,0.08)" : "#111114",
       }}
     >
@@ -177,13 +211,21 @@ function ListRow({
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
-            transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
+            transition:
+              "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
             position: "relative",
             zIndex: 20,
           }}
         >
           {selected && (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#000"
+              strokeWidth="3"
+            >
               <polyline points="20,6 9,17 4,12" />
             </svg>
           )}
@@ -198,7 +240,16 @@ function ListRow({
         }}
         style={{ textDecoration: "none", flexShrink: 0 }}
       >
-        <div style={{ width: 52, height: 52, borderRadius: 10, background: "rgba(17,24,39,0.8)", overflow: "hidden", cursor: "pointer" }}>
+        <div
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 10,
+            background: "rgba(17,24,39,0.8)",
+            overflow: "hidden",
+            cursor: "pointer",
+          }}
+        >
           {imgOk && (
             // eslint-disable-next-line @next/next/no-img-element -- Preserve the existing native list-thumbnail behavior.
             <img
@@ -217,17 +268,51 @@ function ListRow({
           event.preventDefault();
           onOpen();
         }}
-        style={{ flex: 1, cursor: "pointer", minWidth: 0, textDecoration: "none" }}
+        style={{
+          flex: 1,
+          cursor: "pointer",
+          minWidth: 0,
+          textDecoration: "none",
+        }}
       >
-        <p style={{ fontSize: 10, fontWeight: 700, color: "#F97316", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
+        <p
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#F97316",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginBottom: 2,
+          }}
+        >
           {product.brand}
         </p>
-        <p style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <p
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#e5e7eb",
+            lineHeight: 1.3,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
           {product.name}
         </p>
       </Link>
-      <span style={{ fontSize: 10, color: "#6b7280", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "3px 8px", flexShrink: 0 }}>
-        {product.category}
+      <span
+        style={{
+          fontSize: 10,
+          color: "#6b7280",
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 4,
+          padding: "3px 8px",
+          flexShrink: 0,
+        }}
+      >
+        {product.subCategory || getCategoryLabel(product.category)}
       </span>
       {isEditing && (
         <button
@@ -250,28 +335,126 @@ function ListRow({
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing dormant confirmation UI.
-function DeleteConfirmDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+function DeleteConfirmDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div onClick={onCancel} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} />
-      <div style={{ position: "relative", background: "rgba(17,24,39,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 28, maxWidth: 320, width: "100%", textAlign: "center", boxShadow: "0 24px 48px rgba(0,0,0,0.6)" }}>
-        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2">
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 80,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={onCancel}
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(0,0,0,0.7)",
+          backdropFilter: "blur(4px)",
+        }}
+      />
+      <div
+        style={{
+          position: "relative",
+          background: "rgba(17,24,39,0.98)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 20,
+          padding: 28,
+          maxWidth: 320,
+          width: "100%",
+          textAlign: "center",
+          boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
+        }}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            background: "rgba(239,68,68,0.12)",
+            border: "1px solid rgba(239,68,68,0.2)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 16px",
+          }}
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#f87171"
+            strokeWidth="2"
+          >
             <polyline points="3,6 5,6 21,6" />
             <path d="m19,6-.867,14.142A2,2 0 0,1 16.138,22H7.862a2,2 0 0,1-1.995-1.858L5,6m5,5v6m4-6v6" />
             <path d="M9,6V4h6v2" />
           </svg>
         </div>
-        <h3 style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 8 }}>저장 목록에서 삭제할까요?</h3>
-        <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
+        <h3
+          style={{
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: 16,
+            marginBottom: 8,
+          }}
+        >
+          저장 목록에서 삭제할까요?
+        </h3>
+        <p
+          style={{
+            color: "#9ca3af",
+            fontSize: 13,
+            marginBottom: 24,
+            lineHeight: 1.5,
+          }}
+        >
           이 상품을 저장 목록에서 삭제합니다.
-          <br />나중에 다시 담을 수 있어요.
+          <br />
+          나중에 다시 담을 수 있어요.
         </p>
         <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: "11px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "none", color: "#9ca3af", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1,
+              padding: "11px",
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.06)",
+              border: "none",
+              color: "#9ca3af",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
             취소
           </button>
-          <button onClick={onConfirm} style={{ flex: 1, padding: "11px", borderRadius: 12, background: "rgba(239,68,68,0.85)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          <button
+            onClick={onConfirm}
+            style={{
+              flex: 1,
+              padding: "11px",
+              borderRadius: 12,
+              background: "rgba(239,68,68,0.85)",
+              border: "none",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
             삭제
           </button>
         </div>
@@ -305,25 +488,43 @@ export function SavedCollectionContent({
   const savedListViewedRef = useRef(false);
   const removalUndoTimerRef = useRef<number | null>(null);
   const productModal = useProductModalQuery();
-  const { toggleCloset, isInCloset, ensureLoaded: ensureClosetLoaded } = useClosetContext();
+  const {
+    toggleCloset,
+    isInCloset,
+    ensureLoaded: ensureClosetLoaded,
+  } = useClosetContext();
 
-  const isOwner = Boolean(auth.authUser && auth.dbUsername?.toLowerCase() === username.toLowerCase());
+  const isOwner = Boolean(
+    auth.authUser && auth.dbUsername?.toLowerCase() === username.toLowerCase()
+  );
   const isLoading = auth.isAuthLoading || (isOwner && !isDigboxLoaded);
-  const products = isOwner && isDigboxLoaded ? digbox.digboxProducts : initialProducts;
-  const discoveredDigboxCounts = isOwner && isDigboxLoaded ? digbox.discoveredDigboxCounts : initialDiscoveredDigboxCounts;
+  const products =
+    isOwner && isDigboxLoaded ? digbox.digboxProducts : initialProducts;
+  const discoveredDigboxCounts =
+    isOwner && isDigboxLoaded
+      ? digbox.discoveredDigboxCounts
+      : initialDiscoveredDigboxCounts;
 
   useEffect(() => {
     if (hydrateOwner && isOwner && !isDigboxLoaded) {
       hydrateDigbox(initialProducts, initialDiscoveredDigboxCounts);
     }
-  }, [hydrateDigbox, hydrateOwner, initialDiscoveredDigboxCounts, initialProducts, isDigboxLoaded, isOwner]);
-
-
+  }, [
+    hydrateDigbox,
+    hydrateOwner,
+    initialDiscoveredDigboxCounts,
+    initialProducts,
+    isDigboxLoaded,
+    isOwner,
+  ]);
 
   useEffect(() => {
     if (isOwner && !isLoading && !savedListViewedRef.current) {
       savedListViewedRef.current = true;
-      captureEvent("saved_list_viewed", { product_count: products.length, is_owner: true });
+      captureEvent("saved_list_viewed", {
+        product_count: products.length,
+        is_owner: true,
+      });
     }
   }, [isLoading, isOwner, products.length]);
 
@@ -331,9 +532,13 @@ export function SavedCollectionContent({
     if (isOwner && productModal.productId) ensureClosetLoaded();
   }, [ensureClosetLoaded, isOwner, productModal.productId]);
 
-  useEffect(() => () => {
-    if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (removalUndoTimerRef.current)
+        window.clearTimeout(removalUndoTimerRef.current);
+    },
+    []
+  );
 
   const [catFilter, setCatFilter] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
@@ -348,10 +553,15 @@ export function SavedCollectionContent({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isRemoving, setIsRemoving] = useState(false);
   const [isUndoingRemoval, setIsUndoingRemoval] = useState(false);
-  const [removalUndoProducts, setRemovalUndoProducts] = useState<Product[] | null>(null);
+  const [removalUndoProducts, setRemovalUndoProducts] = useState<
+    Product[] | null
+  >(null);
   const [removalError, setRemovalError] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const detailedProduct = useProductDetail(productModal.productId, selectedProduct);
+  const detailedProduct = useProductDetail(
+    productModal.productId,
+    selectedProduct
+  );
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
   const [isDetailImageZoomed, setIsDetailImageZoomed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -359,14 +569,22 @@ export function SavedCollectionContent({
   const filtered = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
     return products.filter((p) => {
-      if (brandFilter && p.brand.trim().toLowerCase() !== brandFilter.toLowerCase()) return false;
+      if (
+        brandFilter &&
+        p.brand.trim().toLowerCase() !== brandFilter.toLowerCase()
+      )
+        return false;
       if (catFilter && p.category !== catFilter) return false;
-      if (subCategoryFilter && p.subCategory !== subCategoryFilter) return false;
+      if (subCategoryFilter && p.subCategory !== subCategoryFilter)
+        return false;
       if (!keyword) return true;
       return `${p.brand} ${p.name}`.toLowerCase().includes(keyword);
     });
   }, [brandFilter, catFilter, products, searchQuery, subCategoryFilter]);
-  const { visibleCount, sentinelRef } = useProgressiveList(filtered.length, `${brandFilter}:${catFilter}:${subCategoryFilter}:${searchQuery}`);
+  const { visibleCount, sentinelRef } = useProgressiveList(
+    filtered.length,
+    `${brandFilter}:${catFilter}:${subCategoryFilter}:${searchQuery}`
+  );
   const visibleProducts = filtered.slice(0, visibleCount);
 
   const normalizedProduct = useMemo<Product | null>(() => {
@@ -413,7 +631,8 @@ export function SavedCollectionContent({
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -430,15 +649,25 @@ export function SavedCollectionContent({
 
     setIsRemoving(true);
     setRemovalError(null);
-    const results = await Promise.allSettled(ids.map((id) => digbox.removeFromDigbox(id)));
-    const succeededIds = new Set(ids.filter((_, index) => results[index]?.status === "fulfilled"));
+    const results = await Promise.allSettled(
+      ids.map((id) => digbox.removeFromDigbox(id))
+    );
+    const succeededIds = new Set(
+      ids.filter((_, index) => results[index]?.status === "fulfilled")
+    );
     const failedIds = ids.filter((id) => !succeededIds.has(id));
-    const removedProducts = products.filter((product) => succeededIds.has(product.id));
+    const removedProducts = products.filter((product) =>
+      succeededIds.has(product.id)
+    );
 
     if (removedProducts.length) {
-      if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+      if (removalUndoTimerRef.current)
+        window.clearTimeout(removalUndoTimerRef.current);
       setRemovalUndoProducts(removedProducts);
-      removalUndoTimerRef.current = window.setTimeout(() => setRemovalUndoProducts(null), 5000);
+      removalUndoTimerRef.current = window.setTimeout(
+        () => setRemovalUndoProducts(null),
+        5000
+      );
     }
 
     setSelectedIds(new Set(failedIds));
@@ -452,12 +681,17 @@ export function SavedCollectionContent({
 
     setIsUndoingRemoval(true);
     setRemovalError(null);
-    const results = await Promise.allSettled(removalUndoProducts.map((product) => digbox.addToDigbox(product.id)));
-    const failedCount = results.filter((result) => result.status === "rejected").length;
+    const results = await Promise.allSettled(
+      removalUndoProducts.map((product) => digbox.addToDigbox(product.id))
+    );
+    const failedCount = results.filter(
+      (result) => result.status === "rejected"
+    ).length;
     if (failedCount) {
       setRemovalError(t("saved.restoreFailed"));
     } else {
-      if (removalUndoTimerRef.current) window.clearTimeout(removalUndoTimerRef.current);
+      if (removalUndoTimerRef.current)
+        window.clearTimeout(removalUndoTimerRef.current);
       setRemovalUndoProducts(null);
     }
     setIsUndoingRemoval(false);
@@ -468,7 +702,9 @@ export function SavedCollectionContent({
     isOwner ? `${count}명이 저장했어요` : `${count}명이 저장했어요`;
 
   const getDetailDigboxCountLabel = (count: number) =>
-    isOwner ? t("digbox.discoveredByOwner", { count }) : t("digbox.discoveredByOther", { count });
+    isOwner
+      ? t("digbox.discoveredByOwner", { count })
+      : t("digbox.discoveredByOther", { count });
 
   if (isOwner && digbox.error && products.length === 0) {
     return (
@@ -477,18 +713,26 @@ export function SavedCollectionContent({
           kind="error"
           title={t("saved.loadError")}
           description={t("closet.loadErrorDescription")}
-          action={(
-            <button type="button" onClick={() => void digbox.reload()} className="ui-button ui-button-primary px-5 py-2.5">
+          action={
+            <button
+              type="button"
+              onClick={() => void digbox.reload()}
+              className="ui-button ui-button-primary px-5 py-2.5"
+            >
               {t("common.retry")}
             </button>
-          )}
+          }
         />
       </section>
     );
   }
 
   if (isLoading && products.length === 0) {
-    return <p role="status" className="py-8 text-gray-400">{t("mypage.preparing")}</p>;
+    return (
+      <p role="status" className="py-8 text-gray-400">
+        {t("mypage.preparing")}
+      </p>
+    );
   }
 
   return (
@@ -504,19 +748,33 @@ export function SavedCollectionContent({
     >
       <div style={{ width: "100%", maxWidth: 1280 }}>
         <div className="mx-auto w-full max-w-[70rem]">
-        <CollectionSearchField value={searchQuery} onChange={setSearchQuery} disabled={isEditing} ariaLabel={t("saved.search")} spacing="compact" />
-        {brandFilter && <button type="button" onClick={onClearBrand} className="my-3 rounded-full border border-orange-400/30 px-3 py-1 text-sm text-orange-300">{brandFilter} ×</button>}
-        <DigCategoryFilter
-          category={catFilter}
-          onCategoryChange={(value) => {
-            setCatFilter(value);
-            setSubCategoryFilter("");
-          }}
-          subCategory={subCategoryFilter}
-          onSubCategoryChange={setSubCategoryFilter}
-          disabled={isEditing}
-          spacing="compact"
-        />
+          <CollectionSearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            disabled={isEditing}
+            ariaLabel={t("saved.search")}
+            spacing="compact"
+          />
+          {brandFilter && (
+            <button
+              type="button"
+              onClick={onClearBrand}
+              className="my-3 rounded-full border border-orange-400/30 px-3 py-1 text-sm text-orange-300"
+            >
+              {brandFilter} ×
+            </button>
+          )}
+          <DigCategoryFilter
+            category={catFilter}
+            onCategoryChange={(value) => {
+              setCatFilter(value);
+              setSubCategoryFilter("");
+            }}
+            subCategory={subCategoryFilter}
+            onSubCategoryChange={setSubCategoryFilter}
+            disabled={isEditing}
+            spacing="compact"
+          />
         </div>
 
         {/* Toolbar */}
@@ -545,8 +803,13 @@ export function SavedCollectionContent({
           {/* Right controls */}
           <div className="hidden">
             {isEditing && (
-              <p aria-live="polite" className="text-xs font-bold text-orange-300">
-                {selectedIds.size ? `${selectedIds.size}개 선택됨` : "상품을 선택하세요"}
+              <p
+                aria-live="polite"
+                className="text-xs font-bold text-orange-300"
+              >
+                {selectedIds.size
+                  ? `${selectedIds.size}개 선택됨`
+                  : "상품을 선택하세요"}
               </p>
             )}
 
@@ -559,12 +822,18 @@ export function SavedCollectionContent({
                   setIsEditing(true);
                 }}
                 style={{
-                  height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  padding: "0 12px", borderRadius: 11,
+                  height: 34,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 12px",
+                  borderRadius: 11,
                   background: "rgba(255,255,255,0.05)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   color: "#d1d5db",
-                  cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
+                  cursor: "pointer",
+                  transition:
+                    "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
                 }}
                 aria-label="편집"
               >
@@ -575,11 +844,24 @@ export function SavedCollectionContent({
             {isOwner && isEditing && (
               <button
                 type="button"
-                onClick={() => { setSelectedIds(new Set()); setRemovalError(null); setIsEditing(false); }}
+                onClick={() => {
+                  setSelectedIds(new Set());
+                  setRemovalError(null);
+                  setIsEditing(false);
+                }}
                 style={{
-                  height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  padding: "0 12px", borderRadius: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#6b7280", cursor: "pointer", transition: "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
+                  height: 34,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 12px",
+                  borderRadius: 11,
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  transition:
+                    "transform var(--duration-press) var(--ease-out), border-color var(--duration-press) var(--ease-out), background-color var(--duration-press) var(--ease-out), color var(--duration-press) var(--ease-out)",
                 }}
                 aria-label="취소"
               >
@@ -589,11 +871,25 @@ export function SavedCollectionContent({
           </div>
         </div>
 
-        {removalError && <p role="alert" className="mb-4 text-xs font-semibold text-red-300">{removalError}</p>}
+        {removalError && (
+          <p role="alert" className="mb-4 text-xs font-semibold text-red-300">
+            {removalError}
+          </p>
+        )}
         {removalUndoProducts?.length ? (
-          <div role="status" className="mx-auto mb-3 flex w-full max-w-[70rem] items-center justify-between gap-3 rounded-xl border border-white/[0.1] bg-white/[0.045] px-3.5 py-2.5 text-sm">
-            <p className="min-w-0 font-semibold text-white">{t("saved.unsaved", { count: removalUndoProducts.length })}</p>
-            <button type="button" disabled={isUndoingRemoval} onClick={() => void undoRemoval()} className="shrink-0 font-bold text-orange-300 transition-[color,transform] duration-150 active:scale-[0.97] hover:text-orange-200 disabled:cursor-wait disabled:text-orange-300/50">
+          <div
+            role="status"
+            className="mx-auto mb-3 flex w-full max-w-[70rem] items-center justify-between gap-3 rounded-xl border border-white/[0.1] bg-white/[0.045] px-3.5 py-2.5 text-sm"
+          >
+            <p className="min-w-0 font-semibold text-white">
+              {t("saved.unsaved", { count: removalUndoProducts.length })}
+            </p>
+            <button
+              type="button"
+              disabled={isUndoingRemoval}
+              onClick={() => void undoRemoval()}
+              className="shrink-0 font-bold text-orange-300 transition-[color,transform] duration-150 active:scale-[0.97] hover:text-orange-200 disabled:cursor-wait disabled:text-orange-300/50"
+            >
               {isUndoingRemoval ? t("common.undoing") : t("common.undo")}
             </button>
           </div>
@@ -618,47 +914,74 @@ export function SavedCollectionContent({
           />
         ) : (
           <>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p aria-live="polite" className={`min-w-0 text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}>
-              {isEditing
-                ? (selectedIds.size ? t("saved.selected", { count: selectedIds.size }) : t("saved.selectToDelete"))
-                : (searchQuery.trim() ? t("saved.searchResults", { count: filtered.length }) : t("saved.productCount", { count: filtered.length }))}
-            </p>
-            {isOwner && (
-              <div className="flex shrink-0 items-center gap-1.5">
-                {!isEditing ? (
-                  <button type="button" onClick={() => { setRemovalError(null); setIsEditing(true); }} className="h-11 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
-                    {t("saved.delete")}
-                  </button>
-                ) : (
-                  <>
-                    <button type="button" onClick={exitSelectionMode} className="h-11 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80">
-                      {t("common.cancel")}
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p
+                aria-live="polite"
+                className={`min-w-0 text-sm font-bold ${isEditing ? "text-orange-300" : "text-white/75"}`}
+              >
+                {isEditing
+                  ? selectedIds.size
+                    ? t("saved.selected", { count: selectedIds.size })
+                    : t("saved.selectToDelete")
+                  : searchQuery.trim()
+                    ? t("saved.searchResults", { count: filtered.length })
+                    : t("saved.productCount", { count: filtered.length })}
+              </p>
+              {isOwner && (
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {!isEditing ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRemovalError(null);
+                        setIsEditing(true);
+                      }}
+                      className="h-11 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80"
+                    >
+                      {t("saved.delete")}
                     </button>
-                    <button type="button" disabled={selectedIds.size === 0 || isRemoving} onClick={() => void removeSelected()} className="h-11 rounded-lg bg-red-500 px-3 text-sm font-bold text-white transition-[background-color,transform,opacity] duration-150 active:scale-[0.97] hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
-                      {isRemoving ? t("saved.deleting") : t("saved.unsave")}
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="closet-product-grid" style={{ display: "grid" }}>
-            {visibleProducts.map((p) => (
-              <GridCard
-                key={p.id}
-                product={p}
-                selected={selectedIds.has(p.id)}
-                isEditing={isEditing}
-                onSelect={() => toggleSelect(p.id)}
-                onOpen={() => handleProductOpen(p)}
-                onPrefetch={() => prefetchProductDetail(p.id)}
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={exitSelectionMode}
+                        className="h-11 rounded-lg px-2.5 text-sm font-semibold text-white/65 transition-[background-color,color,transform] duration-150 active:scale-[0.97] hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80"
+                      >
+                        {t("common.cancel")}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={selectedIds.size === 0 || isRemoving}
+                        onClick={() => void removeSelected()}
+                        className="h-11 rounded-lg bg-red-500 px-3 text-sm font-bold text-white transition-[background-color,transform,opacity] duration-150 active:scale-[0.97] hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                      >
+                        {isRemoving ? t("saved.deleting") : t("saved.unsave")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="closet-product-grid" style={{ display: "grid" }}>
+              {visibleProducts.map((p) => (
+                <GridCard
+                  key={p.id}
+                  product={p}
+                  selected={selectedIds.has(p.id)}
+                  isEditing={isEditing}
+                  onSelect={() => toggleSelect(p.id)}
+                  onOpen={() => handleProductOpen(p)}
+                  onPrefetch={() => prefetchProductDetail(p.id)}
+                />
+              ))}
+            </div>
+            {visibleCount < filtered.length ? (
+              <div
+                ref={sentinelRef}
+                className="h-px w-full"
+                aria-hidden="true"
               />
-            ))}
-          </div>
-          {visibleCount < filtered.length ? (
-            <div ref={sentinelRef} className="h-px w-full" aria-hidden="true" />
-          ) : null}
+            ) : null}
           </>
         )}
       </div>
@@ -673,23 +996,40 @@ export function SavedCollectionContent({
           onZoomImage={() => setIsDetailImageZoomed(true)}
           onImageError={handleImageLoadError}
           modalRef={modalRef}
-          onToggleCloset={(selection) => toggleCloset(normalizedProduct.id, selection)}
+          onToggleCloset={(selection) =>
+            toggleCloset(normalizedProduct.id, selection)
+          }
           isInCloset={isInCloset(normalizedProduct.id)}
           onToggleDigbox={() => digbox.toggleDigbox(normalizedProduct.id)}
           isInDigbox={digbox.isInDigbox(normalizedProduct.id)}
-          digboxProduct={digbox.digboxProducts.find((product) => product.id === normalizedProduct.id) || null}
-          onUpdateDigboxSizeDecision={(decision) => digbox.updateSizeDecision(normalizedProduct.id, decision)}
+          digboxProduct={
+            digbox.digboxProducts.find(
+              (product) => product.id === normalizedProduct.id
+            ) || null
+          }
+          onUpdateDigboxSizeDecision={(decision) =>
+            digbox.updateSizeDecision(normalizedProduct.id, decision)
+          }
           hideDigboxButton={digbox.isInDigbox(normalizedProduct.id)}
           otherDigboxCount={discoveredDigboxCounts[normalizedProduct.id] || 0}
           otherDigboxCountLabel={
             discoveredDigboxCounts[normalizedProduct.id]
-              ? getDetailDigboxCountLabel(discoveredDigboxCounts[normalizedProduct.id])
+              ? getDetailDigboxCountLabel(
+                  discoveredDigboxCounts[normalizedProduct.id]
+                )
               : undefined
           }
         />
       )}
 
-      {active && normalizedProduct && <ImageViewerOverlay open={isDetailImageZoomed} src={normalizedProduct.image} alt={normalizedProduct.name} onClose={() => setIsDetailImageZoomed(false)} />}
+      {active && normalizedProduct && (
+        <ImageViewerOverlay
+          open={isDetailImageZoomed}
+          src={normalizedProduct.image}
+          alt={normalizedProduct.name}
+          onClose={() => setIsDetailImageZoomed(false)}
+        />
+      )}
     </section>
   );
 }
