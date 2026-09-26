@@ -1066,8 +1066,6 @@ export function SearchPageClient() {
               setGridSearchQuery={grid.setGridSearchQuery}
               isInteractionDisabled={showSuggestions}
               onProductClick={handleProductClick}
-              onSaveProduct={(product) => toggleDigbox(product.id, "home_card")}
-              isSaved={isInDigbox}
               onProductPrefetch={(product) => prefetchProductDetail(product.id)}
               onImageError={handleImageLoadError}
               isLoading={isProductsLoading}

@@ -336,6 +336,11 @@
   background-size: 240% 100%;
   animation: social-loading-sheen 1.25s linear infinite;
 }
+/* Route loading follows the shared page-level pulse used across the app.
+   Feed refreshes keep their lighter, local shimmer. */
+.social-explorer-route-loading .social-loading-shimmer {
+  animation: none;
+}
 .social-loading-meta {
   display: flex;
   align-items: center;
@@ -395,6 +400,7 @@
 }
 .social-post-detail-page {
   padding-top: calc(var(--app-header-height, 64px) + 16px);
+  --social-post-media-width: min(100%, calc(78vh * .75));
 }
 .social-author-row {
   display: flex;
@@ -425,7 +431,7 @@
 .social-carousel {
   position: relative;
   overflow: visible;
-  width: min(100%, calc(78vh * .75));
+  width: var(--social-post-media-width);
   aspect-ratio: 3 / 4;
   max-height: 78vh;
   margin: auto;
@@ -437,9 +443,26 @@
   overflow-anchor: none;
 }
 @supports (height: 1svh) {
+  .social-post-detail-page {
+    --social-post-media-width: min(100%, calc(78svh * .75));
+  }
   .social-carousel {
-    width: min(100%, calc(78svh * .75));
     max-height: 78svh;
+  }
+}
+/* On pointer-based layouts, keep the author row and photo on the same column.
+   Touch layouts retain their existing full-width header treatment. */
+@media (hover: hover) and (pointer: fine) {
+  .social-post-detail-page {
+    --social-post-media-width: min(740px, calc(100vw - 48px));
+  }
+  .social-post-detail-page .social-detail {
+    width: var(--social-post-media-width);
+    max-width: 740px;
+  }
+  .social-post-detail-page .social-carousel {
+    width: 100%;
+    max-height: none;
   }
 }
 .social-image-stage {

@@ -10,16 +10,11 @@ import {
 } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { ProgressiveImage } from "./ProgressiveImage";
-import { Bookmark } from "lucide-react";
 import { loadProductDetailModal } from "./productDetailModalLoader";
 import type { TutorialAnchorRect } from "./OnboardingTutorial";
 import type { Product } from "../types";
 import { useLocaleContext } from "../contexts/LocaleContext";
 import { PRODUCT_CATEGORY_REGISTRY } from "../constants/productCategoryRegistry.js";
-import {
-  getProductStyleProfile,
-  styleProfileLabels,
-} from "../utils/styleProfile";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing module imports.
 import { CATEGORY_OPTIONS } from "../constants";
 
@@ -30,14 +25,13 @@ const categoryLabels = new Map(
   PRODUCT_CATEGORY_REGISTRY.map(({ code, label }) => [code, label])
 );
 
-function cardDescription(product: Product, locale: string) {
-  const category =
-    product.subCategory?.split("·")[0]?.trim() ||
-    categoryLabels.get(product.category) ||
-    "";
-  const primaryMood = getProductStyleProfile(product)?.displayEntries[0];
-  const mood = primaryMood ? styleProfileLabels(primaryMood.key, locale) : "";
-  return { category, mood };
+function cardDescription(product: Product) {
+  const parentCategory = categoryLabels.get(product.category) || product.category || "";
+  const subCategory = product.subCategory?.split("·")[0]?.trim() || "";
+  const category = [parentCategory, subCategory]
+    .filter((value, index, values) => Boolean(value) && values.indexOf(value) === index)
+    .join(" · ");
+  return { category };
 }
 
 const analysisStatus = (product: Product) => {
@@ -123,8 +117,6 @@ interface GridViewProps {
   gridSearchQuery: string;
   setGridSearchQuery: (value: string) => void;
   onProductClick: (product: Product, anchorRect?: TutorialAnchorRect) => void;
-  onSaveProduct: (product: Product) => Promise<void> | void;
-  isSaved: (productId: string) => boolean;
   onProductPrefetch?: (product: Product) => void;
   onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
   isInteractionDisabled?: boolean;
@@ -148,8 +140,6 @@ export function GridView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing component contract.
   setGridSearchQuery,
   onProductClick,
-  onSaveProduct,
-  isSaved,
   onProductPrefetch,
   onImageError,
   isInteractionDisabled = false,
@@ -158,27 +148,11 @@ export function GridView({
   isLoadingMoreProducts = false,
   onLoadMoreProducts,
 }: GridViewProps) {
-  const { t, locale } = useLocaleContext();
+  const { t } = useLocaleContext();
   const gridRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const [colCount, setColCount] = useState(2);
   const [scrollMargin, setScrollMargin] = useState(0);
-  const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set());
-
-  const toggleSavedProduct = async (product: Product) => {
-    if (isInteractionDisabled || savingIds.has(product.id)) return;
-    setSavingIds((current) => new Set(current).add(product.id));
-    try {
-      await onSaveProduct(product);
-    } finally {
-      setSavingIds((current) => {
-        const next = new Set(current);
-        next.delete(product.id);
-        return next;
-      });
-    }
-  };
-
   useEffect(() => {
     const check = () => setColCount(window.innerWidth >= 1024 ? 4 : 2);
     check();
@@ -273,10 +247,7 @@ export function GridView({
                 // desktop card as high priority makes their image requests compete.
                 const isLcpCandidate = vRow.index === 0 && productIndex === 0;
                 const productAnalysisStatus = analysisStatus(product);
-                const description = cardDescription(product, locale);
-                const saved = isSaved(product.id);
-                const saving = savingIds.has(product.id);
-
+                const description = cardDescription(product);
                 return (
                   <div
                     key={product.id}
@@ -331,32 +302,12 @@ export function GridView({
                       <h3 className="mb-2 line-clamp-2 text-[0.95rem] font-bold leading-tight text-white sm:text-lg">
                         {product.name}
                       </h3>
-                      <div className="relative mt-auto flex min-h-7 items-center justify-center pt-2">
+                      <div className="mt-auto min-h-7 pt-2">
                         {description.category && (
-                          <div className="w-full truncate px-10 text-center text-sm text-gray-300 sm:whitespace-normal sm:overflow-visible">
+                          <div className="line-clamp-2 text-center text-sm leading-5 text-gray-300">
                             {description.category}
-                            {description.mood && (
-                              <span className="hidden sm:inline">
-                                {" · "}
-                                {description.mood}
-                              </span>
-                            )}
                           </div>
                         )}
-                        <button
-                          type="button"
-                          disabled={isInteractionDisabled || saving}
-                          aria-label={`${product.brand} ${product.name} · ${t(saved ? "product.unsave" : "product.save")}`}
-                          aria-pressed={saved}
-                          aria-busy={saving}
-                          onClick={() => void toggleSavedProduct(product)}
-                          className={`absolute bottom-0 right-0 top-2 z-20 flex w-9 items-center justify-center bg-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${saved ? "text-orange-400" : "text-gray-300 hover:text-orange-300"} disabled:cursor-default`}
-                        >
-                          <Bookmark
-                            className={`h-[18px] w-[18px] ${saved ? "fill-current" : ""}`}
-                            strokeWidth={2.5}
-                          />
-                        </button>
                       </div>
                       {productAnalysisStatus ? (
                         <span
