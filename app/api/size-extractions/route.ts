@@ -8,6 +8,28 @@ type SizeExtractionResult = NonNullable<ProductMetadataPayload['sizeExtraction']
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
+
+async function extractStaticResult(url: string): Promise<SizeExtractionResult> {
+  let result: SizeExtractionResult = emptyResult() as SizeExtractionResult;
+  try {
+    const extracted = await extractStatic(url);
+    result = extracted.result as SizeExtractionResult;
+    if (result.status !== 'found' && extracted.images[0]) {
+      result = await extractChartImage(extracted.images[0]) as SizeExtractionResult;
+    }
+  } catch {
+    result = emptyResult('failed', 'static_extraction_failed') as SizeExtractionResult;
+  }
+  return result;
+}
+
+function developmentStaticResponse(result: SizeExtractionResult) {
+  // The client stops polling as soon as a terminal result is returned. This
+  // deliberately has no receipt or worker dispatch: local development can
+  // exercise static extraction without copying production service secrets.
+  return Response.json({ result, jobId: null, receipt: '', dispatch: null });
+}
+
 export async function POST(request: Request) {
   if (!hasValidMutationOrigin(request)) return Response.json({ error: 'Invalid origin' }, { status: 403 });
   const user = await getRegisteredRequestUser(request);
@@ -15,16 +37,21 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     if (typeof body.url !== 'string' || body.url.length > 4096) return Response.json({ error: 'Invalid URL' }, { status: 400 });
-    const { job, leader } = await startJob(body.url, user.id, body.refresh === true);
+    let started: Awaited<ReturnType<typeof startJob>>;
+    try {
+      started = await startJob(body.url, user.id, body.refresh === true);
+    } catch (error) {
+      // Production always uses the signed persistent queue. A developer who
+      // has not copied deployment-only secrets can still verify public, static
+      // charts locally without weakening the deployed endpoint.
+      if (process.env.NODE_ENV !== 'production') {
+        return developmentStaticResponse(await extractStaticResult(body.url));
+      }
+      throw error;
+    }
+    const { job, leader } = started;
     if (leader) {
-      let result: SizeExtractionResult = emptyResult() as SizeExtractionResult;
-      try {
-        const extracted = await extractStatic(job.normalized_url);
-        result = extracted.result as SizeExtractionResult;
-        if (result.status !== 'found' && extracted.images[0]) {
-          result = await extractChartImage(extracted.images[0]) as SizeExtractionResult;
-        }
-      } catch { result = emptyResult('failed', 'static_extraction_failed') as SizeExtractionResult; }
+      let result = await extractStaticResult(String(job.normalized_url || body.url));
       const { db, worker } = extractionConfig();
       if (result.status === 'found' || !worker) {
         if (result.status !== 'found' && !worker) {
