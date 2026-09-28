@@ -15,6 +15,7 @@ import {
   isLikelyMeasurementKey,
   isNumericLikeCell,
   isPlainObject,
+  normalizeSizeTableOrientation,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing parser contract.
   parseNumericCellValue,
   scoreSizeTableCandidate,
@@ -139,10 +140,11 @@ export const extractSizeTableFromJsonData = (jsonData) => {
     visited += 1;
 
     const consider = (table) => {
-      const score = scoreSizeTableCandidate(table);
+      const normalizedTable = normalizeSizeTableOrientation(table);
+      const score = scoreSizeTableCandidate(normalizedTable);
       if (score > bestScore) {
         bestScore = score;
-        bestTable = table;
+        bestTable = normalizedTable;
       }
     };
 
@@ -240,10 +242,11 @@ export const extractSizeTableFromHtmlTables = (html) => {
         .test(stripHtml(tableHtml))
         ? 2
         : 0;
-    const score = scoreSizeTableCandidate(candidate) + keywordBoost;
+    const normalizedCandidate = normalizeSizeTableOrientation(candidate);
+    const score = scoreSizeTableCandidate(normalizedCandidate) + keywordBoost;
     if (score > bestScore) {
       bestScore = score;
-      bestTable = candidate;
+      bestTable = normalizedCandidate;
     }
   }
 

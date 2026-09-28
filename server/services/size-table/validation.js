@@ -92,12 +92,36 @@ export const hasUsableSizeTableShape = (table) => {
   return true;
 };
 
-const pickUsableSizeTableOrientation = (table) => {
+const countSizeHeaders = (table) =>
+  (table?.headers || [])
+    .slice(1)
+    .map((header) => normalizeComparableSizeLabel(header))
+    .filter((header) => isLikelySizeLabel(header)).length;
+
+const countMeasurementRows = (table) =>
+  (table?.rows || []).filter((row) => isLikelyMeasurementKey(row?.[0] || "")).length;
+
+// Shops commonly render the same chart in either direction: sizes can be
+// column headers, or they can be the first cell in each row. Normalize that
+// difference before ranking candidates so a product-information table cannot
+// beat a real, row-oriented size chart merely because it has more rows.
+export const normalizeSizeTableOrientation = (table) => {
   if (!table) return null;
-  if (hasUsableSizeTableShape(table)) return table;
-  const transposed = transposeTable(table);
-  if (hasUsableSizeTableShape(transposed)) return transposed;
-  return null;
+
+  const candidates = [table, transposeTable(table)]
+    .filter((candidate) => hasUsableSizeTableShape(candidate))
+    .map((candidate) => ({
+      table: candidate,
+      sizeHeaderCount: countSizeHeaders(candidate),
+      measurementRowCount: countMeasurementRows(candidate),
+    }));
+  if (candidates.length === 0) return null;
+
+  candidates.sort((left, right) =>
+    right.sizeHeaderCount - left.sizeHeaderCount ||
+    right.measurementRowCount - left.measurementRowCount
+  );
+  return candidates[0].table;
 };
 
 export const extractOptionSizeLabelsFromHtml = (html) => {
@@ -123,7 +147,7 @@ export const extractOptionSizeLabelsFromHtml = (html) => {
 
 export const alignAndValidateSizeTableByOptionLabels = (table, optionSizeLabels = []) => {
   if (!table) return null;
-  const usableTable = pickUsableSizeTableOrientation(table);
+  const usableTable = normalizeSizeTableOrientation(table);
   if (!usableTable) return null;
 
   const normalizedOptions = uniqValues(
@@ -182,15 +206,15 @@ export const alignAndValidateSizeTableByOptionLabels = (table, optionSizeLabels 
 };
 
 export const scoreSizeTableCandidate = (table) => {
-  if (!table) return -1;
-  if (!hasUsableSizeTableShape(table)) return -1;
-  const hintedMeasurementRows = table.rows.filter((row) =>
+  const normalizedTable = normalizeSizeTableOrientation(table);
+  if (!normalizedTable) return -1;
+  const hintedMeasurementRows = normalizedTable.rows.filter((row) =>
     isLikelyMeasurementKey(row?.[0] || "")
   ).length;
   if (hintedMeasurementRows === 0) return -1;
 
   const numericValues = [];
-  for (const row of table.rows) {
+  for (const row of normalizedTable.rows) {
     for (const cell of row.slice(1)) {
       const numeric = parseNumericCellValue(cell);
       if (numeric === null) continue;
@@ -202,12 +226,16 @@ export const scoreSizeTableCandidate = (table) => {
     if (plausibleCount / numericValues.length < 0.5) return -1;
   }
 
-  const normalizedSizeHeaders = table.headers
+  const normalizedSizeHeaders = normalizedTable.headers
     .slice(1)
     .map((header) => normalizeComparableSizeLabel(header))
     .filter(Boolean);
   const sizeHeaderCount = normalizedSizeHeaders.filter((header) => isLikelySizeLabel(header)).length;
-  const measurementRowCount = table.rows.filter((row) => isLikelyMeasurementLabel(row?.[0] || "")).length;
+  // A catalogue/details table can contain prices and a "size" label, but it
+  // does not contain a size range. Requiring two labels removes those false
+  // positives while still accepting numeric and alpha size charts.
+  if (sizeHeaderCount < 2) return -1;
+  const measurementRowCount = normalizedTable.rows.filter((row) => isLikelyMeasurementLabel(row?.[0] || "")).length;
   const alphaSizeHeaderCount = normalizedSizeHeaders.filter((header) =>
     /^(XXS|XS|S|M|L|XL|XXL|XXXL|FREE|ONE ?SIZE)$/i.test(header)
   ).length;
@@ -220,7 +248,7 @@ export const scoreSizeTableCandidate = (table) => {
     sizeHeaderCount * 3 +
     measurementRowCount * 3 +
     hintedMeasurementRows * 2 +
-    table.rows.length -
+    normalizedTable.rows.length -
     mixedHeaderPenalty
   );
 };
