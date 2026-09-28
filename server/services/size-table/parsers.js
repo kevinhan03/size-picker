@@ -16,7 +16,6 @@ import {
   isNumericLikeCell,
   isPlainObject,
   normalizeSizeTableOrientation,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retained to preserve the existing parser contract.
   parseNumericCellValue,
   scoreSizeTableCandidate,
   SIZE_KEY_NAME_PATTERN,
@@ -90,6 +89,127 @@ const extractSizeTableFromArrayOfObjects = (rows) => {
   });
 };
 
+// Some commerce APIs model a chart as a list of size records, each with a
+// nested list of measurements. For example, `{ name: "M", items: [{ name:
+// "chest", value: 56 }] }`. The field names vary by platform, so infer them
+// from repeated size labels and numeric measurement values instead of relying
+// on a store-specific endpoint or property name.
+const extractSizeTableFromNestedItemRows = (rows) => {
+  const outerRows = Array.isArray(rows) ? rows.filter((row) => isPlainObject(row)) : [];
+  if (outerRows.length < 2) return null;
+
+  const outerKeyCounts = new Map();
+  for (const row of outerRows) {
+    for (const [key, value] of Object.entries(row)) {
+      if (value === undefined || value === null) continue;
+      outerKeyCounts.set(key, (outerKeyCounts.get(key) || 0) + 1);
+    }
+  }
+  const minPresence = Math.max(2, Math.ceil(outerRows.length * 0.6));
+  const commonOuterKeys = [...outerKeyCounts.entries()]
+    .filter(([, count]) => count >= minPresence)
+    .map(([key]) => key);
+
+  const sizeKey = commonOuterKeys
+    .map((key) => ({
+      key,
+      score: outerRows.reduce(
+        (score, row) => score + (isLikelySizeLabel(row[key]) ? 1 : 0),
+        0
+      ),
+    }))
+    .filter(({ score }) => score >= 2)
+    .sort((left, right) => right.score - left.score)[0]?.key;
+  if (!sizeKey) return null;
+
+  const sizeRows = outerRows
+    .map((row) => ({ size: normalizeSizeLabel(row[sizeKey]), row }))
+    .filter(({ size }) => isLikelySizeLabel(size));
+  const sizeLabels = uniqValues(sizeRows.map(({ size }) => size));
+  if (sizeLabels.length < 2) return null;
+
+  const nestedKeys = commonOuterKeys.filter((key) =>
+    sizeRows.filter(({ row }) => Array.isArray(row[key])).length >= minPresence
+  );
+  for (const nestedKey of nestedKeys) {
+    const itemsBySize = new Map();
+    const labelOrder = [];
+    const seenLabels = new Set();
+
+    for (const { size, row } of sizeRows) {
+      const items = Array.isArray(row[nestedKey]) ? row[nestedKey].filter((item) => isPlainObject(item)) : [];
+      if (items.length === 0) continue;
+
+      const itemKeyCounts = new Map();
+      for (const item of items) {
+        for (const [key, value] of Object.entries(item)) {
+          if (value === undefined || value === null) continue;
+          itemKeyCounts.set(key, (itemKeyCounts.get(key) || 0) + 1);
+        }
+      }
+      const itemMinPresence = Math.max(1, Math.ceil(items.length * 0.5));
+      const itemKeys = [...itemKeyCounts.entries()]
+        .filter(([, count]) => count >= itemMinPresence)
+        .map(([key]) => key);
+      const labelKey = itemKeys
+        .map((key) => ({
+          key,
+          score: items.reduce(
+            (score, item) => score + (isLikelyMeasurementKey(item[key]) ? 1 : 0),
+            0
+          ),
+        }))
+        .filter(({ score }) => score >= 1)
+        .sort((left, right) => right.score - left.score)[0]?.key;
+      const valueKey = itemKeys
+        .map((key) => ({
+          key,
+          score: items.reduce(
+            (score, item) => score + (isNumericLikeCell(item[key]) ? 1 : 0),
+            0
+          ),
+        }))
+        .filter(({ score }) => score >= 1)
+        .sort((left, right) => right.score - left.score)[0]?.key;
+      if (!labelKey || !valueKey || labelKey === valueKey) continue;
+
+      const measurements = new Map();
+      for (const item of items) {
+        const label = normalizeMeasurementLabel(item[labelKey]);
+        const value = normalizeCellText(item[valueKey]);
+        if (!label || !value || !isLikelyMeasurementKey(label) || !isNumericLikeCell(value)) continue;
+        const existingValue = measurements.get(label);
+        // Normalization can merge closely related fields (for example sleeve
+        // length and cuff width). Never let a placeholder zero overwrite a
+        // previously supplied, non-zero garment measurement.
+        if (
+          existingValue === undefined ||
+          (parseNumericCellValue(existingValue) === 0 && parseNumericCellValue(value) !== 0)
+        ) {
+          measurements.set(label, value);
+        }
+        if (!seenLabels.has(label)) {
+          seenLabels.add(label);
+          labelOrder.push(label);
+        }
+      }
+      if (measurements.size > 0) itemsBySize.set(size, measurements);
+    }
+
+    if (itemsBySize.size < 2 || labelOrder.length === 0) continue;
+    const table = standardizeSizeTable({
+      headers: ["size", ...sizeLabels],
+      rows: labelOrder.map((label) => [
+        label,
+        ...sizeLabels.map((size) => itemsBySize.get(size)?.get(label) || ""),
+      ]),
+    });
+    if (table && scoreSizeTableCandidate(table) >= 4) return table;
+  }
+
+  return null;
+};
+
 const extractSizeTableFromSizeMapObject = (node) => {
   if (!isPlainObject(node)) return null;
   const entries = Object.entries(node).filter(
@@ -151,6 +271,7 @@ export const extractSizeTableFromJsonData = (jsonData) => {
     if (Array.isArray(node)) {
       consider(extractSizeTableFromArrayOfArrays(node));
       consider(extractSizeTableFromArrayOfObjects(node));
+      consider(extractSizeTableFromNestedItemRows(node));
       for (const item of node) {
         if (item && typeof item === "object") stack.push(item);
       }

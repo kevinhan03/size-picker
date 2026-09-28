@@ -16,6 +16,30 @@ describe("size extraction", () => {
     });
   });
 
+  it("extracts nested size records returned by commerce APIs", () => {
+    const page = readPage(
+      "",
+      "https://shop.example.com/products/shirt",
+      [{
+        data: {
+          sizes: [
+            { name: "M", items: [{ name: "총장", value: 68 }, { name: "가슴단면", value: 56 }, { name: "소매길이", value: 60 }, { name: "소매부리단면", value: 0 }] },
+            { name: "L", items: [{ name: "총장", value: 70 }, { name: "가슴단면", value: 58 }, { name: "소매길이", value: 62 }, { name: "소매부리단면", value: 0 }] },
+          ],
+        },
+      }]
+    );
+
+    expect(page.result).toMatchObject({
+      status: "found",
+      source: "site_api",
+      table: {
+        headers: ["사이즈", "M", "L"],
+        rows: [["총장", "68", "70"], ["가슴", "56", "58"], ["소매", "60", "62"]],
+      },
+    });
+  });
+
   it("does not accept body, inch, or millimeter charts", () => {
     const page = readPage(
       `<table><tr><th>size</th><th>S</th><th>M</th></tr><tr><td>chest</td><td>90</td><td>95</td></tr></table><p>Body measurements · inches</p>`,
