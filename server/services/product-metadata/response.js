@@ -17,6 +17,9 @@ export function createProductMetadataResponseService({
     image_path: imagePath || "",
     productImage: productImage || null,
     productImageCandidates: uniqValues(productImageCandidates || []),
+    sizeExtraction: extracted.sizeExtraction || {
+      status: "not_found", table: null, source: null, confidence: null, sourceUrl: null,
+    },
     productMetadata:
       extracted.productMetadata && typeof extracted.productMetadata === "object" && !Array.isArray(extracted.productMetadata)
         ? extracted.productMetadata

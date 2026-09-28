@@ -212,6 +212,8 @@ export const extractSizeTableFromHtmlTables = (html) => {
 
   while ((tableMatch = tablePattern.exec(String(html || ""))) !== null) {
     const tableHtml = tableMatch[0];
+    // Merged cells require a layout-aware parser; guessing shifts measurements.
+    if (/(?:rowspan|colspan)\s*=\s*["']?(?:[2-9]|\d{2})/i.test(tableHtml)) continue;
     const rowPattern = /<tr[\s\S]*?<\/tr>/gi;
     const rows = [];
     let rowMatch = null;
@@ -221,7 +223,7 @@ export const extractSizeTableFromHtmlTables = (html) => {
       let cellMatch = null;
       while ((cellMatch = cellPattern.exec(rowMatch[0])) !== null) {
         const cleaned = normalizeCellText(stripHtml(cellMatch[1]));
-        if (cleaned) cells.push(cleaned);
+        cells.push(cleaned);
       }
       if (cells.length > 0) rows.push(cells);
     }

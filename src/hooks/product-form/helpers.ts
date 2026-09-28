@@ -6,6 +6,7 @@ import type {
   SubmitProductForm,
 } from "../../types";
 import { uniqHttpUrls } from "../../utils/product";
+import { normalizeSizeTable } from "../../utils/sizeTable";
 import type { MessageKey } from "../../i18n/messages";
 
 export const getAutofillCandidateUrls = (
@@ -22,13 +23,19 @@ export const applyUrlAutofill = (
   prev: AddProductFormData,
   extracted: ProductMetadataPayload,
   selectedCandidateUrl: string
-): AddProductFormData => ({
+): AddProductFormData => {
+  const table = extracted.sizeExtraction?.status === "found"
+    ? normalizeSizeTable(extracted.sizeExtraction.table) : null;
+  return ({
   ...prev,
   brand: extracted.brand || prev.brand,
   name: extracted.name || prev.name,
   url: extracted.url || prev.url,
   productImage: selectedCandidateUrl || prev.productImage,
+  ...(!prev.extractedTable && !prev.sizeChartImage && table
+    ? { extractedTable: table, rawExtractedTable: table } : {}),
 });
+};
 
 interface SubmitValidationInput {
   hasBrand: boolean;
@@ -73,7 +80,7 @@ export const buildSubmitProductPayload = (
   name: formData.name,
   category: formData.category,
   url: formData.url || null,
-  sizeTable: formData.rawExtractedTable || formData.extractedTable,
+  sizeTable: formData.extractedTable || formData.rawExtractedTable,
   normalizedSizeTable: null,
   productPhoto: productPhotoFile,
   productImageUrl: autofilledProductImageUrl,

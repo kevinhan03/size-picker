@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: digbox-product-scraper
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/product-scraper/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: off
+    envVars:
+      - key: SIZE_EXTRACTION_SECRET
+        sync: false
+      - key: SIZE_EXTRACTION_CALLBACK_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

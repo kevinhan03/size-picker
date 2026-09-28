@@ -56,7 +56,22 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
 
   return (
     <div className="space-y-2">
-      {!isComparisonMode ? (
+      {form.sizeExtraction ? (
+        <div role="status" aria-live="polite" className="text-xs text-gray-400">
+          {form.sizeExtraction.status === 'processing'
+            ? t('sizeTable.autoProcessing')
+            : form.sizeExtraction.status === 'found'
+              ? t('sizeTable.autoFound')
+              : t('sizeTable.autoFailed')}
+          {form.sizeExtraction.status === 'found' && form.sizeExtraction.sourceUrl ? (
+            <a href={form.sizeExtraction.sourceUrl} target="_blank" rel="noopener noreferrer" className="ml-2 underline">{t('sizeTable.autoSource')}</a>
+          ) : null}
+          {form.sizeExtraction.status !== 'processing' ? (
+            <button type="button" className="ml-2 underline" onClick={form.retrySizeExtraction}>{t('sizeTable.autoRetry')}</button>
+          ) : null}
+        </div>
+      ) : null}
+      {!isComparisonMode && !form.formData.extractedTable ? (
         <div>
           <label className="text-sm font-semibold text-gray-300">
             {t("sizeTable.title")}{" "}
@@ -71,7 +86,7 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
           </p>
         </div>
       ) : null}
-      {!isComparisonMode ? (
+      {!isComparisonMode && !form.formData.extractedTable ? (
         <div>
           <label
             onDragOver={(event) => {

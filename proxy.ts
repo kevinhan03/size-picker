@@ -70,6 +70,7 @@ export const config = {
     "/api/product-metadata",
     "/api/product-metadata-from-image",
     "/api/size-table",
+    "/api/size-extractions/:path*",
     "/api/remove-bg",
     "/api/user/:path*",
   ],

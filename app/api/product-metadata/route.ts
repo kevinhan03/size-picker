@@ -39,6 +39,9 @@ export async function POST(request: Request) {
         brand: metadata.brand || "",
         name: metadata.name || "",
         image_path: metadata.image_path || "",
+        sizeExtraction: metadata.sizeExtraction || {
+          status: "not_found", table: null, source: null, confidence: null, sourceUrl: null,
+        },
         productImageCandidates: Array.isArray(metadata.productImageCandidates)
           ? metadata.productImageCandidates
           : [],

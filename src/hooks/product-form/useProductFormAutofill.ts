@@ -1,4 +1,4 @@
-import { useRef, type ChangeEvent } from "react";
+import { useEffect, useRef, type ChangeEvent } from "react";
 import type { AddProductFormData, ProductMetadataPayload, ProductTaggingMetadata } from "../../types";
 import {
   dataUrlToFile,
@@ -25,8 +25,10 @@ import {
   getAutofillCandidateUrls,
 } from "./helpers";
 import { useLocaleContext } from "../../contexts/LocaleContext";
+import { useSizeExtraction } from './useSizeExtraction';
 
 interface ProductFormAutofillState {
+  isModalOpen: boolean;
   formData: AddProductFormData;
   setFormData: React.Dispatch<React.SetStateAction<AddProductFormData>>;
   productPhotoFile: File | null;
@@ -91,7 +93,16 @@ const applyCategoryRecommendation = async (
 
 export function useProductFormAutofill({ state, productUrlSet }: UseProductFormAutofillOptions) {
   const { t } = useLocaleContext();
+  const { sizeExtraction, startSizeExtraction, cancelSizeExtraction, acceptCanonicalSizeUrl } = useSizeExtraction(state);
   const categoryRecommendationIdRef = useRef(0);
+  const autofillRequestRef = useRef(0);
+  const setAutofilling = state.setIsAutofillingFromUrl;
+  useEffect(() => {
+    // Invalidate requests from an old URL or a closed registration form.
+    autofillRequestRef.current += 1;
+    setAutofilling(false);
+    return () => { autofillRequestRef.current += 1; };
+  }, [state.formData.url, state.isModalOpen, setAutofilling]);
   const recommendCategory = (input: Parameters<typeof analyzeProductCategory>[0]) => {
     const requestId = ++categoryRecommendationIdRef.current;
     void applyCategoryRecommendation(state, input, () => categoryRecommendationIdRef.current === requestId);
@@ -99,6 +110,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>, type: "product" | "chart") => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (type === 'chart') cancelSizeExtraction();
 
     if (type === "product") {
       void (async () => {
@@ -167,6 +179,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
   };
 
   const handleDroppedFile = (file: File, type: "product" | "chart") => {
+    if (type === 'chart') cancelSizeExtraction();
     if (!file.type.startsWith("image/")) {
       state.setAutoFillError(t("addProduct.imageFilesOnly"));
       return;
@@ -262,20 +275,28 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
     }
 
     state.setIsAutofillingFromUrl(true);
+    const requestId = ++autofillRequestRef.current;
+    const isCurrent = () => requestId === autofillRequestRef.current;
     state.clearAutoFillFeedback();
     state.setAutofilledProductImageCandidates([]);
     state.setProductTaggingMetadata(null);
 
     try {
-      if (await isProductUrlAlreadyRegistered(targetUrl)) {
+      const alreadyRegistered = await isProductUrlAlreadyRegistered(targetUrl);
+      if (!isCurrent()) return;
+      if (alreadyRegistered) {
         state.setAutoFillError(t("duplicateProduct.title"));
         return;
       }
+      startSizeExtraction(targetUrl);
       const extracted = await fetchProductMetadataFromUrl(targetUrl);
+      if (!isCurrent()) return;
       const normalizedExtractedUrl = normalizeComparableProductUrl(extracted.url || targetUrl);
+      const resolvedRegistered = await isProductUrlAlreadyRegistered(extracted.url || targetUrl);
+      if (!isCurrent()) return;
       if (
         (normalizedExtractedUrl && productUrlSet.has(normalizedExtractedUrl)) ||
-        await isProductUrlAlreadyRegistered(extracted.url || targetUrl)
+        resolvedRegistered
       ) {
         state.setAutoFillError(t("duplicateProduct.title"));
         state.clearSelectedProductImage();
@@ -287,6 +308,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
       }
 
       const candidateUrls = getAutofillCandidateUrls(extracted);
+      acceptCanonicalSizeUrl(extracted.url || targetUrl);
       const selectedCandidateUrl = candidateUrls[0] || "";
       state.setProductTaggingMetadata(buildProductTaggingMetadata(extracted));
       state.setProductPhotoFile(null);
@@ -313,13 +335,15 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         state.setAutoFillError(t("addProduct.urlAutofillFailed"));
       }
     } catch {
-      state.setAutoFillError(t("addProduct.urlAutofillFailed"));
+      if (isCurrent()) state.setAutoFillError(t("addProduct.urlAutofillFailed"));
     } finally {
-      state.setIsAutofillingFromUrl(false);
+      if (isCurrent()) state.setIsAutofillingFromUrl(false);
     }
   };
 
   return {
+    sizeExtraction,
+    retrySizeExtraction: () => startSizeExtraction(state.formData.url, true),
     handleFileUpload,
     handleDroppedFile,
     handleSelectAutofilledProductImage,

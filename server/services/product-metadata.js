@@ -1,6 +1,7 @@
 import { createLinkedSizeMetadataService } from "./product-metadata/linked-size-metadata.js";
 import { createProductMetadataResponseService } from "./product-metadata/response.js";
 import { createProductMetadataSearchResolver } from "./product-metadata/search-resolver.js";
+import { readPage } from './size-extraction/extract.mjs';
 
 export function createProductMetadataService({
   addImageResolutionVariants,
@@ -118,6 +119,8 @@ export function createProductMetadataService({
     const combinedJsonData = [nextDataPayload, ...appJsonObjects].filter(Boolean);
     const jsonImageData = extractImageCandidatesFromJsonData({ jsonData: combinedJsonData, pageUrl });
     const jsonTextBlocks = collectTextBlocksFromJsonData(combinedJsonData);
+    // Preserve the original page data: no second fetch or browser is needed for a static table.
+    const sizeExtraction = readPage(html, pageUrl).result;
 
     const storeBrandFromTitle = normalizeBrandName(String(title || "").split("|").slice(1).join("|"));
     const rawBrand = response.pickFirstNonEmpty([
@@ -214,6 +217,7 @@ export function createProductMetadataService({
       category,
       productImageCandidates,
       productMetadata,
+      sizeExtraction,
     };
   };
 

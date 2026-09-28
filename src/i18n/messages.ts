@@ -614,6 +614,11 @@ export const messages = {
     "sizeTable.uploadHelp": "사이즈표 사진을 올리면 자동으로 표를 추출합니다.",
     "sizeTable.captureHelp": "캡처본에서 추출한 사이즈표를 확인하세요.",
     "sizeTable.extracting": "사이즈표 추출 중...",
+    "sizeTable.autoProcessing": "상품 페이지에서 사이즈표를 찾고 있어요. 첫 요청은 조금 더 걸릴 수 있어요.",
+    "sizeTable.autoFound": "사이즈표를 자동으로 가져왔어요. 원본의 단위와 수치를 확인해 주세요.",
+    "sizeTable.autoFailed": "사이즈표를 자동으로 가져오지 못했어요. 캡처를 올리거나 다시 시도해 주세요.",
+    "sizeTable.autoSource": "원본 확인",
+    "sizeTable.autoRetry": "다시 찾기",
     "sizeTable.unverified":
       "사이즈표 이미지는 있지만 검증된 표 추출은 아직 완료되지 않았습니다.",
     "sizeTable.warning":
@@ -1660,6 +1665,11 @@ export const messages = {
     "sizeTable.captureHelp":
       "Review the size table extracted from the screenshot.",
     "sizeTable.extracting": "Extracting size table...",
+    "sizeTable.autoProcessing": "Looking for a size chart. The first request may take longer.",
+    "sizeTable.autoFound": "Size chart imported. Please verify units and measurements against the original.",
+    "sizeTable.autoFailed": "Could not import a size chart. Upload a screenshot or try again.",
+    "sizeTable.autoSource": "View source",
+    "sizeTable.autoRetry": "Try again",
     "sizeTable.unverified":
       "A size chart image is available, but verified table extraction is not complete yet.",
     "sizeTable.warning":

@@ -279,6 +279,15 @@ export interface AddProductFormData {
 }
 
 export interface ProductMetadataPayload {
+  sizeExtraction?: {
+    status: "found" | "processing" | "not_found" | "failed";
+    table: SizeTable | null;
+    source: "site_api" | "embedded_json" | "dom_table" | "image_ocr" | null;
+    confidence: "high" | "medium" | "low" | null;
+    sourceUrl: string | null;
+    jobId?: string;
+    errorCode?: string | null;
+  };
   url: string;
   brand: string;
   name: string;
