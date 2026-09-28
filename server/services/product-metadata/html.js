@@ -68,48 +68,60 @@ export const extractJsonLdObjects = (html) => {
   return objects;
 };
 
-const collectProductNodes = (node, output = []) => {
-  if (!node) return output;
+const collectProductNodes = (node, products = [], productGroups = []) => {
+  if (!node) return { products, productGroups };
   if (Array.isArray(node)) {
-    for (const item of node) collectProductNodes(item, output);
-    return output;
+    for (const item of node) collectProductNodes(item, products, productGroups);
+    return { products, productGroups };
   }
-  if (typeof node !== "object") return output;
+  if (typeof node !== "object") return { products, productGroups };
 
   const typeValue = node["@type"];
   const types = Array.isArray(typeValue) ? typeValue : [typeValue];
-  const hasProductType = types.some((type) => String(type || "").toLowerCase() === "product");
-  if (hasProductType) output.push(node);
+  const normalizedTypes = types.map((type) => String(type || "").toLowerCase());
+  if (normalizedTypes.includes("productgroup")) productGroups.push(node);
+  if (normalizedTypes.includes("product")) products.push(node);
 
   for (const value of Object.values(node)) {
-    if (value && typeof value === "object") collectProductNodes(value, output);
+    if (value && typeof value === "object") collectProductNodes(value, products, productGroups);
   }
-  return output;
+  return { products, productGroups };
 };
 
 export const extractProductJsonLd = (html) => {
   const scripts = extractJsonLdObjects(html);
   const productNodes = [];
+  const productGroups = [];
   for (const parsed of scripts) {
-    collectProductNodes(parsed, productNodes);
+    collectProductNodes(parsed, productNodes, productGroups);
   }
-  if (productNodes.length === 0) return null;
+  if (productNodes.length === 0 && productGroups.length === 0) return null;
 
-  const bestNode = productNodes.find((node) => normalizeCellText(node?.name)) || productNodes[0];
-  const brandNode = bestNode?.brand;
+  // ProductGroup is the parent catalog item; nested Product nodes frequently
+  // append the first variant's size or colour to their name. Prefer the group
+  // name but retain product-level fields when the group omits them.
+  const bestGroup = productGroups.find((node) => normalizeCellText(node?.name)) || productGroups[0] || null;
+  const fallbackProduct = productNodes.find((node) => normalizeCellText(node?.name)) || productNodes[0] || null;
+  const bestNode = bestGroup || fallbackProduct;
+  const metadataNode = bestGroup && fallbackProduct ? {
+    ...fallbackProduct,
+    ...Object.fromEntries(Object.entries(bestGroup).filter(([, value]) => value !== undefined && value !== null && value !== "")),
+    name: bestGroup.name || fallbackProduct.name,
+  } : bestNode;
+  const brandNode = metadataNode?.brand;
   const rawBrand =
     typeof brandNode === "string"
       ? brandNode
       : typeof brandNode === "object" && brandNode
         ? brandNode.name || brandNode.brand || ""
         : "";
-  const rawImages = Array.isArray(bestNode?.image) ? bestNode.image : [bestNode?.image];
+  const rawImages = Array.isArray(metadataNode?.image) ? metadataNode.image : [metadataNode?.image];
   return {
-    name: normalizeCellText(bestNode?.name || ""),
+    name: normalizeCellText(metadataNode?.name || ""),
     brand: normalizeBrandName(rawBrand),
-    description: normalizeCellText(bestNode?.description || ""),
-    category: normalizeCellText(bestNode?.category || ""),
-    type: normalizeCellText(bestNode?.additionalType || bestNode?.["@type"] || ""),
+    description: normalizeCellText(metadataNode?.description || ""),
+    category: normalizeCellText(metadataNode?.category || ""),
+    type: normalizeCellText(metadataNode?.additionalType || metadataNode?.["@type"] || ""),
     images: rawImages.map((value) => normalizeCellText(value)).filter(Boolean),
   };
 };

@@ -1,10 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   buildStructuredProductMetadata,
+  extractProductJsonLd,
   extractStyleFactTextFromHtml,
 } from "../../server/services/product-metadata/html.js";
 
 describe("product-page tagging text extraction", () => {
+  it("uses a ProductGroup name instead of a nested variant name", () => {
+    const extracted = extractProductJsonLd(
+      `<script type="application/ld+json">{
+        "@context":"https://schema.org", "@type":"ProductGroup", "name":"Raglan T-shirt",
+        "hasVariant":[{"@type":"Product","name":"Raglan T-shirt XS","brand":{"name":"Youth"},"image":"https://cdn.example.com/shirt.jpg"}]
+      }</script>`
+    );
+
+    expect(extracted).toMatchObject({
+      name: "Raglan T-shirt",
+      brand: "Youth",
+      images: ["https://cdn.example.com/shirt.jpg"],
+    });
+  });
+
   it("keeps product facts and removes size-only, UI, and duplicate translation text", () => {
     const candidates = extractStyleFactTextFromHtml({
       seedTexts: [
