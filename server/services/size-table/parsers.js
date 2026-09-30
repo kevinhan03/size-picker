@@ -27,6 +27,37 @@ const SIZE_TABLE_STOP_PATTERN =
   /(?:model|detail|fabric|delivery|shipping|material|\uC18C\uC7AC|\uC138\uD0C1|\uBC30\uC1A1|\uC0C1\uC138|\*)/i;
 const SIZE_LABEL_TOKEN_PATTERN = /(?:XXS|XS|S|M|L|XL|XXL|XXXL|FREE|ONE ?SIZE|\d{1,4})/gi;
 
+// A few commerce APIs keep a measurement's value in a second nested list so
+// they can return several units, e.g. `{ name: "chest", measurements:
+// [{ value: "58", unit: "cm" }, { value: "22 3/4", unit: "inch" }] }`.
+// Keep this independent of any store-specific field names and prefer metric
+// values, which are the unit used by the editable size table in this app.
+const extractNestedNumericValue = (value) => {
+  const candidates = Array.isArray(value)
+    ? value.filter((item) => isPlainObject(item))
+    : isPlainObject(value)
+      ? [value]
+      : [];
+  let best = null;
+
+  for (const candidate of candidates) {
+    for (const [key, rawValue] of Object.entries(candidate)) {
+      if (!isNumericLikeCell(rawValue)) continue;
+      const numericValue = normalizeCellText(rawValue);
+      if (!numericValue) continue;
+      const unit = normalizeCellText(
+        candidate.unit ?? candidate.unitCode ?? candidate.uom ?? candidate.measurementUnit
+      ).toLowerCase();
+      const keyScore = /(?:^|_)(?:value|amount|measurement|length|size)(?:$|_)/i.test(key) ? 2 : 0;
+      const unitScore = /^(?:cm|centimet(?:er|re)s?)$/.test(unit) ? 10 : unit ? 0 : 4;
+      const score = unitScore + keyScore;
+      if (!best || score > best.score) best = { value: numericValue, score };
+    }
+  }
+
+  return best?.value || "";
+};
+
 const extractSizeTableFromArrayOfArrays = (rows) => {
   if (!Array.isArray(rows) || rows.length < 2) return null;
   const normalized = rows
@@ -116,7 +147,7 @@ const extractSizeTableFromNestedItemRows = (rows) => {
       score: outerRows.reduce(
         (score, row) => score + (isLikelySizeLabel(row[key]) ? 1 : 0),
         0
-      ),
+      ) + (/^(?:size|name|label)$/i.test(key) ? 3 : 0),
     }))
     .filter(({ score }) => score >= 2)
     .sort((left, right) => right.score - left.score)[0]?.key;
@@ -171,12 +202,17 @@ const extractSizeTableFromNestedItemRows = (rows) => {
         }))
         .filter(({ score }) => score >= 1)
         .sort((left, right) => right.score - left.score)[0]?.key;
-      if (!labelKey || !valueKey || labelKey === valueKey) continue;
+      const nestedValueKey = itemKeys.find((key) =>
+        items.some((item) => extractNestedNumericValue(item[key]))
+      );
+      if (!labelKey || (!valueKey && !nestedValueKey) || labelKey === valueKey) continue;
 
       const measurements = new Map();
       for (const item of items) {
         const label = normalizeMeasurementLabel(item[labelKey]);
-        const value = normalizeCellText(item[valueKey]);
+        const value = valueKey
+          ? normalizeCellText(item[valueKey])
+          : extractNestedNumericValue(item[nestedValueKey]);
         if (!label || !value || !isLikelyMeasurementKey(label) || !isNumericLikeCell(value)) continue;
         const existingValue = measurements.get(label);
         // Normalization can merge closely related fields (for example sleeve

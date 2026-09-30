@@ -309,7 +309,7 @@ export const normalizeSizeLabel = (value: unknown): string =>
 export const isLikelySizeLabel = (value: unknown): boolean => {
   const text = normalizeSizeLabel(value);
   if (!text) return false;
-  if (/^(XXS|XS|S|M|L|XL|XXL|XXXL|FREE|ONE ?SIZE)$/i.test(text)) return true;
+  if (/^(XXS|XS|S|M|L|XL|XXL|XXXL|[3-9]XL|FREE|ONE ?SIZE)$/i.test(text)) return true;
   if (/^\d{1,3}\s*\(\s*\d{1,3}\s*~\s*\d{1,3}\s*\)$/.test(text)) return true;
   if (/^\d{1,3}\s*\([^)]{1,30}\)$/.test(text)) return true;
   if (/^(EU|US|UK|JP|KR)\s*\d{1,3}(?:\.\d+)?$/.test(text)) return true;

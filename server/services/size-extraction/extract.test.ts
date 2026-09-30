@@ -40,6 +40,31 @@ describe("size extraction", () => {
     });
   });
 
+  it("extracts metric values from doubly nested size API measurements", () => {
+    const page = readPage(
+      "",
+      "https://shop.example.com/products/jacket",
+      [{
+        result: [{
+          sizeChart: [
+            { name: "S", displayCode: "003", sizeParts: [{ name: "전체 길이", measurements: [{ value: "64", unit: "cm" }, { value: "25 1/4", unit: "inch" }] }, { name: "가슴너비", measurements: [{ value: "58", unit: "cm" }, { value: "22 3/4", unit: "inch" }] }] },
+            { name: "M", displayCode: "004", sizeParts: [{ name: "전체 길이", measurements: [{ value: "66", unit: "cm" }, { value: "26", unit: "inch" }] }, { name: "가슴너비", measurements: [{ value: "61", unit: "cm" }, { value: "24", unit: "inch" }] }] },
+            { name: "L", displayCode: "005", sizeParts: [{ name: "전체 길이", measurements: [{ value: "68", unit: "cm" }, { value: "26 3/4", unit: "inch" }] }, { name: "가슴너비", measurements: [{ value: "64", unit: "cm" }, { value: "25 1/4", unit: "inch" }] }] },
+          ],
+        }],
+      }]
+    );
+
+    expect(page.result).toMatchObject({
+      status: "found",
+      source: "site_api",
+      table: {
+        headers: ["사이즈", "S", "M", "L"],
+        rows: [["총장", "64", "66", "68"], ["가슴", "58", "61", "64"]],
+      },
+    });
+  });
+
   it("does not accept body, inch, or millimeter charts", () => {
     const page = readPage(
       `<table><tr><th>size</th><th>S</th><th>M</th></tr><tr><td>chest</td><td>90</td><td>95</td></tr></table><p>Body measurements · inches</p>`,

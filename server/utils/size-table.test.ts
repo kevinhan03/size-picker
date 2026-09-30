@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  isLikelySizeLabel,
   normalizeMeasurementLabel,
   normalizeSizeTableForCategory,
 } from "./size-table.js";
 
 describe("category size-table normalization", () => {
+  it("recognizes extended standard alpha sizes", () => {
+    expect(isLikelySizeLabel("3XL")).toBe(true);
+    expect(isLikelySizeLabel("4XL")).toBe(true);
+  });
+
   it("normalizes tops while retaining extra measurements", () => {
     expect(
       normalizeSizeTableForCategory("Top", {

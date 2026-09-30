@@ -512,7 +512,7 @@ export const normalizeComparableSizeLabel = (value) => {
 export const isLikelySizeLabel = (value) => {
   const text = normalizeSizeLabel(value);
   if (!text) return false;
-  if (/^(XXS|XS|S|M|L|XL|XXL|XXXL|FREE|ONE ?SIZE)$/i.test(text)) return true;
+  if (/^(XXS|XS|S|M|L|XL|XXL|XXXL|[3-9]XL|FREE|ONE ?SIZE)$/i.test(text)) return true;
   if (/^(?:XXS|XS|S|M|L|XL|XXL|XXXL)\s*\(\s*\d{1,3}\s*\)$/i.test(text))
     return true;
   if (/^(?:XXS|XS|S|M|L|XL|XXL|XXXL)\s*\([^)]{1,30}\)$/i.test(text))
