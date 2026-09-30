@@ -78,7 +78,18 @@ async function extractWithPinnedSameOriginBrowser(value, outerSignal) {
 }
 
 export async function extractSizeChart(url) {
-  publicUrl(url);
+  const targetUrl = publicUrl(url);
+  // Uniqlo's size API needs Chromium's own session. Try the DNS-pinned,
+  // same-origin browser before proxy navigation consumes the extraction budget.
+  // Launch it before the shared browser to avoid two Chromium instances at once.
+  if (targetUrl.hostname === 'www.uniqlo.com') {
+    try {
+      const direct = await extractWithPinnedSameOriginBrowser(url, AbortSignal.timeout(45000));
+      if (direct.result.status === 'found') return direct;
+    } catch (error) {
+      console.error(JSON.stringify({ event: 'pinned_browser_extraction_failed', host: targetUrl.hostname, message: error.message }));
+    }
+  }
   const context = await (await browser()).newContext({ serviceWorkers: 'block', acceptDownloads: false, viewport: { width: 1280, height: 1600 } });
   const deadline = AbortSignal.timeout(45000);
   const terminate = () => { void context.close(); };
@@ -142,7 +153,8 @@ export async function extractSizeChart(url) {
     if (finalResult.result.status === 'found' || deadline.aborted) return finalResult;
     const directResult = await extractWithPinnedSameOriginBrowser(url, deadline).catch(() => null);
     return directResult || finalResult;
-  } catch {
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'browser_extraction_failed', host: targetUrl.hostname, message: error.message }));
     return { result: emptyResult('failed'), images: [], errorCode: 'browser_extraction_failed' };
   } finally {
     deadline.removeEventListener('abort', terminate);
