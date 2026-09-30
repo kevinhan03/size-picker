@@ -44,11 +44,32 @@ export function readPage(html, url, apiJson = []) {
     }).slice(0, 2),
   };
 }
+export async function extractUniqloSizeChart(value, signal) {
+  const url = publicUrl(value);
+  const match = url.pathname.match(/^\/kr\/ko\/products\/(E\d{6}-\d{3})\/\d{2}\/?$/);
+  if (url.hostname !== 'www.uniqlo.com' || !match) return null;
+  const api = new URL('/kr/api/commerce/v5/ko/products/size-charts', url.origin);
+  api.search = new URLSearchParams({
+    productIdsWithColorCode: match[1], includeBodyMeasurements: 'false', simpleSizeChart: 'true', httpFailure: 'true',
+  }).toString();
+  try {
+    const response = await safeFetch(api.href, { signal, timeoutMs: 8000, maxBytes: 500000, headers: { accept: 'application/json', referer: url.href } });
+    if (response.status !== 200 || !String(response.headers['content-type']).includes('json')) return null;
+    const payload = JSON.parse(response.body.toString('utf8'));
+    const product = payload.result?.find(item => item.productId === match[1]);
+    if (payload.status !== 'ok' || !Array.isArray(product?.sizeChart)) return null;
+    // Only garment dimensions for the requested product; exclude body charts.
+    const parsed = readPage('', url.href, [{ sizeChart: product.sizeChart }]);
+    return parsed.result.status === 'found' ? parsed.result : null;
+  } catch { return null; }
+}
 export async function extractStatic(url) {
   const visited = new Set();
   const queue = [url];
   const images = [];
   const signal = AbortSignal.timeout(18000);
+  const siteApi = await extractUniqloSizeChart(url, signal);
+  if (siteApi) return { result: siteApi, images: [] };
   while (queue.length && visited.size < 3) {
     const next = queue.shift();
     if (visited.has(next)) continue;

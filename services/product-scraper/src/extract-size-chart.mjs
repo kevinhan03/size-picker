@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import { safeFetch, publicUrl, resolvePublicIPv4 } from '../../../server/services/size-extraction/network.mjs';
-import { readPage, emptyResult } from '../../../server/services/size-extraction/extract.mjs';
+import { readPage, emptyResult, extractUniqloSizeChart } from '../../../server/services/size-extraction/extract.mjs';
 
 let browserPromise;
 async function browser() {
@@ -79,19 +79,22 @@ async function extractWithPinnedSameOriginBrowser(value, outerSignal) {
 
 export async function extractSizeChart(url) {
   const targetUrl = publicUrl(url);
+  const deadline = AbortSignal.timeout(45000);
+  const siteApi = await extractUniqloSizeChart(url, deadline);
+  if (siteApi) return { result: siteApi, images: [], links: [] };
   // Uniqlo's size API needs Chromium's own session. Try the DNS-pinned,
   // same-origin browser before proxy navigation consumes the extraction budget.
   // Launch it before the shared browser to avoid two Chromium instances at once.
   if (targetUrl.hostname === 'www.uniqlo.com') {
     try {
-      const direct = await extractWithPinnedSameOriginBrowser(url, AbortSignal.timeout(45000));
+      const direct = await extractWithPinnedSameOriginBrowser(url, deadline);
       if (direct.result.status === 'found') return direct;
     } catch (error) {
       console.error(JSON.stringify({ event: 'pinned_browser_extraction_failed', host: targetUrl.hostname, message: error.message }));
     }
   }
+  if (deadline.aborted) return { result: emptyResult('failed'), images: [], errorCode: 'browser_extraction_failed' };
   const context = await (await browser()).newContext({ serviceWorkers: 'block', acceptDownloads: false, viewport: { width: 1280, height: 1600 } });
-  const deadline = AbortSignal.timeout(45000);
   const terminate = () => { void context.close(); };
   deadline.addEventListener('abort', terminate, { once: true });
   const apiJson = [];
