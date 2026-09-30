@@ -9,13 +9,20 @@ type SizeExtractionResult = NonNullable<ProductMetadataPayload['sizeExtraction']
 export const maxDuration = 60;
 export const runtime = 'nodejs';
 
-async function extractStaticResult(url: string): Promise<SizeExtractionResult> {
+async function extractStaticResult(url: string, useLocalBrowser = false): Promise<SizeExtractionResult> {
   let result: SizeExtractionResult = emptyResult() as SizeExtractionResult;
   try {
     const extracted = await extractStatic(url);
     result = extracted.result as SizeExtractionResult;
-    if (result.status !== 'found' && extracted.images[0]) {
-      result = await extractChartImage(extracted.images[0]) as SizeExtractionResult;
+    let images = extracted.images;
+    if (process.env.NODE_ENV === 'development' && useLocalBrowser && result.status !== 'found') {
+      const { extractSizeChart } = await import('../../../services/product-scraper/src/extract-size-chart.mjs');
+      const dynamic = await extractSizeChart(url);
+      result = dynamic.result as SizeExtractionResult;
+      images = dynamic.images.length ? dynamic.images : images;
+    }
+    if (result.status !== 'found' && images[0]) {
+      result = await extractChartImage(images[0]) as SizeExtractionResult;
     }
   } catch {
     result = emptyResult('failed', 'static_extraction_failed') as SizeExtractionResult;
@@ -23,10 +30,10 @@ async function extractStaticResult(url: string): Promise<SizeExtractionResult> {
   return result;
 }
 
-function developmentStaticResponse(result: SizeExtractionResult) {
+function developmentResponse(result: SizeExtractionResult) {
   // The client stops polling as soon as a terminal result is returned. This
-  // deliberately has no receipt or worker dispatch: local development can
-  // exercise static extraction without copying production service secrets.
+  // deliberately has no receipt or worker dispatch: the local server runs the
+  // same DNS-pinned browser extractor without copying production secrets.
   return Response.json({ result, jobId: null, receipt: '', dispatch: null });
 }
 
@@ -37,18 +44,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     if (typeof body.url !== 'string' || body.url.length > 4096) return Response.json({ error: 'Invalid URL' }, { status: 400 });
-    let started: Awaited<ReturnType<typeof startJob>>;
-    try {
-      started = await startJob(body.url, user.id, body.refresh === true);
-    } catch (error) {
-      // Production always uses the signed persistent queue. A developer who
-      // has not copied deployment-only secrets can still verify public, static
-      // charts locally without weakening the deployed endpoint.
-      if (process.env.NODE_ENV !== 'production') {
-        return developmentStaticResponse(await extractStaticResult(body.url));
-      }
-      throw error;
+    if (process.env.NODE_ENV === 'development') {
+      return developmentResponse(await extractStaticResult(body.url, true));
     }
+    const started = await startJob(body.url, user.id, body.refresh === true);
     const { job, leader } = started;
     if (leader) {
       let result = await extractStaticResult(String(job.normalized_url || body.url));

@@ -35,7 +35,7 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@google/genai"],
+  serverExternalPackages: ["@google/genai", "playwright"],
   devIndicators: false,
   async headers() {
     return [
