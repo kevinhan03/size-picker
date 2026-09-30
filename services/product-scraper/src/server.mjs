@@ -19,8 +19,11 @@ async function callback(payload) {
         headers: { 'Content-Type': 'application/json', 'x-extraction-timestamp': timestamp, 'x-extraction-signature': signCallback(raw, timestamp, secret) }, body: raw,
       });
       if (response.ok) return await response.json();
+      console.error(JSON.stringify({ event: 'callback_http_error', phase: payload.phase, jobId: payload.jobId, status: response.status, target: callbackUrl }));
       if ([401, 409].includes(response.status)) throw new Error('Callback rejected');
-    } catch { /* Retry idempotent callbacks; a durable lease expires after a crash. */ }
+    } catch (error) {
+      console.error(JSON.stringify({ event: 'callback_request_failed', phase: payload.phase, jobId: payload.jobId, target: callbackUrl, message: error.message }));
+    }
     await delay((attempt + 1) * 1000);
   }
   throw new Error('Callback unavailable');
@@ -40,11 +43,12 @@ const server = http.createServer(async (req, res) => {
   if (req.url !== '/jobs' || req.method !== 'POST') return reply(404, { error: 'Not found' });
   let claims;
   try { claims = verifyToken(String(req.headers.authorization || '').replace(/^Bearer /, ''), secret, 'scrape'); }
-  catch { return reply(401, { error: 'Invalid token' }); }
+  catch { console.error(JSON.stringify({ event: 'worker_token_rejected' })); return reply(401, { error: 'Invalid token' }); }
   if (busy) { res.setHeader('Retry-After', '5'); return reply(429, { error: 'Busy' }); }
   busy = true;
   try {
     const identity = { jobId: claims.jobId, attempt: claims.attempt };
+    console.info(JSON.stringify({ event: 'job_claim_requested', jobId: claims.jobId }));
     const claim = await callback({ ...identity, phase: 'claim' });
     if (!claim.claimed) { busy = false; return reply(202, { accepted: true }); }
     active = (async () => {
@@ -52,7 +56,7 @@ const server = http.createServer(async (req, res) => {
       await callback({ ...identity, phase: 'complete', result });
     })().catch(() => { console.error('Size extraction failed; durable lease will expire', claims.jobId); }).finally(() => { busy = false; active = undefined; });
     return reply(202, { accepted: true });
-  } catch { busy = false; return reply(503, { error: 'Unable to claim job' }); }
+  } catch (error) { console.error(JSON.stringify({ event: 'job_claim_failed', jobId: claims.jobId, message: error.message })); busy = false; return reply(503, { error: 'Unable to claim job' }); }
 });
 server.requestTimeout = 15000;
 server.headersTimeout = 10000;
