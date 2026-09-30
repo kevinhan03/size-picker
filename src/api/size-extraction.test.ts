@@ -18,6 +18,29 @@ afterEach(() => {
 });
 
 describe('size extraction worker dispatch', () => {
+  it('stops polling when the worker reports a callback claim failure', async () => {
+    vi.mocked(authenticatedFetch).mockResolvedValueOnce(Response.json(job));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ code: 'callback_claim_failed' }, { status: 503 })));
+
+    await expect(runSizeExtraction('https://shop.example.com/item', new AbortController().signal, vi.fn()))
+      .rejects.toThrow('Worker could not claim extraction job');
+    expect(authenticatedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([429, 503])('keeps polling after a transient worker HTTP %s', async status => {
+    vi.useFakeTimers();
+    const result = { ...job.result, status: 'not_found' };
+    vi.mocked(authenticatedFetch)
+      .mockResolvedValueOnce(Response.json(job))
+      .mockResolvedValueOnce(Response.json({ ...job, result, dispatch: null }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Service starting', { status })));
+    const onProgress = vi.fn();
+    const extraction = runSizeExtraction('https://shop.example.com/item', new AbortController().signal, onProgress);
+    await vi.advanceTimersByTimeAsync(3000);
+    await extraction;
+    expect(onProgress).toHaveBeenLastCalledWith(result);
+  });
+
   it.each([401, 403])('stops on worker authorization rejection %s', async status => {
     vi.mocked(authenticatedFetch).mockResolvedValueOnce(Response.json(job));
     const fetchWorker = vi.fn().mockResolvedValue(new Response(null, { status }));

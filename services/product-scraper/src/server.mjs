@@ -7,6 +7,7 @@ const secret = process.env.SIZE_EXTRACTION_SECRET || '';
 const callbackUrl = process.env.SIZE_EXTRACTION_CALLBACK_URL || '';
 const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean));
 if (secret.length < 32 || !callbackUrl.startsWith('https://') || !allowedOrigins.size) throw new Error('Missing scraper configuration');
+const callbackTarget = new URL(callbackUrl).origin + new URL(callbackUrl).pathname;
 let busy = false;
 let active;
 async function callback(payload) {
@@ -19,10 +20,10 @@ async function callback(payload) {
         headers: { 'Content-Type': 'application/json', 'x-extraction-timestamp': timestamp, 'x-extraction-signature': signCallback(raw, timestamp, secret) }, body: raw,
       });
       if (response.ok) return await response.json();
-      console.error(JSON.stringify({ event: 'callback_http_error', phase: payload.phase, jobId: payload.jobId, status: response.status, target: callbackUrl }));
+      console.error(JSON.stringify({ event: 'callback_http_error', phase: payload.phase, jobId: payload.jobId, status: response.status, target: callbackTarget }));
       if ([401, 409].includes(response.status)) throw new Error('Callback rejected');
     } catch (error) {
-      console.error(JSON.stringify({ event: 'callback_request_failed', phase: payload.phase, jobId: payload.jobId, target: callbackUrl, message: error.message }));
+      console.error(JSON.stringify({ event: 'callback_request_failed', phase: payload.phase, jobId: payload.jobId, target: callbackTarget, message: error.message }));
     }
     await delay((attempt + 1) * 1000);
   }
@@ -56,7 +57,7 @@ const server = http.createServer(async (req, res) => {
       await callback({ ...identity, phase: 'complete', result });
     })().catch(() => { console.error('Size extraction failed; durable lease will expire', claims.jobId); }).finally(() => { busy = false; active = undefined; });
     return reply(202, { accepted: true });
-  } catch (error) { console.error(JSON.stringify({ event: 'job_claim_failed', jobId: claims.jobId, message: error.message })); busy = false; return reply(503, { error: 'Unable to claim job' }); }
+  } catch (error) { console.error(JSON.stringify({ event: 'job_claim_failed', jobId: claims.jobId, message: error.message })); busy = false; return reply(503, { error: 'Unable to claim job', code: 'callback_claim_failed' }); }
 });
 server.requestTimeout = 15000;
 server.headersTimeout = 10000;
