@@ -65,6 +65,16 @@ describe("size extraction", () => {
     });
   });
 
+  it("keeps a verified site API table when the page also mentions body measurements", () => {
+    const page = readPage(
+      "<p>신체 치수 · inches</p>",
+      "https://shop.example.com/products/jacket",
+      [{ sizes: [{ name: "S", items: [{ name: "총장", value: 64 }, { name: "가슴", value: 58 }] }, { name: "M", items: [{ name: "총장", value: 66 }, { name: "가슴", value: 61 }] }] }]
+    );
+
+    expect(page.result).toMatchObject({ status: "found", source: "site_api" });
+  });
+
   it("does not accept body, inch, or millimeter charts", () => {
     const page = readPage(
       `<table><tr><th>size</th><th>S</th><th>M</th></tr><tr><td>chest</td><td>90</td><td>95</td></tr></table><p>Body measurements · inches</p>`,

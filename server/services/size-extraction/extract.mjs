@@ -31,7 +31,11 @@ export function readPage(html, url, apiJson = []) {
   const domTable = jsonTable ? null : validateTable(extractSizeTableFromHtmlTables(html));
   const table = jsonTable || domTable;
   // The current editor assumes cm and garment dimensions. Never silently import a body or inch chart.
-  const ambiguous = /(?:body measurements|신체\s*치수|인체\s*치수|\binches\b|\binch\b|단위\s*[:：]?\s*mm)/i.test(html);
+  // A product page can contain both a garment-size API response and an
+  // unrelated body-measurement guide. Once a validated site/API table was
+  // found, it is the product table and must not be discarded because of that
+  // surrounding guide text.
+  const ambiguous = !jsonTable && /(?:body measurements|신체\s*치수|인체\s*치수|\binches\b|\binch\b|단위\s*[:：]?\s*mm)/i.test(html);
   return {
     result: table && !ambiguous ? { status: 'found', table, source: jsonTable ? (apiJson.length ? 'site_api' : 'embedded_json') : 'dom_table', confidence: 'medium', sourceUrl: url, errorCode: null } : emptyResult('not_found', ambiguous ? 'ambiguous_measurements' : null),
     images: extractImageCandidatesFromHtml({ html, pageUrl: url, priorityPattern: /size|사이즈|치수|chart|measurement/i }).filter(isLikelySizeChartImageUrl).slice(0, 3),

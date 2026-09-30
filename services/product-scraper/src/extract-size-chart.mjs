@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-import { safeFetch, publicUrl } from '../../../server/services/size-extraction/network.mjs';
+import { safeFetch, publicUrl, resolvePublicIPv4 } from '../../../server/services/size-extraction/network.mjs';
 import { readPage, emptyResult } from '../../../server/services/size-extraction/extract.mjs';
 
 let browserPromise;
@@ -13,6 +13,70 @@ async function browser() {
 export async function closeBrowser() {
   if (browserPromise) await (await browserPromise).close();
 }
+
+// Some storefronts serve a bot-check page to Node HTTP clients but permit a
+// normal Chromium navigation. This fallback still never lets Chromium resolve
+// or reach an arbitrary host: the original host is DNS-checked and pinned to
+// one public IPv4 address, while every cross-origin request is aborted.
+async function extractWithPinnedSameOriginBrowser(value, outerSignal) {
+  const resolved = await resolvePublicIPv4(value, outerSignal);
+  const targetOrigin = resolved.url.origin;
+  const directBrowser = await chromium.launch({
+    headless: true,
+    args: [
+      '--disable-dev-shm-usage',
+      '--disable-quic',
+      '--disable-background-networking',
+      `--host-resolver-rules=MAP ${resolved.url.hostname} ${resolved.address}, EXCLUDE localhost`,
+    ],
+  });
+  const context = await directBrowser.newContext({ serviceWorkers: 'block', acceptDownloads: false, viewport: { width: 1280, height: 1600 } });
+  const close = () => { void context.close(); };
+  outerSignal?.addEventListener('abort', close, { once: true });
+  const apiJson = [];
+  let count = 0;
+  try {
+    await context.routeWebSocket('**/*', socket => socket.close());
+    await context.route('**/*', async route => {
+      try {
+        const request = route.request();
+        const requestUrl = publicUrl(request.url());
+        if (++count > 150 || requestUrl.origin !== targetOrigin || !['GET', 'HEAD'].includes(request.method()) || ['media', 'font', 'image'].includes(request.resourceType())) return await route.abort();
+        await route.continue();
+      } catch { await route.abort().catch(() => {}); }
+    });
+    const page = await context.newPage();
+    page.setDefaultTimeout(5000);
+    page.on('response', async response => {
+      try {
+        if (apiJson.length >= 12 || !/size|measure|spec/i.test(response.url()) || !String(response.headers()['content-type'] || '').includes('json')) return;
+        const body = await response.body();
+        if (body.length < 500000) apiJson.push(JSON.parse(body.toString()));
+      } catch { /* Ignore non-readable responses. */ }
+    });
+    await page.goto(resolved.url.href, { waitUntil: 'domcontentloaded', timeout: 25000 });
+    await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+    const read = async () => readPage(await page.content(), page.url(), apiJson);
+    let found = await read();
+    if (found.result.status === 'found') return found;
+    const triggers = page.getByRole('button', { name: /size\s*(?:guide|chart)|사이즈\s*(?:가이드|표|정보)|실측/i })
+      .or(page.getByRole('link', { name: /size\s*(?:guide|chart)|사이즈\s*(?:가이드|표|정보)|실측/i }));
+    for (let index = 0; index < Math.min(await triggers.count(), 5); index++) {
+      const trigger = triggers.nth(index);
+      if (!await trigger.isVisible()) continue;
+      await trigger.click({ timeout: 2500 }).catch(() => {});
+      await page.waitForLoadState('networkidle', { timeout: 2500 }).catch(() => {});
+      found = await read();
+      if (found.result.status === 'found' || found.images.length) return found;
+    }
+    return found;
+  } finally {
+    outerSignal?.removeEventListener('abort', close);
+    await context.close().catch(() => {});
+    await directBrowser.close().catch(() => {});
+  }
+}
+
 export async function extractSizeChart(url) {
   publicUrl(url);
   const context = await (await browser()).newContext({ serviceWorkers: 'block', acceptDownloads: false, viewport: { width: 1280, height: 1600 } });
@@ -74,7 +138,10 @@ export async function extractSizeChart(url) {
     }
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForLoadState('networkidle', { timeout: 2500 }).catch(() => {});
-    return await read();
+    const finalResult = await read();
+    if (finalResult.result.status === 'found' || deadline.aborted) return finalResult;
+    const directResult = await extractWithPinnedSameOriginBrowser(url, deadline).catch(() => null);
+    return directResult || finalResult;
   } catch {
     return { result: emptyResult('failed'), images: [], errorCode: 'browser_extraction_failed' };
   } finally {

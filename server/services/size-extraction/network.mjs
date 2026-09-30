@@ -35,6 +35,23 @@ export function normalizeExtractionUrl(value) {
   return url.href;
 }
 
+// Resolve every address before a browser fallback is allowed to connect. The
+// caller pins Chromium to this exact public IPv4 address, so a host cannot use
+// DNS rebinding after it has passed URL validation.
+export async function resolvePublicIPv4(value, signal) {
+  const url = publicUrl(value);
+  const addresses = await Promise.race([
+    lookup(url.hostname, { all: true, family: 4 }),
+    new Promise((_, reject) => {
+      signal?.addEventListener('abort', () => reject(new Error('Fetch timed out')), { once: true });
+    }),
+  ]);
+  if (!addresses.length || addresses.some(({ address }) => !isPublicIPv4(address))) {
+    throw new Error('Unsafe DNS address');
+  }
+  return { url, address: addresses[0].address };
+}
+
 /** Resolve once and pin the connection to the checked address (DNS rebinding safe).
  * IPv6 is deliberately not supported by this crawler. Bodies and total time are bounded.
  */
@@ -47,14 +64,8 @@ export async function safeFetch(value, options = {}) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) throw new Error('Fetch timed out');
     const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(remaining)]) : AbortSignal.timeout(remaining);
-    const addresses = await Promise.race([
-      lookup(url.hostname, { all: true, family: 4 }),
-      new Promise((_, reject) => {
-        requestSignal.addEventListener('abort', () => reject(new Error('Fetch timed out')), { once: true });
-      }),
-    ]);
-    if (!addresses.length || addresses.some(({ address }) => !isPublicIPv4(address))) throw new Error('Unsafe DNS address');
-    const pinned = addresses[0].address;
+    const resolved = await resolvePublicIPv4(url.href, requestSignal);
+    const pinned = resolved.address;
     const response = await new Promise((resolve, reject) => {
       const request = (url.protocol === 'https:' ? https : http).request(url, {
         method, signal: requestSignal, agent: false, family: 4,
