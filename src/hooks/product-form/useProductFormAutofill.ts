@@ -12,7 +12,7 @@ import {
   isOptionalMetadataCategory,
   normalizeComparableProductUrl,
 } from "../../utils/product";
-import { normalizeSizeTable } from "../../utils/sizeTable";
+import { normalizeSizeTable, normalizeSizeTableForRegistration } from "../../utils/sizeTable";
 import {
   extractSizeTableFromImage,
   analyzeProductCategory,
@@ -85,7 +85,15 @@ const applyCategoryRecommendation = async (
   try {
     const category = await analyzeProductCategory(input);
     if (!isCurrent()) return;
-    state.setFormData((prev) => !isCurrent() || prev.category ? prev : { ...prev, category });
+    state.setFormData((prev) => {
+      if (!isCurrent() || prev.category) return prev;
+      const rawTable = prev.rawExtractedTable || prev.extractedTable;
+      return {
+        ...prev,
+        category,
+        extractedTable: normalizeSizeTableForRegistration(category, rawTable),
+      };
+    });
   } catch (error) {
     console.warn("[product-category] pre-submit analysis failed", error);
   }
@@ -167,7 +175,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         state.setFormData((prev) => ({
           ...prev,
           rawExtractedTable: rawTable,
-          extractedTable: rawTable,
+          extractedTable: normalizeSizeTableForRegistration(prev.category, rawTable),
         }));
       } catch (extractError: unknown) {
         const message = extractError instanceof Error ? extractError.message : t("addProduct.sizeTableExtractFailed");
@@ -240,7 +248,7 @@ export function useProductFormAutofill({ state, productUrlSet }: UseProductFormA
         state.setFormData((prev) => ({
           ...prev,
           rawExtractedTable: rawTable,
-          extractedTable: rawTable,
+          extractedTable: normalizeSizeTableForRegistration(prev.category, rawTable),
         }));
       } catch (extractError: unknown) {
         const message = extractError instanceof Error ? extractError.message : t("addProduct.sizeTableExtractFailed");

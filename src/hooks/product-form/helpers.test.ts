@@ -26,6 +26,22 @@ describe("URL size table autofill", () => {
     const result = applyUrlAutofill({ ...EMPTY_FORM_DATA, sizeChartImage: "data:image/png;base64,test" }, metadata, "");
     expect(result.extractedTable).toBeNull();
   });
+  it("uses the category-normalized table for URL extraction while retaining its raw table", () => {
+    const bottomMetadata = {
+      ...metadata,
+      sizeExtraction: {
+        ...metadata.sizeExtraction,
+        table: {
+          headers: ["사이즈", "S", "M"],
+          rows: [["총장", "100", "102"], ["허리", "36", "38"], ["가슴", "50", "52"]],
+        },
+      },
+    };
+    const result = applyUrlAutofill({ ...EMPTY_FORM_DATA, category: "Bottom" }, bottomMetadata, "");
+    expect(result.extractedTable?.headers).toEqual(["사이즈", "총장", "허리단면", "엉덩이단면", "허벅지단면", "밑위", "밑단단면"]);
+    expect(result.extractedTable?.rows).toEqual([["S", "100", "36", "", "", "", ""], ["M", "102", "38", "", "", "", ""]]);
+    expect(result.rawExtractedTable?.headers).toEqual(["사이즈", "총장", "허리", "가슴"]);
+  });
 });
 
 const t = (key: string) => key as never;

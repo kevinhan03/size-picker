@@ -151,6 +151,18 @@ export function SizeTableSection({ form }: SizeTableSectionProps) {
       ) : null}
       {form.formData.extractedTable && !form.isAnalyzingTable ? (
         <div className={isComparisonMode ? "space-y-3" : ""}>
+          {!form.formData.sizeChartImage ? (
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-2.5 py-1.5 text-xs text-gray-300 transition hover:border-orange-400/50 hover:bg-orange-500/10 hover:text-white">
+              <Upload className="h-3.5 w-3.5" />
+              {t("sizeTable.reuploadCapture")}
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={(event) => form.handleFileUpload(event, "chart")}
+              />
+            </label>
+          ) : null}
           {isComparisonMode ? (
             <div className="rounded-xl border border-white/10 overflow-hidden bg-white/[0.03]">
               <button

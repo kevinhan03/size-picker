@@ -282,6 +282,19 @@ export const normalizeSizeTableForCategory = (
   return normalizeBottomSizeTableForDisplay(table);
 };
 
+// Registration uses the same presentation shape regardless of whether the
+// table came from a URL, a browser extraction, or a user-uploaded screenshot.
+// The raw extraction can still be retained separately for auditing, while the
+// editable form always shows the category-aware canonical labels and columns.
+export const normalizeSizeTableForRegistration = (
+  category: string,
+  table: SizeTable | null
+): SizeTable | null =>
+  restoreStandardHeaderLabels(
+    category,
+    normalizeSizeTableForCategory(category, table)
+  );
+
 export const getDisplaySizeTable = (product: Product): SizeTable | null => {
   let table: SizeTable | null;
   if (isBottomCategory(product.category)) {

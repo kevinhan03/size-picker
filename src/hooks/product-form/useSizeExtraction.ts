@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AddProductFormData } from '../../types';
 import { runSizeExtraction, type SizeExtractionResult } from '../../api/size-extraction';
-import { normalizeSizeTable } from '../../utils/sizeTable';
+import { normalizeSizeTable, normalizeSizeTableForRegistration } from '../../utils/sizeTable';
 
 export function useSizeExtraction(state: {
   formData: AddProductFormData;
@@ -32,9 +32,11 @@ export function useSizeExtraction(state: {
     void runSizeExtraction(url, controller.signal, (result) => {
       if (controller.signal.aborted) return;
       setSizeExtraction(result);
-      const table = result.status === 'found' ? normalizeSizeTable(result.table) : null;
-      if (table) state.setFormData(prev => controller.signal.aborted || prev.extractedTable || prev.sizeChartImage ? prev : {
-        ...prev, extractedTable: table, rawExtractedTable: table,
+      const rawTable = result.status === 'found' ? normalizeSizeTable(result.table) : null;
+      if (rawTable) state.setFormData(prev => controller.signal.aborted || prev.extractedTable || prev.sizeChartImage ? prev : {
+        ...prev,
+        extractedTable: normalizeSizeTableForRegistration(prev.category, rawTable),
+        rawExtractedTable: rawTable,
       });
     }, refresh).catch(() => {
       if (!controller.signal.aborted) setSizeExtraction({ status: 'failed', table: null, source: null, sourceUrl: null, confidence: null });

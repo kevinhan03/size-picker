@@ -6,7 +6,7 @@ import type {
   SubmitProductForm,
 } from "../../types";
 import { uniqHttpUrls } from "../../utils/product";
-import { normalizeSizeTable } from "../../utils/sizeTable";
+import { normalizeSizeTable, normalizeSizeTableForRegistration } from "../../utils/sizeTable";
 import type { MessageKey } from "../../i18n/messages";
 
 export const getAutofillCandidateUrls = (
@@ -24,8 +24,9 @@ export const applyUrlAutofill = (
   extracted: ProductMetadataPayload,
   selectedCandidateUrl: string
 ): AddProductFormData => {
-  const table = extracted.sizeExtraction?.status === "found"
+  const rawTable = extracted.sizeExtraction?.status === "found"
     ? normalizeSizeTable(extracted.sizeExtraction.table) : null;
+  const table = normalizeSizeTableForRegistration(prev.category, rawTable);
   return ({
   ...prev,
   brand: extracted.brand || prev.brand,
@@ -33,7 +34,7 @@ export const applyUrlAutofill = (
   url: extracted.url || prev.url,
   productImage: selectedCandidateUrl || prev.productImage,
   ...(!prev.extractedTable && !prev.sizeChartImage && table
-    ? { extractedTable: table, rawExtractedTable: table } : {}),
+    ? { extractedTable: table, rawExtractedTable: rawTable } : {}),
 });
 };
 
