@@ -25,13 +25,14 @@ export async function runSizeExtraction(url: string, signal: AbortSignal, onProg
     if (Date.now() >= deadline) throw new Error('Size extraction timed out');
     if (job.dispatch) {
       // Direct submission allows the free service to wake without holding a Vercel request.
+      let dispatched: Response | undefined;
       try {
-        const dispatched = await fetch(job.dispatch.url, {
+        dispatched = await fetch(job.dispatch.url, {
           method: 'POST', credentials: 'omit', headers: { Authorization: `Bearer ${job.dispatch.token}` },
           signal: AbortSignal.any([signal, AbortSignal.timeout(70000)]),
         });
-        if ([401, 403].includes(dispatched.status)) throw new Error('Worker authorization failed');
       } catch (error) { if (signal.aborted) throw error; /* A wakeup timeout can be retried with the same job. */ }
+      if (dispatched && [401, 403].includes(dispatched.status)) throw new Error('Worker authorization failed');
     }
     await pause(signal, 3000);
     response = await authenticatedFetch('/api/size-extractions', {

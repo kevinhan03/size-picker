@@ -10,12 +10,22 @@ const supabaseHostname = (() => {
   }
 })();
 
+// Browser dispatch wakes the scraper directly; allow only its configured origin.
+const sizeScraperOrigin = (() => {
+  if (!process.env.SIZE_SCRAPER_URL) return "";
+  const url = new URL(process.env.SIZE_SCRAPER_URL);
+  if (url.protocol !== "https:" || url.username || url.password) {
+    throw new Error("SIZE_SCRAPER_URL must be an HTTPS URL without credentials");
+  }
+  return url.origin;
+})();
+
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://us-assets.i.posthog.com https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
-  `connect-src 'self' https://${supabaseHostname} https://accounts.google.com https://oauth2.googleapis.com https://us.i.posthog.com https://us-assets.i.posthog.com https://vitals.vercel-insights.com`,
+  `connect-src 'self' https://${supabaseHostname} ${sizeScraperOrigin} https://accounts.google.com https://oauth2.googleapis.com https://us.i.posthog.com https://us-assets.i.posthog.com https://vitals.vercel-insights.com`,
   "font-src 'self'",
   // HEIC fallback uses a same-origin module worker and a local codec worker.
   "worker-src 'self' blob:",
