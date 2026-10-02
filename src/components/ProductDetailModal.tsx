@@ -1188,6 +1188,15 @@ function ProductDetailModalContent({
                 </>
               ) : null}
 
+              {isShoe && isInDigbox && onUpdateDigboxSizeDecision ? (
+                <DigboxSizeDecisionCard
+                  product={displayProduct}
+                  decision={digboxProduct?.digboxSizeDecision}
+                  suggestedRowIndex={null}
+                  onSave={onUpdateDigboxSizeDecision}
+                />
+              ) : null}
+
               <button
                 type="button"
                 onClick={handleSimilarProductsClick}

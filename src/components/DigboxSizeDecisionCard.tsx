@@ -8,6 +8,7 @@ import type {
   SizeDecisionSource,
 } from "../types";
 import { getDisplaySizeTable } from "../utils/sizeTable";
+import { isShoeCategory } from "../utils/shoeSize";
 import { useLocaleContext } from "../contexts/LocaleContext";
 import type { MessageKey } from "../i18n/messages";
 
@@ -55,7 +56,11 @@ export function DigboxSizeDecisionCard({
   const { t } = useLocaleContext();
   const sourceOptions = useMemo(() => getSourceOptions(t), [t]);
   const fitOptions = useMemo(() => getFitOptions(t), [t]);
-  const table = useMemo(() => getDisplaySizeTable(product), [product]);
+  const isShoe = isShoeCategory(product.category);
+  const table = useMemo(
+    () => (isShoe ? null : getDisplaySizeTable(product)),
+    [isShoe, product]
+  );
   const rows = table?.rows ?? [];
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -63,7 +68,7 @@ export function DigboxSizeDecisionCard({
     decision?.rowIndex ?? suggestedRowIndex ?? null
   );
   const [manualSize, setManualSize] = useState(
-    decision?.rowIndex === null ? decision?.label || "" : ""
+    isShoe || decision?.rowIndex === null ? decision?.label || "" : ""
   );
   const [sources, setSources] = useState<SizeDecisionSource[]>(
     decision?.sources ?? []
@@ -77,12 +82,14 @@ export function DigboxSizeDecisionCard({
     setIsExpanded(false);
     setIsEditing(false);
     setRowIndex(decision?.rowIndex ?? suggestedRowIndex ?? null);
-    setManualSize(decision?.rowIndex === null ? decision?.label || "" : "");
+    setManualSize(
+      isShoe || decision?.rowIndex === null ? decision?.label || "" : ""
+    );
     setSources(decision?.sources ?? []);
     setFit(decision?.fit ?? null);
     setNote(decision?.note ?? "");
     setError(null);
-  }, [decision, product.id, suggestedRowIndex]);
+  }, [decision, isShoe, product.id, suggestedRowIndex]);
 
   const selectedRow = rowIndex !== null ? rows[rowIndex] : null;
   const selectedLabel = String(selectedRow?.[0] ?? manualSize).trim();
@@ -241,6 +248,7 @@ export function DigboxSizeDecisionCard({
                 </div>
               ) : (
                 <input
+                  aria-label={t("sizeDecision.title")}
                   value={manualSize}
                   onChange={(event) => {
                     setManualSize(event.target.value);
